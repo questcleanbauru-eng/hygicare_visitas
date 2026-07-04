@@ -55,6 +55,7 @@ select,
 
 textarea {
     width: 100%;
+    min-height: 44px;
     padding: 0.7rem 0.8rem;
     border: 1.5px solid var(--border);
     border-radius: var(--radius-sm);
@@ -65,6 +66,8 @@ textarea {
     transition: border-color 0.15s, box-shadow 0.15s;
     outline: none;
 }
+
+textarea { min-height: 88px; }
 
 input:focus,
 
@@ -130,6 +133,10 @@ textarea { resize: vertical; }
     border: none;
     border-radius: 999px;
     padding: 0.48rem 1rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-size: 0.84rem;
     font-weight: 600;
     box-shadow: 0 2px 8px rgba(37,99,235,0.28);
@@ -1405,7 +1412,7 @@ input:disabled {
 
 .breadcrumb-sep { color: var(--text-muted); font-size: 0.75rem; }
 
-.breadcrumb-current { color: var(--text-muted); font-size: 0.8rem; }
+.breadcrumb-current { color: var(--text-muted-strong); font-size: 0.8rem; }
 
 /* ── Global search modal ──────────────────────────────────── */
 

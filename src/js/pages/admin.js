@@ -178,10 +178,10 @@ function fillAdminContent(mainContent, data, emailConfig) {
                                 <td><span class="profile-badge ${pc}">${escapeHtml(titleCase(perfil))}</span></td>
                                 <td style="font-size:0.85rem;color:var(--text-muted)">${escapeHtml(gerencia)}</td>
                                 <td>
-                                    <button type="button" class="admin-icon-btn email-copy-btn" title="${escapeHtml(email)}" data-email="${escapeHtml(email)}">✉</button>
+                                    <button type="button" class="admin-icon-btn email-copy-btn" title="${escapeHtml(email)}" aria-label="Copiar e-mail de ${escapeHtml(nome)}" data-email="${escapeHtml(email)}">✉</button>
                                 </td>
                                 <td>
-                                    <button type="button" class="admin-icon-btn" data-user-index="${index}" title="Editar">✏️</button>
+                                    <button type="button" class="admin-icon-btn" data-user-index="${index}" title="Editar" aria-label="Editar usuário ${escapeHtml(nome)}">✏️</button>
                                 </td>
                             </tr>`;
                         }).join('')}
@@ -265,7 +265,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
         <div class="admin-drawer" id="admin-drawer">
             <div class="admin-drawer-header">
                 <h3 id="admin-drawer-title"></h3>
-                <button type="button" class="admin-drawer-close" id="admin-drawer-close">✕</button>
+                <button type="button" class="admin-drawer-close" id="admin-drawer-close" aria-label="Fechar">✕</button>
             </div>
             <div class="admin-drawer-body" id="admin-drawer-body"></div>
             <div class="admin-drawer-footer" id="admin-drawer-footer"></div>

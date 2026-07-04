@@ -68,7 +68,7 @@ body {
 
 .header-user-role {
     font-size: 0.72rem;
-    color: var(--text-muted);
+    color: var(--text-muted-strong);
     text-transform: capitalize;
 }
 
@@ -185,6 +185,21 @@ body {
     --border-focus:   #93c5fd;
     --text:           #0f172a;
     --text-muted:     #64748b;
+    /* Usar em textos < 14px onde --text-muted fica no limite de contraste (~4.6:1) */
+    --text-muted-strong: #4b5b70;
+    /* Escala de espaçamento (múltiplos de 4px) — usar em componentes novos/tocados */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    /* Escala tipográfica — usar em componentes novos/tocados */
+    --text-xs:   0.75rem;
+    --text-sm:   0.82rem;
+    --text-base: 0.92rem;
+    --text-lg:   1.1rem;
     --header-height:  56px;
     --nav-height:     64px;
     --radius-sm:      8px;
