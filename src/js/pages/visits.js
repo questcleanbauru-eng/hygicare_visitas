@@ -1,5 +1,5 @@
 import { state, navigateTo, addDocumentClickListener } from '../app.js';
-import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
+import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
     groupVisitsByMonth, formatMonthKey, normalizeVisit, compareVisitsByDateDesc, visitTypeClass,
@@ -1162,11 +1162,15 @@ export async function getVisits(diasParam) {
     const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 10);
     const cacheKey = dias === 0 ? 'visits_all' : 'visits';
     const cached = loadCache(cacheKey);
-    const fresh = callAPI('getVisits', { user: state.currentUser, dias: dias })
+    const sinceTs = cached ? getSyncTimestamp(cacheKey) : 0;
+    const fresh = callAPI('getVisits', { user: state.currentUser, dias: dias, since: sinceTs || undefined })
         .then(function(r) {
             if (r.status === 'success') {
-                saveCache(cacheKey, r.visits || []);
+                const merged = (sinceTs && cached) ? mergeById(cached, r.visits || [], 'ID') : (r.visits || []);
+                saveCache(cacheKey, merged);
+                if (typeof r.serverNow === 'number') { setSyncTimestamp(cacheKey, r.serverNow); }
                 state.visitsScope = r.scope || 'all';
+                return Object.assign({}, r, { visits: merged });
             }
             return r;
         })

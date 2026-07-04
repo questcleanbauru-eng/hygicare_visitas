@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
+import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay
@@ -670,13 +670,16 @@ export async function getFunil(diasParam) {
     const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 10);
     const cacheKey = dias === 0 ? 'funil_all' : 'funil';
     const cached = loadCache(cacheKey);
-    const fresh = callAPI('getFunil', { user: state.currentUser, dias: dias })
+    const sinceTs = (cached && cached.length > 0) ? getSyncTimestamp(cacheKey) : 0;
+    const fresh = callAPI('getFunil', { user: state.currentUser, dias: dias, since: sinceTs || undefined })
         .then(function(r) {
             if (r.status === 'success') {
-                const list = r.funil || r.data || [];
-                saveCache(cacheKey, list);
+                const incoming = r.funil || r.data || [];
+                const merged = (sinceTs && cached) ? mergeById(cached, incoming, 'id') : incoming;
+                saveCache(cacheKey, merged);
+                if (typeof r.serverNow === 'number') { setSyncTimestamp(cacheKey, r.serverNow); }
                 state.funilScope = r.scope || 'all';
-                return { status: 'success', funil: list, scope: r.scope || 'all' };
+                return { status: 'success', funil: merged, scope: r.scope || 'all' };
             }
             return r;
         })

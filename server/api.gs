@@ -193,12 +193,13 @@ function handleForgotPassword(spreadsheet, payload) {
 }
 
 function handleGetVisits(spreadsheet, payload) {
+  const requestStartedAt = Date.now();
   const user = requireUser(payload.user);
   const dias = typeof payload.dias === 'number' ? payload.dias :
                (typeof payload.meses === 'number' ? payload.meses * 30 : 30);
   const scope = dias === 0 ? 'all' : dias + 'd';
   const cacheKey = dias === 0 ? 'v_' + user.email + '_all' : 'v_' + user.email + '_3m';
-  const visits = withCache(cacheKey, 180, function() {
+  var visits = withCache(cacheKey, 180, function() {
     var all = filterByUser(getSheetObjects(getSheet(spreadsheet, 'Visitas')).map(normalizeVisitRow), user, 'visits');
     if (dias === 0) return all;
     var cutoff = new Date();
@@ -209,7 +210,13 @@ function handleGetVisits(spreadsheet, payload) {
       return d !== null && d >= cutoff;
     });
   });
-  return { status: 'success', visits: visits, scope: scope };
+  const syncReady = hasSyncColumn(spreadsheet, 'Visitas');
+  if (syncReady && typeof payload.since === 'number' && payload.since > 0) {
+    visits = visits.filter(function(v) { return (v.SyncTimestamp || 0) > payload.since; });
+  }
+  return syncReady
+    ? { status: 'success', visits: visits, scope: scope, serverNow: requestStartedAt }
+    : { status: 'success', visits: visits, scope: scope };
 }
 
 function handleGetVisitById(spreadsheet, payload) {
@@ -344,12 +351,13 @@ function handleUpdateVisit(spreadsheet, payload) {
 }
 
 function handleGetProposals(spreadsheet, payload) {
+  const requestStartedAt = Date.now();
   const user = requireUser(payload.user);
   const dias = typeof payload.dias === 'number' ? payload.dias :
                (typeof payload.meses === 'number' ? payload.meses * 30 : 30);
   const scope = dias === 0 ? 'all' : dias + 'd';
   const cacheKey = dias === 0 ? 'p_' + user.email + '_all' : 'p_' + user.email + '_3m';
-  const proposals = withCache(cacheKey, 180, function() {
+  var proposals = withCache(cacheKey, 180, function() {
     var all = filterByUser(getSheetObjects(getSheet(spreadsheet, 'Propostas')).map(normalizeProposalRow), user, 'proposals');
     if (dias === 0) return all;
     var cutoff = new Date();
@@ -360,7 +368,13 @@ function handleGetProposals(spreadsheet, payload) {
       return d !== null && d >= cutoff;
     });
   });
-  return { status: 'success', proposals: proposals, scope: scope };
+  const syncReady = hasSyncColumn(spreadsheet, 'Propostas');
+  if (syncReady && typeof payload.since === 'number' && payload.since > 0) {
+    proposals = proposals.filter(function(p) { return (p.SyncTimestamp || 0) > payload.since; });
+  }
+  return syncReady
+    ? { status: 'success', proposals: proposals, scope: scope, serverNow: requestStartedAt }
+    : { status: 'success', proposals: proposals, scope: scope };
 }
 
 function handleGetProposalById(spreadsheet, payload) {
@@ -407,7 +421,8 @@ function handleCreateProposal(spreadsheet, payload) {
       'Observação': payload.obs || '',
       'Observacao': payload.obs || '',
       'Data Limite': formatDate(dataLimite30),
-      'E-mail': user.email
+      'E-mail': user.email,
+      'SyncTimestamp': Date.now()
     };
 
     sheet.appendRow(headers.map(function(h) { return rowData[h] !== undefined ? rowData[h] : ''; }));
@@ -441,6 +456,7 @@ function handleUpdateProposal(spreadsheet, payload) {
     current['Atualização'] = formatDate(new Date());
     current.Hora = formatTime(new Date());
     current['Data Limite'] = novaDataLimite;
+    current.SyncTimestamp = Date.now();
     proposalsSheet.getRange(rowIndex + 2, 1, 1, headers.length).setValues([
       headers.map(function(header) { return current[header] !== undefined ? current[header] : ''; })
     ]);
@@ -754,7 +770,8 @@ function buildVisitRow(headers, payload, id) {
     'Qual o Veículo?': payload.veiculo,
     'Qual o Veiculo?': payload.veiculo,
     'Observação': payload.observacao,
-    'Observacao': payload.observacao
+    'Observacao': payload.observacao,
+    'SyncTimestamp': Date.now()
   };
 
   return headers.map((header) => map[header] || '');
@@ -894,6 +911,16 @@ function getHeaders(sheet) {
   return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 }
 
+// Sync incremental (since/serverNow) só é ativado quando a planilha já tem a
+// coluna SyncTimestamp — evita devolver listas vazias por engano em abas
+// ainda não migradas. Cacheado (600s) para não custar uma leitura extra por request.
+function hasSyncColumn(spreadsheet, sheetName) {
+  return withCache('hassync_' + sheetName, 600, function() {
+    var headers = getHeaders(getSheet(spreadsheet, sheetName));
+    return headers.indexOf('SyncTimestamp') > -1;
+  });
+}
+
 function getSheetObjects(sheet) {
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) {
@@ -937,7 +964,8 @@ function normalizeVisitRow(row) {
     'Tipo da Visita': row['Tipo da Visita'] || '',
     'Gerência': row['Gerência'] || row['Gerencia'] || '',
     'Qual o Veículo?': row['Qual o Veículo?'] || row['Qual o Veiculo?'] || '',
-    'Observação': row['Observação'] || row['Observacao'] || ''
+    'Observação': row['Observação'] || row['Observacao'] || '',
+    'SyncTimestamp': Number(row.SyncTimestamp) || 0
   };
 }
 
@@ -956,7 +984,8 @@ function normalizeProposalRow(row) {
     Hora: row.Hora || '',
     'Atualizar/OBS': row['Observação'] || row['Observacao'] || row['Atualizar/OBS'] || '',
     'Data Limite': formatPossibleDate(row['Data Limite']),
-    'E-mail': row['E-mail'] || row.Email || ''
+    'E-mail': row['E-mail'] || row.Email || '',
+    'SyncTimestamp': Number(row.SyncTimestamp) || 0
   };
 }
 
@@ -1231,6 +1260,7 @@ function handleDebugFunilHeaders(spreadsheet, payload) {
 }
 
 function handleGetFunil(spreadsheet, payload) {
+  const requestStartedAt = Date.now();
   const user = requireUser(payload.user);
   const dias = typeof payload.dias === 'number' ? payload.dias :
                (typeof payload.meses === 'number' ? payload.meses * 30 : 30);
@@ -1239,7 +1269,13 @@ function handleGetFunil(spreadsheet, payload) {
   var rows = withCache(cacheKey, 180, function() {
     return readFunilRows(spreadsheet, user, dias);
   });
-  return { status: 'success', funil: rows, scope: scope };
+  const syncReady = hasSyncColumn(spreadsheet, 'Funil');
+  if (syncReady && typeof payload.since === 'number' && payload.since > 0) {
+    rows = rows.filter(function(r) { return (r.syncTimestamp || 0) > payload.since; });
+  }
+  return syncReady
+    ? { status: 'success', funil: rows, scope: scope, serverNow: requestStartedAt }
+    : { status: 'success', funil: rows, scope: scope };
 }
 
 function handleGetFunilById(spreadsheet, payload) {
@@ -1285,7 +1321,8 @@ function readFunilRows(spreadsheet, user, dias) {
     conc:  col(['Conclusao', 'CONCLUSAO']),
     inf:   col(['Inf Importantes', 'INF IMPORTANTES']),
     com:   col(['Comentarios', 'COMENTARIOS']),
-    atualiz: col(['Atualizacao', 'ATUALIZACAO'])
+    atualiz: col(['Atualizacao', 'ATUALIZACAO']),
+    sync:  col(['SyncTimestamp', 'SYNCTIMESTAMP'])
   };
 
   function v(row, i) { return i >= 0 ? row[i] : ''; }
@@ -1316,7 +1353,8 @@ function readFunilRows(spreadsheet, user, dias) {
       vlMensal:       s(row, c.vl),
       conclusao:      dt(v(row, c.conc)),
       infImportantes: s(row, c.inf),
-      comentarios:    s(row, c.com)
+      comentarios:    s(row, c.com),
+      syncTimestamp:  Number(v(row, c.sync)) || 0
     };
   });
 
@@ -1368,7 +1406,8 @@ function handleCreateFunil(spreadsheet, payload) {
       'Vl Mensal': payload.vlMensal || '',
       'Conclusao': payload.conclusao ? formatDateFromInput(payload.conclusao) : '',
       'Inf Importantes': payload.infImportantes || '',
-      'Comentarios': payload.comentarios || ''
+      'Comentarios': payload.comentarios || '',
+      'SyncTimestamp': Date.now()
     };
 
     sheet.appendRow(buildFunilRowData(headers, fields));
@@ -1395,12 +1434,14 @@ function handleUpdateFunil(spreadsheet, payload) {
     var infKey      = Object.keys(current).find(function(k) { return k.toLowerCase().replace(/\s/g,'') === 'infimportantes'; }) || 'Inf Importantes';
     var comentKey   = Object.keys(current).find(function(k) { return k.toLowerCase().replace(/[^a-z]/g,'') === 'comentarios'; }) || 'Comentarios';
     var atualizKey  = Object.keys(current).find(function(k) { return k.toLowerCase().replace(/[^a-z]/g,'') === 'atualizacao'; }) || 'Atualizacao';
+    var syncKey     = Object.keys(current).find(function(k) { return k.toLowerCase().replace(/[^a-z]/g,'') === 'synctimestamp'; }) || 'SyncTimestamp';
     if (payload.status !== undefined)         { current[statusKey]    = payload.status; }
     if (payload.vlMensal !== undefined)       { current[vlKey]        = payload.vlMensal; }
     if (payload.conclusao !== undefined)      { current[conclusaoKey] = payload.conclusao; }
     if (payload.infImportantes !== undefined) { current[infKey]       = payload.infImportantes; }
     if (payload.comentarios !== undefined)    { current[comentKey]    = payload.comentarios; }
     current[atualizKey] = formatDate(new Date());
+    current[syncKey] = Date.now();
     sheet.getRange(rowIndex + 2, 1, 1, headers.length).setValues([
       headers.map(function(h) { return current[h] !== undefined ? current[h] : ''; })
     ]);
@@ -1444,7 +1485,8 @@ function normalizeFunilRow(row) {
     vlMensal:       String(r['Vl Mensal']     || r['VL MENSAL R$']  || r['Vl Mensal R$']   || r['Valor Mensal'] || ''),
     conclusao:      toDate(r['Conclusao']     || r['CONCLUSAO']     || r['Conclusão']       || ''),
     infImportantes: String(r['Inf Importantes']|| r['INF IMPORTANTES']|| ''),
-    comentarios:    String(r['Comentarios']   || r['COMENTARIOS']   || r['Comentários']     || '')
+    comentarios:    String(r['Comentarios']   || r['COMENTARIOS']   || r['Comentários']     || ''),
+    syncTimestamp:  Number(r['SyncTimestamp'] || r['SYNCTIMESTAMP'] || 0)
   };
 }
 

@@ -21,7 +21,36 @@ export function clearUserCache() {
     if (!state || !state.currentUser) { return; }
     ['dashboard', 'visits', 'visits_all', 'proposals', 'proposals_all', 'funil', 'funil_all'].forEach(function(n) {
         try { localStorage.removeItem(_ck(n)); } catch (e) {}
+        try { localStorage.removeItem(_ck('synct_' + n)); } catch (e) {}
     });
+}
+
+// ── Incremental sync (since/serverNow, "modelo AppSheet") ────────────────
+// Só usa o timestamp se ele tiver menos de 24h — evita acumular itens
+// desatualizados que saíram da janela de "dias" e nunca são removidos por
+// um delta (o servidor só informa o que mudou, não o que saiu do filtro).
+const SYNC_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+export function getSyncTimestamp(key) {
+    try {
+        const raw = localStorage.getItem(_ck('synct_' + key));
+        if (!raw) return 0;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed.ts !== 'number' || typeof parsed.at !== 'number') return 0;
+        if (Date.now() - parsed.at > SYNC_MAX_AGE_MS) return 0;
+        return parsed.ts;
+    } catch (e) { return 0; }
+}
+
+export function setSyncTimestamp(key, ts) {
+    try { localStorage.setItem(_ck('synct_' + key), JSON.stringify({ ts, at: Date.now() })); } catch (e) {}
+}
+
+export function mergeById(existing, incoming, idKey) {
+    if (!incoming || incoming.length === 0) return existing || [];
+    const map = new Map((existing || []).map((item) => [String(item[idKey]), item]));
+    incoming.forEach((item) => map.set(String(item[idKey]), item));
+    return Array.from(map.values());
 }
 
 
