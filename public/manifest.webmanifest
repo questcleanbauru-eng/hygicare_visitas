@@ -1,0 +1,28 @@
+{
+    "id": "/",
+    "name": "App de Visitas",
+    "short_name": "Visitas",
+    "description": "Gerencie visitas, propostas e funil de vendas com eficiência",
+    "lang": "pt-BR",
+    "dir": "ltr",
+    "start_url": "./index.html",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#f4f7f6",
+    "theme_color": "#1E3A8A",
+    "icons": [
+        {
+            "src": "./icons/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "./icons/icon-maskable.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
+        }
+    ]
+}

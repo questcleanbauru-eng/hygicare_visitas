@@ -1,0 +1,63 @@
+.status-pill.funil-status-identificar { background: #dbeafe; color: #1d4ed8; }
+
+.status-pill.funil-status-proposta    { background: #fef3c7; color: #b45309; }
+
+.status-pill.funil-status-negociar    { background: #ede9fe; color: #6d28d9; }
+
+.status-pill.funil-status-concluido   { background: #dcfce7; color: #166534; }
+
+.status-pill.funil-status-perdido     { background: #fee2e2; color: #991b1b; }
+
+.status-pill.funil-status-retomar     { background: #f1f5f9; color: #475569; }
+
+.funil-filter-card { padding: 0.85rem; margin-bottom: 0.75rem; }
+
+.funil-status-banner {
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    border-radius: var(--radius);
+    margin-bottom: 0.75rem;
+}
+
+.funil-status-identificar  { background: #dbeafe; color: #1d4ed8; }
+
+.funil-status-proposta      { background: #fef3c7; color: #b45309; }
+
+.funil-status-negociar      { background: #ede9fe; color: #6d28d9; }
+
+.funil-status-concluido     { background: #dcfce7; color: #166534; }
+
+.funil-status-perdido       { background: #fee2e2; color: #991b1b; }
+
+.funil-status-retomar       { background: #f1f5f9; color: #475569; }
+
+.funil-value {
+    margin-top: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #166534;
+}
+
+.funil-readonly-info {
+    display: grid;
+    gap: 0.5rem;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.funil-readonly-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.funil-readonly-row span { color: var(--text-muted); font-size: 0.8rem; }
+
+.funil-readonly-row strong { color: var(--text); }
