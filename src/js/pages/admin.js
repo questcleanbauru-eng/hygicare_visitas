@@ -1,7 +1,7 @@
 import { state } from '../app.js';
-import { callAPI, saveCache } from '../api.js';
+import { callAPI, saveCache, loadCache } from '../api.js';
 import { escapeHtml, titleCase, getInitials, profileClass } from '../utils/format.js';
-import { showToast, loadingState, renderSimpleOptions } from '../utils/dom.js';
+import { showToast, loadingState, renderSimpleOptions, showRefreshIndicator, hideRefreshIndicator } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 
 export async function renderAdminPage() {
@@ -13,23 +13,43 @@ export async function renderAdminPage() {
         return;
     }
 
-    mainContent.innerHTML = `
-        <div class="page-header">
-            <div><h2>Admin</h2><p class="page-subtitle">Painel administrativo</p></div>
-        </div>
-        <div id="admin-skeleton">${loadingState('⚙️', 'Carregando painel administrativo...')}</div>
-    `;
+    const cachedData = loadCache('admin_data');
+    const cachedEmail = loadCache('admin_email');
+
+    if (cachedData) {
+        state.adminData = cachedData;
+        fillAdminContent(mainContent, cachedData, cachedEmail || {});
+        showRefreshIndicator();
+    } else {
+        mainContent.innerHTML = `
+            <div class="page-header">
+                <div><h2>Admin</h2><p class="page-subtitle">Painel administrativo</p></div>
+            </div>
+            <div id="admin-skeleton">${loadingState('⚙️', 'Carregando painel administrativo...')}</div>
+        `;
+    }
 
     const [result, emailResult] = await Promise.all([getAdminData(), getEmailConfig()]);
+    if (cachedData) { hideRefreshIndicator(); }
+
     if (result.status !== 'success') {
-        mainContent.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar a area admin.')}</p>`;
+        if (!cachedData) {
+            mainContent.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar a area admin.')}</p>`;
+        }
         return;
     }
 
     state.adminData = result.data;
-    const data = result.data;
-    const emailConfig = emailResult.status === 'success' ? emailResult.data : {};
+    saveCache('admin_data', result.data);
+    const emailConfig = emailResult.status === 'success' ? emailResult.data : (cachedEmail || {});
+    if (emailResult.status === 'success') { saveCache('admin_email', emailResult.data); }
 
+    if (state.currentPage === 'admin' && document.getElementById('main-content') === mainContent) {
+        fillAdminContent(mainContent, result.data, emailConfig);
+    }
+}
+
+function fillAdminContent(mainContent, data, emailConfig) {
     function emailPanel(prefix, label, subtitle, vars, config) {
         const isActive = config[`${prefix}_ativas`] === 'true';
         return `

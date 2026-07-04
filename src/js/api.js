@@ -19,7 +19,7 @@ export function loadCache(name) { try { const r = localStorage.getItem(_ck(name)
 
 export function clearUserCache() {
     if (!state || !state.currentUser) { return; }
-    ['dashboard', 'visits', 'visits_all', 'proposals', 'proposals_all', 'funil', 'funil_all'].forEach(function(n) {
+    ['dashboard', 'visits', 'visits_all', 'proposals', 'proposals_all', 'funil', 'funil_all', 'admin_data', 'admin_email'].forEach(function(n) {
         try { localStorage.removeItem(_ck(n)); } catch (e) {}
         try { localStorage.removeItem(_ck('synct_' + n)); } catch (e) {}
     });
