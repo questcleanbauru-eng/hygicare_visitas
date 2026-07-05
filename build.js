@@ -40,19 +40,23 @@ function toDistUrl(absOutPath) {
     return './' + path.relative(DIST, absOutPath).split(path.sep).join('/');
 }
 
-// Version shown in the header so it's obvious a deploy actually landed —
-// tied to the commit, not a manually-bumped number that's easy to forget.
+// Version shown in the header so it's obvious a deploy actually landed.
+// The build number comes from version.json (bumped via `npm run version:bump`
+// before a commit meant to be deployed) — deliberate, not auto-derived from
+// git history, since Vercel's shallow clone makes commit counts unreliable.
 function getBuildInfo() {
     let sha = process.env.VERCEL_GIT_COMMIT_SHA || null;
     if (!sha) {
         try { sha = execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim(); } catch (e) { /* not a git checkout */ }
     }
     const short = sha ? sha.slice(0, 7) : 'dev';
+    let build = 0;
+    try { build = JSON.parse(fs.readFileSync(path.join(__dirname, 'version.json'), 'utf8')).build; } catch (e) { /* missing file */ }
     const builtAt = new Date();
     const label = builtAt.toLocaleString('pt-BR', {
         day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
     });
-    return { short, builtAtMs: builtAt.getTime(), label };
+    return { build, short, builtAtMs: builtAt.getTime(), label };
 }
 
 async function runBuild() {
@@ -104,7 +108,7 @@ async function runBuild() {
     writeIndexHtml(urls, cssManifest, buildInfo);
     writeServiceWorker(urls, buildInfo);
 
-    console.log(`Build finished in ${Date.now() - start}ms -> dist/ (version ${buildInfo.short})`);
+    console.log(`Build finished in ${Date.now() - start}ms -> dist/ (v${buildInfo.build} · ${buildInfo.short})`);
     return urls;
 }
 
@@ -121,7 +125,7 @@ function writeIndexHtml(urls, cssManifest, buildInfo) {
         .replace('<link rel="manifest" href="manifest.json">', '<link rel="manifest" href="./manifest.webmanifest">')
         .replace('<span class="header-brand-name">App de Visitas</span>', [
             '<span class="header-brand-name">App de Visitas</span>',
-            `<span class="header-version-tag" title="Build ${buildInfo.label} · ${buildInfo.short}">#${buildInfo.short}</span>`
+            `<span class="header-version-tag" title="Build ${buildInfo.label} · commit ${buildInfo.short}">v${buildInfo.build}</span>`
         ].join('\n                    '))
         .replace('<script src="script.js?v=45" defer></script>', [
             `<link rel="modulepreload" href="${urls.app}">`,
@@ -147,7 +151,7 @@ function writeServiceWorker(urls, buildInfo) {
         urls.dashboard
     ];
     sw = sw
-        .replace('__CACHE_VERSION__', buildInfo.short + '-' + buildInfo.builtAtMs)
+        .replace('__CACHE_VERSION__', 'v' + buildInfo.build + '-' + buildInfo.builtAtMs)
         .replace('__PRECACHE_URLS__', JSON.stringify(precache));
     fs.writeFileSync(path.join(DIST, 'sw.js'), sw, 'utf8');
 }

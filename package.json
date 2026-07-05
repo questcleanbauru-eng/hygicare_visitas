@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "node build.js",
-    "dev": "node build.js --watch --serve"
+    "dev": "node build.js --watch --serve",
+    "version:bump": "node bump-version.cjs"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"
