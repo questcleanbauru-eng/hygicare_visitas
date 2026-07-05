@@ -31,6 +31,24 @@ body {
     letter-spacing: -0.01em;
 }
 
+.header-version-tag {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.1rem 0.4rem;
+    margin-left: 0.3rem;
+    cursor: default;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Abaixo de 375px "App de Visitas" quebra linha pra abrir espaço — melhor
+   esconder a tag do que deixar o header feio em aparelhos mais estreitos. */
+@media (max-width: 374px) { .header-version-tag { display: none; } }
+
 .sidebar-toggle-btn {
     width: 36px;
     height: 36px;

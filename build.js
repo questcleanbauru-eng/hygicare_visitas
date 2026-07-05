@@ -2,6 +2,7 @@ import esbuild from 'esbuild';
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -37,6 +38,21 @@ function copyDir(src, dest) {
 
 function toDistUrl(absOutPath) {
     return './' + path.relative(DIST, absOutPath).split(path.sep).join('/');
+}
+
+// Version shown in the header so it's obvious a deploy actually landed —
+// tied to the commit, not a manually-bumped number that's easy to forget.
+function getBuildInfo() {
+    let sha = process.env.VERCEL_GIT_COMMIT_SHA || null;
+    if (!sha) {
+        try { sha = execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim(); } catch (e) { /* not a git checkout */ }
+    }
+    const short = sha ? sha.slice(0, 7) : 'dev';
+    const builtAt = new Date();
+    const label = builtAt.toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+    });
+    return { short, builtAtMs: builtAt.getTime(), label };
 }
 
 async function runBuild() {
@@ -84,14 +100,15 @@ async function runBuild() {
         'css/admin': urls['css/admin']
     };
 
-    writeIndexHtml(urls, cssManifest);
-    writeServiceWorker(urls);
+    const buildInfo = getBuildInfo();
+    writeIndexHtml(urls, cssManifest, buildInfo);
+    writeServiceWorker(urls, buildInfo);
 
-    console.log(`Build finished in ${Date.now() - start}ms -> dist/`);
+    console.log(`Build finished in ${Date.now() - start}ms -> dist/ (version ${buildInfo.short})`);
     return urls;
 }
 
-function writeIndexHtml(urls, cssManifest) {
+function writeIndexHtml(urls, cssManifest, buildInfo) {
     let html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 
     html = html
@@ -102,16 +119,20 @@ function writeIndexHtml(urls, cssManifest) {
             `<link rel="stylesheet" href="${urls.dashboard}">`
         ].join('\n    '))
         .replace('<link rel="manifest" href="manifest.json">', '<link rel="manifest" href="./manifest.webmanifest">')
+        .replace('<span class="header-brand-name">App de Visitas</span>', [
+            '<span class="header-brand-name">App de Visitas</span>',
+            `<span class="header-version-tag" title="Build ${buildInfo.label} · ${buildInfo.short}">#${buildInfo.short}</span>`
+        ].join('\n                    '))
         .replace('<script src="script.js?v=45" defer></script>', [
             `<link rel="modulepreload" href="${urls.app}">`,
-            `<script>window.__ASSET_MANIFEST__ = ${JSON.stringify(cssManifest)};</script>`,
+            `<script>window.__ASSET_MANIFEST__ = ${JSON.stringify(cssManifest)}; window.__APP_VERSION__ = ${JSON.stringify(buildInfo)};</script>`,
             `<script type="module" src="${urls.app}"></script>`
         ].join('\n    '));
 
     fs.writeFileSync(path.join(DIST, 'index.html'), html, 'utf8');
 }
 
-function writeServiceWorker(urls) {
+function writeServiceWorker(urls, buildInfo) {
     let sw = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8');
     const precache = [
         './',
@@ -126,7 +147,7 @@ function writeServiceWorker(urls) {
         urls.dashboard
     ];
     sw = sw
-        .replace('__CACHE_VERSION__', String(Date.now()))
+        .replace('__CACHE_VERSION__', buildInfo.short + '-' + buildInfo.builtAtMs)
         .replace('__PRECACHE_URLS__', JSON.stringify(precache));
     fs.writeFileSync(path.join(DIST, 'sw.js'), sw, 'utf8');
 }
