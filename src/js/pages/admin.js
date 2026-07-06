@@ -203,14 +203,12 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <table class="admin-notif-table">
                     <thead><tr>
                         <th>Nome do Fluxo</th>
-                        <th>Destinatário</th>
                         <th>Obrigatório</th>
                     </tr></thead>
                     <tbody>
                         ${data.notifications.map((item, index) => `
                         <tr class="admin-notif-row" data-notification-index="${index}">
                             <td>${escapeHtml(titleCase(item.tipo || '-'))}</td>
-                            <td style="font-size:0.85rem;color:var(--text-muted)">${escapeHtml(item.telefoneDestino || '-')}</td>
                             <td>
                                 <label class="toggle-switch" onclick="event.stopPropagation()">
                                     <input type="checkbox" ${item.obrigatorio ? 'checked' : ''} data-notif-toggle="${index}">
@@ -466,10 +464,6 @@ export function bindAdminEvents(data) {
             <input type="text" id="notification-type" value="${escapeHtml(item ? (item.tipo || '') : '')}" placeholder="Ex: Preventiva" required>
         </div>
         <div class="form-group">
-            <label for="notification-phone">Destinatário (telefone)</label>
-            <input type="text" id="notification-phone" value="${escapeHtml(item ? (item.telefoneDestino || '') : '')}" placeholder="+55 11 99999-9999" required>
-        </div>
-        <div class="form-group">
             <label for="notification-message">Mensagem padrão</label>
             <p class="helper-text" style="margin:0.2rem 0 0.4rem;font-size:0.78rem">Variáveis: {{cliente}}, {{tipoVisita}}, {{observacao}}, {{vendedor}}, {{cidade}}, {{data}}</p>
             <textarea id="notification-message" rows="4" required>${escapeHtml(item ? (item.mensagemPadrao || '') : '')}</textarea>
@@ -494,7 +488,6 @@ export function bindAdminEvents(data) {
             const result = await saveNotificationConfig({
                 originalTipo: document.getElementById('notification-original-tipo').value.trim(),
                 tipo: document.getElementById('notification-type').value.trim(),
-                telefoneDestino: document.getElementById('notification-phone').value.trim(),
                 mensagemPadrao: document.getElementById('notification-message').value.trim(),
                 obrigatorio: document.getElementById('notification-obrigatorio').checked
             });
@@ -521,7 +514,6 @@ export function bindAdminEvents(data) {
             await saveNotificationConfig({
                 originalTipo: item.tipo || '',
                 tipo: item.tipo || '',
-                telefoneDestino: item.telefoneDestino || '',
                 mensagemPadrao: item.mensagemPadrao || '',
                 obrigatorio: chk.checked
             });

@@ -27,14 +27,14 @@ export function fillVisitsContent(container, visits) {
             ${scopeIsLimited ? `
             <div class="scope-banner scope-days-ctrl">
                 <label for="scope-dias-input">Período:</label>
-                <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 10}" min="1" max="365">
+                <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
                 <span>dias</span>
                 <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
                 <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
             </div>` : ''}
             <div class="empty-state">
                 <span class="empty-state-icon">📋</span>
-                <p>${scopeIsLimited ? `Nenhuma visita nos últimos ${state.loadDias || 10} dias.` : 'Nenhuma visita registrada ainda.'}</p>
+                <p>${scopeIsLimited ? `Nenhuma visita nos últimos ${state.loadDias || 90} dias.` : 'Nenhuma visita registrada ainda.'}</p>
                 <button type="button" class="btn-add" id="empty-new-visit">+ Nova Visita</button>
             </div>
         `;
@@ -133,7 +133,7 @@ export function fillVisitsContent(container, visits) {
         </div>
         <div class="scope-banner scope-days-ctrl">
             <label for="scope-dias-input">Período:</label>
-            <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 10}" min="1" max="365">
+            <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
             <span>dias</span>
             <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
             <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
@@ -1159,7 +1159,7 @@ export async function renderVisitDetailPage(id) {
 
 
 export async function getVisits(diasParam) {
-    const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 10);
+    const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 90);
     const cacheKey = dias === 0 ? 'visits_all' : 'visits';
     const cached = loadCache(cacheKey);
     const sinceTs = cached ? getSyncTimestamp(cacheKey) : 0;

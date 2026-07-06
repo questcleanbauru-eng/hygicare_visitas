@@ -26,7 +26,7 @@ export function fillProposalsContent(mainContent, proposals) {
             ${scopeIsLimited ? `
             <div class="scope-banner scope-days-ctrl">
                 <label for="scope-dias-input">Período:</label>
-                <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 10}" min="1" max="365">
+                <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
                 <span>dias</span>
                 <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
                 <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
@@ -34,7 +34,7 @@ export function fillProposalsContent(mainContent, proposals) {
             <div class="empty-state">
                 <span class="empty-state-icon">📄</span>
                 ${scopeIsLimited
-                    ? `<p>Nenhuma proposta nos últimos ${state.loadDias || 10} dias.</p>`
+                    ? `<p>Nenhuma proposta nos últimos ${state.loadDias || 90} dias.</p>`
                     : `<p>Nenhuma proposta registrada ainda.</p>
                        <button type="button" class="btn-add" id="btn-new-proposal2">+ Nova Proposta</button>`
                 }
@@ -129,7 +129,7 @@ export function fillProposalsContent(mainContent, proposals) {
         </div>
         <div class="scope-banner scope-days-ctrl">
             <label for="scope-dias-input">Período:</label>
-            <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 10}" min="1" max="365">
+            <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
             <span>dias</span>
             <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
             <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
@@ -153,7 +153,7 @@ export function fillProposalsContent(mainContent, proposals) {
         const dateFromCheck = document.getElementById('pf-date-from')?.value || '';
         if (state.proposalsScope !== 'all' && dateFromCheck) {
             const cutoffDias = new Date();
-            cutoffDias.setDate(cutoffDias.getDate() - (state.loadDias || 10));
+            cutoffDias.setDate(cutoffDias.getDate() - (state.loadDias || 90));
             if (new Date(dateFromCheck) < cutoffDias) {
                 const listEl = document.getElementById('proposal-list-container');
                 if (listEl) listEl.innerHTML = `<div class="scope-loading">Carregando histórico completo...</div>`;
@@ -636,7 +636,7 @@ export async function renderProposalCreatePage() {
 
 
 export async function getProposals(diasParam) {
-    const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 10);
+    const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 90);
     const cacheKey = dias === 0 ? 'proposals_all' : 'proposals';
     const cached = loadCache(cacheKey);
     const sinceTs = cached ? getSyncTimestamp(cacheKey) : 0;

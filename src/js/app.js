@@ -24,7 +24,7 @@ export const state = {
     visitsScope: '3m',
     proposalsScope: '3m',
     funilScope: '3m',
-    loadDias: 10,
+    loadDias: 90,
     _prevLoginAt: null,
     navLoadAll: null,
     formDirty: false,

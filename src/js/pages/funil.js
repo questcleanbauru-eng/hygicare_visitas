@@ -25,7 +25,7 @@ export function fillFunilContent(mainContent, funil) {
             ${scopeIsLimited ? `
             <div class="scope-banner scope-days-ctrl">
                 <label for="scope-dias-input">Período:</label>
-                <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 10}" min="1" max="365">
+                <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
                 <span>dias</span>
                 <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
                 <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
@@ -33,7 +33,7 @@ export function fillFunilContent(mainContent, funil) {
             <div class="empty-state">
                 <span class="empty-state-icon">📊</span>
                 ${scopeIsLimited
-                    ? `<p>Nenhum registro nos últimos ${state.loadDias || 10} dias.</p>`
+                    ? `<p>Nenhum registro nos últimos ${state.loadDias || 90} dias.</p>`
                     : `<p>Nenhum registro encontrado no funil.</p>
                        <button type="button" class="btn-add" id="btn-new-funil-empty">+ Novo</button>`
                 }
@@ -130,7 +130,7 @@ export function fillFunilContent(mainContent, funil) {
         </div>
         <div class="scope-banner scope-days-ctrl">
             <label for="scope-dias-input">Período:</label>
-            <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 10}" min="1" max="365">
+            <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
             <span>dias</span>
             <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
             <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
@@ -154,7 +154,7 @@ export function fillFunilContent(mainContent, funil) {
         const dateFromCheck = document.getElementById('funil-filter-date-from')?.value || '';
         if (state.funilScope !== 'all' && dateFromCheck) {
             const cutoffDias = new Date();
-            cutoffDias.setDate(cutoffDias.getDate() - (state.loadDias || 10));
+            cutoffDias.setDate(cutoffDias.getDate() - (state.loadDias || 90));
             if (new Date(dateFromCheck) < cutoffDias) {
                 const listEl = document.getElementById('funil-list-container');
                 if (listEl) listEl.innerHTML = `<div class="scope-loading">Carregando histórico completo...</div>`;
@@ -667,7 +667,7 @@ export async function renderFunilFormPage(funil) {
 
 
 export async function getFunil(diasParam) {
-    const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 10);
+    const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 90);
     const cacheKey = dias === 0 ? 'funil_all' : 'funil';
     const cached = loadCache(cacheKey);
     const sinceTs = (cached && cached.length > 0) ? getSyncTimestamp(cacheKey) : 0;
