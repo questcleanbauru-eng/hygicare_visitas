@@ -7,7 +7,9 @@ import { fillDashboard } from './pages/dashboard.js';
 
 export const STORAGE_KEY = 'app-visitas-current-user';
 
-export const API_URL = 'https://script.google.com/macros/s/AKfycbzVDjI_l0qQG7GmUSat1_LJUhSK2nnYli96Groh3b1AdCIlpIL4Hpiga_Foo--IkPf-Kw/exec';
+// Vercel serverless function (mesma origem, sem o redirecionamento do Apps
+// Script) — substitui a antiga URL do Google Apps Script.
+export const API_URL = '/api/backend';
 
 // ── Cache (stale-while-revalidate) ──────────────────────────────
 

@@ -33,7 +33,7 @@ const DEFAULT_RESPONSES = {
 
 export async function mockBackend(page, overrides = {}) {
     const responses = { ...DEFAULT_RESPONSES, ...overrides };
-    await page.route('**/macros/s/**', async (route) => {
+    await page.route('**/api/backend', async (route) => {
         const body = JSON.parse(route.request().postData() || '{}');
         const handler = responses[body.action];
         const resp = handler ? handler(body.payload || {}) : { status: 'error', message: 'unmocked action: ' + body.action };
