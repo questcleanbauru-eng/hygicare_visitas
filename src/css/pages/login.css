@@ -519,7 +519,6 @@
     .proposal-meta,
     .visit-card-header,
     .section-title-row,
-    .page-header,
     .visit-month-header {
         flex-direction: column;
         align-items: stretch;

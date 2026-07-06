@@ -6,9 +6,11 @@
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js --watch --serve",
-    "version:bump": "node bump-version.cjs"
+    "version:bump": "node bump-version.cjs",
+    "test": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "esbuild": "^0.24.0"
   }
 }

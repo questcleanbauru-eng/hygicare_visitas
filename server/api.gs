@@ -154,11 +154,19 @@ function handleLogin(spreadsheet, payload) {
   }
 
   const usersSheet = getSheet(spreadsheet, 'Vendedores');
+  const headers = getHeaders(usersSheet);
   const rows = getSheetObjects(usersSheet);
-  const found = rows.find((row) => String(row.EmailLogin || '').trim().toLowerCase() === email && String(row.Senha || '').trim() === password);
+  const rowIndex = rows.findIndex((row) => String(row.EmailLogin || '').trim().toLowerCase() === email && String(row.Senha || '').trim() === password);
 
-  if (!found) {
+  if (rowIndex === -1) {
     throw new Error('E-mail ou senha invalidos.');
+  }
+  const found = rows[rowIndex];
+
+  // Best-effort: sem lock (não é dado crítico) pra não competir com escritas de negócio.
+  const ultimoLoginCol = headers.indexOf('UltimoLogin');
+  if (ultimoLoginCol > -1) {
+    try { usersSheet.getRange(rowIndex + 2, ultimoLoginCol + 1).setValue(new Date()); } catch (e) { /* não fatal */ }
   }
 
   return {
@@ -608,7 +616,10 @@ function handleGetAdminData(spreadsheet, payload) {
     data: {
       users: withCache('admin_users', 300, function() {
         return getSheetObjects(getSheet(spreadsheet, 'Vendedores')).map(function(u) {
-          return { EmailLogin: u.EmailLogin || '', NomeVendedor: u.NomeVendedor || '', Gerencia: u.Gerencia || '', Perfil: u.Perfil || '' };
+          var ultimoLogin = (u.UltimoLogin instanceof Date && !isNaN(u.UltimoLogin))
+            ? Utilities.formatDate(u.UltimoLogin, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')
+            : (u.UltimoLogin || '');
+          return { EmailLogin: u.EmailLogin || '', NomeVendedor: u.NomeVendedor || '', Gerencia: u.Gerencia || '', Perfil: u.Perfil || '', UltimoLogin: ultimoLogin };
         });
       }),
       notifications: withCache('admin_notif', 300, function() {

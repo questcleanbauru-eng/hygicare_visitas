@@ -160,6 +160,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                         <th>Usuário</th>
                         <th>Cargo</th>
                         <th>Região</th>
+                        <th>Último acesso</th>
                         <th>E-mail</th>
                         <th></th>
                     </tr></thead>
@@ -169,18 +170,20 @@ function fillAdminContent(mainContent, data, emailConfig) {
                             const email = user.emailLogin || user.EmailLogin || user.email || '';
                             const perfil = user.perfil || user.Perfil || user.profile || '';
                             const gerencia = user.gerencia || user.Gerencia || '-';
+                            const ultimoLogin = user.ultimoLogin || user.UltimoLogin || '';
                             const pc = profileClass(perfil);
                             return `<tr>
-                                <td><div class="user-avatar-cell">
+                                <td data-label=""><div class="user-avatar-cell">
                                     <div class="user-avatar-initials ${pc}">${escapeHtml(getInitials(nome))}</div>
                                     <span>${escapeHtml(titleCase(nome))}</span>
                                 </div></td>
-                                <td><span class="profile-badge ${pc}">${escapeHtml(titleCase(perfil))}</span></td>
-                                <td style="font-size:0.85rem;color:var(--text-muted)">${escapeHtml(gerencia)}</td>
-                                <td>
+                                <td data-label="Cargo"><span class="profile-badge ${pc}">${escapeHtml(titleCase(perfil))}</span></td>
+                                <td data-label="Região" style="font-size:0.85rem;color:var(--text-muted)">${escapeHtml(gerencia)}</td>
+                                <td data-label="Último acesso" style="font-size:0.85rem;color:var(--text-muted)">${escapeHtml(ultimoLogin || '-')}</td>
+                                <td data-label="E-mail">
                                     <button type="button" class="admin-icon-btn email-copy-btn" title="${escapeHtml(email)}" aria-label="Copiar e-mail de ${escapeHtml(nome)}" data-email="${escapeHtml(email)}">✉</button>
                                 </td>
-                                <td>
+                                <td data-label="Editar">
                                     <button type="button" class="admin-icon-btn" data-user-index="${index}" title="Editar" aria-label="Editar usuário ${escapeHtml(nome)}">✏️</button>
                                 </td>
                             </tr>`;
