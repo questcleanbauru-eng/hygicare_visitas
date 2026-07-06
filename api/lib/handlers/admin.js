@@ -1,34 +1,37 @@
 import {
-    getSheetObjects, getHeaders, appendRow, updateRow,
-    getSingleColumnValues, getSingleColumnValuesSafe, clearAndWriteColumn,
-    withCache, clearCacheKeys
+    batchGetSheetObjects, getSheetObjects, getHeaders, appendRow, updateRow,
+    clearAndWriteColumn, withCache, clearCacheKeys
 } from '../sheets.js';
 import { ensureAdmin } from '../common.js';
 import { bumpCacheVersion } from './config.js';
 
+const ADMIN_SHEETS = ['Vendedores', 'TiposVisita', 'Cidades', 'AreasAtuacao', 'PotenciaisCliente', 'Aplicacoes', 'Equipamentos'];
+
 export async function handleGetAdminData(payload) {
     await ensureAdmin(payload.user);
 
-    const users = await withCache('admin_users', 300, async () =>
-        (await getSheetObjects('Vendedores')).map((u) => ({
-            EmailLogin: u.EmailLogin || '', NomeVendedor: u.NomeVendedor || '', Gerencia: u.Gerencia || '',
-            Perfil: u.Perfil || '', UltimoLogin: u.UltimoLogin || ''
-        })));
+    // Uma unica chamada batchGet pras 7 abas, em vez de 7 chamadas separadas
+    // (mesma causa do 429 de quota vista no getFormData).
+    const sheets = await withCache('admin_all', 300, () => batchGetSheetObjects(ADMIN_SHEETS));
 
-    const notifications = await withCache('admin_notif', 300, async () =>
-        (await getSheetObjects('TiposVisita')).map((row) => ({
-            tipo: row.Tipo || '', telefoneDestino: row.TelefoneDestino || '',
-            mensagemPadrao: row.MensagemPadrao || '',
-            obrigatorio: String(row.Obrigatorio || '').trim().toLowerCase() === 'sim'
-        })));
-
-    const lookups = await withCache('admin_lookups', 600, async () => ({
-        cidades: await getSingleColumnValues('Cidades', 'Cidade'),
-        areasAtuacao: await getSingleColumnValues('AreasAtuacao', 'Area'),
-        potenciaisCliente: await getSingleColumnValues('PotenciaisCliente', 'Potencial'),
-        aplicacoes: await getSingleColumnValuesSafe('Aplicacoes', 'Aplicacao'),
-        equipamentos: await getSingleColumnValuesSafe('Equipamentos', 'Equipamento')
+    const users = sheets.Vendedores.map((u) => ({
+        EmailLogin: u.EmailLogin || '', NomeVendedor: u.NomeVendedor || '', Gerencia: u.Gerencia || '',
+        Perfil: u.Perfil || '', UltimoLogin: u.UltimoLogin || ''
     }));
+
+    const notifications = sheets.TiposVisita.map((row) => ({
+        tipo: row.Tipo || '', telefoneDestino: row.TelefoneDestino || '',
+        mensagemPadrao: row.MensagemPadrao || '',
+        obrigatorio: String(row.Obrigatorio || '').trim().toLowerCase() === 'sim'
+    }));
+
+    const lookups = {
+        cidades: sheets.Cidades.map((r) => r.Cidade).filter(Boolean),
+        areasAtuacao: sheets.AreasAtuacao.map((r) => r.Area).filter(Boolean),
+        potenciaisCliente: sheets.PotenciaisCliente.map((r) => r.Potencial).filter(Boolean),
+        aplicacoes: sheets.Aplicacoes.map((r) => r.Aplicacao).filter(Boolean),
+        equipamentos: sheets.Equipamentos.map((r) => r.Equipamento).filter(Boolean)
+    };
 
     return { status: 'success', data: { users, notifications, lookups } };
 }
@@ -59,7 +62,7 @@ export async function handleSaveUser(payload) {
     }
 
     clearCacheKeys([
-        'admin_users',
+        'admin_all',
         'user_verify_' + String(payload.emailLogin || '').trim().toLowerCase(),
         'user_verify_' + originalEmail
     ]);
@@ -86,7 +89,7 @@ export async function handleSaveNotificationConfig(payload) {
     }
 
     await bumpCacheVersion();
-    clearCacheKeys(['admin_notif', 'formdata_tipos', 'app_config']);
+    clearCacheKeys(['admin_all', 'formdata_all', 'app_config']);
     return { status: 'success', message: 'Configuracao salva.' };
 }
 
@@ -105,6 +108,6 @@ export async function handleSaveLookupList(payload) {
 
     await clearAndWriteColumn(config.sheet, config.header, payload.values || []);
     await bumpCacheVersion();
-    clearCacheKeys(['admin_lookups', 'formdata_lookups', 'app_config']);
+    clearCacheKeys(['admin_all', 'formdata_all', 'app_config']);
     return { status: 'success', message: 'Lista atualizada.' };
 }

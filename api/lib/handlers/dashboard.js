@@ -1,4 +1,4 @@
-import { getSheetObjects, withCache } from '../sheets.js';
+import { batchGetSheetObjects, withCache } from '../sheets.js';
 import { requireUser, filterByUser, parseDate, isDateWithinLastDays, daysSinceDate } from '../common.js';
 import { normalizeVisitRow } from './visits.js';
 import { normalizeProposalRow } from './proposals.js';
@@ -8,10 +8,13 @@ import { readEmailConfig } from './config.js';
 export async function handleGetDashboardData(payload) {
     const user = requireUser(payload.user);
     return withCache('d_' + user.email, 120, async () => {
+        // Visitas + Propostas numa unica chamada batchGet em vez de 2 separadas
+        // (buscada só se algum dos dois caches abaixo estiver frio).
+        const getVpRaw = () => withCache('vp_raw', 60, () => batchGetSheetObjects(['Visitas', 'Propostas']));
         const visits = await withCache('v_' + user.email, 180, async () =>
-            filterByUser((await getSheetObjects('Visitas')).map(normalizeVisitRow), user, 'visits'));
+            filterByUser((await getVpRaw()).Visitas.map(normalizeVisitRow), user, 'visits'));
         const proposals = await withCache('p_' + user.email, 180, async () =>
-            filterByUser((await getSheetObjects('Propostas')).map(normalizeProposalRow), user, 'proposals'));
+            filterByUser((await getVpRaw()).Propostas.map(normalizeProposalRow), user, 'proposals'));
 
         let funil = [];
         try {

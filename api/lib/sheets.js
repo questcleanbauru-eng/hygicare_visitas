@@ -64,15 +64,38 @@ export async function getHeaders(sheetName) {
     return (data.values && data.values[0]) || [];
 }
 
-export async function getSheetObjects(sheetName) {
-    const values = await getSheetValues(sheetName);
-    if (values.length <= 1) return [];
+function valuesToObjects(values) {
+    if (!values || values.length <= 1) return [];
     const headers = values[0];
     return values.slice(1).map((row) => {
         const obj = {};
         headers.forEach((header, i) => { obj[header] = row[i] !== undefined ? row[i] : ''; });
         return obj;
     });
+}
+
+export async function getSheetObjects(sheetName) {
+    const values = await getSheetValues(sheetName);
+    return valuesToObjects(values);
+}
+
+// Junta getHeaders + getSheetObjects numa unica chamada (values/{sheet} ja
+// inclui a linha de cabecalho) — usado onde os dois eram lidos separadamente.
+export async function getSheetWithHeaders(sheetName) {
+    const values = await getSheetValues(sheetName);
+    return { headers: values[0] || [], rows: valuesToObjects(values) };
+}
+
+// Lê varias abas numa unica chamada à API (values:batchGet) — evita estourar
+// a quota de "read requests per minute" quando uma acao precisa combinar
+// dados de varias abas (ex.: form data, admin).
+export async function batchGetSheetObjects(sheetNames) {
+    const query = sheetNames.map((name) => `ranges=${encodeRange(name)}`).join('&');
+    const data = await sheetsFetch(`/values:batchGet?${query}`);
+    const ranges = data.valueRanges || [];
+    const result = {};
+    sheetNames.forEach((name, i) => { result[name] = valuesToObjects((ranges[i] || {}).values); });
+    return result;
 }
 
 export async function getSingleColumnValues(sheetName, header) {

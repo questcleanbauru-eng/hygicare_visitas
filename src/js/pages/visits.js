@@ -1279,6 +1279,7 @@ export function showMandatoryWhatsappModal(waConfig, visit) {
                 <div style="font-size:2rem;margin-bottom:0.75rem">📱</div>
                 <h3>Compartilhamento Obrigatório</h3>
                 <p>O tipo de visita selecionado exige compartilhamento via WhatsApp antes de continuar.</p>
+                <p class="helper-text" style="margin-top:-0.5rem">Direcione esta mensagem ao grupo correto (manutenção, comercial, etc.) antes de enviar.</p>
                 <button type="button" id="modal-wa-share" class="primary-button">Abrir WhatsApp</button>
                 <button type="button" id="modal-wa-done" class="secondary-button">Já compartilhei — Continuar</button>
             </div>

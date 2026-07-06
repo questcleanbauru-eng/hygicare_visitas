@@ -1,4 +1,4 @@
-import { getSheetObjects, getHeaders, appendRow, updateRow, withCache, clearCacheKeys } from '../sheets.js';
+import { getSheetObjects, getHeaders, getSheetWithHeaders, appendRow, updateRow, withCache, clearCacheKeys } from '../sheets.js';
 import { requireUser, verifyUser, filterByUser, getNextId, hasSyncColumn, parseDate, formatDate, formatDateFromInput } from '../common.js';
 
 function findKey(headers, candidates) {
@@ -14,8 +14,7 @@ function findKey(headers, candidates) {
 // grafias diferentes entre "Atualizacao"/"ATUALIZACAO"/etc.). Exportado
 // porque o dashboard também precisa (sem filtro de dias).
 export async function readFunilRows(user, dias) {
-    const headers = await getHeaders('Funil');
-    const rows = await getSheetObjects('Funil');
+    const { headers, rows } = await getSheetWithHeaders('Funil');
     if (!headers.length) return [];
 
     const key = {
