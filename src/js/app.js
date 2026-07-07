@@ -220,6 +220,9 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'admin':
             await (await import('./pages/admin.js')).renderAdminPage();
             break;
+        case 'report':
+            await (await import('./pages/report.js')).renderReportPage();
+            break;
         default:
             await renderDashboard();
     }

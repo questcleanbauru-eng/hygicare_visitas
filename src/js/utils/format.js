@@ -110,6 +110,10 @@ export function proposalStatusClass(status, overdue) {
 export function getDateRangeForPeriod(period) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    if (period === 'semana-atual') {
+        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
+        return { start, end: today };
+    }
     if (period === 'mes-atual') {
         return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: today };
     }

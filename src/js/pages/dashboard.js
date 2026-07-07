@@ -53,7 +53,10 @@ export function fillDashboard(mainContent, data, user) {
         </div>
 
         <!-- Métricas -->
-        <p class="dash-section-heading">Visão geral</p>
+        <div class="section-title-row" style="margin-top:0.4rem">
+            <p class="dash-section-heading" style="margin:0">Visão geral</p>
+            <button class="section-link-button" id="go-report">📊 Relatório completo →</button>
+        </div>
         <div class="metrics-grid">
             <button class="metric-card metric-card-blue" data-nav="visits" type="button">
                 <span class="metric-label">Visitas na semana</span>
@@ -149,6 +152,7 @@ export function fillDashboard(mainContent, data, user) {
     `;
 
     document.getElementById('go-agenda').addEventListener('click',    () => navigateTo('calendar'));
+    document.getElementById('go-report').addEventListener('click',    () => navigateTo('report'));
     document.getElementById('go-visits').addEventListener('click',    () => navigateTo('visits'));
     document.getElementById('go-proposals').addEventListener('click', () => navigateTo('proposals'));
     document.getElementById('go-funil').addEventListener('click',     () => navigateTo('funil'));

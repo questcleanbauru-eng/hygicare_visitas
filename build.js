@@ -19,7 +19,8 @@ const ENTRY_POINTS = [
     { in: path.join(__dirname, 'src/css/pages/visits.css'), out: 'css/visits' },
     { in: path.join(__dirname, 'src/css/pages/proposals.css'), out: 'css/proposals' },
     { in: path.join(__dirname, 'src/css/pages/funil.css'), out: 'css/funil' },
-    { in: path.join(__dirname, 'src/css/pages/admin.css'), out: 'css/admin' }
+    { in: path.join(__dirname, 'src/css/pages/admin.css'), out: 'css/admin' },
+    { in: path.join(__dirname, 'src/css/pages/report.css'), out: 'css/report' }
 ];
 
 function rimraf(dir) {
