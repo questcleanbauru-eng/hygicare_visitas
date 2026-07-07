@@ -1,7 +1,25 @@
 import { state, navigateTo } from '../app.js';
 import { escapeHtml, normalizeVisit, normalizeProposal } from './format.js';
 import { debounce, showToast } from './dom.js';
-import { ensureFormData, logout } from '../api.js';
+import { ensureFormData, logout, saveCache } from '../api.js';
+
+const REFRESHABLE_PAGE_CACHE_KEYS = {
+    dashboard: ['dashboard'],
+    visits: ['visits', 'visits_all'],
+    proposals: ['proposals', 'proposals_all'],
+    funil: ['funil', 'funil_all'],
+    admin: ['admin_data', 'admin_email']
+};
+
+function refreshCurrentPage() {
+    const page = state.currentPage;
+    const keys = REFRESHABLE_PAGE_CACHE_KEYS[page];
+    if (!keys) { return; }
+    const btn = document.getElementById('header-refresh-btn');
+    btn?.classList.add('spinning');
+    keys.forEach((k) => saveCache(k, null));
+    Promise.resolve(navigateTo(page)).finally(() => btn?.classList.remove('spinning'));
+}
 
 export let _installPrompt = null;
 
@@ -136,6 +154,9 @@ export function updateHeaderUI(user) {
         <button class="header-notif-btn" id="header-install-btn" type="button" aria-label="Instalar App" style="display:none" title="Instalar App">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v13M8 11l4 4 4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
         </button>
+        <button class="header-notif-btn" id="header-refresh-btn" type="button" aria-label="Atualizar" title="Atualizar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
         <button class="header-notif-btn" id="header-search-btn" type="button" aria-label="Busca global">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
@@ -148,6 +169,7 @@ export function updateHeaderUI(user) {
         </div>
         <div class="header-avatar" id="header-avatar-btn" title="${name}">${initial}</div>
     `;
+    document.getElementById('header-refresh-btn').addEventListener('click', refreshCurrentPage);
     document.getElementById('header-notif').addEventListener('click', () => navigateTo('proposals'));
     document.getElementById('header-avatar-btn').addEventListener('click', () => navigateTo('dashboard'));
     document.getElementById('header-search-btn').addEventListener('click', openGlobalSearch);
