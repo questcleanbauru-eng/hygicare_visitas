@@ -102,7 +102,8 @@ async function runBuild() {
         'css/visits': urls['css/visits'],
         'css/proposals': urls['css/proposals'],
         'css/funil': urls['css/funil'],
-        'css/admin': urls['css/admin']
+        'css/admin': urls['css/admin'],
+        'css/report': urls['css/report']
     };
 
     const buildInfo = getBuildInfo();
