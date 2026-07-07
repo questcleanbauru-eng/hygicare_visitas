@@ -80,7 +80,10 @@ export function fillVisitsContent(container, visits) {
         <div class="card visits-filter-card">
             <div class="visits-filter-header">
                 <div><strong>Filtros</strong></div>
-                <button type="button" class="mini-button visits-filter-toggle" id="visit-filters-toggle" aria-expanded="true" aria-controls="visit-filters-panel">Ocultar</button>
+                <div class="visits-filter-header-actions">
+                    <button type="button" class="mini-button" id="visit-filters-clear">Limpar</button>
+                    <button type="button" class="mini-button visits-filter-toggle" id="visit-filters-toggle" aria-expanded="true" aria-controls="visit-filters-panel">Ocultar</button>
+                </div>
             </div>
             <div class="visits-filter-grid" id="visit-filters-panel">
                 <div class="form-group">
@@ -258,10 +261,10 @@ export function fillVisitsContent(container, visits) {
         });
     };
 
+    const _visitFilterIds = ['visit-filter-search', 'visit-filter-type', 'visit-filter-city', 'visit-filter-prospeccao',
+        'visit-filter-period', 'visit-filter-vendor', 'visit-filter-date-from', 'visit-filter-date-to'];
     const _debouncedVisitFilter = debounce(renderFilteredVisits, 250);
-    ['visit-filter-search', 'visit-filter-type', 'visit-filter-city', 'visit-filter-prospeccao',
-     'visit-filter-period', 'visit-filter-vendor', 'visit-filter-date-from', 'visit-filter-date-to']
-        .forEach((id) => {
+    _visitFilterIds.forEach((id) => {
             const element = document.getElementById(id);
             if (!element) {
                 return;
@@ -269,6 +272,11 @@ export function fillVisitsContent(container, visits) {
             element.addEventListener(id === 'visit-filter-search' ? 'input' : 'change',
                 id === 'visit-filter-search' ? _debouncedVisitFilter : renderFilteredVisits);
         });
+
+    document.getElementById('visit-filters-clear')?.addEventListener('click', () => {
+        _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        renderFilteredVisits();
+    });
 
     document.getElementById('visits-csv-btn')?.addEventListener('click', () => {
         downloadCSV(normalizedVisits, 'visitas.csv', [

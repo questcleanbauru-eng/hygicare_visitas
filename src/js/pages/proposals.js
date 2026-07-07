@@ -83,7 +83,10 @@ export function fillProposalsContent(mainContent, proposals) {
         <div class="card visits-filter-card">
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
-                <button type="button" class="mini-button" id="proposal-filter-toggle">Ocultar</button>
+                <div class="visits-filter-header-actions">
+                    <button type="button" class="mini-button" id="proposal-filter-clear">Limpar</button>
+                    <button type="button" class="mini-button" id="proposal-filter-toggle">Ocultar</button>
+                </div>
             </div>
             <div class="visits-filter-grid" id="proposal-filter-panel">
                 <div class="form-group">
@@ -255,11 +258,17 @@ export function fillProposalsContent(mainContent, proposals) {
         });
     };
 
+    const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor',
+        'pf-date-from', 'pf-date-to'];
     const _debouncedProposalFilter = debounce(renderFiltered, 250);
-    ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor',
-     'pf-date-from', 'pf-date-to'].forEach((id) => {
+    _proposalFilterIds.forEach((id) => {
         document.getElementById(id)?.addEventListener(id === 'pf-search' ? 'input' : 'change',
             id === 'pf-search' ? _debouncedProposalFilter : renderFiltered);
+    });
+
+    document.getElementById('proposal-filter-clear')?.addEventListener('click', () => {
+        _proposalFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        renderFiltered();
     });
 
     document.getElementById('scope-load-days')?.addEventListener('click', () => {

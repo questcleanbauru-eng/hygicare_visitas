@@ -86,7 +86,10 @@ export function fillFunilContent(mainContent, funil) {
         <div class="card funil-filter-card">
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
-                <button type="button" class="mini-button" id="funil-filter-toggle">Ocultar</button>
+                <div class="visits-filter-header-actions">
+                    <button type="button" class="mini-button" id="funil-filter-clear">Limpar</button>
+                    <button type="button" class="mini-button" id="funil-filter-toggle">Ocultar</button>
+                </div>
             </div>
             <div class="visits-filter-grid" id="funil-filter-panel">
                 <div class="form-group">
@@ -255,12 +258,18 @@ export function fillFunilContent(mainContent, funil) {
         });
     };
 
+    const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
+        'funil-filter-atrasado', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
     const _debouncedFunilFilter = debounce(renderFiltered, 250);
-    ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
-     'funil-filter-atrasado', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'].forEach((id) => {
+    _funilFilterIds.forEach((id) => {
         const el = document.getElementById(id);
         const isText = ['funil-filter-search', 'funil-filter-vl'].includes(id);
         el?.addEventListener(isText ? 'input' : 'change', isText ? _debouncedFunilFilter : renderFiltered);
+    });
+
+    document.getElementById('funil-filter-clear')?.addEventListener('click', () => {
+        _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        renderFiltered();
     });
 
     document.getElementById('scope-load-days')?.addEventListener('click', () => {

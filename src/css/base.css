@@ -438,6 +438,12 @@ main {
     margin-bottom: 0.65rem;
 }
 
+.visits-filter-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
 .modal-card .primary-button,
 
 .modal-card .secondary-button { width: 100%; margin-top: 0.5rem; }
