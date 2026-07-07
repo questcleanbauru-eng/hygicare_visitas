@@ -413,6 +413,21 @@ main {
     transition: transform 0.15s, box-shadow 0.15s;
 }
 
+.danger-button {
+    min-height: 44px;
+    padding: 0.55rem 1rem;
+    border: 1.5px solid #fecaca;
+    border-radius: var(--radius-sm);
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.danger-button:hover { background: #fee2e2; }
+.danger-button:active { transform: scale(0.97); }
+
 .visits-filter-header {
     display: flex;
     align-items: center;

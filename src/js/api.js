@@ -1,9 +1,10 @@
 import { state } from './app.js';
 import { renderLoginPage } from './pages/auth.js';
 import { resetNavCache } from './utils/ui.js';
-import { showLoginNotification, showRefreshIndicator, hideRefreshIndicator } from './utils/dom.js';
+import { showLoginNotification, showRefreshIndicator, hideRefreshIndicator, showToast, updatePendingSyncBanner } from './utils/dom.js';
 import { normalizeVisit, normalizeProposal } from './utils/format.js';
 import { fillDashboard } from './pages/dashboard.js';
+import { enqueueWrite, getQueuedItems, removeQueuedItem, getQueueCount } from './utils/offlineQueue.js';
 
 export const STORAGE_KEY = 'app-visitas-current-user';
 
@@ -107,6 +108,104 @@ export async function _callAPIRaw(action, payload = {}) {
 }
 
 
+// ── Fila offline de escrita ──────────────────────────────────────
+// Se a chamada falha por falta de conexao (offline ou fetch rejeitado), o
+// registro entra numa fila local (IndexedDB) em vez de ser descartado, e e
+// reenviado automaticamente quando a conexao volta. Erros de negocio (ex.:
+// validacao) NAO entram na fila — so falha de rede/conectividade.
+export async function attemptOrQueue(action, payload, meta) {
+    if (!navigator.onLine) {
+        await enqueueWrite(action, payload, meta);
+        refreshPendingSyncBanner();
+        return { status: 'queued' };
+    }
+    try {
+        return await callAPI(action, payload);
+    } catch (error) {
+        await enqueueWrite(action, payload, meta);
+        refreshPendingSyncBanner();
+        return { status: 'queued' };
+    }
+}
+
+
+let _flushing = false;
+
+export async function flushOfflineQueue() {
+    if (_flushing || !navigator.onLine) return;
+    _flushing = true;
+    try {
+        const items = await getQueuedItems();
+        let synced = 0;
+        for (const item of items) {
+            let result;
+            try {
+                result = await _callAPIRaw(item.action, item.payload);
+            } catch (error) {
+                break; // ainda sem conexao/servidor fora — tenta de novo mais tarde
+            }
+            await removeQueuedItem(item.id);
+            if (result && result.status === 'success') {
+                synced++;
+                reconcileQueuedItem(item, result);
+            } else {
+                showToast(`Não foi possível sincronizar um registro pendente: ${(result && result.message) || 'erro desconhecido'}`, true);
+            }
+        }
+        if (synced > 0) { showToast(`${synced} registro(s) pendente(s) sincronizado(s).`); }
+    } catch (error) {
+        // fila indisponivel (IndexedDB bloqueado/privado) — silencioso, tenta de novo depois
+    } finally {
+        _flushing = false;
+        refreshPendingSyncBanner();
+    }
+}
+
+
+function reconcileQueuedItem(item, result) {
+    const meta = item.meta || {};
+    if (!meta.entity || !meta.tempId) return;
+
+    if (meta.entity === 'visits') {
+        const real = normalizeVisit(result.visit || (result.visits && result.visits[0]) || item.payload);
+        state.visits = (state.visits || []).map((v) => v.id === meta.tempId ? real : v);
+        saveCache('visits', state.visits);
+    } else if (meta.entity === 'proposals') {
+        const real = normalizeProposal(result.proposal || item.payload);
+        state.proposals = (state.proposals || []).map((p) => p.id === meta.tempId ? real : p);
+        saveCache('proposals', state.proposals);
+    } else if (meta.entity === 'funil') {
+        const real = result.funil || item.payload;
+        state.funil = (state.funil || []).map((f) => f.id === meta.tempId ? real : f);
+        saveCache('funil', state.funil);
+    }
+
+    if (state.currentPage === meta.entity) { navigateToCurrentPage(); }
+}
+
+
+function navigateToCurrentPage() {
+    // true = _fromPop: re-renderiza a pagina atual sem empilhar historico nem
+    // disparar o aviso de "alteracoes nao salvas" (isso e so um refresh em
+    // segundo plano apos sincronizar a fila).
+    import('./app.js').then((m) => m.navigateTo(state.currentPage, {}, true)).catch(() => {});
+}
+
+
+export async function refreshPendingSyncBanner() {
+    const count = await getQueueCount();
+    updatePendingSyncBanner(count);
+}
+
+
+export function initOfflineQueueSync() {
+    window.addEventListener('online', flushOfflineQueue);
+    setInterval(flushOfflineQueue, 30000);
+    refreshPendingSyncBanner();
+    flushOfflineQueue();
+}
+
+
 export async function ensureFormData() {
     // 1. Em memória → instantâneo
     if (state.formData) {
@@ -170,12 +269,19 @@ export async function getDashboardData() {
     const cached = loadCache('dashboard');
     const fresh = callAPI('getDashboardData', { user: state.currentUser })
         .then(function(r) {
-            if (r.status === 'success') { saveCache('dashboard', r.data); state.dashboardData = r.data; }
+            if (r.status === 'success') {
+                saveCache('dashboard', r.data);
+                state.dashboardData = r.data;
+                state.canDelete = !!r.data.canDelete;
+                state.canCreateProposalFunil = !!r.data.canCreateProposalFunil;
+            }
             return r;
         })
         .catch(function(e) { return { status: 'error', message: e.message }; });
     if (cached) {
         state.dashboardData = cached;
+        state.canDelete = !!cached.canDelete;
+        state.canCreateProposalFunil = !!cached.canCreateProposalFunil;
         showRefreshIndicator();
         fresh.then(function(r) {
             hideRefreshIndicator();

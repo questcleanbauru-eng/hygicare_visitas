@@ -162,6 +162,30 @@ export async function createSheet(sheetName) {
     });
 }
 
+export async function getSheetGid(sheetName) {
+    const meta = await sheetsFetch('?fields=sheets.properties');
+    const sheet = (meta.sheets || []).find((s) => s.properties.title === sheetName);
+    if (!sheet) throw new Error(`Aba "${sheetName}" não encontrada.`);
+    return sheet.properties.sheetId;
+}
+
+// rowNumber é 1-based e ja inclui o deslocamento do cabecalho (igual updateRow).
+// A API do Sheets so permite apagar linha via batchUpdate (values.* nao tem
+// "delete row"), usando indices 0-based [startIndex, endIndex).
+export async function deleteRow(sheetName, rowNumber) {
+    const sheetId = await getSheetGid(sheetName);
+    await sheetsFetch(':batchUpdate', {
+        method: 'POST',
+        body: JSON.stringify({
+            requests: [{
+                deleteDimension: {
+                    range: { sheetId, dimension: 'ROWS', startIndex: rowNumber - 1, endIndex: rowNumber }
+                }
+            }]
+        })
+    });
+}
+
 // ── Cache em memória (best-effort, por invocação quente da function) ─────
 
 const _cache = new Map();

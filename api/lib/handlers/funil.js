@@ -1,5 +1,6 @@
-import { getSheetObjects, getHeaders, getSheetWithHeaders, appendRow, updateRow, withCache, clearCacheKeys } from '../sheets.js';
+import { getSheetObjects, getHeaders, getSheetWithHeaders, appendRow, updateRow, deleteRow, withCache, clearCacheKeys } from '../sheets.js';
 import { requireUser, verifyUser, filterByUser, getNextId, hasSyncColumn, parseDate, formatDate, formatDateFromInput } from '../common.js';
+import { ensureCanDelete, ensureCanCreateProposalFunil } from './config.js';
 
 function findKey(headers, candidates) {
     const lower = headers.map((h) => String(h).trim().toLowerCase());
@@ -135,7 +136,7 @@ export async function handleGetFunilById(payload) {
 }
 
 export async function handleCreateFunil(payload) {
-    const user = await verifyUser(payload.user);
+    const user = await ensureCanCreateProposalFunil(payload.user);
     if (!payload.cliente) throw new Error('Cliente e obrigatorio.');
 
     const headers = await getHeaders('Funil');
@@ -198,6 +199,19 @@ export async function handleUpdateFunil(payload) {
     await updateRow('Funil', rowIndex + 2, headers.map((h) => (current[h] !== undefined ? current[h] : '')));
     clearCacheKeys(['f_' + user.email, 'f_' + user.email + '_3m', 'f_' + user.email + '_all', 'd_' + user.email]);
     return { status: 'success', funil: normalizeFunilRow(current) };
+}
+
+export async function handleDeleteFunil(payload) {
+    const user = await ensureCanDelete(payload.user);
+    const id = String(payload.id || '').trim();
+
+    const rows = await getSheetObjects('Funil');
+    const rowIndex = rows.findIndex((r) => String(r.Id || r.ID || '') === id);
+    if (rowIndex === -1) throw new Error('Registro nao encontrado para exclusao.');
+
+    await deleteRow('Funil', rowIndex + 2);
+    clearCacheKeys(['f_' + user.email, 'f_' + user.email + '_3m', 'f_' + user.email + '_all', 'd_' + user.email]);
+    return { status: 'success', message: 'Registro apagado.' };
 }
 
 export async function handleDebugFunilHeaders(payload) {

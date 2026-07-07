@@ -152,7 +152,7 @@ export function renderForgotPasswordPage() {
                 <p class="login-subheading">Informe seu e-mail cadastrado</p>
                 <form id="forgot-form">
                     <div class="form-group">
-                        <label for="forgot-email" style="font-size:0.82rem;color:var(--text-muted)">E-mail</label>
+                        <label for="forgot-email" style="font-size:0.82rem;color:var(--text-muted-strong)">E-mail</label>
                         <input type="email" id="forgot-email" placeholder="seuemail@empresa.com" required>
                     </div>
                     <button type="submit" id="forgot-button" class="login-submit-btn">Solicitar</button>

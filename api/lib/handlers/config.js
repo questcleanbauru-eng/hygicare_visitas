@@ -1,9 +1,11 @@
 import { getSheetObjects, appendRow, updateCell, sheetExists, createSheet, withCache, clearCacheKeys } from '../sheets.js';
-import { requireUser, ensureAdmin } from '../common.js';
+import { requireUser, ensureAdmin, verifyUser } from '../common.js';
 
 function defaultEmailConfig() {
     return {
         load_dias: '30',
+        permitir_apagar_outros: 'false',
+        permitir_criar_proposta_funil: 'false',
         propostas_ativas: 'false',
         propostas_dias: '30',
         propostas_assunto: 'Proposta pendente de atualizacao',
@@ -58,6 +60,29 @@ export async function bumpCacheVersion() {
 export async function handleGetEmailConfig(payload) {
     await ensureAdmin(payload.user);
     return { status: 'success', data: await readEmailConfig() };
+}
+
+// Admin sempre pode apagar; Gerente/Vendedor so se o admin liberou o toggle
+// "permitir_apagar_outros" na tela de admin.
+export async function ensureCanDelete(user) {
+    const u = await verifyUser(user);
+    const profile = String(u.profile || '').trim().toLowerCase();
+    if (profile === 'admin') return u;
+    const config = await withCache('app_config', 600, () => readEmailConfig());
+    if (String(config.permitir_apagar_outros || 'false') === 'true') return u;
+    throw new Error('Você não tem permissão para apagar registros.');
+}
+
+// Admin sempre pode criar Proposta/Funil; Gerente/Vendedor so se o admin
+// liberou o toggle "permitir_criar_proposta_funil". Visita fica sempre livre
+// pra todos (nao passa por aqui).
+export async function ensureCanCreateProposalFunil(user) {
+    const u = await verifyUser(user);
+    const profile = String(u.profile || '').trim().toLowerCase();
+    if (profile === 'admin') return u;
+    const config = await withCache('app_config', 600, () => readEmailConfig());
+    if (String(config.permitir_criar_proposta_funil || 'false') === 'true') return u;
+    throw new Error('Você não tem permissão para criar novas propostas/oportunidades. Fale com o administrador.');
 }
 
 export async function handleGetConfigVersion(payload) {

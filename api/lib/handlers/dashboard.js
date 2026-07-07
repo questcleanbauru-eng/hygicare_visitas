@@ -104,7 +104,9 @@ export async function handleGetDashboardData(payload) {
                 recentFunil: recentFunil.map((f) => ({
                     id: f.id, cliente: f.cliente, status: f.status, ativo: f.ativo, atualizacao: f.atualizacao, data: f.data
                 })),
-                loadDias: parseInt(appConfig.load_dias || '30', 10)
+                loadDias: parseInt(appConfig.load_dias || '30', 10),
+                canDelete: profile === 'admin' || String(appConfig.permitir_apagar_outros || 'false') === 'true',
+                canCreateProposalFunil: profile === 'admin' || String(appConfig.permitir_criar_proposta_funil || 'false') === 'true'
             }
         };
     });

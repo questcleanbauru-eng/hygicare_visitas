@@ -152,6 +152,14 @@
     box-shadow: var(--shadow-xs);
 }
 
+.dash-today-card {
+    background: var(--primary-light);
+    border: 1px solid #bfdbfe;
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.1rem;
+}
+
 /* Welcome banner replaced: keep compat for other uses */
 
 .dashboard-info-card {

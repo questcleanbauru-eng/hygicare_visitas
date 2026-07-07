@@ -1,5 +1,5 @@
 import { state, navigateTo, addDocumentClickListener } from '../app.js';
-import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById } from '../api.js';
+import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
     groupVisitsByMonth, formatMonthKey, normalizeVisit, compareVisitsByDateDesc, visitTypeClass,
@@ -228,7 +228,7 @@ export function fillVisitsContent(container, visits) {
                             <button class="visit-card" type="button" data-visit-id="${escapeHtml(visit.id)}">
                                 <div class="visit-card-header">
                                     <strong>${escapeHtml(visit.cliente || 'Cliente não informado')}</strong>
-                                    <span class="visit-date">${escapeHtml(visit.dataVisita || '')}</span>
+                                    <span class="visit-date">${visit._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : escapeHtml(visit.dataVisita || '')}</span>
                                 </div>
                                 <div class="visit-card-body">
                                     <span class="${visitTypeClass(visit.tipoVisita)}">${escapeHtml(visit.tipoVisita || '-')}</span>
@@ -703,8 +703,12 @@ export async function renderVisitFormPage(visit = null) {
                 </div>
             </div>
             <div class="form-group full-width">
-                <label for="observacao">Observação</label>
-                <textarea id="observacao" rows="4" placeholder="Digite detalhes relevantes da visita">${escapeHtml(normalizedVisit ? normalizedVisit.observacao : '')}</textarea>
+                <div class="obs-label-row">
+                    <label for="observacao">Observação</label>
+                    <button type="button" id="obs-dictate-btn" class="obs-dictate-btn" style="display:none" aria-label="Ditar observação por voz">🎤 Ditar</button>
+                </div>
+                <textarea id="observacao" rows="4" maxlength="1000" placeholder="Digite detalhes relevantes da visita">${escapeHtml(normalizedVisit ? normalizedVisit.observacao : '')}</textarea>
+                <div class="obs-char-counter" id="obs-char-counter">0/500</div>
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-visit">Cancelar</button>
@@ -820,6 +824,8 @@ export async function renderVisitFormPage(visit = null) {
     // Track dirty state so navigateTo can warn before abandoning
     document.getElementById('visit-form').addEventListener('input', () => { state.formDirty = true; });
     document.getElementById('visit-form').addEventListener('change', () => { state.formDirty = true; });
+
+    initObservacaoField();
 
     prospeccaoSelect.addEventListener('change', syncProspectionMode);
     clienteSelect.addEventListener('change', () => fillClientData(clienteSelect.value));
@@ -1021,12 +1027,17 @@ export async function renderVisitFormPage(visit = null) {
             showToast('Visita atualizada com sucesso.');
             navigateTo('visit-detail', { id: payload.id });
 
-            callAPI('updateVisit', payload)
+            attemptOrQueue('updateVisit', payload, { entity: 'visits', tempId: payload.id })
                 .then(res => {
                     if (res && res.status === 'success') {
                         const real = normalizeVisit(res.visit || payload);
                         state.visits = state.visits.map(v => String(v.id) === String(payload.id) ? real : v);
                         saveCache('visits', state.visits);
+                    } else if (res && res.status === 'queued') {
+                        const pendingVisit = { ...updatedVisit, _pending: true };
+                        state.visits = state.visits.map(v => String(v.id) === String(payload.id) ? pendingVisit : v);
+                        saveCache('visits', state.visits);
+                        showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
                     } else {
                         if (idx >= 0 && original) { state.visits[idx] = original; saveCache('visits', state.visits); }
                         showToast((res && res.message) || 'Erro ao salvar. Tente novamente.', true);
@@ -1069,7 +1080,7 @@ export async function renderVisitFormPage(visit = null) {
 
         // CREATE — createVisit já faz insert otimístico em state.visits
         const result = await createVisit(payload);
-        if (result && result.status === 'success') {
+        if (result && (result.status === 'success' || result.status === 'queued')) {
             const createdVisits = Array.isArray(result.visits) ? result.visits.map(v => normalizeVisit(v)) : [];
             state.currentVisit = normalizeVisit(result.visit || createdVisits[0] || payload);
             const tipoAtual = (payload.tiposVisita || [])[0];
@@ -1080,11 +1091,15 @@ export async function renderVisitFormPage(visit = null) {
             state.formDirty = false;
             const _dk = document.getElementById('visit-form')?._draftKey;
             if (_dk) { try { localStorage.removeItem(_dk); } catch(e) {} }
-            const _visitMsg = createdVisits.length > 1 ? `${createdVisits.length} visitas criadas` : 'Visita criada com sucesso';
-            showToast(_visitMsg, false, () => navigateTo('visit-new'));
-            // Renomear botão "Desfazer" para "Nova Visita"
-            const _toastBtn = document.getElementById('app-toast')?.querySelector('.toast-undo-btn');
-            if (_toastBtn) _toastBtn.textContent = '+ Nova Visita';
+            if (result.status === 'queued') {
+                showToast('Sem conexão — a visita foi salva no aparelho e será enviada quando a conexão voltar.');
+            } else {
+                const _visitMsg = createdVisits.length > 1 ? `${createdVisits.length} visitas criadas` : 'Visita criada com sucesso';
+                showToast(_visitMsg, false, () => navigateTo('visit-new'));
+                // Renomear botão "Desfazer" para "Nova Visita"
+                const _toastBtn = document.getElementById('app-toast')?.querySelector('.toast-undo-btn');
+                if (_toastBtn) _toastBtn.textContent = '+ Nova Visita';
+            }
             await navigateTo('visits');
         } else {
             showToast((result && result.message) || 'Não foi possível salvar a visita.', true);
@@ -1142,12 +1157,26 @@ export async function renderVisitDetailPage(id) {
                 Compartilhar
             </button>
             ${whatsappInfo ? '<button type="button" class="whatsapp-button" id="share-whatsapp">Compartilhar no WhatsApp</button>' : ''}
+            ${state.canDelete ? '<button type="button" class="danger-button" id="delete-visit">Apagar</button>' : ''}
         </div>
     `;
 
     document.getElementById('back-visits').addEventListener('click', () => navigateTo('visits'));
     document.getElementById('edit-visit').addEventListener('click', () => navigateTo('visit-edit', { visit }));
     document.getElementById('share-visit-detail').addEventListener('click', () => shareVisit(visit));
+
+    document.getElementById('delete-visit')?.addEventListener('click', async () => {
+        if (!confirm(`Apagar a visita de "${visit.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
+        const result = await callAPI('deleteVisit', { id: visit.id, user: state.currentUser });
+        if (result && result.status === 'success') {
+            state.visits = state.visits.filter((v) => String(v.id) !== String(visit.id));
+            saveCache('visits', state.visits);
+            showToast('Visita apagada.');
+            navigateTo('visits');
+        } else {
+            showToast((result && result.message) || 'Não foi possível apagar a visita.', true);
+        }
+    });
 
     if (whatsappInfo) {
         document.getElementById('share-whatsapp').addEventListener('click', () => {
@@ -1166,7 +1195,12 @@ export async function getVisits(diasParam) {
     const fresh = callAPI('getVisits', { user: state.currentUser, dias: dias, since: sinceTs || undefined })
         .then(function(r) {
             if (r.status === 'success') {
-                const merged = (sinceTs && cached) ? mergeById(cached, r.visits || [], 'ID') : (r.visits || []);
+                let merged = (sinceTs && cached) ? mergeById(cached, r.visits || [], 'ID') : (r.visits || []);
+                // Preserva itens ainda pendentes de sincronizacao (fila offline) — o
+                // servidor ainda nao sabe deles, entao um refresh em segundo plano
+                // nao pode fazer eles sumirem da lista antes de sincronizar.
+                const pending = (state.visits || []).filter((v) => v._pending);
+                if (pending.length) { merged = [...pending, ...merged]; }
                 saveCache(cacheKey, merged);
                 if (typeof r.serverNow === 'number') { setSyncTimestamp(cacheKey, r.serverNow); }
                 state.visitsScope = r.scope || 'all';
@@ -1207,26 +1241,28 @@ export async function getVisitById(id) {
 export async function createVisit(payload) {
     try {
         const tempId = 'temp_' + Date.now();
-        const optimisticVisit = normalizeVisit({
-            ID: tempId,
-            'Prospecção': payload.prospeccao,
-            'Vendedor/Gerente': payload.vendedorGerente,
-            'Data da Visita': payload.dataVisita,
-            'Horário': payload.horario,
-            'Cliente': payload.cliente,
-            'Contato': payload.contato,
-            'Cidade': payload.cidade,
-            'Área de Atuação': payload.areaAtuacao,
-            'Potencial do Cliente': payload.potencialCliente,
-            'Tipo da Visita': (payload.tiposVisita || [payload.tipoVisita])[0] || '',
-            'Gerência': payload.gerencia,
-            'Qual o Veículo?': payload.veiculo,
-            'Observação': payload.observacao
-        });
+        const optimisticVisit = {
+            ...normalizeVisit({
+                ID: tempId,
+                'Prospecção': payload.prospeccao,
+                'Vendedor/Gerente': payload.vendedorGerente,
+                'Data da Visita': payload.dataVisita,
+                'Horário': payload.horario,
+                'Cliente': payload.cliente,
+                'Contato': payload.contato,
+                'Cidade': payload.cidade,
+                'Área de Atuação': payload.areaAtuacao,
+                'Potencial do Cliente': payload.potencialCliente,
+                'Tipo da Visita': (payload.tiposVisita || [payload.tipoVisita])[0] || '',
+                'Gerência': payload.gerencia,
+                'Qual o Veículo?': payload.veiculo,
+                'Observação': payload.observacao
+            })
+        };
         state.visits = [optimisticVisit, ...(state.visits || [])];
         saveCache('visits', state.visits);
 
-        const result = await callAPI('createVisit', payload);
+        const result = await attemptOrQueue('createVisit', payload, { entity: 'visits', tempId });
 
         if (result && result.status === 'success') {
             const realVisit = normalizeVisit(result.visit || (result.visits && result.visits[0]) || payload);
@@ -1235,6 +1271,9 @@ export async function createVisit(payload) {
                 const extras = result.visits.slice(1).map(v => normalizeVisit(v));
                 state.visits = [...extras, ...state.visits];
             }
+        } else if (result && result.status === 'queued') {
+            optimisticVisit._pending = true;
+            state.visits = state.visits.map(v => v.id === tempId ? optimisticVisit : v);
         } else {
             state.visits = state.visits.filter(v => v.id !== tempId);
         }
@@ -1254,6 +1293,60 @@ export async function updateVisit(payload) {
     } catch (error) {
         return { status: 'error', message: error.message };
     }
+}
+
+
+const OBS_SOFT_LIMIT = 500;
+
+export function initObservacaoField() {
+    const textarea = document.getElementById('observacao');
+    const counter = document.getElementById('obs-char-counter');
+    const dictateBtn = document.getElementById('obs-dictate-btn');
+    if (!textarea || !counter) { return; }
+
+    const updateCounter = () => {
+        const len = textarea.value.length;
+        counter.textContent = `${len}/${OBS_SOFT_LIMIT}`;
+        counter.classList.toggle('obs-char-counter-warn', len > OBS_SOFT_LIMIT);
+    };
+    textarea.addEventListener('input', updateCounter);
+    updateCounter();
+
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor || !dictateBtn) { return; }
+
+    dictateBtn.style.display = '';
+    let recognition = null;
+    let recognizing = false;
+
+    const stopUi = () => {
+        recognizing = false;
+        dictateBtn.classList.remove('obs-dictate-active');
+        dictateBtn.textContent = '🎤 Ditar';
+    };
+
+    dictateBtn.addEventListener('click', () => {
+        if (recognizing) { recognition?.stop(); return; }
+        recognition = new SpeechRecognitionCtor();
+        recognition.lang = 'pt-BR';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        recognition.onstart = () => {
+            recognizing = true;
+            dictateBtn.classList.add('obs-dictate-active');
+            dictateBtn.textContent = '🔴 Ouvindo...';
+        };
+        recognition.onerror = stopUi;
+        recognition.onend = stopUi;
+        recognition.onresult = (event) => {
+            const transcript = Array.from(event.results).map((r) => r[0].transcript).join(' ').trim();
+            if (!transcript) { return; }
+            const sep = textarea.value.trim() ? ' ' : '';
+            textarea.value = (textarea.value.trim() + sep + transcript).trim();
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        recognition.start();
+    });
 }
 
 

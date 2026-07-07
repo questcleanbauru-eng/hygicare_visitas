@@ -1,5 +1,6 @@
-import { getSheetObjects, getHeaders, appendRow, updateRow, withCache, clearCacheKeys } from '../sheets.js';
+import { getSheetObjects, getHeaders, appendRow, updateRow, deleteRow, withCache, clearCacheKeys } from '../sheets.js';
 import { requireUser, verifyUser, filterByUser, getNextId, hasSyncColumn, parseDate, formatDateFromInput } from '../common.js';
+import { ensureCanDelete } from './config.js';
 
 export function normalizeVisitRow(row) {
     return {
@@ -139,4 +140,17 @@ export async function handleUpdateVisit(payload) {
     await updateRow('Visitas', rowIndex + 2, buildVisitRow(headers, payload, id));
     clearCacheKeys(['v_' + user.email, 'v_' + user.email + '_3m', 'v_' + user.email + '_all', 'd_' + user.email]);
     return { status: 'success', visit: buildVisitResponse(payload, id) };
+}
+
+export async function handleDeleteVisit(payload) {
+    const user = await ensureCanDelete(payload.user);
+    const id = String(payload.id || '').trim();
+
+    const rows = await getSheetObjects('Visitas');
+    const rowIndex = rows.findIndex((row) => String(row.ID || '') === id);
+    if (rowIndex === -1) throw new Error('Visita nao encontrada para exclusao.');
+
+    await deleteRow('Visitas', rowIndex + 2);
+    clearCacheKeys(['v_' + user.email, 'v_' + user.email + '_3m', 'v_' + user.email + '_all', 'd_' + user.email]);
+    return { status: 'success', message: 'Visita apagada.' };
 }

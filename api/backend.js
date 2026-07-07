@@ -1,9 +1,9 @@
 import { checkRateLimit } from './lib/common.js';
 import { handleLogin, handleForgotPassword } from './lib/handlers/auth.js';
-import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit } from './lib/handlers/visits.js';
-import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal } from './lib/handlers/proposals.js';
+import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit } from './lib/handlers/visits.js';
+import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal } from './lib/handlers/proposals.js';
 import {
-    handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDebugFunilHeaders
+    handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDebugFunilHeaders
 } from './lib/handlers/funil.js';
 import { handleGetDashboardData } from './lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList } from './lib/handlers/admin.js';
@@ -25,14 +25,17 @@ const HANDLERS = {
     getVisitById: handleGetVisitById,
     createVisit: handleCreateVisit,
     updateVisit: handleUpdateVisit,
+    deleteVisit: handleDeleteVisit,
     getProposals: handleGetProposals,
     getProposalById: handleGetProposalById,
     createProposal: handleCreateProposal,
     updateProposal: handleUpdateProposal,
+    deleteProposal: handleDeleteProposal,
     getFunil: handleGetFunil,
     getFunilById: handleGetFunilById,
     createFunil: handleCreateFunil,
     updateFunil: handleUpdateFunil,
+    deleteFunil: handleDeleteFunil,
     debugFunilHeaders: handleDebugFunilHeaders,
     getDashboardData: handleGetDashboardData,
     getAdminData: handleGetAdminData,

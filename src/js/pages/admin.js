@@ -66,15 +66,15 @@ function fillAdminContent(mainContent, data, emailConfig) {
             </div>
             <div id="${prefix}-fields" class="${isActive ? '' : 'email-panel-disabled'}">
                 <div class="form-group">
-                    <label for="${prefix}-dias" style="font-size:0.8rem;color:var(--text-muted)">Dias sem atualização</label>
+                    <label for="${prefix}-dias" style="font-size:0.8rem;color:var(--text-muted-strong)">Dias sem atualização</label>
                     <input type="number" id="${prefix}-dias" value="${escapeHtml(config[`${prefix}_dias`] || '30')}" min="1" max="365">
                 </div>
                 <div class="form-group">
-                    <label for="${prefix}-assunto" style="font-size:0.8rem;color:var(--text-muted)">Assunto</label>
+                    <label for="${prefix}-assunto" style="font-size:0.8rem;color:var(--text-muted-strong)">Assunto</label>
                     <input type="text" id="${prefix}-assunto" value="${escapeHtml(config[`${prefix}_assunto`] || '')}">
                 </div>
                 <div class="form-group">
-                    <label for="${prefix}-corpo" style="font-size:0.8rem;color:var(--text-muted)">Corpo do e-mail</label>
+                    <label for="${prefix}-corpo" style="font-size:0.8rem;color:var(--text-muted-strong)">Corpo do e-mail</label>
                     <div style="margin-bottom:0.4rem;display:flex;flex-wrap:wrap;gap:0.2rem">
                         ${vars.map((v) => `<span class="email-var-badge">{{${v}}}</span>`).join('')}
                     </div>
@@ -151,7 +151,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
         <!-- Tab: Usuários -->
         <div class="admin-tab-panel active card" id="admin-tab-users" style="padding:1rem">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
-                <span style="font-size:0.82rem;color:var(--text-muted)">${data.users.length} usuário(s)</span>
+                <span style="font-size:0.82rem;color:var(--text-muted-strong)">${data.users.length} usuário(s)</span>
                 <button type="button" class="btn-add" id="btn-new-user" style="padding:0.4rem 0.85rem;font-size:0.82rem">+ Novo Usuário</button>
             </div>
             <div class="admin-user-table-wrap">
@@ -178,8 +178,8 @@ function fillAdminContent(mainContent, data, emailConfig) {
                                     <span>${escapeHtml(titleCase(nome))}</span>
                                 </div></td>
                                 <td data-label="Cargo"><span class="profile-badge ${pc}">${escapeHtml(titleCase(perfil))}</span></td>
-                                <td data-label="Região" style="font-size:0.85rem;color:var(--text-muted)">${escapeHtml(gerencia)}</td>
-                                <td data-label="Último acesso" style="font-size:0.85rem;color:var(--text-muted)">${escapeHtml(ultimoLogin || '-')}</td>
+                                <td data-label="Região" style="font-size:0.85rem;color:var(--text-muted-strong)">${escapeHtml(gerencia)}</td>
+                                <td data-label="Último acesso" style="font-size:0.85rem;color:var(--text-muted-strong)">${escapeHtml(ultimoLogin || '-')}</td>
                                 <td data-label="E-mail">
                                     <button type="button" class="admin-icon-btn email-copy-btn" title="${escapeHtml(email)}" aria-label="Copiar e-mail de ${escapeHtml(nome)}" data-email="${escapeHtml(email)}">✉</button>
                                 </td>
@@ -196,7 +196,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
         <!-- Tab: WhatsApp -->
         <div class="admin-tab-panel card" id="admin-tab-whatsapp" style="padding:1rem">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
-                <span style="font-size:0.82rem;color:var(--text-muted)">${data.notifications.length} fluxo(s)</span>
+                <span style="font-size:0.82rem;color:var(--text-muted-strong)">${data.notifications.length} fluxo(s)</span>
                 <button type="button" class="btn-add" id="btn-new-notif" style="padding:0.4rem 0.85rem;font-size:0.82rem">+ Novo Fluxo</button>
             </div>
             <div class="admin-notif-table-wrap">
@@ -245,9 +245,24 @@ function fillAdminContent(mainContent, data, emailConfig) {
                             <option value="60" ${emailConfig.load_dias === '60' ? 'selected' : ''}>60 dias</option>
                             <option value="90" ${emailConfig.load_dias === '90' ? 'selected' : ''}>90 dias</option>
                         </select>
-                        <p style="margin:0.35rem 0 0;font-size:0.8rem;color:var(--text-muted)">Aplica a todas as listas: visitas, propostas, funil</p>
+                        <p style="margin:0.35rem 0 0;font-size:0.8rem;color:var(--text-muted-strong)">Aplica a todas as listas: visitas, propostas, funil</p>
                     </div>
                     <button type="button" id="save-load-dias" class="primary-button" style="margin-top:0.75rem">Salvar</button>
+                </div>
+            </div>
+            <div class="admin-section" style="margin-bottom:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">Permissões</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-permitir-apagar" style="width:auto;accent-color:var(--primary)" ${emailConfig.permitir_apagar_outros === 'true' ? 'checked' : ''}>
+                        Permitir que Gerentes e Vendedores apaguem visitas, propostas e funil
+                    </label>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-permitir-criar" style="width:auto;accent-color:var(--primary)" ${emailConfig.permitir_criar_proposta_funil === 'true' ? 'checked' : ''}>
+                        Permitir que Gerentes e Vendedores criem novas Propostas e Funil
+                    </label>
+                    <p class="helper-text" style="text-align:left;margin:0">Admin sempre pode criar/apagar. Nova Visita continua liberada pra todos. Isso só afeta a criação de Proposta e Funil.</p>
+                    <button type="button" id="save-permissoes" class="primary-button" style="align-self:flex-start">Salvar</button>
                 </div>
             </div>
             <div class="email-warning-card">
@@ -551,6 +566,22 @@ export function bindAdminEvents(data) {
             saveCache('visits', null);
             saveCache('proposals', null);
             saveCache('funil', null);
+        } else {
+            showToast(result.message || 'Não foi possível salvar.', true);
+        }
+    });
+
+    // Permissões (Gerente/Vendedor): apagar registros e criar Proposta/Funil
+    document.getElementById('save-permissoes')?.addEventListener('click', async () => {
+        const permitirApagar = document.getElementById('config-permitir-apagar').checked;
+        const permitirCriar = document.getElementById('config-permitir-criar').checked;
+        const result = await saveEmailConfig({
+            permitir_apagar_outros: permitirApagar ? 'true' : 'false',
+            permitir_criar_proposta_funil: permitirCriar ? 'true' : 'false'
+        });
+        if (result.status === 'success') {
+            showToast('Configuração salva.');
+            saveCache('dashboard', null);
         } else {
             showToast(result.message || 'Não foi possível salvar.', true);
         }

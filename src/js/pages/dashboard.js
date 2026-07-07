@@ -22,6 +22,9 @@ export function fillDashboard(mainContent, data, user) {
 
     const isAdminOrGerente = ['admin','gerente'].includes((user.profile || '').toLowerCase());
 
+    const todayStr = (() => { const d = new Date(); return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear(); })();
+    const todayVisits = recentVisits.filter((v) => v.dataVisita === todayStr);
+
     mainContent.innerHTML = `
         <div class="page-header" style="margin-bottom:1rem">
             <div>
@@ -34,8 +37,19 @@ export function fillDashboard(mainContent, data, user) {
         <!-- Ações rápidas -->
         <div class="dash-actions-bar">
             <button type="button" class="dash-action-primary" id="qa-new-visit">📋 Nova Visita</button>
-            <button type="button" class="dash-action-outline" id="qa-new-proposal">📄 Nova Proposta</button>
-            <button type="button" class="dash-action-outline" id="qa-new-funil">📊 Nova Oportunidade</button>
+            <button type="button" class="dash-action-outline" id="qa-new-proposal" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de propostas."'}>📄 Nova Proposta</button>
+            <button type="button" class="dash-action-outline" id="qa-new-funil" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."'}>📊 Nova Oportunidade</button>
+        </div>
+
+        <!-- Hoje -->
+        <div class="dash-today-card">
+            <div class="section-title-row">
+                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📅 Hoje</h3>
+                <button class="section-link-button" id="go-agenda">Ver agenda completa →</button>
+            </div>
+            ${todayVisits.length === 0
+                ? '<p class="helper-text">Nenhuma visita registrada hoje ainda.</p>'
+                : renderRecentItems(todayVisits, '')}
         </div>
 
         <!-- Métricas -->
@@ -76,8 +90,8 @@ export function fillDashboard(mainContent, data, user) {
             </button>` : ''}
         </div>
 
-        <!-- Gráfico de visitas + meta -->
-        ${(data.visitsByDay && data.visitsByDay.length > 0) ? `
+        <!-- Gráfico de visitas + meta (relatorio gerencial — so admin/gerente) -->
+        ${(isAdminOrGerente && data.visitsByDay && data.visitsByDay.length > 0) ? `
         <p class="dash-section-heading" style="margin-top:1.5rem">Visitas — últimos 7 dias</p>
         <div class="dash-chart-card">
             ${renderVisitsBarChart(data.visitsByDay, data.metaVisitas || 0, data.weeklyVisits || 0)}
@@ -134,6 +148,7 @@ export function fillDashboard(mainContent, data, user) {
         </div>
     `;
 
+    document.getElementById('go-agenda').addEventListener('click',    () => navigateTo('calendar'));
     document.getElementById('go-visits').addEventListener('click',    () => navigateTo('visits'));
     document.getElementById('go-proposals').addEventListener('click', () => navigateTo('proposals'));
     document.getElementById('go-funil').addEventListener('click',     () => navigateTo('funil'));
@@ -199,8 +214,8 @@ export function renderRecentItems(items = [], emptyText, proposalMode = false) {
                 ? `<div class="recent-item recent-item-proposal">
                     <div style="display:flex;flex-direction:column;gap:0.15rem;min-width:0;flex:1">
                         <strong style="font-size:0.88rem">${escapeHtml(item.cliente || '-')}</strong>
-                        ${item.foco ? `<span style="font-size:0.75rem;color:var(--text-muted)">${escapeHtml(item.foco)}</span>` : ''}
-                        <span style="font-size:0.72rem;color:var(--text-muted)">Atualiz.: ${escapeHtml(item.atualizacao || '-')}</span>
+                        ${item.foco ? `<span style="font-size:0.75rem;color:var(--text-muted-strong)">${escapeHtml(item.foco)}</span>` : ''}
+                        <span style="font-size:0.72rem;color:var(--text-muted-strong)">Atualiz.: ${escapeHtml(item.atualizacao || '-')}</span>
                     </div>
                     <span class="dias-atraso-badge">${item.diasAtraso || 0} dias sem atualização</span>
                    </div>`
@@ -209,7 +224,7 @@ export function renderRecentItems(items = [], emptyText, proposalMode = false) {
                         <strong style="font-size:0.88rem">${escapeHtml(item.cliente || '-')}</strong>
                         ${item.tipoVisita ? `<span class="${visitTypeClass(item.tipoVisita)}" style="align-self:flex-start">${escapeHtml(item.tipoVisita)}</span>` : ''}
                     </div>
-                    <span style="font-size:0.75rem;color:var(--text-muted);white-space:nowrap">${escapeHtml(item.dataVisita || '-')}</span>
+                    <span style="font-size:0.75rem;color:var(--text-muted-strong);white-space:nowrap">${escapeHtml(item.dataVisita || '-')}</span>
                    </div>`
             ).join('')}
         </div>

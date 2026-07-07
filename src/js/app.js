@@ -1,4 +1,4 @@
-import { API_URL, loadStoredUser, getDashboardData } from './api.js';
+import { API_URL, loadStoredUser, getDashboardData, initOfflineQueueSync } from './api.js';
 import {
     registerServiceWorker, initOfflineBanner, initSessionExpiry, initNavHoverPrefetch,
     renderNavigation, updateHeaderUI, initSidebarToggle
@@ -28,7 +28,9 @@ export const state = {
     _prevLoginAt: null,
     navLoadAll: null,
     formDirty: false,
-    scrollPositions: {}
+    scrollPositions: {},
+    canDelete: false,
+    canCreateProposalFunil: false
 };
 
 
@@ -53,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     registerServiceWorker();
     initOfflineBanner();
+    initOfflineQueueSync();
     initBackButton();
     initTabVisibilitySync();
     initSessionExpiry();

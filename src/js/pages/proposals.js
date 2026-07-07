@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById } from '../api.js';
+import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
     formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase
@@ -10,18 +10,21 @@ import {
     loadingState, addFabAndScrollTop, openExternal
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles } from '../utils/ui.js';
+import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
 
 export function fillProposalsContent(mainContent, proposals) {
     let normalized = (proposals || []).map(normalizeProposal);
     const isAdmGer = isAdminOrGerenteUser();
     const isAdmin  = (state.currentUser?.profile || '').toLowerCase() === 'admin';
 
+    const newProposalDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de propostas."';
+
     if (normalized.length === 0) {
         const scopeIsLimited = state.proposalsScope && state.proposalsScope !== 'all';
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Propostas</h2></div>
-                <button type="button" class="btn-add" id="btn-new-proposal">+ Nova Proposta</button>
+                <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
             </div>
             ${scopeIsLimited ? `
             <div class="scope-banner scope-days-ctrl">
@@ -36,7 +39,7 @@ export function fillProposalsContent(mainContent, proposals) {
                 ${scopeIsLimited
                     ? `<p>Nenhuma proposta nos últimos ${state.loadDias || 90} dias.</p>`
                     : `<p>Nenhuma proposta registrada ainda.</p>
-                       <button type="button" class="btn-add" id="btn-new-proposal2">+ Nova Proposta</button>`
+                       <button type="button" class="btn-add" id="btn-new-proposal2" ${newProposalDisabledAttr}>+ Nova Proposta</button>`
                 }
             </div>
         `;
@@ -60,14 +63,18 @@ export function fillProposalsContent(mainContent, proposals) {
         ? Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort()
         : [];
 
+    const summaryCount = getSummaryCount();
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Propostas</h2><p class="page-subtitle">${normalized.length} proposta(s)</p></div>
-            <button type="button" class="btn-add" id="btn-new-proposal">+ Nova Proposta</button>
+            <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
         </div>
         <div class="search-bar-wrapper">
             <span class="search-bar-icon">🔍</span>
             <input type="text" id="pf-search" placeholder="Buscar cliente, cidade ou produto..." class="form-input">
+            ${summaryCount > 0 ? `<button type="button" class="csv-export-btn" id="update-summary-btn" title="Compartilhar resumo de atualizações">
+                📤 Resumo <span class="pending-badge" style="margin-left:0.2rem">${summaryCount}</span>
+            </button>` : ''}
             ${isAdmin ? `<button type="button" class="csv-export-btn" id="proposals-csv-btn" title="Exportar CSV">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v13M8 11l4 4 4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
                 CSV
@@ -223,9 +230,9 @@ export function fillProposalsContent(mainContent, proposals) {
                     <button type="button" class="proposal-card ${p.atrasada ? 'proposal-card-alert' : ''}" data-proposal-id="${escapeHtml(p.id)}">
                         <div class="visit-card-header">
                             <strong>${escapeHtml(p.cliente || 'Cliente não informado')}</strong>
-                            <span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>
+                            ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
                         </div>
-                        ${p.foco ? `<div style="font-size:0.78rem;color:var(--text-muted);margin:0.12rem 0">${escapeHtml(p.foco)}</div>` : ''}
+                        ${p.foco ? `<div style="font-size:0.78rem;color:var(--text-muted-strong);margin:0.12rem 0">${escapeHtml(p.foco)}</div>` : ''}
                         <div class="proposal-meta">
                             <span>${escapeHtml(p.vendedor || '-')}</span>
                             <span>${escapeHtml(p.cidade || '-')}</span>
@@ -290,6 +297,12 @@ export function fillProposalsContent(mainContent, proposals) {
             { key: 'vendedor', label: 'Vendedor' }
         ]);
     });
+    document.getElementById('update-summary-btn')?.addEventListener('click', () => {
+        if (confirm('Compartilhar o resumo de atualizações no WhatsApp e limpar a lista?')) {
+            shareSummaryAndClear();
+            navigateTo('proposals');
+        }
+    });
     renderFiltered();
 
     const overdueCount = normalized.filter((p) => p.atrasada).length;
@@ -309,7 +322,10 @@ export async function renderProposalsPage() {
         state.proposalsScope = cachedAll ? 'all' : '3m';
         state.proposals = cachedProposals;
         fillProposalsContent(mainContent, state.proposals);
-        addFabAndScrollTop('Nova Proposta', () => navigateTo('proposal-new'));
+        addFabAndScrollTop('Nova Proposta', () => {
+            if (state.canCreateProposalFunil) { navigateTo('proposal-new'); }
+            else { showToast('Peça ao administrador para liberar a criação de propostas.', true); }
+        });
         initPullToRefresh(() => { saveCache('proposals', null); saveCache('proposals_all', null); navigateTo('proposals'); });
         getProposals(loadAll || cachedAll ? 0 : 3);
         return;
@@ -323,7 +339,10 @@ export async function renderProposalsPage() {
     }
     state.proposals = result.proposals || [];
     fillProposalsContent(mainContent, state.proposals);
-    addFabAndScrollTop('Nova Proposta', () => navigateTo('proposal-new'));
+    addFabAndScrollTop('Nova Proposta', () => {
+        if (state.canCreateProposalFunil) { navigateTo('proposal-new'); }
+        else { showToast('Peça ao administrador para liberar a criação de propostas.', true); }
+    });
     initPullToRefresh(() => { saveCache('proposals', null); saveCache('proposals_all', null); navigateTo('proposals'); });
 }
 
@@ -385,6 +404,7 @@ export async function renderProposalDetailPage(id) {
                 Atualizar Proposta
             </button>
         </div>
+        ${state.canDelete ? `<div style="margin-top:0.75rem"><button type="button" class="danger-button" id="delete-proposal">Apagar</button></div>` : ''}
     `;
 
     document.getElementById('back-proposals').addEventListener('click', () => navigateTo('proposals'));
@@ -392,6 +412,18 @@ export async function renderProposalDetailPage(id) {
     document.getElementById('share-proposal-whatsapp').addEventListener('click', () => {
         const text = `*Proposta - ${proposal.cliente}*\nStatus: ${proposal.status}\nFoco: ${proposal.foco || '-'}\nCidade: ${proposal.cidade || '-'}\nÚltima atualização: ${proposal.atualizacao || '-'}\nObs: ${proposal.obs || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
+    });
+    document.getElementById('delete-proposal')?.addEventListener('click', async () => {
+        if (!confirm(`Apagar a proposta de "${proposal.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
+        const result = await callAPI('deleteProposal', { id: proposal.id, user: state.currentUser });
+        if (result && result.status === 'success') {
+            state.proposals = state.proposals.filter((p) => String(p.id) !== String(proposal.id));
+            saveCache('proposals', state.proposals);
+            showToast('Proposta apagada.');
+            navigateTo('proposals');
+        } else {
+            showToast((result && result.message) || 'Não foi possível apagar a proposta.', true);
+        }
     });
 }
 
@@ -461,12 +493,21 @@ export async function renderProposalFormPage(proposal) {
         showToast('Proposta atualizada.');
 
         // API call in background
-        callAPI('updateProposal', { id: proposalId, status: newStatus, obs: newObs, user: state.currentUser })
+        attemptOrQueue('updateProposal', { id: proposalId, status: newStatus, obs: newObs, user: state.currentUser },
+            { entity: 'proposals', tempId: proposalId })
             .then((result) => {
                 if (result && result.status === 'success') {
                     saveCache('proposals', null);
                     saveCache('dashboard', null);
                     state.proposals = [];
+                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, status: newStatus });
+                } else if (result && result.status === 'queued') {
+                    if (idx >= 0) {
+                        state.proposals[idx] = { ...state.proposals[idx], _pending: true };
+                        saveCache('proposals', state.proposals);
+                    }
+                    showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, status: newStatus });
                 } else {
                     // Revert on failure
                     if (idx >= 0 && original) {
@@ -613,21 +654,26 @@ export async function renderProposalCreatePage() {
         showToast('Proposta criada com sucesso.');
         navigateTo('proposals');
 
-        createProposal({ cliente: clienteVal, cidade: cidadeVal, foco: focoVal,
-            produtos: produtosVal, status: statusVal, obs: obsVal })
+        attemptOrQueue('createProposal', { cliente: clienteVal, cidade: cidadeVal, foco: focoVal,
+            produtos: produtosVal, status: statusVal, obs: obsVal, user: state.currentUser },
+            { entity: 'proposals', tempId: tempPId })
             .then(result => {
                 if (result && result.status === 'success') {
                     const real = normalizeProposal(result.proposal || optimisticProposal);
-                    state.proposals = state.proposals.map(p => String(p.Id || p.id) === tempPId ? real : p);
+                    state.proposals = state.proposals.map(p => String(p.id) === tempPId ? real : p);
                     saveCache('proposals', state.proposals);
+                } else if (result && result.status === 'queued') {
+                    state.proposals = state.proposals.map(p => String(p.id) === tempPId ? { ...optimisticProposal, _pending: true } : p);
+                    saveCache('proposals', state.proposals);
+                    showToast('Sem conexão — a proposta foi salva no aparelho e será enviada quando a conexão voltar.');
                 } else {
-                    state.proposals = state.proposals.filter(p => String(p.Id || p.id) !== tempPId);
+                    state.proposals = state.proposals.filter(p => String(p.id) !== tempPId);
                     saveCache('proposals', state.proposals);
                     showToast((result && result.message) || 'Erro ao criar proposta.', true);
                 }
             })
             .catch(() => {
-                state.proposals = state.proposals.filter(p => String(p.Id || p.id) !== tempPId);
+                state.proposals = state.proposals.filter(p => String(p.id) !== tempPId);
                 saveCache('proposals', state.proposals);
                 showToast('Erro ao criar proposta.', true);
             });
@@ -643,7 +689,9 @@ export async function getProposals(diasParam) {
     const fresh = callAPI('getProposals', { user: state.currentUser, dias: dias, since: sinceTs || undefined })
         .then(function(r) {
             if (r.status === 'success') {
-                const merged = (sinceTs && cached) ? mergeById(cached, r.proposals || [], 'Id') : (r.proposals || []);
+                let merged = (sinceTs && cached) ? mergeById(cached, r.proposals || [], 'Id') : (r.proposals || []);
+                const pending = (state.proposals || []).filter((p) => p._pending);
+                if (pending.length) { merged = [...pending, ...merged]; }
                 saveCache(cacheKey, merged);
                 if (typeof r.serverNow === 'number') { setSyncTimestamp(cacheKey, r.serverNow); }
                 state.proposalsScope = r.scope || 'all';
@@ -681,26 +729,6 @@ export async function getProposalById(id) {
 }
 
 
-export async function createProposal(payload) {
-    try {
-        return await callAPI('createProposal', { ...payload, user: state.currentUser });
-    } catch (error) {
-        return { status: 'error', message: error.message };
-    }
-}
-
-
-export async function updateProposal(payload) {
-    try {
-        const result = await callAPI('updateProposal', payload);
-        if (result.status === 'success') { saveCache('proposals', null); saveCache('dashboard', null); state.proposals = []; }
-        return result;
-    } catch (error) {
-        return { status: 'error', message: error.message };
-    }
-}
-
-
 export function openInlineStatusEditor(pill, proposalId, currentStatus) {
     document.querySelector('.inline-status-editor')?.remove();
     const statuses = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
@@ -730,7 +758,24 @@ export function openInlineStatusEditor(pill, proposalId, currentStatus) {
             pill.className = proposalStatusClass(newStatus, false) + ' status-pill-editable';
             pill.dataset.currentStatus = newStatus;
             showToast('Status atualizado.');
-            callAPI('updateProposal', { id: proposalId, status: newStatus, obs: currentObs, user: state.currentUser })
+            attemptOrQueue('updateProposal', { id: proposalId, status: newStatus, obs: currentObs, user: state.currentUser },
+                { entity: 'proposals', tempId: String(proposalId) })
+                .then((result) => {
+                    const clienteNome = original ? (original.cliente || original.Cliente || '') : '';
+                    if (result && result.status === 'queued') {
+                        if (idx >= 0) {
+                            state.proposals[idx] = { ...state.proposals[idx], _pending: true };
+                            saveCache('proposals', state.proposals);
+                        }
+                        showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, status: newStatus });
+                    } else if (!result || result.status !== 'success') {
+                        if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
+                        showToast((result && result.message) || 'Erro ao atualizar status.', true);
+                    } else {
+                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, status: newStatus });
+                    }
+                })
                 .catch(() => {
                     if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
                     showToast('Erro ao atualizar status.', true);

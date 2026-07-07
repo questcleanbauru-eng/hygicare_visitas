@@ -24,7 +24,8 @@ export function normalizeVisit(visit) {
         tipoVisita: visit['Tipo da Visita'] || visit.tipoVisita || '',
         gerencia: visit['Gerência'] || visit['Gerencia'] || visit.gerencia || '',
         veiculo: visit['Qual o Veículo?'] || visit['Qual o Veiculo?'] || visit.veiculo || 'Particular',
-        observacao: visit['Observação'] || visit['Observacao'] || visit.observacao || ''
+        observacao: visit['Observação'] || visit['Observacao'] || visit.observacao || '',
+        _pending: !!visit._pending
     };
 }
 
@@ -48,7 +49,8 @@ export function normalizeProposal(proposal) {
         dataLimite: proposal['Data Limite'] || proposal.dataLimite || '',
         email: proposal['E-mail'] || proposal.email || '',
         atrasada: (proposal.Status || proposal.status || '').toUpperCase() === 'AGUARDANDO' && daysWithoutUpdate > 30,
-        diasAtraso: daysWithoutUpdate
+        diasAtraso: daysWithoutUpdate,
+        _pending: !!proposal._pending
     };
 }
 

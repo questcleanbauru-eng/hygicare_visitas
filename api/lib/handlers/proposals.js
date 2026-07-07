@@ -1,5 +1,6 @@
-import { getSheetObjects, getHeaders, appendRow, updateRow, withCache, clearCacheKeys } from '../sheets.js';
+import { getSheetObjects, getHeaders, appendRow, updateRow, deleteRow, withCache, clearCacheKeys } from '../sheets.js';
 import { requireUser, verifyUser, filterByUser, getNextId, hasSyncColumn, parseDate, formatDate, formatTime } from '../common.js';
+import { ensureCanDelete, ensureCanCreateProposalFunil } from './config.js';
 
 export function normalizeProposalRow(row) {
     return {
@@ -57,7 +58,7 @@ export async function handleGetProposalById(payload) {
 }
 
 export async function handleCreateProposal(payload) {
-    const user = await verifyUser(payload.user);
+    const user = await ensureCanCreateProposalFunil(payload.user);
     if (!payload.cliente) throw new Error('Cliente e obrigatorio.');
 
     const headers = await getHeaders('Propostas');
@@ -120,4 +121,17 @@ export async function handleUpdateProposal(payload) {
     await updateRow('Propostas', rowIndex + 2, headers.map((h) => (current[h] !== undefined ? current[h] : '')));
     clearCacheKeys(['p_' + user.email, 'p_' + user.email + '_3m', 'p_' + user.email + '_all', 'd_' + user.email]);
     return { status: 'success', proposal: current };
+}
+
+export async function handleDeleteProposal(payload) {
+    const user = await ensureCanDelete(payload.user);
+    const id = String(payload.id || '').trim();
+
+    const rows = await getSheetObjects('Propostas');
+    const rowIndex = rows.findIndex((row) => String(row.Id || '') === id);
+    if (rowIndex === -1) throw new Error('Proposta nao encontrada para exclusao.');
+
+    await deleteRow('Propostas', rowIndex + 2);
+    clearCacheKeys(['p_' + user.email, 'p_' + user.email + '_3m', 'p_' + user.email + '_all', 'd_' + user.email]);
+    return { status: 'success', message: 'Proposta apagada.' };
 }

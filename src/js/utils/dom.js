@@ -244,6 +244,22 @@ export function hideRefreshIndicator() {
 }
 
 
+export function updatePendingSyncBanner(count) {
+    let el = document.getElementById('pending-sync-banner');
+    if (!count || count <= 0) {
+        el?.classList.remove('visible');
+        return;
+    }
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'pending-sync-banner';
+        document.body.appendChild(el);
+    }
+    el.innerHTML = `<span class="pending-sync-spinner"></span> ${count} registro${count !== 1 ? 's' : ''} aguardando conexão para sincronizar`;
+    el.classList.add('visible');
+}
+
+
 export function showToast(message, isError = false, undoFn = null) {
     let toast = document.getElementById('app-toast');
     if (!toast) {

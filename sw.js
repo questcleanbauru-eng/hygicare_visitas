@@ -5,11 +5,19 @@ const PRECACHE_URLS = __PRECACHE_URLS__;
 const CACHE_NAME = 'app-visitas-' + CACHE_VERSION;
 
 self.addEventListener('install', (event) => {
+    // Sem skipWaiting automático — o novo SW fica "esperando" até o usuário
+    // confirmar a atualização (banner "Nova versão disponível"), pra não
+    // recarregar a página sozinho no meio de um formulário.
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => cache.addAll(PRECACHE_URLS))
-            .then(() => self.skipWaiting())
     );
+});
+
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
 
 self.addEventListener('activate', (event) => {

@@ -71,7 +71,7 @@ export function renderNavigation() {
         allNavItems.push({ id: 'admin', label: 'Admin', icon: NAV_ICON_SVG.admin });
     }
 
-    const mobileItems = allNavItems.filter((i) => ['dashboard','visits','proposals','funil','admin'].includes(i.id));
+    const mobileItems = allNavItems.filter((i) => ['dashboard','visits','calendar','proposals','funil','admin'].includes(i.id));
     const navItems = isDesktop ? allNavItems : mobileItems;
 
     const user = state.currentUser;
@@ -380,13 +380,59 @@ export function openGlobalSearch() {
 // ── Inline status editor (proposals) ────────────────────────────
 
 export function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
-        // When a new SW takes over, reload the page so stale cached JS doesn't linger
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            window.location.reload();
+    if (!('serviceWorker' in navigator)) { return; }
+
+    let refreshing = false;
+    // When the new SW takes over (after the user confirms via o banner), reload
+    // so stale cached JS/CSS don't linger.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) { return; }
+        refreshing = true;
+        window.location.reload();
+    });
+
+    navigator.serviceWorker.register('./sw.js').then((registration) => {
+        const notifyIfWaiting = () => {
+            if (registration.waiting && navigator.serviceWorker.controller) {
+                showUpdateBanner(registration.waiting);
+            }
+        };
+        notifyIfWaiting();
+
+        registration.addEventListener('updatefound', () => {
+            const installing = registration.installing;
+            if (!installing) { return; }
+            installing.addEventListener('statechange', () => {
+                if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                    showUpdateBanner(installing);
+                }
+            });
         });
-    }
+
+        // Verifica se ha uma versao nova sempre que a aba volta a ficar visivel
+        // (usuario reabre o app depois de um tempo) — sem isso, uma aba PWA
+        // deixada aberta o dia todo nunca percebe um novo deploy sozinha.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') { registration.update().catch(() => {}); }
+        });
+    }).catch(() => {});
+}
+
+
+function showUpdateBanner(worker) {
+    let banner = document.getElementById('update-banner');
+    if (banner) { return; }
+    banner = document.createElement('div');
+    banner.id = 'update-banner';
+    banner.innerHTML = `
+        <span>🔄 Nova versão disponível</span>
+        <button type="button" id="update-banner-btn">Atualizar agora</button>
+    `;
+    document.body.appendChild(banner);
+    requestAnimationFrame(() => banner.classList.add('visible'));
+    document.getElementById('update-banner-btn').addEventListener('click', () => {
+        worker.postMessage({ type: 'SKIP_WAITING' });
+    });
 }
 
 

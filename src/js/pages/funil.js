@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById } from '../api.js';
+import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay
@@ -10,17 +10,20 @@ import {
     openExternal, initializeSearchableInput
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles } from '../utils/ui.js';
+import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
 
 export function fillFunilContent(mainContent, funil) {
     let funilData = funil || [];
     const isAdmGer = isAdminOrGerenteUser();
+
+    const newFunilDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."';
 
     if (funilData.length === 0) {
         const scopeIsLimited = state.funilScope && state.funilScope !== 'all';
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Funil de Vendas</h2></div>
-                <button type="button" class="btn-add" id="btn-new-funil">+ Novo</button>
+                <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Novo</button>
             </div>
             ${scopeIsLimited ? `
             <div class="scope-banner scope-days-ctrl">
@@ -35,7 +38,7 @@ export function fillFunilContent(mainContent, funil) {
                 ${scopeIsLimited
                     ? `<p>Nenhum registro nos últimos ${state.loadDias || 90} dias.</p>`
                     : `<p>Nenhum registro encontrado no funil.</p>
-                       <button type="button" class="btn-add" id="btn-new-funil-empty">+ Novo</button>`
+                       <button type="button" class="btn-add" id="btn-new-funil-empty" ${newFunilDisabledAttr}>+ Novo</button>`
                 }
                 <button type="button" class="secondary-button" id="funil-force-refresh" style="margin-top:0.5rem">↺ Recarregar</button>
             </div>
@@ -66,14 +69,20 @@ export function fillFunilContent(mainContent, funil) {
         ? Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort()
         : [];
 
+    const summaryCount = getSummaryCount();
     mainContent.innerHTML = `
         <div class="page-header">
             <div>
                 <h2>Funil de Vendas</h2>
                 <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
             </div>
-            <button type="button" class="btn-add" id="btn-new-funil">+ Novo</button>
+            <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Novo</button>
         </div>
+        ${summaryCount > 0 ? `<div style="margin-bottom:0.75rem">
+            <button type="button" class="csv-export-btn" id="update-summary-btn" title="Compartilhar resumo de atualizações">
+                📤 Resumo <span class="pending-badge" style="margin-left:0.2rem">${summaryCount}</span>
+            </button>
+        </div>` : ''}
         <div class="card funil-filter-card">
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
@@ -104,6 +113,14 @@ export function fillFunilContent(mainContent, funil) {
                         <option value="">Todos</option>
                         <option value="SIM">Sim</option>
                         <option value="NAO">Não</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="funil-filter-atrasado">Situação</label>
+                    <select id="funil-filter-atrasado">
+                        <option value="">Todas</option>
+                        <option value="sim">Precisam de atualização</option>
+                        <option value="nao">Em dia</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -173,6 +190,7 @@ export function fillFunilContent(mainContent, funil) {
         const statusFilter = document.getElementById('funil-filter-status')?.value || '';
         const cidadeFilter = document.getElementById('funil-filter-cidade')?.value || '';
         const ativoFilter  = document.getElementById('funil-filter-ativo')?.value || '';
+        const atrasadoFilter = document.getElementById('funil-filter-atrasado')?.value || '';
         const period       = document.getElementById('funil-filter-period')?.value || '';
         const vendorFilter = document.getElementById('funil-filter-vendor')?.value || '';
         const vlMin        = Number(document.getElementById('funil-filter-vl')?.value || 0);
@@ -183,11 +201,15 @@ export function fillFunilContent(mainContent, funil) {
             const matchStatus  = !statusFilter || f.status === statusFilter;
             const matchCidade  = !cidadeFilter || f.cidade === cidadeFilter;
             const matchAtivo   = !ativoFilter || (ativoFilter === 'SIM' ? String(f.ativo).toLowerCase() === 'sim' : String(f.ativo).toLowerCase() !== 'sim');
+            const isOverdue    = String(f.ativo || '').toLowerCase() === 'sim'
+                && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
+                && calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30;
+            const matchAtrasado = !atrasadoFilter || (atrasadoFilter === 'sim' ? isOverdue : !isOverdue);
             const matchVendor  = !vendorFilter || f.vendedor === vendorFilter;
             const atuDate      = parseDisplayDate(f.atualizacao) || parseDisplayDate(f.data);
             const matchPeriod  = !period || (atuDate && atuDate >= periodStart && atuDate <= periodEnd);
             const matchVl      = !vlMin || Number(String(f.vlMensal).replace(/[^\d.]/g, '') || 0) >= vlMin;
-            return matchSearch && matchStatus && matchCidade && matchAtivo && matchVendor && matchPeriod && matchVl;
+            return matchSearch && matchStatus && matchCidade && matchAtivo && matchAtrasado && matchVendor && matchPeriod && matchVl;
         });
 
         const container = document.getElementById('funil-list-container');
@@ -204,11 +226,15 @@ export function fillFunilContent(mainContent, funil) {
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
 
-        container.innerHTML = `<div class="visits-list">${sorted.map((f) => `
-            <button type="button" class="proposal-card funil-card" data-funil-id="${escapeHtml(f.id)}">
+        container.innerHTML = `<div class="visits-list">${sorted.map((f) => {
+            const overdue = String(f.ativo || '').toLowerCase() === 'sim'
+                && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
+                && calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30;
+            return `
+            <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}" data-funil-id="${escapeHtml(f.id)}">
                 <div class="visit-card-header">
                     <strong>${escapeHtml(f.cliente || 'Cliente não informado')}</strong>
-                    <span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())}">${escapeHtml(f.status || '-')}</span>
+                    ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())}">${escapeHtml(f.status || '-')}</span>`}
                 </div>
                 <div class="proposal-meta">
                     <span>${escapeHtml(f.foco || '-')}</span>
@@ -219,8 +245,10 @@ export function fillFunilContent(mainContent, funil) {
                     <span>${escapeHtml(f.atualizacao || f.data || '-')}</span>
                 </div>
                 ${f.vlMensal ? `<div class="funil-value">R$ ${escapeHtml(f.vlMensal)}</div>` : ''}
+                ${overdue ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
             </button>
-        `).join('')}</div>`;
+        `;
+        }).join('')}</div>`;
 
         container.querySelectorAll('[data-funil-id]').forEach((btn) => {
             btn.addEventListener('click', () => navigateTo('funil-detail', { id: btn.dataset.funilId }));
@@ -229,7 +257,7 @@ export function fillFunilContent(mainContent, funil) {
 
     const _debouncedFunilFilter = debounce(renderFiltered, 250);
     ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
-     'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'].forEach((id) => {
+     'funil-filter-atrasado', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'].forEach((id) => {
         const el = document.getElementById(id);
         const isText = ['funil-filter-search', 'funil-filter-vl'].includes(id);
         el?.addEventListener(isText ? 'input' : 'change', isText ? _debouncedFunilFilter : renderFiltered);
@@ -260,6 +288,12 @@ export function fillFunilContent(mainContent, funil) {
     });
 
     document.getElementById('btn-new-funil')?.addEventListener('click', () => navigateTo('funil-new'));
+    document.getElementById('update-summary-btn')?.addEventListener('click', () => {
+        if (confirm('Compartilhar o resumo de atualizações no WhatsApp e limpar a lista?')) {
+            shareSummaryAndClear();
+            navigateTo('funil');
+        }
+    });
 
     renderFiltered();
 }
@@ -279,7 +313,10 @@ export async function renderFunilPage() {
         fillFunilContent(mainContent, state.funil);
         const overdueCountCached = state.funil.filter((f) => calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30).length;
         updateFunilBadge(overdueCountCached);
-        addFabAndScrollTop('Nova Oportunidade', () => navigateTo('funil-new'));
+        addFabAndScrollTop('Nova Oportunidade', () => {
+            if (state.canCreateProposalFunil) { navigateTo('funil-new'); }
+            else { showToast('Peça ao administrador para liberar a criação de oportunidades.', true); }
+        });
         initPullToRefresh(() => { saveCache('funil', null); saveCache('funil_all', null); navigateTo('funil'); });
         getFunil(loadAll || cachedAll ? 0 : 3);
         return;
@@ -310,7 +347,10 @@ export async function renderFunilPage() {
         return days > 30;
     }).length;
     updateFunilBadge(overdueCount);
-    addFabAndScrollTop('Nova Oportunidade', () => navigateTo('funil-new'));
+    addFabAndScrollTop('Nova Oportunidade', () => {
+        if (state.canCreateProposalFunil) { navigateTo('funil-new'); }
+        else { showToast('Peça ao administrador para liberar a criação de oportunidades.', true); }
+    });
     initPullToRefresh(() => { saveCache('funil', null); saveCache('funil_all', null); navigateTo('funil'); });
 }
 
@@ -480,12 +520,16 @@ export async function renderFunilCreatePage() {
         showToast('Funil criado com sucesso.');
         navigateTo('funil');
 
-        createFunil(funilPayload)
+        attemptOrQueue('createFunil', { ...funilPayload, user: state.currentUser }, { entity: 'funil', tempId: tempFCId })
             .then(result => {
                 if (result && result.status === 'success') {
                     const real = result.funil || optimisticFunil;
                     state.funil = state.funil.map(f => f.id === tempFCId ? real : f);
                     saveCache('funil', state.funil);
+                } else if (result && result.status === 'queued') {
+                    state.funil = state.funil.map(f => f.id === tempFCId ? { ...optimisticFunil, _pending: true } : f);
+                    saveCache('funil', state.funil);
+                    showToast('Sem conexão — o registro foi salvo no aparelho e será enviado quando a conexão voltar.');
                 } else {
                     state.funil = state.funil.filter(f => f.id !== tempFCId);
                     saveCache('funil', state.funil);
@@ -556,6 +600,7 @@ export async function renderFunilDetailPage(id) {
                 Atualizar Oportunidade
             </button>
         </div>
+        ${state.canDelete ? `<div style="margin-top:0.75rem"><button type="button" class="danger-button" id="delete-funil">Apagar</button></div>` : ''}
     `;
 
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => navigateTo('funil')));
@@ -563,6 +608,18 @@ export async function renderFunilDetailPage(id) {
     document.getElementById('share-funil-whatsapp').addEventListener('click', () => {
         const text = `*Funil - ${f.cliente}*\nStatus: ${f.status}\nFoco: ${f.foco || '-'}\nCidade: ${f.cidade || '-'}\nVL Mensal: ${f.vlMensal ? 'R$ ' + f.vlMensal : '-'}\nAtualização: ${f.atualizacao || f.data || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
+    });
+    document.getElementById('delete-funil')?.addEventListener('click', async () => {
+        if (!confirm(`Apagar o registro de "${f.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
+        const result = await callAPI('deleteFunil', { id: f.id, user: state.currentUser });
+        if (result && result.status === 'success') {
+            state.funil = state.funil.filter((item) => String(item.id) !== String(f.id));
+            saveCache('funil', state.funil);
+            showToast('Registro apagado.');
+            navigateTo('funil');
+        } else {
+            showToast((result && result.message) || 'Não foi possível apagar o registro.', true);
+        }
     });
 }
 
@@ -644,12 +701,21 @@ export async function renderFunilFormPage(funil) {
         showToast('Funil atualizado com sucesso.');
         navigateTo('funil-detail', { id: f.id });
 
-        callAPI('updateFunil', { id: f.id, status: newFStatus, vlMensal: newFVl,
-            conclusao: newFConcl, infImportantes: newFInf, comentarios: newFComent, user: state.currentUser })
+        attemptOrQueue('updateFunil', { id: f.id, status: newFStatus, vlMensal: newFVl,
+            conclusao: newFConcl, infImportantes: newFInf, comentarios: newFComent, user: state.currentUser },
+            { entity: 'funil', tempId: f.id })
             .then(result => {
                 if (result && result.status === 'success') {
                     state.funil = state.funil.map(item => String(item.id) === String(f.id) ? result.funil : item);
                     saveCache('funil', state.funil);
+                    trackUpdate('funil', { id: f.id, cliente: f.cliente, status: newFStatus });
+                } else if (result && result.status === 'queued') {
+                    if (fIdx >= 0) {
+                        state.funil[fIdx] = { ...state.funil[fIdx], _pending: true };
+                        saveCache('funil', state.funil);
+                    }
+                    showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                    trackUpdate('funil', { id: f.id, cliente: f.cliente, status: newFStatus });
                 } else {
                     if (fIdx >= 0 && fOriginal) { state.funil[fIdx] = fOriginal; saveCache('funil', state.funil); }
                     showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
@@ -675,7 +741,9 @@ export async function getFunil(diasParam) {
         .then(function(r) {
             if (r.status === 'success') {
                 const incoming = r.funil || r.data || [];
-                const merged = (sinceTs && cached) ? mergeById(cached, incoming, 'id') : incoming;
+                let merged = (sinceTs && cached) ? mergeById(cached, incoming, 'id') : incoming;
+                const pending = (state.funil || []).filter((f) => f._pending);
+                if (pending.length) { merged = [...pending, ...merged]; }
                 saveCache(cacheKey, merged);
                 if (typeof r.serverNow === 'number') { setSyncTimestamp(cacheKey, r.serverNow); }
                 state.funilScope = r.scope || 'all';
@@ -711,22 +779,4 @@ export async function getFunilById(id) {
 }
 
 
-export async function createFunil(payload) {
-    try {
-        return await callAPI('createFunil', { ...payload, user: state.currentUser });
-    } catch (error) {
-        return { status: 'error', message: error.message };
-    }
-}
-
-
-export async function updateFunil(payload) {
-    try {
-        const result = await callAPI('updateFunil', payload);
-        if (result.status === 'success') { saveCache('funil', null); state.funil = []; }
-        return result;
-    } catch (error) {
-        return { status: 'error', message: error.message };
-    }
-}
 
