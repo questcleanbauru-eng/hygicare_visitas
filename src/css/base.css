@@ -122,6 +122,13 @@ body {
 
 .header-notif-btn:hover { background: #f1f5f9; color: var(--text); }
 
+#header-refresh-btn {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+#header-refresh-btn:hover { background: #dbeafe; color: var(--primary-dark); }
+
 #header-refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
 
 .header-notif-dot {

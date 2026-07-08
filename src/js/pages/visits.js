@@ -616,12 +616,18 @@ export async function renderVisitFormPage(visit = null) {
         </div>
         <form id="visit-form" class="card form-card form-layout visit-form-layout">
             <input type="hidden" id="visit-id" value="${escapeHtml(normalizedVisit ? normalizedVisit.id : '')}">
-            <div class="form-group">
-                <label for="prospeccao">Prospecção</label>
-                <select id="prospeccao" required>
-                    <option value="Sim" ${currentProspection === 'Sim' ? 'selected' : ''}>Sim</option>
-                    <option value="Nao" ${currentProspection === 'Nao' ? 'selected' : ''}>Não</option>
-                </select>
+            <div class="form-group full-width">
+                <label>Prospecção</label>
+                <div class="radio-group" id="prospeccao-group">
+                    <label class="radio-pill">
+                        <input type="radio" name="prospeccao" value="Sim" ${currentProspection === 'Sim' ? 'checked' : ''}>
+                        <span>Sim</span>
+                    </label>
+                    <label class="radio-pill">
+                        <input type="radio" name="prospeccao" value="Nao" ${currentProspection === 'Nao' ? 'checked' : ''}>
+                        <span>Não</span>
+                    </label>
+                </div>
             </div>
 
             <div class="form-group client-select-group">
@@ -638,41 +644,41 @@ export async function renderVisitFormPage(visit = null) {
                 </div>
             </div>
 
-            <div class="form-group readonly-group">
+            <div class="form-group readonly-group full-width">
                 <label for="vendedor-gerente">Vendedor / Gerente</label>
                 <input type="text" id="vendedor-gerente" value="${escapeHtml(state.currentUser.name || '')}" readonly>
             </div>
-            <div class="form-group readonly-group">
-                <label for="gerencia">Gerencia</label>
-                <input type="text" id="gerencia" value="${escapeHtml(state.currentUser.gerencia || '')}" readonly>
-            </div>
-            <div class="form-group">
-                <label for="data-visita">Data da Visita</label>
-                <div class="date-input-group">
-                    <input type="text" id="data-visita" value="${escapeHtml(normalizedVisit ? normalizedVisit.dataVisita : formatDateForDisplay(now))}" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" required>
-                    <button type="button" class="date-picker-button" id="open-date-picker" aria-label="Abrir calendario">📅</button>
-                    <div class="picker-menu" id="data-visita-menu">
-                        <input type="date" id="data-visita-picker" class="picker-native-input" value="${escapeHtml(normalizedVisit ? (normalizedVisit.dataVisitaInput || formatInputDateFromDisplay(normalizedVisit.dataVisita)) : formatDateForInput(now))}">
+            <div class="form-row-pair full-width">
+                <div class="form-group">
+                    <label for="data-visita">Data da Visita</label>
+                    <div class="date-input-group">
+                        <input type="text" id="data-visita" value="${escapeHtml(normalizedVisit ? normalizedVisit.dataVisita : formatDateForDisplay(now))}" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" required>
+                        <button type="button" class="date-picker-button" id="open-date-picker" aria-label="Abrir calendario">📅</button>
+                        <div class="picker-menu" id="data-visita-menu">
+                            <input type="date" id="data-visita-picker" class="picker-native-input" value="${escapeHtml(normalizedVisit ? (normalizedVisit.dataVisitaInput || formatInputDateFromDisplay(normalizedVisit.dataVisita)) : formatDateForInput(now))}">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="horario">Horário</label>
+                    <div class="date-input-group">
+                        <input type="text" id="horario" value="${escapeHtml(normalizedVisit ? normalizedVisit.horario : formatTimeForInput(now))}" placeholder="hh:mm" inputmode="numeric" maxlength="5" required>
+                        <button type="button" class="date-picker-button" id="open-time-picker" aria-label="Abrir horario">🕒</button>
+                        <div class="picker-menu" id="horario-menu">
+                            <input type="time" id="horario-picker" class="picker-native-input" value="${escapeHtml(normalizedVisit ? normalizedVisit.horario : formatTimeForInput(now))}">
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="form-group">
-                <label for="horario">Horário</label>
-                <div class="date-input-group">
-                    <input type="text" id="horario" value="${escapeHtml(normalizedVisit ? normalizedVisit.horario : formatTimeForInput(now))}" placeholder="hh:mm" inputmode="numeric" maxlength="5" required>
-                    <button type="button" class="date-picker-button" id="open-time-picker" aria-label="Abrir horario">🕒</button>
-                    <div class="picker-menu" id="horario-menu">
-                        <input type="time" id="horario-picker" class="picker-native-input" value="${escapeHtml(normalizedVisit ? normalizedVisit.horario : formatTimeForInput(now))}">
-                    </div>
+            <div class="form-row-pair full-width">
+                <div class="form-group" id="cliente-group">
+                    <label for="cliente">Cliente</label>
+                    <input type="text" id="cliente" value="${escapeHtml(currentClient)}" required>
                 </div>
-            </div>
-            <div class="form-group full-width" id="cliente-group">
-                <label for="cliente">Cliente</label>
-                <input type="text" id="cliente" value="${escapeHtml(currentClient)}" required>
-            </div>
-            <div class="form-group full-width">
-                <label for="contato">Contato</label>
-                <input type="text" id="contato" value="${escapeHtml(normalizedVisit ? normalizedVisit.contato : '')}">
+                <div class="form-group">
+                    <label for="contato">Contato</label>
+                    <input type="text" id="contato" value="${escapeHtml(normalizedVisit ? normalizedVisit.contato : '')}">
+                </div>
             </div>
             <div class="form-group">
                 <label for="cidade">Cidade</label>
@@ -728,7 +734,7 @@ export async function renderVisitFormPage(visit = null) {
     document.getElementById('back-to-visits').addEventListener('click', () => navigateTo('visits'));
     document.getElementById('cancel-visit').addEventListener('click', () => navigateTo(isEdit ? 'visit-detail' : 'visits', isEdit ? { id: normalizedVisit.id } : {}));
 
-    const prospeccaoSelect = document.getElementById('prospeccao');
+    const prospeccaoSelect = { get value() { return document.querySelector('input[name="prospeccao"]:checked')?.value || 'Sim'; } };
     const clienteSelect = document.getElementById('cliente-existente');
     const clienteInput = document.getElementById('cliente');
     const contatoInput = document.getElementById('contato');
@@ -835,7 +841,7 @@ export async function renderVisitFormPage(visit = null) {
 
     initObservacaoField();
 
-    prospeccaoSelect.addEventListener('change', syncProspectionMode);
+    document.querySelectorAll('input[name="prospeccao"]').forEach((radio) => radio.addEventListener('change', syncProspectionMode));
     clienteSelect.addEventListener('change', () => fillClientData(clienteSelect.value));
     clienteSelect.addEventListener('input', () => fillClientData(clienteSelect.value));
     clienteInput.addEventListener('blur', () => {
@@ -1160,18 +1166,13 @@ export async function renderVisitDetailPage(id) {
             ${renderDetailRow('Observação', visit.observacao || '-')}
         </div>
         <div class="detail-actions">
-            <button type="button" class="secondary-button" id="share-visit-detail">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                Compartilhar
-            </button>
-            ${whatsappInfo ? '<button type="button" class="whatsapp-button" id="share-whatsapp">Compartilhar no WhatsApp</button>' : ''}
+            <button type="button" class="whatsapp-button" id="share-whatsapp">Compartilhar no WhatsApp</button>
             ${state.canDelete ? '<button type="button" class="danger-button" id="delete-visit">Apagar</button>' : ''}
         </div>
     `;
 
     document.getElementById('back-visits').addEventListener('click', () => navigateTo('visits'));
     document.getElementById('edit-visit').addEventListener('click', () => navigateTo('visit-edit', { visit }));
-    document.getElementById('share-visit-detail').addEventListener('click', () => shareVisit(visit));
 
     document.getElementById('delete-visit')?.addEventListener('click', async () => {
         if (!confirm(`Apagar a visita de "${visit.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
@@ -1186,12 +1187,10 @@ export async function renderVisitDetailPage(id) {
         }
     });
 
-    if (whatsappInfo) {
-        document.getElementById('share-whatsapp').addEventListener('click', () => {
-            const message = buildWhatsappMessage(whatsappInfo.mensagemPadrao, visit);
-            openExternal(`https://wa.me/?text=${encodeURIComponent(message)}`);
-        });
-    }
+    document.getElementById('share-whatsapp').addEventListener('click', () => {
+        const message = buildWhatsappMessage(whatsappInfo?.mensagemPadrao, visit);
+        openExternal(`https://wa.me/?text=${encodeURIComponent(message)}`);
+    });
 }
 
 
