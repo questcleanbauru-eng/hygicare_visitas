@@ -1,17 +1,17 @@
-import { checkRateLimit } from './lib/common.js';
-import { handleLogin, handleForgotPassword } from './lib/handlers/auth.js';
-import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit } from './lib/handlers/visits.js';
-import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal } from './lib/handlers/proposals.js';
+import { checkRateLimit } from '../lib/common.js';
+import { handleLogin, handleForgotPassword } from '../lib/handlers/auth.js';
+import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit } from '../lib/handlers/visits.js';
+import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal } from '../lib/handlers/proposals.js';
 import {
     handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDebugFunilHeaders
-} from './lib/handlers/funil.js';
+} from '../lib/handlers/funil.js';
 import {
     handleGetContratos, handleGetContratoById, handleCreateContrato, handleUpdateContrato, handleDeleteContrato
-} from './lib/handlers/contratos.js';
-import { handleGetDashboardData } from './lib/handlers/dashboard.js';
-import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList } from './lib/handlers/admin.js';
-import { handleGetFormData } from './lib/handlers/formdata.js';
-import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig } from './lib/handlers/config.js';
+} from '../lib/handlers/contratos.js';
+import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
+import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList } from '../lib/handlers/admin.js';
+import { handleGetFormData } from '../lib/handlers/formdata.js';
+import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig } from '../lib/handlers/config.js';
 
 function parseBody(req) {
     if (!req.body) return {};
