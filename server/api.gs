@@ -1066,6 +1066,14 @@ function parseDate(value) {
   return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
 }
 
+function daysUntilDate(value) {
+  const date = parseDate(value);
+  if (!date) {
+    return null;
+  }
+  return Math.floor((date.getTime() - new Date().getTime()) / 86400000);
+}
+
 // ==================================================
 // Notificacoes por E-mail
 // ==================================================
@@ -1143,7 +1151,11 @@ function defaultEmailConfig() {
     funil_ativas: 'false',
     funil_dias: '30',
     funil_assunto: 'Oportunidade de funil sem atualizacao',
-    funil_corpo: 'Ola {{nome}},\n\nVoce tem {{quantidade}} oportunidade(s) no funil sem atualizacao ha mais de {{dias}} dias.\n\nAcesse o sistema e registre o andamento das negociacoes.\n\nAtenciosamente,\nEquipe de Vendas'
+    funil_corpo: 'Ola {{nome}},\n\nVoce tem {{quantidade}} oportunidade(s) no funil sem atualizacao ha mais de {{dias}} dias.\n\nAcesse o sistema e registre o andamento das negociacoes.\n\nAtenciosamente,\nEquipe de Vendas',
+    contratos_ativas: 'false',
+    contratos_dias: '30',
+    contratos_assunto: 'Contrato proximo do vencimento',
+    contratos_corpo: 'Ola {{nome}},\n\nVoce tem {{quantidade}} contrato(s) vencendo nos proximos {{dias}} dias.\n\nAcesse o sistema para providenciar a renovacao.\n\nAtenciosamente,\nEquipe de Vendas'
   };
 }
 
@@ -1186,6 +1198,13 @@ function enviarEmailsNotificacao() {
       enviarEmailsFunilAtrasados(spreadsheet, config);
     } catch (e) {
       Logger.log('Erro ao enviar emails de funil: ' + e.message);
+    }
+  }
+  if (config.contratos_ativas === 'true') {
+    try {
+      enviarEmailsContratosVencendo(spreadsheet, config);
+    } catch (e) {
+      Logger.log('Erro ao enviar emails de contratos: ' + e.message);
     }
   }
 }
@@ -1535,6 +1554,69 @@ function enviarEmailsFunilAtrasados(spreadsheet, config) {
       MailApp.sendEmail({ to: email, subject: assunto, body: corpo });
     } catch (e) {
       Logger.log('Erro ao enviar email funil para ' + email + ': ' + e.message);
+    }
+  });
+}
+
+function normalizeContratoRow(row) {
+  var r;
+  try { r = JSON.parse(JSON.stringify(row)); } catch (e) { r = row; }
+
+  function toDate(v) {
+    if (!v) return '';
+    if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v)) return formatDate(v);
+    if (typeof v === 'string' && v.indexOf('T') > 0) {
+      try { var d = new Date(v); if (!isNaN(d)) return formatDate(d); } catch (e2) {}
+    }
+    return String(v);
+  }
+
+  return {
+    id:           String(r['Id']          || r['ID']          || ''),
+    ativo:        String(r['Ativo']       || r['ATIVO']       || 'Sim'),
+    vendedor:     String(r['Vendedor']    || r['VENDEDOR']    || ''),
+    cliente:      String(r['Cliente']     || r['CLIENTE']     || ''),
+    fim:          toDate(r['Fim']         || r['FIM']         || ''),
+    enviarAviso:  String(r['EnviarAviso'] || r['ENVIARAVISO'] || r['Enviar Aviso'] || 'Sim')
+  };
+}
+
+function enviarEmailsContratosVencendo(spreadsheet, config) {
+  var dias = Number(config.contratos_dias) || 30;
+  var assunto = config.contratos_assunto || 'Contrato proximo do vencimento';
+  var corpoTemplate = config.contratos_corpo || '';
+  var sheet = spreadsheet.getSheetByName('Contratos');
+  if (!sheet) { return; }
+  var rows = getSheetObjects(sheet).map(normalizeContratoRow);
+  var sellers = getSheetObjects(getSheet(spreadsheet, 'Vendedores'));
+
+  var vencendoByEmail = {};
+  rows.forEach(function(c) {
+    if (String(c.ativo || '').toLowerCase() !== 'sim') { return; }
+    if (String(c.enviarAviso || '').toLowerCase() !== 'sim') { return; }
+    var diasRestantes = daysUntilDate(c.fim);
+    if (diasRestantes === null || diasRestantes < 0 || diasRestantes > dias) { return; }
+    var sellerRow = sellers.find(function(s) {
+      return String(s.NomeVendedor || '').trim() === String(c.vendedor || '').trim();
+    });
+    if (!sellerRow || !sellerRow.EmailLogin) { return; }
+    var email = String(sellerRow.EmailLogin).trim();
+    if (!vencendoByEmail[email]) {
+      vencendoByEmail[email] = { nome: sellerRow.NomeVendedor || email, quantidade: 0 };
+    }
+    vencendoByEmail[email].quantidade += 1;
+  });
+
+  Object.keys(vencendoByEmail).forEach(function(email) {
+    var data = vencendoByEmail[email];
+    var corpo = corpoTemplate
+      .replace(/\{\{nome\}\}/g, data.nome)
+      .replace(/\{\{quantidade\}\}/g, String(data.quantidade))
+      .replace(/\{\{dias\}\}/g, String(dias));
+    try {
+      MailApp.sendEmail({ to: email, subject: assunto, body: corpo });
+    } catch (e) {
+      Logger.log('Erro ao enviar email contratos para ' + email + ': ' + e.message);
     }
   });
 }

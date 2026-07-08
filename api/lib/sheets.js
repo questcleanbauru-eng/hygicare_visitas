@@ -15,10 +15,15 @@ function getAuthClient() {
     _authClient = new JWT({
         email: key.client_email,
         key: key.private_key,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+        scopes: [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive'
+        ]
     });
     return _authClient;
 }
+
+export { getAuthClient };
 
 async function sheetsFetch(path, options = {}) {
     const client = getAuthClient();

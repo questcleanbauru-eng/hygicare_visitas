@@ -5,6 +5,9 @@ import { handleGetProposals, handleGetProposalById, handleCreateProposal, handle
 import {
     handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDebugFunilHeaders
 } from './lib/handlers/funil.js';
+import {
+    handleGetContratos, handleGetContratoById, handleCreateContrato, handleUpdateContrato, handleDeleteContrato
+} from './lib/handlers/contratos.js';
 import { handleGetDashboardData } from './lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList } from './lib/handlers/admin.js';
 import { handleGetFormData } from './lib/handlers/formdata.js';
@@ -37,6 +40,11 @@ const HANDLERS = {
     updateFunil: handleUpdateFunil,
     deleteFunil: handleDeleteFunil,
     debugFunilHeaders: handleDebugFunilHeaders,
+    getContratos: handleGetContratos,
+    getContratoById: handleGetContratoById,
+    createContrato: handleCreateContrato,
+    updateContrato: handleUpdateContrato,
+    deleteContrato: handleDeleteContrato,
     getDashboardData: handleGetDashboardData,
     getAdminData: handleGetAdminData,
     saveUser: handleSaveUser,

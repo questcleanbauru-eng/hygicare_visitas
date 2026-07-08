@@ -50,7 +50,7 @@ export async function renderAdminPage() {
 }
 
 function fillAdminContent(mainContent, data, emailConfig) {
-    function emailPanel(prefix, label, subtitle, vars, config) {
+    function emailPanel(prefix, label, subtitle, vars, config, diasLabel) {
         const isActive = config[`${prefix}_ativas`] === 'true';
         return `
         <div class="email-notif-panel">
@@ -66,7 +66,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
             </div>
             <div id="${prefix}-fields" class="${isActive ? '' : 'email-panel-disabled'}">
                 <div class="form-group">
-                    <label for="${prefix}-dias" style="font-size:0.8rem;color:var(--text-muted-strong)">Dias sem atualização</label>
+                    <label for="${prefix}-dias" style="font-size:0.8rem;color:var(--text-muted-strong)">${diasLabel || 'Dias sem atualização'}</label>
                     <input type="number" id="${prefix}-dias" value="${escapeHtml(config[`${prefix}_dias`] || '30')}" min="1" max="365">
                 </div>
                 <div class="form-group">
@@ -273,6 +273,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 ${emailPanel('propostas', 'Propostas sem atualização', 'Avisa vendedores com propostas paradas há X dias', ['nome', 'quantidade', 'dias'], emailConfig)}
                 ${emailPanel('visitas', 'Relatório de visitas pendente', 'Avisa vendedores sem visitas registradas em X dias', ['nome', 'dias'], emailConfig)}
                 ${emailPanel('funil', 'Funil sem atualização', 'Avisa vendedores com oportunidades ativas paradas há X dias', ['nome', 'quantidade', 'dias'], emailConfig)}
+                ${emailPanel('contratos', 'Contratos vencendo', 'Avisa vendedores com contratos vencendo nos próximos X dias', ['nome', 'quantidade', 'dias'], emailConfig, 'Dias de antecedência do vencimento')}
             </div>
         </div>
 

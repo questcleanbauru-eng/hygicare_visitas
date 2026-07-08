@@ -17,7 +17,11 @@ function defaultEmailConfig() {
         funil_ativas: 'false',
         funil_dias: '30',
         funil_assunto: 'Oportunidade de funil sem atualizacao',
-        funil_corpo: 'Ola {{nome}},\n\nVoce tem {{quantidade}} oportunidade(s) no funil sem atualizacao ha mais de {{dias}} dias.\n\nAcesse o sistema e registre o andamento das negociacoes.\n\nAtenciosamente,\nEquipe de Vendas'
+        funil_corpo: 'Ola {{nome}},\n\nVoce tem {{quantidade}} oportunidade(s) no funil sem atualizacao ha mais de {{dias}} dias.\n\nAcesse o sistema e registre o andamento das negociacoes.\n\nAtenciosamente,\nEquipe de Vendas',
+        contratos_ativas: 'false',
+        contratos_dias: '30',
+        contratos_assunto: 'Contrato proximo do vencimento',
+        contratos_corpo: 'Ola {{nome}},\n\nVoce tem {{quantidade}} contrato(s) vencendo nos proximos {{dias}} dias.\n\nAcesse o sistema para providenciar a renovacao.\n\nAtenciosamente,\nEquipe de Vendas'
     };
 }
 

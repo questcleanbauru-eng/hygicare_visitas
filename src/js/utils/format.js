@@ -55,6 +55,32 @@ export function normalizeProposal(proposal) {
 }
 
 
+export function normalizeContrato(contrato) {
+    const c = contrato || {};
+    const fim = c.Fim || c.fim || '';
+    const inicio = c.Inicio || c.inicio || '';
+    const diasRestantes = fim ? -calculateDaysFromDisplayDate(fim) : null;
+    return {
+        id: String(c.Id || c.ID || c.id || ''),
+        ativo: c.Ativo || c.ativo || 'Sim',
+        data: c.Data || c.data || '',
+        vendedor: c.Vendedor || c.vendedor || '',
+        cliente: c.Cliente || c.cliente || '',
+        cidade: c.Cidade || c.cidade || '',
+        assinado: c.Assinado || c.assinado || 'Nao',
+        inicio,
+        fim,
+        anexo: c.Anexo || c.anexo || '',
+        enviarAviso: c.EnviarAviso || c.enviarAviso || 'Sim',
+        obs: c.Obs || c.obs || '',
+        diasRestantes,
+        vencido: diasRestantes !== null && diasRestantes < 0,
+        venceEmBreve: diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 30,
+        _pending: !!c._pending
+    };
+}
+
+
 export function formatDateForInput(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');

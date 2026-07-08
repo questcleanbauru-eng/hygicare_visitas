@@ -18,6 +18,8 @@ export const state = {
     currentVisit: null,
     currentProposal: null,
     currentFunil: null,
+    contratos: [],
+    currentContrato: null,
     toastTimer: null,
     overdueProposals: 0,
     overdueFunil: 0,
@@ -121,7 +123,7 @@ export function initTabVisibilitySync() {
 }
 
 
-export const _FORM_PAGES = new Set(['visit-new','visit-edit','proposal-new','proposal-edit','funil-new','funil-edit']);
+export const _FORM_PAGES = new Set(['visit-new','visit-edit','proposal-new','proposal-edit','funil-new','funil-edit','contrato-new','contrato-edit']);
 
 
 export async function navigateTo(page, options = {}, _fromPop = false) {
@@ -217,6 +219,18 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'funil-edit':
             await (await import('./pages/funil.js')).renderFunilFormPage(options.funil || state.currentFunil);
             break;
+        case 'contratos':
+            await (await import('./pages/contratos.js')).renderContratosPage();
+            break;
+        case 'contrato-detail':
+            await (await import('./pages/contratos.js')).renderContratoDetailPage(options.id);
+            break;
+        case 'contrato-new':
+            await (await import('./pages/contratos.js')).renderContratoCreatePage();
+            break;
+        case 'contrato-edit':
+            await (await import('./pages/contratos.js')).renderContratoFormPage(options.contrato || state.currentContrato);
+            break;
         case 'admin':
             await (await import('./pages/admin.js')).renderAdminPage();
             break;
@@ -232,6 +246,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         'visits':    ['visit-detail', 'visit-edit'],
         'proposals': ['proposal-detail', 'proposal-edit'],
         'funil':     ['funil-detail', 'funil-edit'],
+        'contratos': ['contrato-detail', 'contrato-edit'],
     };
     if (_scrollParentMap[page] && _scrollParentMap[page].includes(_prevPage) && state.scrollPositions[page] > 0) {
         const savedY = state.scrollPositions[page];
