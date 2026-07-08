@@ -1406,7 +1406,7 @@ export function getWhatsappConfigForVisit(tipoVisita) {
 
 
 export function buildWhatsappMessage(template, visit) {
-    const defaultTemplate = 'Visita registrada para {{cliente}}. Tipo: {{tipoVisita}}. Observacao: {{observacao}}. Vendedor: {{vendedor}}.';
+    const defaultTemplate = '📋 {{data}}\n*Cliente:* {{cliente}}\n*Tipo:* {{tipoVisita}}\n*Observação:* {{observacao}}';
     const messageTemplate = template || defaultTemplate;
     const values = {
         cliente: visit.cliente,
