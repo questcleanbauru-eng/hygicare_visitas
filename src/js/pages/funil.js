@@ -5,9 +5,9 @@ import {
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay
 } from '../utils/format.js';
 import {
-    debounce, rebuildFilterOptions, renderDetailRow, showToast, renderSimpleOptions,
+    debounce, renderDetailRow, showToast, renderSimpleOptions,
     showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addFabAndScrollTop,
-    openExternal, initializeSearchableInput
+    openExternal, initializeSearchableInput, renderYearChips
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
@@ -98,17 +98,17 @@ export function fillFunilContent(mainContent, funil) {
                 </div>
                 <div class="form-group">
                     <label for="funil-filter-status">Status</label>
-                    <select id="funil-filter-status">
-                        <option value="">Todos</option>
-                        ${availableStatuses.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
-                    </select>
+                    <div class="searchable-select">
+                        <input type="text" id="funil-filter-status" placeholder="Todos" autocomplete="off">
+                        <div class="searchable-select-menu" id="funil-filter-status-menu"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="funil-filter-cidade">Cidade</label>
-                    <select id="funil-filter-cidade">
-                        <option value="">Todas</option>
-                        ${availableCidades.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
-                    </select>
+                    <div class="searchable-select">
+                        <input type="text" id="funil-filter-cidade" placeholder="Todas" autocomplete="off">
+                        <div class="searchable-select-menu" id="funil-filter-cidade-menu"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="funil-filter-ativo">Ativo</label>
@@ -137,10 +137,10 @@ export function fillFunilContent(mainContent, funil) {
                 ${isAdmGer ? `
                 <div class="form-group">
                     <label for="funil-filter-vendor">Vendedor</label>
-                    <select id="funil-filter-vendor">
-                        <option value="">Todos</option>
-                        ${availableVendors.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
-                    </select>
+                    <div class="searchable-select">
+                        <input type="text" id="funil-filter-vendor" placeholder="Todos" autocomplete="off">
+                        <div class="searchable-select-menu" id="funil-filter-vendor-menu"></div>
+                    </div>
                 </div>` : ''}
                 <div class="form-group">
                     <label for="funil-filter-vl">Valor minimo R$</label>
@@ -155,6 +155,7 @@ export function fillFunilContent(mainContent, funil) {
             <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
             <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
         </div>
+        <div id="funil-year-chips" class="year-chips-row"></div>
         <div id="funil-list-container"></div>
     `;
 
@@ -212,7 +213,8 @@ export function fillFunilContent(mainContent, funil) {
             const atuDate      = parseDisplayDate(f.atualizacao) || parseDisplayDate(f.data);
             const matchPeriod  = !period || (atuDate && atuDate >= periodStart && atuDate <= periodEnd);
             const matchVl      = !vlMin || Number(String(f.vlMensal).replace(/[^\d.]/g, '') || 0) >= vlMin;
-            return matchSearch && matchStatus && matchCidade && matchAtivo && matchAtrasado && matchVendor && matchPeriod && matchVl;
+            const matchYear    = !state.funilYearFilter || (atuDate && atuDate.getFullYear() === state.funilYearFilter);
+            return matchSearch && matchStatus && matchCidade && matchAtivo && matchAtrasado && matchVendor && matchPeriod && matchVl && matchYear;
         });
 
         const container = document.getElementById('funil-list-container');
@@ -260,22 +262,44 @@ export function fillFunilContent(mainContent, funil) {
 
     const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
         'funil-filter-atrasado', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
+    initializeSearchableInput({ input: document.getElementById('funil-filter-status'), menu: document.getElementById('funil-filter-status-menu'), items: availableStatuses });
+    initializeSearchableInput({ input: document.getElementById('funil-filter-cidade'), menu: document.getElementById('funil-filter-cidade-menu'), items: availableCidades });
+    if (isAdmGer) {
+        initializeSearchableInput({ input: document.getElementById('funil-filter-vendor'), menu: document.getElementById('funil-filter-vendor-menu'), items: availableVendors });
+    }
+
+    const _funilTextFilterIds = new Set(['funil-filter-search', 'funil-filter-vl', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-vendor']);
     const _debouncedFunilFilter = debounce(renderFiltered, 250);
     _funilFilterIds.forEach((id) => {
         const el = document.getElementById(id);
-        const isText = ['funil-filter-search', 'funil-filter-vl'].includes(id);
+        const isText = _funilTextFilterIds.has(id);
         el?.addEventListener(isText ? 'input' : 'change', isText ? _debouncedFunilFilter : renderFiltered);
     });
 
     document.getElementById('funil-filter-clear')?.addEventListener('click', () => {
         _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        state.funilYearFilter = null;
         renderFiltered();
+        updateYearChips();
     });
 
     document.getElementById('scope-load-days')?.addEventListener('click', () => {
         const v = parseInt(document.getElementById('scope-dias-input')?.value, 10);
         if (v > 0) { state.loadDias = v; saveCache('funil', null); navigateTo('funil'); }
     });
+
+    function updateYearChips() {
+        const chipsEl = document.getElementById('funil-year-chips');
+        if (!chipsEl) return;
+        if (state.funilScope !== 'all') { chipsEl.innerHTML = ''; return; }
+        const dates = funilData.map((f) => parseDisplayDate(f.atualizacao) || parseDisplayDate(f.data));
+        renderYearChips(chipsEl, dates, state.funilYearFilter, (year) => {
+            state.funilYearFilter = year;
+            renderFiltered();
+            updateYearChips();
+        });
+    }
+    updateYearChips();
 
     document.getElementById('scope-load-all')?.addEventListener('click', async () => {
         const listEl = document.getElementById('funil-list-container');
@@ -288,10 +312,11 @@ export function fillFunilContent(mainContent, funil) {
                 saveCache('funil_all', state.funil);
                 funilData = state.funil;
                 document.querySelector('.scope-banner')?.remove();
-                rebuildFilterOptions('#funil-filter-status', Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))));
-                rebuildFilterOptions('#funil-filter-cidade', Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort());
-                if (isAdmGer) rebuildFilterOptions('#funil-filter-vendor', Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort());
+                initializeSearchableInput({ input: document.getElementById('funil-filter-status'), menu: document.getElementById('funil-filter-status-menu'), items: Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))) });
+                initializeSearchableInput({ input: document.getElementById('funil-filter-cidade'), menu: document.getElementById('funil-filter-cidade-menu'), items: Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort() });
+                if (isAdmGer) initializeSearchableInput({ input: document.getElementById('funil-filter-vendor'), menu: document.getElementById('funil-filter-vendor-menu'), items: Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort() });
                 renderFiltered();
+                updateYearChips();
             }
         } catch(e) {}
     });

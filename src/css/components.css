@@ -1330,6 +1330,27 @@ input:disabled {
     #pending-sync-banner { bottom: calc(var(--nav-height) + var(--safe-bottom) + 0.6rem); }
 }
 
+.year-chips-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 0.75rem;
+}
+
+.year-chips-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted-strong);
+    margin-right: 0.15rem;
+}
+
+.year-chip.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
 /* ── Scope banner ── */
 
 .scope-banner {

@@ -68,6 +68,22 @@ export function rebuildFilterOptions(selector, values) {
         ).join('');
 }
 
+// Fileira de chips de ano — usado depois de "Ver tudo" pra filtrar o
+// historico completo por ano em vez de olhar tudo de uma vez.
+export function renderYearChips(container, dates, selectedYear, onSelectYear) {
+    if (!container) return;
+    const years = Array.from(new Set(dates.map((d) => d && d.getFullYear()).filter(Boolean))).sort((a, b) => b - a);
+    if (years.length <= 1) { container.innerHTML = ''; return; }
+    container.innerHTML = `
+        <span class="year-chips-label">Ano:</span>
+        <button type="button" class="mini-button year-chip${!selectedYear ? ' active' : ''}" data-year="">Todos</button>
+        ${years.map((y) => `<button type="button" class="mini-button year-chip${selectedYear === y ? ' active' : ''}" data-year="${y}">${y}</button>`).join('')}
+    `;
+    container.querySelectorAll('[data-year]').forEach((btn) => {
+        btn.addEventListener('click', () => onSelectYear(btn.dataset.year ? Number(btn.dataset.year) : null));
+    });
+}
+
 
 export function initializeSearchableInput({ input, menu, items = [], onSelect = null, multiSelect = false, maxSelections = 1, selectedItems = [], selectedContainer = null, selectionLabel = 'item', onSelectionChange = null }) {
     if (!input || !menu) {

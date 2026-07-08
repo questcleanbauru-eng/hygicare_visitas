@@ -5,9 +5,9 @@ import {
     formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase
 } from '../utils/format.js';
 import {
-    debounce, downloadCSV, rebuildFilterOptions, renderDetailRow, showToast, renderSimpleOptions,
+    debounce, downloadCSV, renderDetailRow, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
-    loadingState, addFabAndScrollTop, openExternal
+    loadingState, addFabAndScrollTop, openExternal, renderYearChips
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
@@ -91,17 +91,17 @@ export function fillProposalsContent(mainContent, proposals) {
             <div class="visits-filter-grid" id="proposal-filter-panel">
                 <div class="form-group">
                     <label for="pf-status">Status</label>
-                    <select id="pf-status">
-                        <option value="">Todos</option>
-                        ${availableStatuses.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
-                    </select>
+                    <div class="searchable-select">
+                        <input type="text" id="pf-status" placeholder="Todos" autocomplete="off">
+                        <div class="searchable-select-menu" id="pf-status-menu"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="pf-cidade">Cidade</label>
-                    <select id="pf-cidade">
-                        <option value="">Todas</option>
-                        ${availableCities.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
-                    </select>
+                    <div class="searchable-select">
+                        <input type="text" id="pf-cidade" placeholder="Todas" autocomplete="off">
+                        <div class="searchable-select-menu" id="pf-cidade-menu"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="pf-atrasada">Situação</label>
@@ -122,10 +122,10 @@ export function fillProposalsContent(mainContent, proposals) {
                 ${isAdmGer ? `
                 <div class="form-group">
                     <label for="pf-vendor">Vendedor</label>
-                    <select id="pf-vendor">
-                        <option value="">Todos</option>
-                        ${availableVendors.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
-                    </select>
+                    <div class="searchable-select">
+                        <input type="text" id="pf-vendor" placeholder="Todos" autocomplete="off">
+                        <div class="searchable-select-menu" id="pf-vendor-menu"></div>
+                    </div>
                 </div>` : ''}
                 <div class="form-group">
                     <label for="pf-date-from">Criação de</label>
@@ -144,6 +144,7 @@ export function fillProposalsContent(mainContent, proposals) {
             <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
             <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
         </div>
+        <div id="proposal-year-chips" class="year-chips-row"></div>
         <div id="proposal-list-container"></div>
     `;
 
@@ -198,7 +199,8 @@ export function fillProposalsContent(mainContent, proposals) {
             const matchPeriod = !period || (criacaoDate && criacaoDate >= periodStart && criacaoDate <= periodEnd);
             const matchFrom = !dateFrom || (criacaoDate && criacaoDate >= parseInputDate(dateFrom));
             const matchTo   = !dateTo   || (criacaoDate && criacaoDate <= parseInputDate(dateTo));
-            return matchSearch && matchStatus && matchCidade && matchAtrasada && matchVendor && matchPeriod && matchFrom && matchTo;
+            const matchYear = !state.proposalsYearFilter || (criacaoDate && criacaoDate.getFullYear() === state.proposalsYearFilter);
+            return matchSearch && matchStatus && matchCidade && matchAtrasada && matchVendor && matchPeriod && matchFrom && matchTo && matchYear;
         });
 
         const container = document.getElementById('proposal-list-container');
@@ -260,21 +262,43 @@ export function fillProposalsContent(mainContent, proposals) {
 
     const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor',
         'pf-date-from', 'pf-date-to'];
+    initializeSearchableInput({ input: document.getElementById('pf-status'), menu: document.getElementById('pf-status-menu'), items: availableStatuses });
+    initializeSearchableInput({ input: document.getElementById('pf-cidade'), menu: document.getElementById('pf-cidade-menu'), items: availableCities });
+    if (isAdmGer) {
+        initializeSearchableInput({ input: document.getElementById('pf-vendor'), menu: document.getElementById('pf-vendor-menu'), items: availableVendors });
+    }
+
+    const _proposalTextFilterIds = new Set(['pf-search', 'pf-status', 'pf-cidade', 'pf-vendor']);
     const _debouncedProposalFilter = debounce(renderFiltered, 250);
     _proposalFilterIds.forEach((id) => {
-        document.getElementById(id)?.addEventListener(id === 'pf-search' ? 'input' : 'change',
-            id === 'pf-search' ? _debouncedProposalFilter : renderFiltered);
+        const isText = _proposalTextFilterIds.has(id);
+        document.getElementById(id)?.addEventListener(isText ? 'input' : 'change', isText ? _debouncedProposalFilter : renderFiltered);
     });
 
     document.getElementById('proposal-filter-clear')?.addEventListener('click', () => {
         _proposalFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        state.proposalsYearFilter = null;
         renderFiltered();
+        updateYearChips();
     });
 
     document.getElementById('scope-load-days')?.addEventListener('click', () => {
         const v = parseInt(document.getElementById('scope-dias-input')?.value, 10);
         if (v > 0) { state.loadDias = v; saveCache('proposals', null); navigateTo('proposals'); }
     });
+
+    function updateYearChips() {
+        const chipsEl = document.getElementById('proposal-year-chips');
+        if (!chipsEl) return;
+        if (state.proposalsScope !== 'all') { chipsEl.innerHTML = ''; return; }
+        const dates = normalized.map((p) => parseDisplayDate(p.data));
+        renderYearChips(chipsEl, dates, state.proposalsYearFilter, (year) => {
+            state.proposalsYearFilter = year;
+            renderFiltered();
+            updateYearChips();
+        });
+    }
+    updateYearChips();
 
     document.getElementById('scope-load-all')?.addEventListener('click', async () => {
         const listEl = document.getElementById('proposal-list-container');
@@ -287,10 +311,11 @@ export function fillProposalsContent(mainContent, proposals) {
                 saveCache('proposals_all', state.proposals);
                 normalized = state.proposals.map(normalizeProposal);
                 document.querySelector('.scope-banner')?.remove();
-                rebuildFilterOptions('#pf-status', Array.from(new Set(normalized.map((p) => p.status).filter(Boolean))));
-                rebuildFilterOptions('#pf-cidade', Array.from(new Set(normalized.map((p) => p.cidade).filter(Boolean))).sort());
-                if (isAdmGer) rebuildFilterOptions('#pf-vendor', Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort());
+                initializeSearchableInput({ input: document.getElementById('pf-status'), menu: document.getElementById('pf-status-menu'), items: Array.from(new Set(normalized.map((p) => p.status).filter(Boolean))) });
+                initializeSearchableInput({ input: document.getElementById('pf-cidade'), menu: document.getElementById('pf-cidade-menu'), items: Array.from(new Set(normalized.map((p) => p.cidade).filter(Boolean))).sort() });
+                if (isAdmGer) initializeSearchableInput({ input: document.getElementById('pf-vendor'), menu: document.getElementById('pf-vendor-menu'), items: Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort() });
                 renderFiltered();
+                updateYearChips();
             }
         } catch(e) {}
     });
