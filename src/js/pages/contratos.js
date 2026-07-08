@@ -272,16 +272,6 @@ export async function renderContratoDetailPage(id) {
 }
 
 
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-
 export async function renderContratoFormPage(contrato) {
     ensureStyles('proposals');
     const isEdit = !!contrato;
@@ -362,9 +352,9 @@ export async function renderContratoFormPage(contrato) {
                 <textarea id="ctf-obs" rows="4">${escapeHtml(normalized.obs || '')}</textarea>
             </div>
             <div class="form-group full-width">
-                <label for="ctf-anexo">Anexo (PDF)</label>
-                <input type="file" id="ctf-anexo" accept="application/pdf">
-                ${normalized.anexo ? `<p class="helper-text" style="margin-top:0.35rem">Já existe um PDF anexado. Selecione outro arquivo para substituí-lo.</p>` : ''}
+                <label for="ctf-anexo">Anexo (link do Drive)</label>
+                <input type="url" id="ctf-anexo" value="${escapeHtml(normalized.anexo || '')}" placeholder="Cole aqui o link compartilhável do PDF no Drive">
+                <p class="helper-text" style="margin-top:0.35rem">Suba o PDF no seu Google Drive, copie o link "Qualquer pessoa com o link" e cole aqui.</p>
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-contrato-form">Cancelar</button>
@@ -391,25 +381,12 @@ export async function renderContratoFormPage(contrato) {
             assinado: document.querySelector('input[name="ctf-assinado"]:checked')?.value || 'Nao',
             enviarAviso: document.querySelector('input[name="ctf-aviso"]:checked')?.value || 'Sim',
             obs: document.getElementById('ctf-obs').value.trim(),
+            anexo: document.getElementById('ctf-anexo').value.trim(),
             user: state.currentUser
         };
         if (isEdit) {
             payload.id = normalized.id;
             payload.ativo = document.querySelector('input[name="ctf-ativo"]:checked')?.value || 'Sim';
-        }
-
-        const fileInput = document.getElementById('ctf-anexo');
-        const file = fileInput.files && fileInput.files[0];
-        if (file) {
-            if (file.size > 3_500_000) {
-                showToast('Arquivo muito grande. Envie um PDF de até ~3MB.', true);
-                btn.disabled = false;
-                btn.textContent = 'Salvar Contrato';
-                return;
-            }
-            payload.anexoBase64 = await fileToBase64(file);
-            payload.anexoFilename = file.name;
-            payload.anexoMimeType = file.type || 'application/pdf';
         }
 
         const result = await callAPI(isEdit ? 'updateContrato' : 'createContrato', payload);
