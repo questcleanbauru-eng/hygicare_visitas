@@ -409,6 +409,10 @@ export async function renderCalendarPage() {
     ensureStyles('visits');
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = skeletonList(5);
+    // A Agenda não tem FAB próprio — remove um eventual FAB deixado pela
+    // página anterior (ex.: "+ Nova Visita" da lista de Visitas).
+    document.getElementById('page-fab')?.remove();
+    document.getElementById('page-scroll-top')?.remove();
 
     if (!state.visits || state.visits.length === 0) {
         const r = await getVisits();
@@ -522,7 +526,7 @@ export async function renderCalendarPage() {
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas, Funil e Retornos</p></div>
-                <button type="button" class="btn-add" id="cal-new-visit">+ Visita</button>
+                <button type="button" class="btn-add" id="cal-new-agendamento">+ Agendar</button>
             </div>
             <div class="card cal-card">
                 <div class="cal-nav">
@@ -555,7 +559,9 @@ export async function renderCalendarPage() {
             if (viewMonth > 11) { viewMonth = 0; viewYear++; }
             render();
         });
-        document.getElementById('cal-new-visit')?.addEventListener('click', () => navigateTo('visit-new'));
+        document.getElementById('cal-new-agendamento')?.addEventListener('click', () => {
+            showCreateAgendamentoModal(() => renderCalendarPage());
+        });
 
         mainContent.querySelectorAll('[data-day]').forEach((btn) => {
             btn.addEventListener('click', () => {
@@ -780,6 +786,13 @@ export async function renderVisitFormPage(visit = null) {
     const now = new Date();
     const currentProspection = normalizedVisit ? normalizedVisit.prospeccao : 'Sim';
     const currentClient = normalizedVisit ? normalizedVisit.cliente : '';
+    // Admin pode reatribuir/corrigir o Vendedor/Gerente de uma visita (ex.:
+    // editar visita de outro vendedor sem sobrescrever o dono original).
+    // Outros perfis continuam travados no próprio nome, como sempre foi.
+    const isAdminUser = String(state.currentUser.profile || '').trim().toLowerCase() === 'admin';
+    const currentVendedorGerente = isAdminUser
+        ? (normalizedVisit ? normalizedVisit.vendedorGerente : state.currentUser.name) || ''
+        : (state.currentUser.name || '');
 
     mainContent.innerHTML = `
         <div class="page-header compact-header">
@@ -816,9 +829,9 @@ export async function renderVisitFormPage(visit = null) {
                 </div>
             </div>
 
-            <div class="form-group readonly-group full-width">
-                <label for="vendedor-gerente">Vendedor / Gerente</label>
-                <input type="text" id="vendedor-gerente" value="${escapeHtml(state.currentUser.name || '')}" readonly>
+            <div class="form-group ${isAdminUser ? '' : 'readonly-group'} full-width">
+                <label for="vendedor-gerente">Vendedor / Gerente${isAdminUser ? ' (editável só para Admin)' : ''}</label>
+                <input type="text" id="vendedor-gerente" value="${escapeHtml(currentVendedorGerente)}" ${isAdminUser ? '' : 'readonly'}>
             </div>
             <div class="form-row-pair full-width">
                 <div class="form-group">
@@ -1153,7 +1166,7 @@ export async function renderVisitFormPage(visit = null) {
         const payload = {
             id: document.getElementById('visit-id').value,
             prospeccao: prospeccaoSelect.value,
-            vendedorGerente: state.currentUser.name,
+            vendedorGerente: isAdminUser ? (document.getElementById('vendedor-gerente').value.trim() || state.currentUser.name) : state.currentUser.name,
             gerencia: state.currentUser.gerencia,
             dataVisita: normalizedVisitDate,
             horario: normalizedHorario,
@@ -1650,6 +1663,66 @@ export function showScheduleReturnModal(visit) {
                     setSaving(false, btn);
                 }
             });
+        });
+    });
+}
+
+
+export function showCreateAgendamentoModal(onCreated) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        const defaultDate = new Date();
+        defaultDate.setDate(defaultDate.getDate() + 1);
+        overlay.innerHTML = `
+            <div class="modal-card">
+                <div style="font-size:2rem;margin-bottom:0.75rem">📅</div>
+                <h3>Novo agendamento</h3>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="newag-cliente">Cliente *</label>
+                    <input type="text" id="newag-cliente" placeholder="Nome do cliente">
+                </div>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="newag-cidade">Cidade</label>
+                    <input type="text" id="newag-cidade" placeholder="Cidade (opcional)">
+                </div>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="newag-data">Data do retorno *</label>
+                    <input type="date" id="newag-data" value="${defaultDate.toISOString().slice(0, 10)}">
+                </div>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="newag-obs">Observação (opcional)</label>
+                    <textarea id="newag-obs" rows="2" placeholder="Ex: ligar antes de ir..."></textarea>
+                </div>
+                <button type="button" class="primary-button" id="modal-newag-save">Salvar agendamento</button>
+                <button type="button" class="secondary-button" id="modal-newag-cancel">Cancelar</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const close = () => { overlay.remove(); resolve(); };
+        overlay.querySelector('#modal-newag-cancel').addEventListener('click', close);
+        overlay.querySelector('#modal-newag-save').addEventListener('click', async () => {
+            const btn = overlay.querySelector('#modal-newag-save');
+            const clienteVal = overlay.querySelector('#newag-cliente').value.trim();
+            const dataVal = overlay.querySelector('#newag-data').value;
+            if (!clienteVal) { showToast('Informe o cliente.', true); return; }
+            if (!dataVal) { showToast('Informe a data do retorno.', true); return; }
+            const cidadeVal = overlay.querySelector('#newag-cidade').value.trim();
+            const obsVal = overlay.querySelector('#newag-obs').value.trim();
+            setSaving(true, btn, 'Salvando...');
+            const result = await callAPI('createAgendamento', {
+                cliente: clienteVal, cidade: cidadeVal, dataAgendada: dataVal,
+                observacao: obsVal, user: state.currentUser
+            });
+            if (result && result.status === 'success') {
+                showToast('Agendamento criado com sucesso.');
+                close();
+                if (onCreated) onCreated(result.agendamento);
+            } else {
+                showToast((result && result.message) || 'Erro ao criar agendamento.', true);
+                setSaving(false, btn);
+            }
         });
     });
 }
