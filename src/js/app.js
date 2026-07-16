@@ -31,6 +31,7 @@ export const state = {
     _prevLoginAt: null,
     navLoadAll: null,
     formDirty: false,
+    inPlaceEditActive: false,
     scrollPositions: {},
     canDelete: false,
     canCreateProposalFunil: false
@@ -128,7 +129,11 @@ export const _FORM_PAGES = new Set(['visit-new','visit-edit','proposal-new','pro
 
 
 export async function navigateTo(page, options = {}, _fromPop = false) {
-    if (state.formDirty && _FORM_PAGES.has(state.currentPage) && !_fromPop && page !== state.currentPage) {
+    // inPlaceEditActive cobre telas de detalhe que viram formulário "no
+    // lugar" (sem trocar state.currentPage) — ex.: editar Visita direto no
+    // detalhe. Sem isso, sair pelo menu inferior durante a edição não
+    // avisa sobre alterações não salvas.
+    if (state.formDirty && (_FORM_PAGES.has(state.currentPage) || state.inPlaceEditActive) && !_fromPop && page !== state.currentPage) {
         if (!confirm('Você tem alterações não salvas. Deseja sair mesmo assim?')) {
             return;
         }

@@ -1,4 +1,4 @@
-import { state, navigateTo, addDocumentClickListener } from '../app.js';
+import { state, navigateTo, addDocumentClickListener, clearDocumentClickListeners } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
@@ -855,8 +855,18 @@ export async function renderVisitFormPage(visit = null) {
         </form>
     `;
 
-    document.getElementById('back-to-visits').addEventListener('click', () => navigateTo('visits'));
-    document.getElementById('cancel-visit').addEventListener('click', () => navigateTo(isEdit ? 'visit-detail' : 'visits', isEdit ? { id: normalizedVisit.id } : {}));
+    // Em modo edição, "Voltar"/"Cancelar" retornam pro detalhe no lugar (sem
+    // navegar) — igual ao "Editar" fez pra chegar aqui. Em modo criação não
+    // existe detalhe pra voltar, então navega normalmente pra lista.
+    const exitVisitEdit = () => {
+        if (state.formDirty && !confirm('Você tem alterações não salvas. Deseja sair mesmo assim?')) return;
+        state.formDirty = false;
+        state.inPlaceEditActive = false;
+        clearDocumentClickListeners();
+        renderVisitDetailPage(normalizedVisit.id);
+    };
+    document.getElementById('back-to-visits').addEventListener('click', () => { if (isEdit) exitVisitEdit(); else navigateTo('visits'); });
+    document.getElementById('cancel-visit').addEventListener('click', () => { if (isEdit) exitVisitEdit(); else navigateTo('visits'); });
 
     const prospeccaoSelect = { get value() { return document.querySelector('input[name="prospeccao"]:checked')?.value || 'Sim'; } };
     const clienteSelect = document.getElementById('cliente-existente');
@@ -1130,7 +1140,7 @@ export async function renderVisitFormPage(visit = null) {
         }
 
         if (isEdit) {
-            const idx = state.visits.findIndex(v => String(v.id) === String(payload.id));
+            const idx = state.visits.findIndex(v => String(v.ID || v.id) === String(payload.id));
             const original = idx >= 0 ? { ...state.visits[idx] } : null;
             const updatedVisit = normalizeVisit({
                 ID: payload.id,
@@ -1157,18 +1167,20 @@ export async function renderVisitFormPage(visit = null) {
             }
 
             state.formDirty = false;
+            state.inPlaceEditActive = false;
             showToast('Visita atualizada com sucesso.');
-            navigateTo('visit-detail', { id: payload.id });
+            clearDocumentClickListeners();
+            renderVisitDetailPage(payload.id);
 
             attemptOrQueue('updateVisit', payload, { entity: 'visits', tempId: payload.id })
                 .then(res => {
                     if (res && res.status === 'success') {
                         const real = normalizeVisit(res.visit || payload);
-                        state.visits = state.visits.map(v => String(v.id) === String(payload.id) ? real : v);
+                        state.visits = state.visits.map(v => String(v.ID || v.id) === String(payload.id) ? real : v);
                         saveCache('visits', state.visits);
                     } else if (res && res.status === 'queued') {
                         const pendingVisit = { ...updatedVisit, _pending: true };
-                        state.visits = state.visits.map(v => String(v.id) === String(payload.id) ? pendingVisit : v);
+                        state.visits = state.visits.map(v => String(v.ID || v.id) === String(payload.id) ? pendingVisit : v);
                         saveCache('visits', state.visits);
                         showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
                     } else {
@@ -1291,7 +1303,14 @@ export async function renderVisitDetailPage(id) {
     `;
 
     document.getElementById('back-visits').addEventListener('click', () => navigateTo('visits'));
-    document.getElementById('edit-visit').addEventListener('click', () => navigateTo('visit-edit', { visit }));
+    document.getElementById('edit-visit').addEventListener('click', () => {
+        // Edita no lugar, sem navegar pra outra "tela" — sem isso o usuário
+        // sente que saiu do detalhe da visita pra um formulário separado.
+        clearDocumentClickListeners();
+        state.currentVisit = visit;
+        state.inPlaceEditActive = true;
+        renderVisitFormPage(visit);
+    });
 
     document.getElementById('delete-visit')?.addEventListener('click', async (event) => {
         if (!confirm(`Apagar a visita de "${visit.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
