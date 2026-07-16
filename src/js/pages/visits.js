@@ -588,10 +588,16 @@ export async function renderCalendarPage() {
                                 <span>${escapeHtml(a.cidade || '-')}</span>
                                 ${a.observacao ? `<span>${escapeHtml(a.observacao)}</span>` : ''}
                             </div>
-                            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                            <div class="ag-actions-row" id="ag-actions-${escapeHtml(a.id)}" style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
                                 <button type="button" class="mini-button" data-ag-done="${escapeHtml(a.id)}">Concluído</button>
                                 <button type="button" class="mini-button" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
+                                <button type="button" class="mini-button" data-ag-edit-date="${escapeHtml(a.id)}">Mudar data</button>
                                 <button type="button" class="mini-button" data-ag-ics="${escapeHtml(a.id)}">.ics</button>
+                            </div>
+                            <div class="ag-edit-date-row" id="ag-edit-row-${escapeHtml(a.id)}" style="display:none;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
+                                <input type="date" class="ag-edit-date-input" id="ag-edit-date-${escapeHtml(a.id)}" value="${escapeHtml(formatInputDateFromDisplay(a.dataAgendada) || '')}">
+                                <button type="button" class="mini-button" data-ag-save-date="${escapeHtml(a.id)}">Salvar</button>
+                                <button type="button" class="mini-button" data-ag-cancel-date="${escapeHtml(a.id)}">Cancelar</button>
                             </div>
                         </div>`).join('')}
                         ${dayVisits.map((v) => `
@@ -648,8 +654,13 @@ export async function renderCalendarPage() {
                         if (r && r.status === 'success') {
                             const found = state.agendamentos.find((item) => String(item.id) === id);
                             if (found) found.status = 'Concluido';
-                            showToast('Retorno marcado como concluído.');
                             b.closest('[data-agendamento-id]')?.remove();
+                            // Fecha o ciclo: concluir o retorno já leva pro
+                            // formulário de Nova Visita com Cliente/Cidade
+                            // preenchidos, em vez de só marcar o status.
+                            const agData = dayAgendamentos.find((item) => String(item.id) === id);
+                            showToast('Retorno concluído. Registre a visita.');
+                            navigateTo('visit-new', { prefill: { Cliente: agData?.cliente || '', Cidade: agData?.cidade || '' } });
                         } else {
                             showToast((r && r.message) || 'Erro ao atualizar agendamento.', true);
                             setSaving(false, b);
@@ -685,6 +696,43 @@ export async function renderCalendarPage() {
                             dateStr
                         });
                         downloadIcs(`retorno-${String(a.cliente || 'cliente').replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
+                    });
+                });
+                panel.querySelectorAll('[data-ag-edit-date]').forEach((b) => {
+                    b.addEventListener('click', () => {
+                        const id = b.dataset.agEditDate;
+                        document.getElementById(`ag-actions-${id}`).style.display = 'none';
+                        document.getElementById(`ag-edit-row-${id}`).style.display = 'flex';
+                    });
+                });
+                panel.querySelectorAll('[data-ag-cancel-date]').forEach((b) => {
+                    b.addEventListener('click', () => {
+                        const id = b.dataset.agCancelDate;
+                        document.getElementById(`ag-edit-row-${id}`).style.display = 'none';
+                        document.getElementById(`ag-actions-${id}`).style.display = 'flex';
+                    });
+                });
+                panel.querySelectorAll('[data-ag-save-date]').forEach((b) => {
+                    b.addEventListener('click', async () => {
+                        const id = b.dataset.agSaveDate;
+                        const dateInput = document.getElementById(`ag-edit-date-${id}`);
+                        const newDate = dateInput?.value;
+                        if (!newDate) { showToast('Informe a nova data.', true); return; }
+                        setSaving(true, b, 'Salvando...');
+                        const r = await callAPI('updateAgendamento', { id, dataAgendada: newDate, user: state.currentUser });
+                        if (r && r.status === 'success') {
+                            const found = state.agendamentos.find((item) => String(item.id) === id);
+                            if (found) found.dataAgendada = r.agendamento?.dataAgendada || found.dataAgendada;
+                            showToast('Data do retorno atualizada.');
+                            // A data pode ter mudado pra outro dia — some do
+                            // painel de hoje; o card certo aparece quando o
+                            // usuário abrir o novo dia (o grid não recalcula
+                            // os pontos sem recarregar a Agenda).
+                            document.getElementById(`ag-actions-${id}`)?.closest('[data-agendamento-id]')?.remove();
+                        } else {
+                            showToast((r && r.message) || 'Erro ao atualizar a data.', true);
+                            setSaving(false, b);
+                        }
                     });
                 });
             });

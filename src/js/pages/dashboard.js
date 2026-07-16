@@ -52,6 +52,27 @@ export function fillDashboard(mainContent, data, user) {
                 : renderRecentItems(todayVisits, '')}
         </div>
 
+        ${(data.proximosAgendamentos && data.proximosAgendamentos.length > 0) ? `
+        <div class="dash-today-card" style="margin-top:0.6rem">
+            <div class="section-title-row">
+                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📌 Próximos retornos</h3>
+                <button class="section-link-button" id="go-agenda-retornos">Ver agenda →</button>
+            </div>
+            <div class="recent-list">
+                ${data.proximosAgendamentos.map((a) => {
+                    const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
+                    const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
+                    return `<div class="recent-item recent-item-proposal">
+                        <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
+                            <strong style="font-size:0.85rem">${escapeHtml(a.cliente || '-')}</strong>
+                            <span class="helper-text" style="margin:0">${escapeHtml(a.cidade || '-')}</span>
+                        </div>
+                        <span class="dias-atraso-badge" style="background:#f3e8ff;color:#7e22ce">${diasLabel}</span>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>` : ''}
+
         <!-- Métricas -->
         <div class="section-title-row" style="margin-top:0.4rem">
             <p class="dash-section-heading" style="margin:0">Visão geral</p>
@@ -155,6 +176,7 @@ export function fillDashboard(mainContent, data, user) {
     `;
 
     document.getElementById('go-agenda').addEventListener('click',    () => navigateTo('calendar'));
+    document.getElementById('go-agenda-retornos')?.addEventListener('click', () => navigateTo('calendar'));
     document.getElementById('go-contratos').addEventListener('click', () => navigateTo('contratos'));
     document.getElementById('go-report').addEventListener('click',    () => navigateTo('report'));
     document.getElementById('go-visits').addEventListener('click',    () => navigateTo('visits'));

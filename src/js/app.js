@@ -193,7 +193,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
             await (await import('./pages/visits.js')).renderCalendarPage();
             break;
         case 'visit-new':
-            await (await import('./pages/visits.js')).renderVisitFormPage();
+            await (await import('./pages/visits.js')).renderVisitFormPage(options.prefill || null);
             break;
         case 'visit-detail':
             await (await import('./pages/visits.js')).renderVisitDetailPage(options.id);
