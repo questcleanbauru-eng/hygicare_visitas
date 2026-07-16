@@ -70,8 +70,10 @@ export function fillProposalsContent(mainContent, proposals) {
             <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
         </div>
         <div class="search-bar-wrapper">
-            <span class="search-bar-icon">🔍</span>
-            <input type="text" id="pf-search" placeholder="Buscar cliente, cidade ou produto..." class="form-input">
+            <div class="search-bar-input-group">
+                <span class="search-bar-icon">🔍</span>
+                <input type="text" id="pf-search" placeholder="Buscar cliente, cidade ou produto..." class="form-input">
+            </div>
             ${summaryCount > 0 ? `<button type="button" class="csv-export-btn" id="update-summary-btn" title="Compartilhar resumo de atualizações">
                 📤 Resumo <span class="pending-badge" style="margin-left:0.2rem">${summaryCount}</span>
             </button>` : ''}

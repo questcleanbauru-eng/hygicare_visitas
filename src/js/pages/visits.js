@@ -71,8 +71,10 @@ export function fillVisitsContent(container, visits) {
 
     container.innerHTML = `
         <div class="search-bar-wrapper">
-            <span class="search-bar-icon">🔍</span>
-            <input type="text" id="visit-filter-search" placeholder="Buscar cliente, contato ou cidade..." class="form-input">
+            <div class="search-bar-input-group">
+                <span class="search-bar-icon">🔍</span>
+                <input type="text" id="visit-filter-search" placeholder="Buscar cliente, contato ou cidade..." class="form-input">
+            </div>
             ${isAdmin ? `<button type="button" class="csv-export-btn" id="visits-csv-btn" title="Exportar CSV">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v13M8 11l4 4 4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
                 CSV

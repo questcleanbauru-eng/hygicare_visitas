@@ -34,8 +34,10 @@ export function fillContratosContent(mainContent, contratos) {
             <button class="btn-add" id="btn-new-contrato" type="button" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de contratos."'}>+ Novo</button>
         </div>
         <div class="search-bar-wrapper">
-            <span class="search-bar-icon">🔍</span>
-            <input type="text" id="ct-search" placeholder="Buscar cliente, cidade ou vendedor..." class="form-input">
+            <div class="search-bar-input-group">
+                <span class="search-bar-icon">🔍</span>
+                <input type="text" id="ct-search" placeholder="Buscar cliente, cidade ou vendedor..." class="form-input">
+            </div>
         </div>
         <div class="card visits-filter-card">
             <div class="visits-filter-header">

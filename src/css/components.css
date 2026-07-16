@@ -338,6 +338,14 @@ textarea { resize: vertical; }
     margin-bottom: 0.25rem;
 }
 
+/* A lupa é posicionada relativa a este grupo (só o input), não ao
+   .search-bar-wrapper inteiro — senão, quando o wrapper também contém o
+   botão CSV abaixo do input, top:50% centraliza a lupa entre os dois em
+   vez de dentro do campo de busca. */
+.search-bar-input-group {
+    position: relative;
+}
+
 .search-bar-wrapper input {
     padding-left: 2.4rem;
     width: 100%;
