@@ -8,6 +8,9 @@ import {
 import {
     handleGetContratos, handleGetContratoById, handleCreateContrato, handleUpdateContrato, handleDeleteContrato
 } from '../lib/handlers/contratos.js';
+import {
+    handleGetAgendamentos, handleCreateAgendamento, handleUpdateAgendamento, handleDeleteAgendamento
+} from '../lib/handlers/agendamentos.js';
 import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList } from '../lib/handlers/admin.js';
 import { handleGetFormData } from '../lib/handlers/formdata.js';
@@ -45,6 +48,10 @@ const HANDLERS = {
     createContrato: handleCreateContrato,
     updateContrato: handleUpdateContrato,
     deleteContrato: handleDeleteContrato,
+    getAgendamentos: handleGetAgendamentos,
+    createAgendamento: handleCreateAgendamento,
+    updateAgendamento: handleUpdateAgendamento,
+    deleteAgendamento: handleDeleteAgendamento,
     getDashboardData: handleGetDashboardData,
     getAdminData: handleGetAdminData,
     saveUser: handleSaveUser,

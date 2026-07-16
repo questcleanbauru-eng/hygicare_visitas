@@ -20,6 +20,7 @@ export const state = {
     currentFunil: null,
     contratos: [],
     currentContrato: null,
+    agendamentos: [],
     toastTimer: null,
     overdueProposals: 0,
     overdueFunil: 0,

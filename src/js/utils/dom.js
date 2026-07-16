@@ -283,7 +283,7 @@ export function setSaving(active, btn, loadingText = 'Salvando...') {
     if (active) {
         btn.dataset.originalText = btn.textContent;
         btn.disabled = true;
-        btn.textContent = '⏳ ' + loadingText;
+        btn.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span>${escapeHtml(loadingText)}`;
     } else {
         btn.disabled = false;
         btn.textContent = btn.dataset.originalText || 'Salvar';
@@ -364,6 +364,43 @@ export function downloadCSV(data, filename, columns) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+
+// Gera um evento de dia inteiro em formato .ics (RFC 5545) — usado pra
+// exportar um agendamento pro calendario nativo do celular (Google
+// Agenda, Apple Calendar), sem precisar de nenhuma API/permissao do Google.
+export function buildIcsContent({ title, description, dateStr }) {
+    const dt = String(dateStr || '').replace(/-/g, '');
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const uid = 'agendamento-' + Date.now() + '@appdevisitas';
+    const esc = (s) => String(s || '').replace(/([,;])/g, '\\$1').replace(/\n/g, '\\n');
+    return [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//App de Visitas//PT-BR',
+        'CALSCALE:GREGORIAN',
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${dt}`,
+        `SUMMARY:${esc(title)}`,
+        `DESCRIPTION:${esc(description)}`,
+        'END:VEVENT',
+        'END:VCALENDAR'
+    ].join('\r\n');
+}
+
+export function downloadIcs(filename, content) {
+    const blob = new Blob([content], { type: 'text/calendar;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 
 // ── Field validation helpers ─────────────────────────────────────
 

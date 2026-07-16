@@ -274,6 +274,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 ${emailPanel('visitas', 'Relatório de visitas pendente', 'Avisa vendedores sem visitas registradas em X dias', ['nome', 'dias'], emailConfig)}
                 ${emailPanel('funil', 'Funil sem atualização', 'Avisa vendedores com oportunidades ativas paradas há X dias', ['nome', 'quantidade', 'dias'], emailConfig)}
                 ${emailPanel('contratos', 'Contratos vencendo', 'Avisa vendedores com contratos vencendo nos próximos X dias', ['nome', 'quantidade', 'dias'], emailConfig, 'Dias de antecedência do vencimento')}
+                ${emailPanel('agendamentos', 'Retornos agendados', 'Avisa vendedores com retorno de visita agendado nos próximos X dias', ['nome', 'quantidade', 'dias'], emailConfig, 'Dias de antecedência do retorno')}
             </div>
         </div>
 

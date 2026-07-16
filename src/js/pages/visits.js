@@ -10,7 +10,8 @@ import {
 import {
     debounce, downloadCSV, initializeSearchableInput, renderDetailRow,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
-    loadingState, showRefreshIndicator, hideRefreshIndicator, addFabAndScrollTop, renderYearChips, setSaving
+    loadingState, showRefreshIndicator, hideRefreshIndicator, addFabAndScrollTop, renderYearChips, setSaving,
+    buildIcsContent, downloadIcs
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 import { getProposals } from './proposals.js';
@@ -419,10 +420,13 @@ export async function renderCalendarPage() {
         const r = await getFunil();
         if (r.status === 'success') { state.funil = r.funil || []; }
     }
+    const agResult = await callAPI('getAgendamentos', { user: state.currentUser });
+    state.agendamentos = agResult.status === 'success' ? (agResult.agendamentos || []) : [];
 
-    const visits    = state.visits.map(normalizeVisit);
-    const proposals = (state.proposals || []).map(normalizeProposal);
-    const funil     = (state.funil || []);
+    const visits       = state.visits.map(normalizeVisit);
+    const proposals    = (state.proposals || []).map(normalizeProposal);
+    const funil        = (state.funil || []);
+    const agendamentos = (state.agendamentos || []).filter((a) => a.status === 'Pendente');
 
     const VISIT_COLORS = [
         '#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6',
@@ -434,6 +438,7 @@ export async function renderCalendarPage() {
 
     const PROPOSAL_COLOR = '#0ea5e9';
     const FUNIL_COLOR    = '#22c55e';
+    const AGENDAMENTO_COLOR = '#a855f7';
 
     let viewYear  = new Date().getFullYear();
     let viewMonth = new Date().getMonth();
@@ -444,9 +449,10 @@ export async function renderCalendarPage() {
         const startDow  = firstDay.getDay();
         const monthName = firstDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
-        const visitsByDay    = {};
-        const proposalsByDay = {};
-        const funilByDay     = {};
+        const visitsByDay      = {};
+        const proposalsByDay   = {};
+        const funilByDay       = {};
+        const agendamentosByDay = {};
 
         visits.forEach((v) => {
             const d = parseDisplayDate(v.dataVisita);
@@ -469,23 +475,32 @@ export async function renderCalendarPage() {
             if (!funilByDay[key]) { funilByDay[key] = []; }
             funilByDay[key].push(f);
         });
+        agendamentos.forEach((a) => {
+            const d = parseDisplayDate(a.dataAgendada);
+            if (!d || d.getFullYear() !== viewYear || d.getMonth() !== viewMonth) { return; }
+            const key = d.getDate();
+            if (!agendamentosByDay[key]) { agendamentosByDay[key] = []; }
+            agendamentosByDay[key].push(a);
+        });
 
         const todayStr = new Date().toDateString();
         const cells = [];
         for (let i = 0; i < startDow; i++) { cells.push(`<div class="cal-cell cal-cell-empty"></div>`); }
         for (let d = 1; d <= lastDay.getDate(); d++) {
-            const dayVisits    = visitsByDay[d]    || [];
-            const dayProposals = proposalsByDay[d] || [];
-            const dayFunil     = funilByDay[d]     || [];
-            const hasAny = dayVisits.length || dayProposals.length || dayFunil.length;
+            const dayVisits       = visitsByDay[d]       || [];
+            const dayProposals    = proposalsByDay[d]    || [];
+            const dayFunil        = funilByDay[d]        || [];
+            const dayAgendamentos = agendamentosByDay[d] || [];
+            const hasAny = dayVisits.length || dayProposals.length || dayFunil.length || dayAgendamentos.length;
             const isToday = new Date(viewYear, viewMonth, d).toDateString() === todayStr;
 
             const allDots = [
                 ...dayVisits.slice(0, 2).map((v) => `<span class="cal-dot" style="background:${typeColorMap[v.tipoVisita] || '#3b82f6'}" title="Visita: ${escapeHtml(v.cliente)}"></span>`),
                 ...dayProposals.slice(0, 1).map(() => `<span class="cal-dot" style="background:${PROPOSAL_COLOR}" title="Proposta"></span>`),
-                ...dayFunil.slice(0, 1).map(() => `<span class="cal-dot" style="background:${FUNIL_COLOR}" title="Funil"></span>`)
+                ...dayFunil.slice(0, 1).map(() => `<span class="cal-dot" style="background:${FUNIL_COLOR}" title="Funil"></span>`),
+                ...dayAgendamentos.slice(0, 1).map((a) => `<span class="cal-dot" style="background:${AGENDAMENTO_COLOR}" title="Retorno agendado: ${escapeHtml(a.cliente)}"></span>`)
             ];
-            const totalExtra = dayVisits.length + dayProposals.length + dayFunil.length - allDots.length;
+            const totalExtra = dayVisits.length + dayProposals.length + dayFunil.length + dayAgendamentos.length - allDots.length;
             const more = totalExtra > 0 ? `<span class="cal-more">+${totalExtra}</span>` : '';
 
             cells.push(`
@@ -498,12 +513,13 @@ export async function renderCalendarPage() {
         const legendHtml = [
             ...types.map((t) => `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${typeColorMap[t]}"></span>${escapeHtml(t)}</span>`),
             `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${PROPOSAL_COLOR}"></span>Proposta</span>`,
-            `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${FUNIL_COLOR}"></span>Funil</span>`
+            `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${FUNIL_COLOR}"></span>Funil</span>`,
+            `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${AGENDAMENTO_COLOR}"></span>Retorno agendado</span>`
         ].join('');
 
         mainContent.innerHTML = `
             <div class="page-header">
-                <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas e Funil</p></div>
+                <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas, Funil e Retornos</p></div>
                 <button type="button" class="btn-add" id="cal-new-visit">+ Visita</button>
             </div>
             <div class="card cal-card">
@@ -542,23 +558,40 @@ export async function renderCalendarPage() {
         mainContent.querySelectorAll('[data-day]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const day = Number(btn.dataset.day);
-                const dayVisits    = visitsByDay[day]    || [];
-                const dayProposals = proposalsByDay[day] || [];
-                const dayFunil     = funilByDay[day]     || [];
+                const dayVisits       = visitsByDay[day]       || [];
+                const dayProposals    = proposalsByDay[day]    || [];
+                const dayFunil        = funilByDay[day]        || [];
+                const dayAgendamentos = agendamentosByDay[day] || [];
                 const panel = document.getElementById('cal-day-panel');
                 if (!panel) { return; }
-                if (!dayVisits.length && !dayProposals.length && !dayFunil.length) {
+                if (!dayVisits.length && !dayProposals.length && !dayFunil.length && !dayAgendamentos.length) {
                     panel.innerHTML = `<p class="helper-text" style="text-align:center;padding:1rem">Sem registros neste dia.</p>`;
                     return;
                 }
                 const dateLabel = new Date(viewYear, viewMonth, day).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-                const total = dayVisits.length + dayProposals.length + dayFunil.length;
+                const total = dayVisits.length + dayProposals.length + dayFunil.length + dayAgendamentos.length;
                 panel.innerHTML = `
                     <div class="visit-month-header" style="margin-top:1rem">
                         <h3>${escapeHtml(dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1))}</h3>
                         <span>${total} registro(s)</span>
                     </div>
                     <div class="visits-list">
+                        ${dayAgendamentos.map((a) => `
+                        <div class="visit-card" data-agendamento-id="${escapeHtml(a.id)}" style="border-left:4px solid ${AGENDAMENTO_COLOR};cursor:default">
+                            <div class="visit-card-header">
+                                <strong>${escapeHtml(a.cliente || '-')}</strong>
+                                <span class="tag" style="background:${AGENDAMENTO_COLOR}20;color:${AGENDAMENTO_COLOR}">Retorno agendado</span>
+                            </div>
+                            <div class="visit-card-body">
+                                <span>${escapeHtml(a.cidade || '-')}</span>
+                                ${a.observacao ? `<span>${escapeHtml(a.observacao)}</span>` : ''}
+                            </div>
+                            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                                <button type="button" class="mini-button" data-ag-done="${escapeHtml(a.id)}">Concluído</button>
+                                <button type="button" class="mini-button" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
+                                <button type="button" class="mini-button" data-ag-ics="${escapeHtml(a.id)}">.ics</button>
+                            </div>
+                        </div>`).join('')}
                         ${dayVisits.map((v) => `
                         <button type="button" class="visit-card" data-visit-id="${escapeHtml(v.id)}" style="border-left:4px solid ${typeColorMap[v.tipoVisita] || '#3b82f6'}">
                             <div class="visit-card-header">
@@ -605,11 +638,59 @@ export async function renderCalendarPage() {
                 panel.querySelectorAll('[data-funil-id]').forEach((b) => {
                     b.addEventListener('click', () => navigateTo('funil-detail', { id: b.dataset.funilId }));
                 });
+                panel.querySelectorAll('[data-ag-done]').forEach((b) => {
+                    b.addEventListener('click', async () => {
+                        setSaving(true, b, '');
+                        const id = b.dataset.agDone;
+                        const r = await callAPI('updateAgendamento', { id, status: 'Concluido', user: state.currentUser });
+                        if (r && r.status === 'success') {
+                            const found = state.agendamentos.find((item) => String(item.id) === id);
+                            if (found) found.status = 'Concluido';
+                            showToast('Retorno marcado como concluído.');
+                            b.closest('[data-agendamento-id]')?.remove();
+                        } else {
+                            showToast((r && r.message) || 'Erro ao atualizar agendamento.', true);
+                            setSaving(false, b);
+                        }
+                    });
+                });
+                panel.querySelectorAll('[data-ag-cancel]').forEach((b) => {
+                    b.addEventListener('click', async () => {
+                        if (!confirm('Cancelar este agendamento?')) return;
+                        setSaving(true, b, '');
+                        const id = b.dataset.agCancel;
+                        const r = await callAPI('updateAgendamento', { id, status: 'Cancelado', user: state.currentUser });
+                        if (r && r.status === 'success') {
+                            const found = state.agendamentos.find((item) => String(item.id) === id);
+                            if (found) found.status = 'Cancelado';
+                            showToast('Agendamento cancelado.');
+                            b.closest('[data-agendamento-id]')?.remove();
+                        } else {
+                            showToast((r && r.message) || 'Erro ao cancelar agendamento.', true);
+                            setSaving(false, b);
+                        }
+                    });
+                });
+                panel.querySelectorAll('[data-ag-ics]').forEach((b) => {
+                    b.addEventListener('click', () => {
+                        const a = dayAgendamentos.find((item) => String(item.id) === b.dataset.agIcs);
+                        if (!a) return;
+                        const dt = parseDisplayDate(a.dataAgendada);
+                        const dateStr = dt ? dt.toISOString().slice(0, 10) : '';
+                        const ics = buildIcsContent({
+                            title: `Retorno: ${a.cliente || ''}`,
+                            description: a.observacao || 'Visita de retorno agendada pelo App de Visitas.',
+                            dateStr
+                        });
+                        downloadIcs(`retorno-${String(a.cliente || 'cliente').replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
+                    });
+                });
             });
         });
 
-        if (visitsByDay[new Date().getDate()] && viewYear === new Date().getFullYear() && viewMonth === new Date().getMonth()) {
-            mainContent.querySelector(`[data-day="${new Date().getDate()}"]`)?.click();
+        const todayNum = new Date().getDate();
+        if ((visitsByDay[todayNum] || agendamentosByDay[todayNum]) && viewYear === new Date().getFullYear() && viewMonth === new Date().getMonth()) {
+            mainContent.querySelector(`[data-day="${todayNum}"]`)?.click();
         }
     };
 
@@ -1136,6 +1217,9 @@ export async function renderVisitFormPage(visit = null) {
             if (waConfig && waConfig.obrigatorio) {
                 await showMandatoryWhatsappModal(waConfig, state.currentVisit);
             }
+            if (result.status === 'success') {
+                await showScheduleReturnModal(state.currentVisit);
+            }
             state.formDirty = false;
             const _dk = document.getElementById('visit-form')?._draftKey;
             if (_dk) { try { localStorage.removeItem(_dk); } catch(e) {} }
@@ -1432,6 +1516,71 @@ export function showMandatoryWhatsappModal(waConfig, visit) {
         overlay.querySelector('#modal-wa-done').addEventListener('click', () => {
             overlay.remove();
             resolve();
+        });
+    });
+}
+
+
+export function showScheduleReturnModal(visit) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card">
+                <div style="font-size:2rem;margin-bottom:0.75rem">📅</div>
+                <h3>Agendar retorno?</h3>
+                <p>Deseja programar uma próxima visita para <strong>${escapeHtml(visit.cliente || 'este cliente')}</strong>?</p>
+                <button type="button" id="modal-sched-yes" class="primary-button">Sim, agendar</button>
+                <button type="button" id="modal-sched-no" class="secondary-button">Não, obrigado</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const close = () => { overlay.remove(); resolve(); };
+        overlay.querySelector('#modal-sched-no').addEventListener('click', close);
+        overlay.querySelector('#modal-sched-yes').addEventListener('click', () => {
+            const defaultDate = new Date();
+            defaultDate.setDate(defaultDate.getDate() + 30);
+            const card = overlay.querySelector('.modal-card');
+            card.innerHTML = `
+                <div style="font-size:2rem;margin-bottom:0.75rem">📅</div>
+                <h3>Agendar retorno</h3>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="sched-data">Data do retorno</label>
+                    <input type="date" id="sched-data" value="${defaultDate.toISOString().slice(0, 10)}">
+                </div>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="sched-obs">Observação (opcional)</label>
+                    <textarea id="sched-obs" rows="2" placeholder="Ex: levar amostra, confirmar pedido..."></textarea>
+                </div>
+                <button type="button" id="modal-sched-save" class="primary-button">Salvar agendamento</button>
+                <button type="button" id="modal-sched-cancel" class="secondary-button">Cancelar</button>
+            `;
+            card.querySelector('#modal-sched-cancel').addEventListener('click', close);
+            card.querySelector('#modal-sched-save').addEventListener('click', async () => {
+                const btn = card.querySelector('#modal-sched-save');
+                const dataVal = card.querySelector('#sched-data').value;
+                if (!dataVal) { showToast('Informe a data do retorno.', true); return; }
+                const obsVal = card.querySelector('#sched-obs').value.trim();
+                setSaving(true, btn, 'Salvando...');
+                const result = await callAPI('createAgendamento', {
+                    cliente: visit.cliente, cidade: visit.cidade, dataAgendada: dataVal,
+                    observacao: obsVal, visitaOrigemId: visit.id, user: state.currentUser
+                });
+                if (result && result.status === 'success') {
+                    showToast('Retorno agendado com sucesso.');
+                    const ics = buildIcsContent({
+                        title: `Retorno: ${visit.cliente || ''}`,
+                        description: obsVal || 'Visita de retorno agendada pelo App de Visitas.',
+                        dateStr: dataVal
+                    });
+                    downloadIcs(`retorno-${String(visit.cliente || 'cliente').replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
+                    close();
+                } else {
+                    showToast((result && result.message) || 'Erro ao agendar retorno.', true);
+                    setSaving(false, btn);
+                }
+            });
         });
     });
 }

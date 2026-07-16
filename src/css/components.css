@@ -1453,6 +1453,22 @@ input:disabled {
 
 .form-loading-spinner { width: 20px; height: 20px; border: 2.5px solid #E2E8F0; border-top-color: #2563EB; border-radius: 50%; animation: spin 0.7s linear infinite; }
 
+/* ── Spinner inline em botões (setSaving) — usa currentColor pra funcionar
+   em qualquer variante de botão (primário, secundário, perigo) sem precisar
+   de cor especifica por estilo ── */
+.btn-spinner {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    margin-right: 0.4rem;
+    vertical-align: -2px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    opacity: 0.9;
+    animation: spin 0.6s linear infinite;
+}
+
 /* ── Welcome splash ── */
 
 @keyframes progressFill { from { width: 5%; } 60% { width: 75%; } to { width: 100%; } }

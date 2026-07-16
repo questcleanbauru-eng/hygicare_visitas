@@ -1155,7 +1155,11 @@ function defaultEmailConfig() {
     contratos_ativas: 'false',
     contratos_dias: '30',
     contratos_assunto: 'Contrato proximo do vencimento',
-    contratos_corpo: 'Ola {{nome}},\n\nVoce tem {{quantidade}} contrato(s) vencendo nos proximos {{dias}} dias.\n\nAcesse o sistema para providenciar a renovacao.\n\nAtenciosamente,\nEquipe de Vendas'
+    contratos_corpo: 'Ola {{nome}},\n\nVoce tem {{quantidade}} contrato(s) vencendo nos proximos {{dias}} dias.\n\nAcesse o sistema para providenciar a renovacao.\n\nAtenciosamente,\nEquipe de Vendas',
+    agendamentos_ativas: 'false',
+    agendamentos_dias: '1',
+    agendamentos_assunto: 'Retorno de visita agendado',
+    agendamentos_corpo: 'Ola {{nome}},\n\nVoce tem {{quantidade}} retorno(s) de visita agendado(s) para os proximos {{dias}} dia(s).\n\nAcesse o sistema para ver os detalhes.\n\nAtenciosamente,\nEquipe de Vendas'
   };
 }
 
@@ -1205,6 +1209,13 @@ function enviarEmailsNotificacao() {
       enviarEmailsContratosVencendo(spreadsheet, config);
     } catch (e) {
       Logger.log('Erro ao enviar emails de contratos: ' + e.message);
+    }
+  }
+  if (config.agendamentos_ativas === 'true') {
+    try {
+      enviarEmailsAgendamentosProximos(spreadsheet, config);
+    } catch (e) {
+      Logger.log('Erro ao enviar emails de agendamentos: ' + e.message);
     }
   }
 }
@@ -1617,6 +1628,67 @@ function enviarEmailsContratosVencendo(spreadsheet, config) {
       MailApp.sendEmail({ to: email, subject: assunto, body: corpo });
     } catch (e) {
       Logger.log('Erro ao enviar email contratos para ' + email + ': ' + e.message);
+    }
+  });
+}
+
+function normalizeAgendamentoRow(row) {
+  var r;
+  try { r = JSON.parse(JSON.stringify(row)); } catch (e) { r = row; }
+
+  function toDate(v) {
+    if (!v) return '';
+    if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v)) return formatDate(v);
+    if (typeof v === 'string' && v.indexOf('T') > 0) {
+      try { var d = new Date(v); if (!isNaN(d)) return formatDate(d); } catch (e2) {}
+    }
+    return String(v);
+  }
+
+  return {
+    id:            String(r['Id']            || r['ID']            || ''),
+    vendedor:      String(r['Vendedor']       || r['VENDEDOR']      || ''),
+    cliente:       String(r['Cliente']        || r['CLIENTE']       || ''),
+    dataAgendada:  toDate(r['DataAgendada']   || r['DATAAGENDADA']  || ''),
+    status:        String(r['Status']         || r['STATUS']        || 'Pendente')
+  };
+}
+
+function enviarEmailsAgendamentosProximos(spreadsheet, config) {
+  var dias = Number(config.agendamentos_dias) || 1;
+  var assunto = config.agendamentos_assunto || 'Retorno de visita agendado';
+  var corpoTemplate = config.agendamentos_corpo || '';
+  var sheet = spreadsheet.getSheetByName('Agendamentos');
+  if (!sheet) { return; }
+  var rows = getSheetObjects(sheet).map(normalizeAgendamentoRow);
+  var sellers = getSheetObjects(getSheet(spreadsheet, 'Vendedores'));
+
+  var proximosByEmail = {};
+  rows.forEach(function(a) {
+    if (String(a.status || '').toLowerCase() !== 'pendente') { return; }
+    var diasRestantes = daysUntilDate(a.dataAgendada);
+    if (diasRestantes === null || diasRestantes < 0 || diasRestantes > dias) { return; }
+    var sellerRow = sellers.find(function(s) {
+      return String(s.NomeVendedor || '').trim() === String(a.vendedor || '').trim();
+    });
+    if (!sellerRow || !sellerRow.EmailLogin) { return; }
+    var email = String(sellerRow.EmailLogin).trim();
+    if (!proximosByEmail[email]) {
+      proximosByEmail[email] = { nome: sellerRow.NomeVendedor || email, quantidade: 0 };
+    }
+    proximosByEmail[email].quantidade += 1;
+  });
+
+  Object.keys(proximosByEmail).forEach(function(email) {
+    var data = proximosByEmail[email];
+    var corpo = corpoTemplate
+      .replace(/\{\{nome\}\}/g, data.nome)
+      .replace(/\{\{quantidade\}\}/g, String(data.quantidade))
+      .replace(/\{\{dias\}\}/g, String(dias));
+    try {
+      MailApp.sendEmail({ to: email, subject: assunto, body: corpo });
+    } catch (e) {
+      Logger.log('Erro ao enviar email agendamentos para ' + email + ': ' + e.message);
     }
   });
 }
