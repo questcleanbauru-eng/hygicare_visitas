@@ -348,6 +348,26 @@ main {
     transition: background-color 0.15s, border-color 0.15s;
 }
 
+/* .primary-button não tinha estilo base nenhum — só um ajuste de largura
+   dentro de .modal-card — então renderizava com a aparência padrão cinza
+   do navegador sempre que usado fora de .form-actions. */
+.primary-button {
+    display: block;
+    width: 100%;
+    padding: 0.8rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.primary-button:active { transform: scale(0.98); }
+
 .secondary-button {
     border: 1.5px solid var(--border);
     background-color: var(--surface);
