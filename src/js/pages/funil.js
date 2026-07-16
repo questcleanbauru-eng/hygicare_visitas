@@ -7,7 +7,7 @@ import {
 import {
     debounce, renderDetailRow, showToast, renderSimpleOptions,
     showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addFabAndScrollTop,
-    openExternal, initializeSearchableInput, renderYearChips
+    openExternal, initializeSearchableInput, renderYearChips, setSaving
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
@@ -351,7 +351,14 @@ export async function renderFunilPage() {
             if (state.canCreateProposalFunil) { navigateTo('funil-new'); }
             else { showToast('Peça ao administrador para liberar a criação de oportunidades.', true); }
         });
-        initPullToRefresh(() => { saveCache('funil', null); saveCache('funil_all', null); navigateTo('funil'); });
+        initPullToRefresh(async () => {
+            const r = await getFunil(state.funilScope === 'all' ? 0 : undefined);
+            if (r.status === 'success' && state.currentPage === 'funil') {
+                state.funil = r.funil || [];
+                const el = document.getElementById('main-content');
+                if (el) { fillFunilContent(el, state.funil); }
+            }
+        });
         getFunil(loadAll || cachedAll ? 0 : 3);
         return;
     }
@@ -385,7 +392,14 @@ export async function renderFunilPage() {
         if (state.canCreateProposalFunil) { navigateTo('funil-new'); }
         else { showToast('Peça ao administrador para liberar a criação de oportunidades.', true); }
     });
-    initPullToRefresh(() => { saveCache('funil', null); saveCache('funil_all', null); navigateTo('funil'); });
+    initPullToRefresh(async () => {
+            const r = await getFunil(state.funilScope === 'all' ? 0 : undefined);
+            if (r.status === 'success' && state.currentPage === 'funil') {
+                state.funil = r.funil || [];
+                const el = document.getElementById('main-content');
+                if (el) { fillFunilContent(el, state.funil); }
+            }
+        });
 }
 
 
@@ -523,8 +537,7 @@ export async function renderFunilCreatePage() {
     document.getElementById('funil-create-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const btn = document.getElementById('save-funil-create');
-        btn.disabled = true;
-        btn.textContent = 'Salvando...';
+        setSaving(true, btn, 'Salvando...');
 
         const conclusaoValue = document.getElementById('fc-conclusao').value;
         const funilPayload = {
@@ -640,8 +653,10 @@ export async function renderFunilDetailPage(id) {
         const text = `*Funil - ${f.cliente}*\nStatus: ${f.status}\nFoco: ${f.foco || '-'}\nCidade: ${f.cidade || '-'}\nVL Mensal: ${f.vlMensal ? 'R$ ' + f.vlMensal : '-'}\nAtualização: ${f.atualizacao || f.data || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
     });
-    document.getElementById('delete-funil')?.addEventListener('click', async () => {
+    document.getElementById('delete-funil')?.addEventListener('click', async (event) => {
         if (!confirm(`Apagar o registro de "${f.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Apagando...');
         const result = await callAPI('deleteFunil', { id: f.id, user: state.currentUser });
         if (result && result.status === 'success') {
             state.funil = state.funil.filter((item) => String(item.id) !== String(f.id));
@@ -650,6 +665,7 @@ export async function renderFunilDetailPage(id) {
             navigateTo('funil');
         } else {
             showToast((result && result.message) || 'Não foi possível apagar o registro.', true);
+            setSaving(false, btn);
         }
     });
 }
@@ -709,8 +725,7 @@ export async function renderFunilFormPage(funil) {
     document.getElementById('funil-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const btn = document.getElementById('save-funil');
-        btn.disabled = true;
-        btn.textContent = 'Salvando...';
+        setSaving(true, btn, 'Salvando...');
 
         const conclusaoValue = document.getElementById('funil-conclusao').value;
         const newFStatus   = document.getElementById('funil-status').value;

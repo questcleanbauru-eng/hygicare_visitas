@@ -10,7 +10,7 @@ import {
 import {
     debounce, downloadCSV, initializeSearchableInput, renderDetailRow,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
-    loadingState, showRefreshIndicator, hideRefreshIndicator, addFabAndScrollTop, renderYearChips
+    loadingState, showRefreshIndicator, hideRefreshIndicator, addFabAndScrollTop, renderYearChips, setSaving
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 import { getProposals } from './proposals.js';
@@ -366,7 +366,14 @@ export async function renderVisitsPage() {
         const visitsContent = document.getElementById('visits-content');
         if (visitsContent) { fillVisitsContent(visitsContent, state.visits); }
         addFabAndScrollTop('Nova Visita', () => navigateTo('visit-new'));
-        initPullToRefresh(() => { saveCache('visits', null); saveCache('visits_all', null); navigateTo('visits'); });
+        initPullToRefresh(async () => {
+            const r = await getVisits(state.visitsScope === 'all' ? 0 : undefined);
+            if (r.status === 'success' && state.currentPage === 'visits') {
+                state.visits = r.visits || [];
+                const el = document.getElementById('visits-content');
+                if (el) { fillVisitsContent(el, state.visits); }
+            }
+        });
         getVisits(cachedAll ? 0 : 3);
         return;
     }
@@ -382,7 +389,14 @@ export async function renderVisitsPage() {
     state.visits = result.visits || [];
     fillVisitsContent(visitsContent, state.visits);
     addFabAndScrollTop('Nova Visita', () => navigateTo('visit-new'));
-    initPullToRefresh(() => { saveCache('visits', null); saveCache('visits_all', null); navigateTo('visits'); });
+    initPullToRefresh(async () => {
+            const r = await getVisits(state.visitsScope === 'all' ? 0 : undefined);
+            if (r.status === 'success' && state.currentPage === 'visits') {
+                state.visits = r.visits || [];
+                const el = document.getElementById('visits-content');
+                if (el) { fillVisitsContent(el, state.visits); }
+            }
+        });
 }
 
 
@@ -975,14 +989,12 @@ export async function renderVisitFormPage(visit = null) {
     document.getElementById('visit-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const saveButton = document.getElementById('save-visit');
-        saveButton.disabled = true;
-        saveButton.textContent = isEdit ? 'Salvando...' : 'Criando...';
+        setSaving(true, saveButton, isEdit ? 'Salvando...' : 'Criando...');
 
         const normalizedVisitDate = normalizeDisplayDateValue(dataVisitaInput.value);
         if (!normalizedVisitDate) {
             showToast('Informe a data no formato dd/mm/aaaa.', true);
-            saveButton.disabled = false;
-            saveButton.textContent = isEdit ? 'Salvar Alterações' : 'Salvar Visita';
+            setSaving(false, saveButton);
             dataVisitaInput.focus();
             return;
         }
@@ -990,8 +1002,7 @@ export async function renderVisitFormPage(visit = null) {
         const normalizedHorario = normalizeTimeValue(horarioInput.value);
         if (!normalizedHorario) {
             showToast('Informe o horário no formato hh:mm.', true);
-            saveButton.disabled = false;
-            saveButton.textContent = isEdit ? 'Salvar Alterações' : 'Salvar Visita';
+            setSaving(false, saveButton);
             horarioInput.focus();
             return;
         }
@@ -1021,16 +1032,14 @@ export async function renderVisitFormPage(visit = null) {
 
         if (!isEdit && payload.tiposVisita.length === 0) {
             showToast('Selecione pelo menos um tipo de visita.', true);
-            saveButton.disabled = false;
-            saveButton.textContent = 'Salvar Visita';
+            setSaving(false, saveButton);
             tipoVisitaInput.focus();
             return;
         }
 
         if (isEdit && !payload.tipoVisita) {
             showToast('Selecione um tipo de visita.', true);
-            saveButton.disabled = false;
-            saveButton.textContent = 'Salvar Alterações';
+            setSaving(false, saveButton);
             tipoVisitaInput.focus();
             return;
         }
@@ -1087,8 +1096,7 @@ export async function renderVisitFormPage(visit = null) {
                     showToast('Erro ao salvar. Tente novamente.', true);
                 });
 
-            saveButton.disabled = false;
-            saveButton.textContent = 'Salvar Alterações';
+            setSaving(false, saveButton);
             return;
         }
 
@@ -1109,8 +1117,7 @@ export async function renderVisitFormPage(visit = null) {
                 if (_dupe) {
                     const _dupeDate = normalizeVisit(_dupe).dataVisita;
                     if (!confirm(`Já existe uma visita para "${payload.cliente}" nesta semana (${_dupeDate}). Registrar mesmo assim?`)) {
-                        saveButton.disabled = false;
-                        saveButton.textContent = 'Salvar Visita';
+                        setSaving(false, saveButton);
                         return;
                     }
                 }
@@ -1144,8 +1151,7 @@ export async function renderVisitFormPage(visit = null) {
             showToast((result && result.message) || 'Não foi possível salvar a visita.', true);
         }
 
-        saveButton.disabled = false;
-        saveButton.textContent = 'Salvar Visita';
+        setSaving(false, saveButton);
     });
 }
 
@@ -1199,8 +1205,10 @@ export async function renderVisitDetailPage(id) {
     document.getElementById('back-visits').addEventListener('click', () => navigateTo('visits'));
     document.getElementById('edit-visit').addEventListener('click', () => navigateTo('visit-edit', { visit }));
 
-    document.getElementById('delete-visit')?.addEventListener('click', async () => {
+    document.getElementById('delete-visit')?.addEventListener('click', async (event) => {
         if (!confirm(`Apagar a visita de "${visit.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Apagando...');
         const result = await callAPI('deleteVisit', { id: visit.id, user: state.currentUser });
         if (result && result.status === 'success') {
             state.visits = state.visits.filter((v) => String(v.id) !== String(visit.id));
@@ -1209,6 +1217,7 @@ export async function renderVisitDetailPage(id) {
             navigateTo('visits');
         } else {
             showToast((result && result.message) || 'Não foi possível apagar a visita.', true);
+            setSaving(false, btn);
         }
     });
 

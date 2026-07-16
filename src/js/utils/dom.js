@@ -276,6 +276,21 @@ export function updatePendingSyncBanner(count) {
 }
 
 
+// Trava um botão de salvar/excluir enquanto uma chamada assíncrona está em
+// voo, restaurando o texto original ao final (sucesso ou erro).
+export function setSaving(active, btn, loadingText = 'Salvando...') {
+    if (!btn) return;
+    if (active) {
+        btn.dataset.originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ ' + loadingText;
+    } else {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || 'Salvar';
+    }
+}
+
+
 export function showToast(message, isError = false, undoFn = null) {
     let toast = document.getElementById('app-toast');
     if (!toast) {

@@ -1,6 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, persistUser } from '../api.js';
 import { escapeHtml } from '../utils/format.js';
+import { setSaving } from '../utils/dom.js';
 
 export function renderLoginPage() {
     // Ensure header and nav are hidden — called both via navigateTo and directly on first load
@@ -167,16 +168,14 @@ export function renderForgotPasswordPage() {
         event.preventDefault();
         const button = document.getElementById('forgot-button');
         const message = document.getElementById('forgot-message');
-        button.disabled = true;
-        button.textContent = 'Enviando...';
+        setSaving(true, button, 'Enviando...');
         try {
             const result = await callAPI('forgotPassword', { email: document.getElementById('forgot-email').value });
             message.textContent = result.message || 'Solicitacao registrada.';
         } catch (error) {
             message.textContent = 'Nao foi possivel processar a solicitacao.';
         }
-        button.disabled = false;
-        button.textContent = 'Solicitar';
+        setSaving(false, button);
     });
 
     document.getElementById('back-login').addEventListener('click', () => navigateTo('login'));

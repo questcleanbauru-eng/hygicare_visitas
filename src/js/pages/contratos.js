@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
 import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, showToast,
-    loadingState, skeletonDetail, addFabAndScrollTop, openExternal
+    loadingState, skeletonDetail, addFabAndScrollTop, openExternal, setSaving
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 
@@ -172,7 +172,14 @@ export async function renderContratosPage() {
             if (state.canCreateProposalFunil) { navigateTo('contrato-new'); }
             else { showToast('Peça ao administrador para liberar a criação de contratos.', true); }
         });
-        initPullToRefresh(() => { saveCache('contratos', null); navigateTo('contratos'); });
+        initPullToRefresh(async () => {
+            const r = await getContratos();
+            if (r.status === 'success' && state.currentPage === 'contratos') {
+                state.contratos = r.contratos || [];
+                const el = document.getElementById('main-content');
+                if (el) { fillContratosContent(el, state.contratos); }
+            }
+        });
         getContratos().then((r) => {
             if (r.status === 'success' && state.currentPage === 'contratos') {
                 state.contratos = r.contratos || [];
@@ -193,7 +200,14 @@ export async function renderContratosPage() {
         if (state.canCreateProposalFunil) { navigateTo('contrato-new'); }
         else { showToast('Peça ao administrador para liberar a criação de contratos.', true); }
     });
-    initPullToRefresh(() => { saveCache('contratos', null); navigateTo('contratos'); });
+    initPullToRefresh(async () => {
+            const r = await getContratos();
+            if (r.status === 'success' && state.currentPage === 'contratos') {
+                state.contratos = r.contratos || [];
+                const el = document.getElementById('main-content');
+                if (el) { fillContratosContent(el, state.contratos); }
+            }
+        });
 }
 
 
@@ -225,11 +239,11 @@ export async function renderContratoDetailPage(id) {
         </div>
         ${contrato.vencido ? `
         <div class="alert-banner">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Este contrato está vencido.
         </div>` : contrato.venceEmBreve ? `
         <div class="alert-banner">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Este contrato vence em ${contrato.diasRestantes} dia(s).
         </div>` : ''}
         <div class="card detail-card">
@@ -257,8 +271,10 @@ export async function renderContratoDetailPage(id) {
     document.getElementById('back-contratos').addEventListener('click', () => navigateTo('contratos'));
     document.getElementById('edit-contrato').addEventListener('click', () => navigateTo('contrato-edit', { contrato }));
     document.getElementById('ver-anexo-contrato')?.addEventListener('click', () => openExternal(contrato.anexo));
-    document.getElementById('delete-contrato')?.addEventListener('click', async () => {
+    document.getElementById('delete-contrato')?.addEventListener('click', async (event) => {
         if (!confirm(`Apagar o contrato de "${contrato.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Apagando...');
         const result = await callAPI('deleteContrato', { id: contrato.id, user: state.currentUser });
         if (result && result.status === 'success') {
             state.contratos = (state.contratos || []).filter((c) => String(c.id) !== String(contrato.id));
@@ -267,6 +283,7 @@ export async function renderContratoDetailPage(id) {
             navigateTo('contratos');
         } else {
             showToast((result && result.message) || 'Não foi possível apagar o contrato.', true);
+            setSaving(false, btn);
         }
     });
 }
@@ -369,8 +386,7 @@ export async function renderContratoFormPage(contrato) {
     document.getElementById('contrato-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const btn = document.getElementById('save-contrato-form');
-        btn.disabled = true;
-        btn.textContent = 'Salvando...';
+        setSaving(true, btn, 'Salvando...');
 
         const payload = {
             cliente: document.getElementById('ctf-cliente').value.trim(),
@@ -397,8 +413,7 @@ export async function renderContratoFormPage(contrato) {
             navigateTo('contrato-detail', { id: result.contrato.id });
         } else {
             showToast((result && result.message) || 'Erro ao salvar contrato.', true);
-            btn.disabled = false;
-            btn.textContent = 'Salvar Contrato';
+            setSaving(false, btn);
         }
     });
 }

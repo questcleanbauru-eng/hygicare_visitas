@@ -7,7 +7,7 @@ import {
 import {
     debounce, downloadCSV, renderDetailRow, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
-    loadingState, addFabAndScrollTop, openExternal, renderYearChips
+    loadingState, addFabAndScrollTop, openExternal, renderYearChips, setSaving
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
@@ -235,7 +235,7 @@ export function fillProposalsContent(mainContent, proposals) {
                     <button type="button" class="proposal-card ${p.atrasada ? 'proposal-card-alert' : ''}" data-proposal-id="${escapeHtml(p.id)}">
                         <div class="visit-card-header">
                             <strong>${escapeHtml(p.cliente || 'Cliente não informado')}</strong>
-                            ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
+                            ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
                         </div>
                         ${p.foco ? `<div style="font-size:0.78rem;color:var(--text-muted-strong);margin:0.12rem 0">${escapeHtml(p.foco)}</div>` : ''}
                         <div class="proposal-meta">
@@ -360,7 +360,14 @@ export async function renderProposalsPage() {
             if (state.canCreateProposalFunil) { navigateTo('proposal-new'); }
             else { showToast('Peça ao administrador para liberar a criação de propostas.', true); }
         });
-        initPullToRefresh(() => { saveCache('proposals', null); saveCache('proposals_all', null); navigateTo('proposals'); });
+        initPullToRefresh(async () => {
+            const r = await getProposals(state.proposalsScope === 'all' ? 0 : undefined);
+            if (r.status === 'success' && state.currentPage === 'proposals') {
+                state.proposals = r.proposals || [];
+                const el = document.getElementById('main-content');
+                if (el) { fillProposalsContent(el, state.proposals); }
+            }
+        });
         getProposals(loadAll || cachedAll ? 0 : 3);
         return;
     }
@@ -377,7 +384,14 @@ export async function renderProposalsPage() {
         if (state.canCreateProposalFunil) { navigateTo('proposal-new'); }
         else { showToast('Peça ao administrador para liberar a criação de propostas.', true); }
     });
-    initPullToRefresh(() => { saveCache('proposals', null); saveCache('proposals_all', null); navigateTo('proposals'); });
+    initPullToRefresh(async () => {
+            const r = await getProposals(state.proposalsScope === 'all' ? 0 : undefined);
+            if (r.status === 'success' && state.currentPage === 'proposals') {
+                state.proposals = r.proposals || [];
+                const el = document.getElementById('main-content');
+                if (el) { fillProposalsContent(el, state.proposals); }
+            }
+        });
 }
 
 
@@ -409,7 +423,7 @@ export async function renderProposalDetailPage(id) {
         </div>
         ${proposal.atrasada ? `
         <div class="alert-banner">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Esta proposta está sem atualização há mais de 30 dias.
         </div>` : ''}
         <div class="card detail-card">
@@ -443,8 +457,10 @@ export async function renderProposalDetailPage(id) {
         const text = `*Proposta - ${proposal.cliente}*\nStatus: ${proposal.status}\nFoco: ${proposal.foco || '-'}\nCidade: ${proposal.cidade || '-'}\nÚltima atualização: ${proposal.atualizacao || '-'}\nObs: ${proposal.obs || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
     });
-    document.getElementById('delete-proposal')?.addEventListener('click', async () => {
+    document.getElementById('delete-proposal')?.addEventListener('click', async (event) => {
         if (!confirm(`Apagar a proposta de "${proposal.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Apagando...');
         const result = await callAPI('deleteProposal', { id: proposal.id, user: state.currentUser });
         if (result && result.status === 'success') {
             state.proposals = state.proposals.filter((p) => String(p.id) !== String(proposal.id));
@@ -453,6 +469,7 @@ export async function renderProposalDetailPage(id) {
             navigateTo('proposals');
         } else {
             showToast((result && result.message) || 'Não foi possível apagar a proposta.', true);
+            setSaving(false, btn);
         }
     });
 }
@@ -497,8 +514,7 @@ export async function renderProposalFormPage(proposal) {
     document.getElementById('proposal-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const button = document.getElementById('save-proposal');
-        button.disabled = true;
-        button.textContent = 'Salvando...';
+        setSaving(true, button, 'Salvando...');
 
         const newStatus = document.getElementById('proposal-status').value;
         const newObs = document.getElementById('proposal-obs').value.trim();
@@ -653,8 +669,7 @@ export async function renderProposalCreatePage() {
     document.getElementById('proposal-create-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const btn = document.getElementById('save-proposal-create');
-        btn.disabled = true;
-        btn.textContent = 'Salvando...';
+        setSaving(true, btn, 'Salvando...');
 
         const clienteVal  = document.getElementById('pc-cliente').value.trim();
         const cidadeVal   = document.getElementById('pc-cidade').value.trim();

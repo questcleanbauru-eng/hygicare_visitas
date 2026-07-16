@@ -1,7 +1,7 @@
 import { state } from '../app.js';
 import { callAPI, saveCache, loadCache } from '../api.js';
 import { escapeHtml, titleCase, getInitials, profileClass } from '../utils/format.js';
-import { showToast, loadingState, renderSimpleOptions, showRefreshIndicator, hideRefreshIndicator } from '../utils/dom.js';
+import { showToast, loadingState, renderSimpleOptions, showRefreshIndicator, hideRefreshIndicator, setSaving } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 
 export async function renderAdminPage() {
@@ -377,8 +377,7 @@ export function bindAdminEvents(data) {
             const senha = tr.querySelector('.uif-senha').value.trim();
             if (!senha) { showToast('Informe a senha para o novo usuário.', true); return; }
             const saveBtn = tr.querySelector('.uif-save');
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Criando...';
+            setSaving(true, saveBtn, 'Criando...');
             const result = await saveUser({
                 originalEmail: '',
                 emailLogin: tr.querySelector('.uif-email').value.trim(),
@@ -392,8 +391,7 @@ export function bindAdminEvents(data) {
                 renderAdminPage();
             } else {
                 showToast(result.message || 'Não foi possível criar.', true);
-                saveBtn.disabled = false;
-                saveBtn.textContent = 'Criar Usuário';
+                setSaving(false, saveBtn);
             }
         });
     });
@@ -444,8 +442,7 @@ export function bindAdminEvents(data) {
             row.querySelector('.uif-cancel').addEventListener('click', () => renderAdminPage());
             row.querySelector('.uif-save').addEventListener('click', async () => {
                 const saveBtn = row.querySelector('.uif-save');
-                saveBtn.disabled = true;
-                saveBtn.textContent = 'Salvando...';
+                setSaving(true, saveBtn, 'Salvando...');
                 const result = await saveUser({
                     originalEmail: email,
                     emailLogin: row.querySelector('.uif-email').value.trim(),
@@ -459,8 +456,7 @@ export function bindAdminEvents(data) {
                     renderAdminPage();
                 } else {
                     showToast(result.message || 'Não foi possível salvar.', true);
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = 'Salvar';
+                    setSaving(false, saveBtn);
                 }
             });
         });
@@ -500,7 +496,7 @@ export function bindAdminEvents(data) {
         document.getElementById('drawer-cancel-notif').addEventListener('click', closeDrawer);
         document.getElementById('drawer-save-notif').addEventListener('click', async () => {
             const btn = document.getElementById('drawer-save-notif');
-            btn.disabled = true; btn.textContent = 'Salvando...';
+            setSaving(true, btn, 'Salvando...');
             const result = await saveNotificationConfig({
                 originalTipo: document.getElementById('notification-original-tipo').value.trim(),
                 tipo: document.getElementById('notification-type').value.trim(),
@@ -508,7 +504,7 @@ export function bindAdminEvents(data) {
                 obrigatorio: document.getElementById('notification-obrigatorio').checked
             });
             if (result.status === 'success') { showToast('Configuração salva.'); closeDrawer(); await renderAdminPage(); }
-            else { showToast(result.message || 'Não foi possível salvar.', true); btn.disabled = false; btn.textContent = 'Salvar'; }
+            else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
         });
     };
 
