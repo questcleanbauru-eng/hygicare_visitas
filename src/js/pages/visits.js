@@ -448,6 +448,8 @@ export async function renderCalendarPage() {
 
     let viewYear  = new Date().getFullYear();
     let viewMonth = new Date().getMonth();
+    // 'todos' | 'visitas' | 'propostas' | 'funil' | 'retornos'
+    let activeFilter = 'todos';
 
     const render = () => {
         const firstDay  = new Date(viewYear, viewMonth, 1);
@@ -460,28 +462,33 @@ export async function renderCalendarPage() {
         const funilByDay       = {};
         const agendamentosByDay = {};
 
-        visits.forEach((v) => {
+        const showVisitas   = activeFilter === 'todos' || activeFilter === 'visitas';
+        const showPropostas = activeFilter === 'todos' || activeFilter === 'propostas';
+        const showFunil     = activeFilter === 'todos' || activeFilter === 'funil';
+        const showRetornos  = activeFilter === 'todos' || activeFilter === 'retornos';
+
+        if (showVisitas) visits.forEach((v) => {
             const d = parseDisplayDate(v.dataVisita);
             if (!d || d.getFullYear() !== viewYear || d.getMonth() !== viewMonth) { return; }
             const key = d.getDate();
             if (!visitsByDay[key]) { visitsByDay[key] = []; }
             visitsByDay[key].push(v);
         });
-        proposals.forEach((p) => {
+        if (showPropostas) proposals.forEach((p) => {
             const d = parseDisplayDate(p.data || p.atualizacao);
             if (!d || d.getFullYear() !== viewYear || d.getMonth() !== viewMonth) { return; }
             const key = d.getDate();
             if (!proposalsByDay[key]) { proposalsByDay[key] = []; }
             proposalsByDay[key].push(p);
         });
-        funil.forEach((f) => {
+        if (showFunil) funil.forEach((f) => {
             const d = parseDisplayDate(f.data || f.atualizacao);
             if (!d || d.getFullYear() !== viewYear || d.getMonth() !== viewMonth) { return; }
             const key = d.getDate();
             if (!funilByDay[key]) { funilByDay[key] = []; }
             funilByDay[key].push(f);
         });
-        agendamentos.forEach((a) => {
+        if (showRetornos) agendamentos.forEach((a) => {
             const d = parseDisplayDate(a.dataAgendada);
             if (!d || d.getFullYear() !== viewYear || d.getMonth() !== viewMonth) { return; }
             const key = d.getDate();
@@ -504,7 +511,7 @@ export async function renderCalendarPage() {
                 ...dayVisits.slice(0, 2).map((v) => `<span class="cal-dot" style="background:${typeColorMap[v.tipoVisita] || '#3b82f6'}" title="Visita: ${escapeHtml(v.cliente)}"></span>`),
                 ...dayProposals.slice(0, 1).map(() => `<span class="cal-dot" style="background:${PROPOSAL_COLOR}" title="Proposta"></span>`),
                 ...dayFunil.slice(0, 1).map(() => `<span class="cal-dot" style="background:${FUNIL_COLOR}" title="Funil"></span>`),
-                ...dayAgendamentos.slice(0, 1).map((a) => `<span class="cal-dot" style="background:${AGENDAMENTO_COLOR}" title="Retorno agendado: ${escapeHtml(a.cliente)}"></span>`)
+                ...dayAgendamentos.slice(0, 1).map((a) => `<span class="cal-dot cal-dot-agendamento" style="background:${AGENDAMENTO_COLOR}" title="Retorno agendado: ${escapeHtml(a.cliente)}"></span>`)
             ];
             const totalExtra = dayVisits.length + dayProposals.length + dayFunil.length + dayAgendamentos.length - allDots.length;
             const more = totalExtra > 0 ? `<span class="cal-more">+${totalExtra}</span>` : '';
@@ -520,14 +527,26 @@ export async function renderCalendarPage() {
             ...types.map((t) => `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${typeColorMap[t]}"></span>${escapeHtml(t)}</span>`),
             `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${PROPOSAL_COLOR}"></span>Proposta</span>`,
             `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${FUNIL_COLOR}"></span>Funil</span>`,
-            `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${AGENDAMENTO_COLOR}"></span>Retorno agendado</span>`
+            `<span class="cal-legend-item"><span class="cal-legend-dot cal-legend-dot-agendamento" style="background:${AGENDAMENTO_COLOR}"></span>Retorno agendado</span>`
         ].join('');
+
+        const filterOptions = [
+            { key: 'todos', label: 'Todos' },
+            { key: 'visitas', label: 'Visitas' },
+            { key: 'propostas', label: 'Propostas' },
+            { key: 'funil', label: 'Funil' },
+            { key: 'retornos', label: 'Retornos' }
+        ];
+        const filterChipsHtml = filterOptions.map((opt) =>
+            `<button type="button" class="mini-button year-chip${activeFilter === opt.key ? ' active' : ''}" data-cal-filter="${opt.key}">${opt.label}</button>`
+        ).join('');
 
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas, Funil e Retornos</p></div>
                 <button type="button" class="btn-add" id="cal-new-agendamento">+ Agendar</button>
             </div>
+            <div class="year-chips-row">${filterChipsHtml}</div>
             <div class="card cal-card">
                 <div class="cal-nav">
                     <button type="button" class="mini-button" id="cal-prev">&#8592;</button>
@@ -561,6 +580,12 @@ export async function renderCalendarPage() {
         });
         document.getElementById('cal-new-agendamento')?.addEventListener('click', () => {
             showCreateAgendamentoModal(() => renderCalendarPage());
+        });
+        mainContent.querySelectorAll('[data-cal-filter]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                activeFilter = btn.dataset.calFilter;
+                render();
+            });
         });
 
         mainContent.querySelectorAll('[data-day]').forEach((btn) => {

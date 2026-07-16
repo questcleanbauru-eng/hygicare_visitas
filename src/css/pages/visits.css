@@ -208,6 +208,15 @@
     display: inline-block;
 }
 
+/* Retorno agendado usa losango em vez de bolinha — como já tem muita cor
+   parecida na legenda (tipos de visita, funil, proposta), a forma garante
+   que dá pra diferenciar num olhar rápido, mesmo sem checar a legenda. */
+.cal-dot-agendamento,
+.cal-legend-dot-agendamento {
+    border-radius: 2px !important;
+    transform: rotate(45deg);
+}
+
 .cal-more {
     font-size: 0.6rem;
     color: var(--text-muted);
