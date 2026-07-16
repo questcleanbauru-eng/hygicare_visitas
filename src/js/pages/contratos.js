@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, contratoSituacaoIcon, filterLabelHtml } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, showToast,
     loadingState, skeletonDetail, addFabAndScrollTop, openExternal, setSaving
@@ -49,7 +49,7 @@ export function fillContratosContent(mainContent, contratos) {
             </div>
             <div class="visits-filter-grid" id="ct-filter-panel">
                 <div class="form-group">
-                    <label for="ct-situacao">Situação</label>
+                    <label for="ct-situacao">${filterLabelHtml('Situação')}</label>
                     <select id="ct-situacao">
                         <option value="">Todas</option>
                         <option value="vence-breve">Vence em breve</option>
@@ -58,7 +58,7 @@ export function fillContratosContent(mainContent, contratos) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="ct-cidade">Cidade</label>
+                    <label for="ct-cidade">${filterLabelHtml('Cidade')}</label>
                     <div class="searchable-select">
                         <input type="text" id="ct-cidade" placeholder="Todas" autocomplete="off">
                         <div class="searchable-select-menu" id="ct-cidade-menu"></div>
@@ -66,7 +66,7 @@ export function fillContratosContent(mainContent, contratos) {
                 </div>
                 ${isAdmGer ? `
                 <div class="form-group">
-                    <label for="ct-vendor">Vendedor</label>
+                    <label for="ct-vendor">${filterLabelHtml('Vendedor')}</label>
                     <div class="searchable-select">
                         <input type="text" id="ct-vendor" placeholder="Todos" autocomplete="off">
                         <div class="searchable-select-menu" id="ct-vendor-menu"></div>
@@ -119,7 +119,7 @@ export function fillContratosContent(mainContent, contratos) {
         container.innerHTML = `<div class="visits-list">${sorted.map((c) => `
             <button type="button" class="proposal-card ${c.vencido ? 'proposal-card-alert' : ''}" data-contrato-id="${escapeHtml(c.id)}">
                 <div class="visit-card-header">
-                    <strong>${escapeHtml(c.cliente || 'Cliente não informado')}</strong>
+                    <strong><span aria-hidden="true">${contratoSituacaoIcon(c)}</span> ${escapeHtml(c.cliente || 'Cliente não informado')}</strong>
                     <span class="${situacaoClass(c)}">${situacaoLabel(c)}</span>
                 </div>
                 <div class="proposal-meta">

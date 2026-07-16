@@ -2,7 +2,8 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate,
-    calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay
+    calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay,
+    funilStatusIcon, filterLabelHtml
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, showToast, renderSimpleOptions,
@@ -93,25 +94,25 @@ export function fillFunilContent(mainContent, funil) {
             </div>
             <div class="visits-filter-grid" id="funil-filter-panel">
                 <div class="form-group">
-                    <label for="funil-filter-search">Busca</label>
+                    <label for="funil-filter-search">${filterLabelHtml('Busca')}</label>
                     <input type="text" id="funil-filter-search" placeholder="Cliente, foco ou obs">
                 </div>
                 <div class="form-group">
-                    <label for="funil-filter-status">Status</label>
+                    <label for="funil-filter-status">${filterLabelHtml('Status')}</label>
                     <div class="searchable-select">
                         <input type="text" id="funil-filter-status" placeholder="Todos" autocomplete="off">
                         <div class="searchable-select-menu" id="funil-filter-status-menu"></div>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="funil-filter-cidade">Cidade</label>
+                    <label for="funil-filter-cidade">${filterLabelHtml('Cidade')}</label>
                     <div class="searchable-select">
                         <input type="text" id="funil-filter-cidade" placeholder="Todas" autocomplete="off">
                         <div class="searchable-select-menu" id="funil-filter-cidade-menu"></div>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="funil-filter-ativo">Ativo</label>
+                    <label for="funil-filter-ativo">${filterLabelHtml('Ativo')}</label>
                     <select id="funil-filter-ativo">
                         <option value="">Todos</option>
                         <option value="SIM">Sim</option>
@@ -119,7 +120,7 @@ export function fillFunilContent(mainContent, funil) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="funil-filter-atrasado">Situação</label>
+                    <label for="funil-filter-atrasado">${filterLabelHtml('Situação')}</label>
                     <select id="funil-filter-atrasado">
                         <option value="">Todas</option>
                         <option value="sim">Precisam de atualização</option>
@@ -127,7 +128,7 @@ export function fillFunilContent(mainContent, funil) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="funil-filter-period">Período</label>
+                    <label for="funil-filter-period">${filterLabelHtml('Período')}</label>
                     <select id="funil-filter-period">
                         <option value="">Todos</option>
                         <option value="mes-atual">Mês atual</option>
@@ -136,14 +137,14 @@ export function fillFunilContent(mainContent, funil) {
                 </div>
                 ${isAdmGer ? `
                 <div class="form-group">
-                    <label for="funil-filter-vendor">Vendedor</label>
+                    <label for="funil-filter-vendor">${filterLabelHtml('Vendedor')}</label>
                     <div class="searchable-select">
                         <input type="text" id="funil-filter-vendor" placeholder="Todos" autocomplete="off">
                         <div class="searchable-select-menu" id="funil-filter-vendor-menu"></div>
                     </div>
                 </div>` : ''}
                 <div class="form-group">
-                    <label for="funil-filter-vl">Valor minimo R$</label>
+                    <label for="funil-filter-vl">${filterLabelHtml('Valor minimo R$')}</label>
                     <input type="number" id="funil-filter-vl" placeholder="0" min="0">
                 </div>
             </div>
@@ -238,7 +239,7 @@ export function fillFunilContent(mainContent, funil) {
             return `
             <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}" data-funil-id="${escapeHtml(f.id)}">
                 <div class="visit-card-header">
-                    <strong>${escapeHtml(f.cliente || 'Cliente não informado')}</strong>
+                    <strong><span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}</strong>
                     ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())}">${escapeHtml(f.status || '-')}</span>`}
                 </div>
                 <div class="proposal-meta">

@@ -133,6 +133,103 @@ export function proposalStatusClass(status, overdue) {
 }
 
 
+// ── Ícones (redesenho visual) ─────────────────────────────────────────
+// Mapeamento por palavra-chave (não é lista fechada) — cobre tipo de
+// visita, que vem dinâmico da planilha e não tem valores fixos no código.
+
+export function visitTypeIcon(tipo) {
+    const t = (tipo || '').toUpperCase();
+    if (t.includes('PREVENTIVA'))   { return '🛡️'; }
+    if (t.includes('PEDIDO'))       { return '📦'; }
+    if (t.includes('MANUT'))        { return '🔧'; }
+    if (t.includes('PROSPEC'))      { return '🎯'; }
+    if (t.includes('TREINAMENTO'))  { return '🎓'; }
+    if (t.includes('ENTREGA'))      { return '🚚'; }
+    if (t.includes('INFORMA'))      { return 'ℹ️'; }
+    if (t.includes('TESTE'))        { return '🧪'; }
+    if (t.includes('NEGOCIA'))      { return '🤝'; }
+    if (t.includes('FECHAMENTO'))   { return '🏁'; }
+    if (t.includes('APRESENTA'))    { return '📊'; }
+    if (t.includes('DOCUMENTO'))    { return '📄'; }
+    if (t.includes('ATUALIZAR'))    { return '🔄'; }
+    if (t.includes('OPEN'))         { return '🔓'; }
+    if (t.includes('CLOSE'))        { return '🔒'; }
+    if (t.includes('PROJETO'))      { return '📐'; }
+    return '📋';
+}
+
+export function proposalStatusIcon(status) {
+    const s = (status || '').toUpperCase();
+    if (s.includes('GANH'))     { return '🏆'; }
+    if (s.includes('PERDI'))    { return '❌'; }
+    if (s.includes('NEGOCIA'))  { return '🤝'; }
+    if (s.includes('ENVIA') || s === 'AGUARDANDO') { return '📤'; }
+    if (s.includes('CONCLU'))   { return '🏆'; }
+    if (s.includes('CANCEL'))   { return '❌'; }
+    return '📄';
+}
+
+export function funilStatusIcon(status) {
+    const s = (status || '').toUpperCase();
+    if (s.includes('IDENTIFICAR')) { return '🔎'; }
+    if (s.includes('PROPOSTA'))    { return '📄'; }
+    if (s.includes('NEGOCIA'))     { return '🤝'; }
+    if (s.includes('CONCLU'))      { return '🏆'; }
+    if (s.includes('PERDI'))       { return '❌'; }
+    if (s.includes('RETOMAR'))     { return '🔄'; }
+    return '📊';
+}
+
+export function contratoSituacaoIcon(contrato) {
+    if (contrato && contrato.vencido)       { return '🔴'; }
+    if (contrato && contrato.venceEmBreve)  { return '⏰'; }
+    return '✅';
+}
+
+// Ícone por rótulo de campo (usado em renderDetailRow) — casamento por
+// palavra-chave, não por string exata, pra cobrir variações de grafia
+// ("Vendedor/Gerente" vs "Vendedor", "Data" vs "Data da Visita" etc.)
+// sem precisar de uma entrada por variação.
+export function getFieldIcon(label) {
+    const l = String(label || '').trim().toLowerCase();
+    if (l === 'id') { return '#️⃣'; }
+    if (l.includes('busca') || l.includes('pesquis')) { return '🔍'; }
+    if (l.includes('prospec')) { return '🎯'; }
+    if (l.includes('vendedor')) { return '👤'; }
+    if (l.includes('horário') || l.includes('horario') || l === 'hora') { return '🕐'; }
+    if (l.includes('data') || l.includes('início') || l.includes('inicio') || l.includes('fim') || l.includes('limite') || l.includes('atualiza') || l.includes('período') || l.includes('periodo') || l.includes('criaç') || l.includes('criac')) { return '📅'; }
+    if (l.includes('cliente')) { return '🏢'; }
+    if (l.includes('contato')) { return '📞'; }
+    if (l.includes('e-mail') || l.includes('email')) { return '📧'; }
+    if (l.includes('cidade')) { return '📍'; }
+    if (l.includes('atuação') || l.includes('atuacao')) { return '🏭'; }
+    if (l.includes('potencial')) { return '⭐'; }
+    if (l.includes('tipo')) { return '🏷️'; }
+    if (l.includes('gerênc') || l.includes('gerenc')) { return '👔'; }
+    if (l.includes('veículo') || l.includes('veiculo')) { return '🚗'; }
+    if (l.includes('foco')) { return '💡'; }
+    if (l.includes('produto')) { return '📦'; }
+    if (l.includes('status') || l.includes('situação') || l.includes('situacao')) { return '🚦'; }
+    if (l.includes('ativo')) { return '✅'; }
+    if (l.includes('assinado')) { return '✍️'; }
+    if (l.includes('aviso')) { return '🔔'; }
+    if (l.includes('aplicaç') || l.includes('aplicac')) { return '⚙️'; }
+    if (l.includes('equipamento')) { return '🛠️'; }
+    if (l.includes('vl mensal') || l.includes('valor')) { return '💰'; }
+    if (l.includes('conclus')) { return '🏁'; }
+    if (l.includes('observ') || l === 'obs' || l.includes('coment') || l.includes('inf important')) { return '📝'; }
+    return '';
+}
+
+// Rótulo de <label> de filtro/formulário com ícone prefixado — mesma lógica
+// de ícone do renderDetailRow, reaproveitada aqui pra manter consistência
+// visual entre tela de detalhe e filtros.
+export function filterLabelHtml(label) {
+    const icon = getFieldIcon(label);
+    return `${icon ? `<span class="detail-label-icon" aria-hidden="true">${icon}</span>` : ''}${escapeHtml(label)}`;
+}
+
+
 export function getDateRangeForPeriod(period) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);

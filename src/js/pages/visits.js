@@ -5,7 +5,7 @@ import {
     groupVisitsByMonth, formatMonthKey, normalizeVisit, compareVisitsByDateDesc, visitTypeClass,
     formatDateForDisplay, formatDateForInput, formatTimeForInput, formatInputDateFromDisplay,
     formatDateFieldValue, normalizeDisplayDateValue, formatTimeFieldValue, normalizeTimeValue,
-    normalizeProposal
+    normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, initializeSearchableInput, renderDetailRow,
@@ -90,7 +90,7 @@ export function fillVisitsContent(container, visits) {
             </div>
             <div class="visits-filter-grid" id="visit-filters-panel">
                 <div class="form-group">
-                    <label for="visit-filter-period">Período</label>
+                    <label for="visit-filter-period">${filterLabelHtml('Período')}</label>
                     <select id="visit-filter-period">
                         <option value="">Todos</option>
                         <option value="mes-atual">Mês atual</option>
@@ -98,21 +98,21 @@ export function fillVisitsContent(container, visits) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="visit-filter-type">Tipo da Visita</label>
+                    <label for="visit-filter-type">${filterLabelHtml('Tipo da Visita')}</label>
                     <div class="searchable-select">
                         <input type="text" id="visit-filter-type" placeholder="Todos" autocomplete="off">
                         <div class="searchable-select-menu" id="visit-filter-type-menu"></div>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="visit-filter-city">Cidade</label>
+                    <label for="visit-filter-city">${filterLabelHtml('Cidade')}</label>
                     <div class="searchable-select">
                         <input type="text" id="visit-filter-city" placeholder="Todas" autocomplete="off">
                         <div class="searchable-select-menu" id="visit-filter-city-menu"></div>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="visit-filter-prospeccao">Prospecção</label>
+                    <label for="visit-filter-prospeccao">${filterLabelHtml('Prospecção')}</label>
                     <select id="visit-filter-prospeccao">
                         <option value="">Todas</option>
                         <option value="Sim">Sim</option>
@@ -121,18 +121,18 @@ export function fillVisitsContent(container, visits) {
                 </div>
                 ${isAdmGer && availableVendors.length > 0 ? `
                 <div class="form-group">
-                    <label for="visit-filter-vendor">Vendedor</label>
+                    <label for="visit-filter-vendor">${filterLabelHtml('Vendedor')}</label>
                     <div class="searchable-select">
                         <input type="text" id="visit-filter-vendor" placeholder="Todos" autocomplete="off">
                         <div class="searchable-select-menu" id="visit-filter-vendor-menu"></div>
                     </div>
                 </div>` : ''}
                 <div class="form-group">
-                    <label for="visit-filter-date-from">Data inicial</label>
+                    <label for="visit-filter-date-from">${filterLabelHtml('Data inicial')}</label>
                     <input type="date" id="visit-filter-date-from">
                 </div>
                 <div class="form-group">
-                    <label for="visit-filter-date-to">Data final</label>
+                    <label for="visit-filter-date-to">${filterLabelHtml('Data final')}</label>
                     <input type="date" id="visit-filter-date-to">
                 </div>
             </div>
@@ -241,7 +241,7 @@ export function fillVisitsContent(container, visits) {
                         <div class="visit-card-wrap">
                             <button class="visit-card" type="button" data-visit-id="${escapeHtml(visit.id)}">
                                 <div class="visit-card-header">
-                                    <strong>${escapeHtml(visit.cliente || 'Cliente não informado')}</strong>
+                                    <strong><span aria-hidden="true">${visitTypeIcon(visit.tipoVisita)}</span> ${escapeHtml(visit.cliente || 'Cliente não informado')}</strong>
                                     <span class="visit-date">${visit._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : escapeHtml(visit.dataVisita || '')}</span>
                                 </div>
                                 <div class="visit-card-body">
@@ -612,7 +612,7 @@ export async function renderCalendarPage() {
                         ${dayAgendamentos.map((a) => `
                         <div class="visit-card" data-agendamento-id="${escapeHtml(a.id)}" style="border-left:4px solid ${AGENDAMENTO_COLOR};cursor:default">
                             <div class="visit-card-header">
-                                <strong>${escapeHtml(a.cliente || '-')}</strong>
+                                <strong><span aria-hidden="true">📌</span> ${escapeHtml(a.cliente || '-')}</strong>
                                 <span class="tag" style="background:${AGENDAMENTO_COLOR}20;color:${AGENDAMENTO_COLOR}">Retorno agendado</span>
                             </div>
                             <div class="visit-card-body">
@@ -634,7 +634,7 @@ export async function renderCalendarPage() {
                         ${dayVisits.map((v) => `
                         <button type="button" class="visit-card" data-visit-id="${escapeHtml(v.id)}" style="border-left:4px solid ${typeColorMap[v.tipoVisita] || '#3b82f6'}">
                             <div class="visit-card-header">
-                                <strong>${escapeHtml(v.cliente || '-')}</strong>
+                                <strong><span aria-hidden="true">${visitTypeIcon(v.tipoVisita)}</span> ${escapeHtml(v.cliente || '-')}</strong>
                                 <span class="visit-date">${escapeHtml(v.horario || '')}</span>
                             </div>
                             <div class="visit-card-body">
@@ -645,7 +645,7 @@ export async function renderCalendarPage() {
                         ${dayProposals.map((p) => `
                         <button type="button" class="visit-card" data-proposal-id="${escapeHtml(p.id)}" style="border-left:4px solid ${PROPOSAL_COLOR}">
                             <div class="visit-card-header">
-                                <strong>${escapeHtml(p.cliente || '-')}</strong>
+                                <strong><span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || '-')}</strong>
                                 <span class="visit-date">${escapeHtml(p.data || '-')}</span>
                             </div>
                             <div class="visit-card-body">
@@ -657,7 +657,7 @@ export async function renderCalendarPage() {
                         ${dayFunil.map((f) => `
                         <button type="button" class="visit-card" data-funil-id="${escapeHtml(f.id)}" style="border-left:4px solid ${FUNIL_COLOR}">
                             <div class="visit-card-header">
-                                <strong>${escapeHtml(f.cliente || '-')}</strong>
+                                <strong><span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || '-')}</strong>
                                 <span class="visit-date">${escapeHtml(f.data || '-')}</span>
                             </div>
                             <div class="visit-card-body">

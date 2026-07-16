@@ -895,6 +895,12 @@ textarea { resize: vertical; }
     min-width: 96px;
 }
 
+.detail-label-icon {
+    display: inline-block;
+    margin-right: 0.3rem;
+    font-size: 0.8rem;
+}
+
 .detail-value {
     font-size: 0.85rem;
     font-weight: 500;

@@ -1,5 +1,5 @@
 import { state, addDocumentClickListener } from '../app.js';
-import { escapeHtml, parseDisplayDate } from './format.js';
+import { escapeHtml, parseDisplayDate, getFieldIcon } from './format.js';
 
 export function showLoginNotification(prevDate) {
     const newVisits = (state.visits || []).filter((v) => {
@@ -199,9 +199,10 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
 
 
 export function renderDetailRow(label, value) {
+    const icon = getFieldIcon(label);
     return `
         <div class="detail-row">
-            <span class="detail-label">${escapeHtml(label)}</span>
+            <span class="detail-label">${icon ? `<span class="detail-label-icon" aria-hidden="true">${icon}</span>` : ''}${escapeHtml(label)}</span>
             <strong class="detail-value">${escapeHtml(value || '-')}</strong>
         </div>
     `;

@@ -2,7 +2,7 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
-    formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase
+    formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, renderDetailRow, showToast, renderSimpleOptions,
@@ -92,21 +92,21 @@ export function fillProposalsContent(mainContent, proposals) {
             </div>
             <div class="visits-filter-grid" id="proposal-filter-panel">
                 <div class="form-group">
-                    <label for="pf-status">Status</label>
+                    <label for="pf-status">${filterLabelHtml('Status')}</label>
                     <div class="searchable-select">
                         <input type="text" id="pf-status" placeholder="Todos" autocomplete="off">
                         <div class="searchable-select-menu" id="pf-status-menu"></div>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="pf-cidade">Cidade</label>
+                    <label for="pf-cidade">${filterLabelHtml('Cidade')}</label>
                     <div class="searchable-select">
                         <input type="text" id="pf-cidade" placeholder="Todas" autocomplete="off">
                         <div class="searchable-select-menu" id="pf-cidade-menu"></div>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="pf-atrasada">Situação</label>
+                    <label for="pf-atrasada">${filterLabelHtml('Situação')}</label>
                     <select id="pf-atrasada">
                         <option value="">Todas</option>
                         <option value="sim">Atrasadas</option>
@@ -114,7 +114,7 @@ export function fillProposalsContent(mainContent, proposals) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="pf-period">Período</label>
+                    <label for="pf-period">${filterLabelHtml('Período')}</label>
                     <select id="pf-period">
                         <option value="">Todos</option>
                         <option value="mes-atual">Mês atual</option>
@@ -123,18 +123,18 @@ export function fillProposalsContent(mainContent, proposals) {
                 </div>
                 ${isAdmGer ? `
                 <div class="form-group">
-                    <label for="pf-vendor">Vendedor</label>
+                    <label for="pf-vendor">${filterLabelHtml('Vendedor')}</label>
                     <div class="searchable-select">
                         <input type="text" id="pf-vendor" placeholder="Todos" autocomplete="off">
                         <div class="searchable-select-menu" id="pf-vendor-menu"></div>
                     </div>
                 </div>` : ''}
                 <div class="form-group">
-                    <label for="pf-date-from">Criação de</label>
+                    <label for="pf-date-from">${filterLabelHtml('Criação de')}</label>
                     <input type="date" id="pf-date-from">
                 </div>
                 <div class="form-group">
-                    <label for="pf-date-to">Criação até</label>
+                    <label for="pf-date-to">${filterLabelHtml('Criação até')}</label>
                     <input type="date" id="pf-date-to">
                 </div>
             </div>
@@ -236,7 +236,7 @@ export function fillProposalsContent(mainContent, proposals) {
                 <div class="visits-list">${byMonth[key].map((p) => `
                     <button type="button" class="proposal-card ${p.atrasada ? 'proposal-card-alert' : ''}" data-proposal-id="${escapeHtml(p.id)}">
                         <div class="visit-card-header">
-                            <strong>${escapeHtml(p.cliente || 'Cliente não informado')}</strong>
+                            <strong><span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}</strong>
                             ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
                         </div>
                         ${p.foco ? `<div style="font-size:0.78rem;color:var(--text-muted-strong);margin:0.12rem 0">${escapeHtml(p.foco)}</div>` : ''}
