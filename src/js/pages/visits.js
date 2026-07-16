@@ -345,8 +345,10 @@ export function fillVisitsContent(container, visits) {
 export async function renderVisitsPage() {
     ensureStyles('visits');
     const mainContent = document.getElementById('main-content');
-    const cachedAll = loadCache('visits_all');
-    const cached3m  = loadCache('visits');
+    const cachedAllRaw = loadCache('visits_all');
+    const cached3mRaw  = loadCache('visits');
+    const cachedAll = (Array.isArray(cachedAllRaw) && cachedAllRaw.length > 0) ? cachedAllRaw : null;
+    const cached3m  = (Array.isArray(cached3mRaw) && cached3mRaw.length > 0) ? cached3mRaw : null;
     const cachedVisits = cachedAll || cached3m;
     mainContent.innerHTML = `
         <div class="page-header">
@@ -1231,7 +1233,11 @@ export async function renderVisitDetailPage(id) {
 export async function getVisits(diasParam) {
     const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 90);
     const cacheKey = dias === 0 ? 'visits_all' : 'visits';
-    const cached = loadCache(cacheKey);
+    // Cache vazio ([]) conta como "sem cache" — senão um refresh incremental
+    // (que só busca poucos dias) nunca reconstrói a lista completa, e a tela
+    // fica presa vazia até um "Atualizar" manual limpar o cache de verdade.
+    const cachedRaw = loadCache(cacheKey);
+    const cached = (Array.isArray(cachedRaw) && cachedRaw.length > 0) ? cachedRaw : null;
     const sinceTs = cached ? getSyncTimestamp(cacheKey) : 0;
     const fresh = callAPI('getVisits', { user: state.currentUser, dias: dias, since: sinceTs || undefined })
         .then(function(r) {

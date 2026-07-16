@@ -349,8 +349,12 @@ export async function renderProposalsPage() {
     const mainContent = document.getElementById('main-content');
     const loadAll = state.navLoadAll === 'proposals';
     state.navLoadAll = null;
-    const cachedAll = loadCache('proposals_all');
-    const cached3m  = loadCache('proposals');
+    const cachedAllRaw = loadCache('proposals_all');
+    const cached3mRaw  = loadCache('proposals');
+    // Cache vazio ([]) conta como "sem cache" — senão um refresh incremental
+    // (que só busca poucos dias) nunca reconstrói a lista completa.
+    const cachedAll = (Array.isArray(cachedAllRaw) && cachedAllRaw.length > 0) ? cachedAllRaw : null;
+    const cached3m  = (Array.isArray(cached3mRaw) && cached3mRaw.length > 0) ? cached3mRaw : null;
     const cachedProposals = loadAll ? cachedAll : (cachedAll || cached3m);
     if (cachedProposals) {
         state.proposalsScope = cachedAll ? 'all' : '3m';
@@ -729,7 +733,8 @@ export async function renderProposalCreatePage() {
 export async function getProposals(diasParam) {
     const dias = diasParam === 0 ? 0 : (diasParam || state.loadDias || 90);
     const cacheKey = dias === 0 ? 'proposals_all' : 'proposals';
-    const cached = loadCache(cacheKey);
+    const cachedRaw = loadCache(cacheKey);
+    const cached = (Array.isArray(cachedRaw) && cachedRaw.length > 0) ? cachedRaw : null;
     const sinceTs = cached ? getSyncTimestamp(cacheKey) : 0;
     const fresh = callAPI('getProposals', { user: state.currentUser, dias: dias, since: sinceTs || undefined })
         .then(function(r) {
