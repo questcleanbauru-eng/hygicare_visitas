@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyn
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
     formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml,
-    formatInputDateFromDisplay
+    formatInputDateFromDisplay, formatDateFromDisplay
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, renderDetailRow, showToast, renderSimpleOptions,
@@ -535,8 +535,16 @@ export async function renderProposalFormPage(proposal) {
                 <input type="text" id="proposal-produtos" value="${escapeHtml(normalized.produtos)}">
             </div>
             <div class="form-group">
+                <label for="proposal-data">Data</label>
+                <input type="date" id="proposal-data" value="${escapeHtml(formatInputDateFromDisplay(normalized.data) || '')}">
+            </div>
+            <div class="form-group">
                 <label for="proposal-data-limite">Data Limite</label>
                 <input type="date" id="proposal-data-limite" value="${escapeHtml(formatInputDateFromDisplay(normalized.dataLimite) || '')}">
+            </div>
+            <div class="form-group full-width">
+                <label for="proposal-email">E-mail</label>
+                <input type="email" id="proposal-email" value="${escapeHtml(normalized.email)}">
             </div>
             ` : `
             <div class="form-group full-width readonly-group">
@@ -593,7 +601,9 @@ export async function renderProposalFormPage(proposal) {
             gerencia: document.getElementById('proposal-gerencia').value.trim(),
             foco: document.getElementById('proposal-foco').value.trim(),
             produtos: document.getElementById('proposal-produtos').value.trim(),
-            dataLimite: document.getElementById('proposal-data-limite').value
+            data: document.getElementById('proposal-data').value,
+            dataLimite: document.getElementById('proposal-data-limite').value,
+            email: document.getElementById('proposal-email').value.trim()
         } : {};
 
         // Optimistic update: reflect changes immediately in state + cache
@@ -612,7 +622,10 @@ export async function renderProposalFormPage(proposal) {
                     vendedor: adminFields.vendedor, Vendedor: adminFields.vendedor,
                     gerencia: adminFields.gerencia, Gerencia: adminFields.gerencia,
                     foco: adminFields.foco, Foco: adminFields.foco,
-                    produtos: adminFields.produtos, Produtos: adminFields.produtos
+                    produtos: adminFields.produtos, Produtos: adminFields.produtos,
+                    data: formatDateFromDisplay(adminFields.data), Data: formatDateFromDisplay(adminFields.data),
+                    dataLimite: formatDateFromDisplay(adminFields.dataLimite), 'Data Limite': formatDateFromDisplay(adminFields.dataLimite),
+                    email: adminFields.email, 'E-mail': adminFields.email
                 } : {})
             };
             saveCache('proposals', state.proposals);

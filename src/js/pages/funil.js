@@ -676,12 +676,115 @@ export async function renderFunilFormPage(funil) {
     ensureStyles('funil');
     const f = funil || state.currentFunil;
     const mainContent = document.getElementById('main-content');
+    const isAdminUser = String(state.currentUser.profile || '').trim().toLowerCase() === 'admin';
+
+    let cidades = [];
+    let potenciais = [];
+    let areas = [];
+    let aplicacoes = [];
+    let equipamentosList = [];
+    if (isAdminUser) {
+        const fdResult = await ensureFormData();
+        cidades = (fdResult.data && fdResult.data.cidades) || [];
+        potenciais = (fdResult.data && fdResult.data.potenciaisCliente) || [];
+        areas = (fdResult.data && fdResult.data.areasAtuacao) || [];
+        aplicacoes = (fdResult.data && fdResult.data.aplicacoes) || [];
+        equipamentosList = (fdResult.data && fdResult.data.equipamentos) || [];
+    }
 
     mainContent.innerHTML = `
         <div class="page-header compact-header">
             <button type="button" class="mini-button" id="back-funil-detail">Voltar</button>
             <h2>Atualizar Funil</h2>
         </div>
+        ${isAdminUser ? `
+        <form id="funil-form" class="card form-card form-layout">
+            <input type="hidden" id="funil-id" value="${escapeHtml(f.id)}">
+            <div class="form-group full-width">
+                <label for="funil-cliente">Cliente</label>
+                <input type="text" id="funil-cliente" value="${escapeHtml(f.cliente || '')}" required>
+            </div>
+            <div class="form-group">
+                <label for="funil-cidade">Cidade</label>
+                <div class="searchable-select">
+                    <input type="text" id="funil-cidade" value="${escapeHtml(f.cidade || '')}" placeholder="Pesquise a cidade" autocomplete="off">
+                    <div class="searchable-select-menu" id="funil-cidade-menu"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="funil-vendedor">Vendedor</label>
+                <input type="text" id="funil-vendedor" value="${escapeHtml(f.vendedor || '')}">
+            </div>
+            <div class="form-group">
+                <label for="funil-gerencia">Gerência</label>
+                <input type="text" id="funil-gerencia" value="${escapeHtml(f.gerencia || '')}">
+            </div>
+            <div class="form-group">
+                <label for="funil-foco">Foco</label>
+                <div class="searchable-select">
+                    <input type="text" id="funil-foco" value="${escapeHtml(f.foco || '')}" placeholder="Pesquise o potencial" autocomplete="off">
+                    <div class="searchable-select-menu" id="funil-foco-menu"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="funil-atuacao">Atuacao</label>
+                <div class="searchable-select">
+                    <input type="text" id="funil-atuacao" value="${escapeHtml(f.atuacao || '')}" placeholder="Pesquise a area" autocomplete="off">
+                    <div class="searchable-select-menu" id="funil-atuacao-menu"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="funil-aplicacao">Aplicacao</label>
+                <div class="searchable-select">
+                    <input type="text" id="funil-aplicacao" value="${escapeHtml(f.aplicacao || '')}" placeholder="Pesquise a aplicacao" autocomplete="off">
+                    <div class="searchable-select-menu" id="funil-aplicacao-menu"></div>
+                </div>
+            </div>
+            <div class="form-group full-width">
+                <label for="funil-equipamentos">Equipamentos</label>
+                <div class="searchable-select">
+                    <input type="text" id="funil-equipamentos" value="${escapeHtml(f.equipamentos || '')}" placeholder="Pesquise o equipamento" autocomplete="off">
+                    <div class="searchable-select-menu" id="funil-equipamentos-menu"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="funil-data">Data</label>
+                <input type="date" id="funil-data" value="${escapeHtml(formatInputDateFromDisplay(f.data) || '')}">
+            </div>
+            <div class="form-group">
+                <label for="funil-ativo">Ativo</label>
+                <select id="funil-ativo">
+                    ${renderSimpleOptions(['Sim', 'Nao'], f.ativo || 'Sim')}
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <label for="funil-status">Status</label>
+                <select id="funil-status" required>
+                    ${renderSimpleOptions(['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'], f.status)}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="funil-vl-mensal">VL Mensal R$</label>
+                <input type="text" id="funil-vl-mensal" value="${escapeHtml(f.vlMensal || '')}" placeholder="0,00">
+            </div>
+            <div class="form-group">
+                <label for="funil-conclusao">Conclusao (data)</label>
+                <input type="date" id="funil-conclusao" value="${escapeHtml(formatInputDateFromDisplay(f.conclusao) || '')}">
+            </div>
+            <div class="form-group full-width">
+                <label for="funil-inf">Inf Importantes</label>
+                <input type="text" id="funil-inf" value="${escapeHtml(f.infImportantes || '')}" placeholder="Informações relevantes">
+            </div>
+            <div class="form-group full-width">
+                <label for="funil-comentarios">Comentarios</label>
+                <textarea id="funil-comentarios" rows="4" placeholder="Observacoes e proximos passos">${escapeHtml(f.comentarios || '')}</textarea>
+            </div>
+            <div class="form-actions full-width">
+                <button type="button" class="secondary-button" id="cancel-funil">Cancelar</button>
+                <button type="submit" id="save-funil">Salvar</button>
+            </div>
+        </form>
+        ` : `
         <div class="card form-card">
             <div class="funil-readonly-info">
                 <div class="funil-readonly-row"><span>Cliente</span><strong>${escapeHtml(f.cliente || '-')}</strong></div>
@@ -718,7 +821,16 @@ export async function renderFunilFormPage(funil) {
                 <button type="submit" id="save-funil">Salvar</button>
             </div>
         </form>
+        `}
     `;
+
+    if (isAdminUser) {
+        initializeSearchableInput({ input: document.getElementById('funil-cidade'), menu: document.getElementById('funil-cidade-menu'), items: cidades });
+        initializeSearchableInput({ input: document.getElementById('funil-foco'), menu: document.getElementById('funil-foco-menu'), items: potenciais });
+        initializeSearchableInput({ input: document.getElementById('funil-atuacao'), menu: document.getElementById('funil-atuacao-menu'), items: areas });
+        initializeSearchableInput({ input: document.getElementById('funil-aplicacao'), menu: document.getElementById('funil-aplicacao-menu'), items: aplicacoes });
+        initializeSearchableInput({ input: document.getElementById('funil-equipamentos'), menu: document.getElementById('funil-equipamentos-menu'), items: equipamentosList });
+    }
 
     document.getElementById('back-funil-detail').addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
     document.getElementById('cancel-funil').addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
@@ -735,13 +847,33 @@ export async function renderFunilFormPage(funil) {
         const newFInf      = document.getElementById('funil-inf').value.trim();
         const newFComent   = document.getElementById('funil-comentarios').value.trim();
 
+        const adminFields = isAdminUser ? {
+            cliente: document.getElementById('funil-cliente').value.trim(),
+            cidade: document.getElementById('funil-cidade').value.trim(),
+            vendedor: document.getElementById('funil-vendedor').value.trim(),
+            gerencia: document.getElementById('funil-gerencia').value.trim(),
+            foco: document.getElementById('funil-foco').value.trim(),
+            atuacao: document.getElementById('funil-atuacao').value.trim(),
+            aplicacao: document.getElementById('funil-aplicacao').value.trim(),
+            equipamentos: document.getElementById('funil-equipamentos').value.trim(),
+            data: document.getElementById('funil-data').value,
+            ativo: document.getElementById('funil-ativo').value
+        } : {};
+
         const fIdx = state.funil.findIndex(item => String(item.id) === String(f.id));
         const fOriginal = fIdx >= 0 ? { ...state.funil[fIdx] } : null;
         const nowFDisplay = formatDateForDisplay(new Date());
 
         if (fIdx >= 0) {
             state.funil[fIdx] = { ...state.funil[fIdx], status: newFStatus, vlMensal: newFVl,
-                conclusao: newFConcl, infImportantes: newFInf, comentarios: newFComent, atualizacao: nowFDisplay };
+                conclusao: newFConcl, infImportantes: newFInf, comentarios: newFComent, atualizacao: nowFDisplay,
+                ...(isAdminUser ? {
+                    cliente: adminFields.cliente, cidade: adminFields.cidade,
+                    vendedor: adminFields.vendedor, gerencia: adminFields.gerencia,
+                    foco: adminFields.foco, atuacao: adminFields.atuacao,
+                    aplicacao: adminFields.aplicacao, equipamentos: adminFields.equipamentos,
+                    data: formatDateFromDisplay(adminFields.data), ativo: adminFields.ativo
+                } : {}) };
             saveCache('funil', state.funil);
         }
 
@@ -749,7 +881,7 @@ export async function renderFunilFormPage(funil) {
         navigateTo('funil-detail', { id: f.id });
 
         attemptOrQueue('updateFunil', { id: f.id, status: newFStatus, vlMensal: newFVl,
-            conclusao: newFConcl, infImportantes: newFInf, comentarios: newFComent, user: state.currentUser },
+            conclusao: newFConcl, infImportantes: newFInf, comentarios: newFComent, user: state.currentUser, ...adminFields },
             { entity: 'funil', tempId: f.id })
             .then(result => {
                 if (result && result.status === 'success') {
