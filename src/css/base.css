@@ -1,5 +1,14 @@
+html {
+    height: 100%;
+    /* iOS Safari: sem isso, a página pode ficar "auto"-alta e sobrar fundo
+       da própria html abaixo do #app quando a barra de ferramentas do
+       Safari expande/recolhe (viewport dinâmico). */
+    background-color: var(--bg);
+}
+
 body {
     margin: 0;
+    height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: var(--bg);
     color: var(--text);
