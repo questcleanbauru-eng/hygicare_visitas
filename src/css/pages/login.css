@@ -416,8 +416,10 @@
 @media (max-width: 639px) {
     :root { --content-pad: 0.75rem; }
 
+    /* Não redeclarar o shorthand "padding" aqui — isso reseta padding-bottom
+       (definido em base.css pra abrir espaço pra bottom-nav fixa) de volta
+       pro valor curto, escondendo botões atrás do menu. Só ajusta os lados. */
     main {
-        padding: 0.75rem;
         padding-left: max(0.75rem, var(--safe-left));
         padding-right: max(0.75rem, var(--safe-right));
     }

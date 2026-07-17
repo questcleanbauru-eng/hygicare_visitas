@@ -36,7 +36,7 @@ export function fillDashboard(mainContent, data, user) {
 
         <!-- Ações rápidas -->
         <div class="dash-actions-bar">
-            <button type="button" class="dash-action-primary" id="qa-new-visit">📋 Nova Visita</button>
+            <button type="button" class="dash-action-outline" id="qa-new-visit">📋 Nova Visita</button>
             <button type="button" class="dash-action-outline" id="qa-new-proposal" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de propostas."'}>📄 Nova Proposta</button>
             <button type="button" class="dash-action-outline" id="qa-new-funil" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."'}>📊 Nova Oportunidade</button>
         </div>
