@@ -1,4 +1,5 @@
-import { API_URL, loadStoredUser, getDashboardData, initOfflineQueueSync } from './api.js';
+import { API_URL, loadStoredUser, getDashboardData, initOfflineQueueSync, callAPI } from './api.js';
+import { escapeHtml } from './utils/format.js';
 import {
     registerServiceWorker, initOfflineBanner, initSessionExpiry, initNavHoverPrefetch,
     renderNavigation, updateHeaderUI, initSidebarToggle
@@ -69,6 +70,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (btn) navigateTo(btn.dataset.page);
     });
     if (state.currentUser) {
+        if (String(state.currentUser.profile || '').trim().toLowerCase() !== 'admin') {
+            const manut = await callAPI('getManutencao', {}).catch(() => null);
+            if (manut?.ativa) {
+                renderMaintenanceScreen(manut.mensagem);
+                return;
+            }
+        }
         // Kick off dashboard fetch now; renderDashboard reuses the same inflight promise
         getDashboardData().catch(() => {});
         await navigateTo('dashboard');
@@ -76,6 +84,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     renderLoginPage();
 });
+
+
+export function renderMaintenanceScreen(mensagem) {
+    document.body.innerHTML = `
+        <div style="position:fixed;inset:0;display:flex;flex-direction:column;
+            align-items:center;justify-content:center;background:#f8fafc;
+            z-index:99999;padding:2rem;text-align:center;gap:1rem">
+            <div style="font-size:3rem">🔧</div>
+            <h2 style="font-size:1.3rem;font-weight:700;color:#1e293b">Sistema em Manutenção</h2>
+            <p style="color:#64748b;max-width:340px;line-height:1.6">${escapeHtml(mensagem || 'Sistema em manutenção. Voltamos em breve.')}</p>
+        </div>
+    `;
+}
 
 
 export function initBackButton() {

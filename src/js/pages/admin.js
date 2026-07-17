@@ -267,6 +267,21 @@ function fillAdminContent(mainContent, data, emailConfig) {
                     <button type="button" id="save-permissoes" class="primary-button" style="align-self:flex-start">Salvar</button>
                 </div>
             </div>
+            <div class="admin-section" style="margin-bottom:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">🔧 Modo Manutenção</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <p class="helper-text" style="text-align:left;margin:0">Quando ativo, apenas Admins conseguem acessar o app. Os demais usuários veem uma tela de manutenção com a mensagem abaixo.</p>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="manutencao-ativa" style="width:auto;accent-color:var(--primary)" ${emailConfig.manutencao_ativa === 'true' ? 'checked' : ''}>
+                        Ativar modo manutenção
+                    </label>
+                    <div class="form-group" style="margin:0">
+                        <label for="manutencao-mensagem">Mensagem exibida para os usuários</label>
+                        <textarea id="manutencao-mensagem" rows="3">${escapeHtml(emailConfig.manutencao_mensagem || '')}</textarea>
+                    </div>
+                    <button type="button" id="save-manutencao" class="primary-button" style="align-self:flex-start">Salvar</button>
+                </div>
+            </div>
             <div class="email-warning-card">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                 <span>Esta funcionalidade requer um trigger diário configurado no Google Apps Script.</span>
@@ -569,6 +584,18 @@ export function bindAdminEvents(data) {
         } else {
             showToast(result.message || 'Não foi possível salvar.', true);
         }
+    });
+
+    // Modo Manutenção
+    document.getElementById('save-manutencao')?.addEventListener('click', async () => {
+        const btn = document.getElementById('save-manutencao');
+        setSaving(true, btn, 'Salvando...');
+        const result = await saveEmailConfig({
+            manutencao_ativa: document.getElementById('manutencao-ativa').checked ? 'true' : 'false',
+            manutencao_mensagem: document.getElementById('manutencao-mensagem').value.trim()
+        });
+        if (result.status === 'success') { showToast('Modo manutenção salvo.'); setSaving(false, btn); }
+        else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
     });
 
     // Email save buttons

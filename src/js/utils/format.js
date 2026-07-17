@@ -158,6 +158,14 @@ export function visitTypeIcon(tipo) {
     return '📋';
 }
 
+// Alguns registros antigos (importados da planilha manual) já guardam o
+// valor com "R$" incluído no texto — remove o prefixo antes de reexibir,
+// senão duplica ("R$ R$ 1,00").
+export function formatCurrency(value) {
+    const clean = String(value || '').replace(/^\s*r\$\s*/i, '').trim();
+    return clean ? `R$ ${clean}` : '';
+}
+
 export function proposalStatusIcon(status) {
     const s = (status || '').toUpperCase();
     if (s.includes('GANH'))     { return '🏆'; }

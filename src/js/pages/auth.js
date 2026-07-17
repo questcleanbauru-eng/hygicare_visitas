@@ -113,6 +113,17 @@ export function renderLoginPage() {
                 password: passInput.value
             });
             if (result.status === 'success') {
+                if (String(result.userData.profile || '').trim().toLowerCase() !== 'admin') {
+                    const manut = await callAPI('getManutencao', {}).catch(() => null);
+                    if (manut?.ativa) {
+                        errorText.textContent = manut.mensagem || 'Sistema em manutenção. Voltamos em breve.';
+                        errorBox.style.display = 'flex';
+                        btn.disabled = false;
+                        label.style.display = '';
+                        spinner.style.display = 'none';
+                        return;
+                    }
+                }
                 state.currentUser = result.userData;
                 persistUser(result.userData);
                 await navigateTo('dashboard');

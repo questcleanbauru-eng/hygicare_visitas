@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyn
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay,
-    funilStatusIcon, filterLabelHtml
+    funilStatusIcon, filterLabelHtml, formatCurrency
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, showToast, renderSimpleOptions,
@@ -250,7 +250,7 @@ export function fillFunilContent(mainContent, funil) {
                     <span>${escapeHtml(f.vendedor || '-')}</span>
                     <span>${escapeHtml(f.atualizacao || f.data || '-')}</span>
                 </div>
-                ${f.vlMensal ? `<div class="funil-value">R$ ${escapeHtml(f.vlMensal)}</div>` : ''}
+                ${f.vlMensal ? `<div class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</div>` : ''}
                 ${overdue ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
             </button>
         `;
@@ -634,7 +634,7 @@ export async function renderFunilDetailPage(id) {
             ${renderDetailRow('Aplicacao', f.aplicacao)}
             ${renderDetailRow('Equipamentos', f.equipamentos)}
             ${renderDetailRow('Gerência', f.gerencia)}
-            ${renderDetailRow('VL Mensal R$', f.vlMensal || '-')}
+            ${renderDetailRow('VL Mensal', formatCurrency(f.vlMensal) || '-')}
             ${renderDetailRow('Conclusão', f.conclusao || '-')}
             ${renderDetailRow('Inf Importantes', f.infImportantes || '-')}
             ${renderDetailRow('Comentários', f.comentarios || '-')}
@@ -651,7 +651,7 @@ export async function renderFunilDetailPage(id) {
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => navigateTo('funil')));
     document.getElementById('edit-funil').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
     document.getElementById('share-funil-whatsapp').addEventListener('click', () => {
-        const text = `*Funil - ${f.cliente}*\nStatus: ${f.status}\nFoco: ${f.foco || '-'}\nCidade: ${f.cidade || '-'}\nVL Mensal: ${f.vlMensal ? 'R$ ' + f.vlMensal : '-'}\nAtualização: ${f.atualizacao || f.data || '-'}`;
+        const text = `*Funil - ${f.cliente}*\nStatus: ${f.status}\nFoco: ${f.foco || '-'}\nCidade: ${f.cidade || '-'}\nVL Mensal: ${formatCurrency(f.vlMensal) || '-'}\nAtualização: ${f.atualizacao || f.data || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
     });
     document.getElementById('delete-funil')?.addEventListener('click', async (event) => {

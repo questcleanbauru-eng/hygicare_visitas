@@ -14,7 +14,7 @@ import {
 import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList } from '../lib/handlers/admin.js';
 import { handleGetFormData } from '../lib/handlers/formdata.js';
-import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig } from '../lib/handlers/config.js';
+import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig, handleGetManutencao } from '../lib/handlers/config.js';
 
 function parseBody(req) {
     if (!req.body) return {};
@@ -61,6 +61,7 @@ const HANDLERS = {
     getEmailConfig: handleGetEmailConfig,
     getConfigVersion: handleGetConfigVersion,
     saveEmailConfig: handleSaveEmailConfig,
+    getManutencao: handleGetManutencao,
     ping: async () => ({ status: 'ok' })
 };
 
