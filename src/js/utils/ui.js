@@ -62,6 +62,9 @@ export function renderNavigation() {
         bottomNav.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
             btn.classList.toggle('active', isNavActive(btn.dataset.page));
         });
+        document.getElementById('mobile-extra-menu')?.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
+            btn.classList.toggle('active', isNavActive(btn.dataset.page));
+        });
         return;
     }
     _navBuilt = true;
@@ -94,6 +97,7 @@ export function renderNavigation() {
     }
 
     const mobileItems = allNavItems.filter((i) => ['dashboard','visits','calendar','proposals','funil','admin'].includes(i.id));
+    const extraItems = allNavItems.filter((i) => !mobileItems.includes(i));
     const navItems = isDesktop ? allNavItems : mobileItems;
 
     const user = state.currentUser;
@@ -111,7 +115,7 @@ export function renderNavigation() {
         </div>
     ` : '';
 
-    bottomNav.innerHTML = navItems.map((item) => `
+    const navBtnHtml = (item) => `
         <button
             id="nav-${item.id}"
             class="nav-btn ${isNavActive(item.id) ? 'active' : ''}"
@@ -123,7 +127,9 @@ export function renderNavigation() {
             <span class="nav-icon">${item.icon}</span>
             <span class="nav-btn-label">${item.label}</span>
         </button>
-    `).join('') + userInfoHtml;
+    `;
+
+    bottomNav.innerHTML = navItems.map(navBtnHtml).join('') + userInfoHtml;
 
     bottomNav.querySelectorAll('[data-page]').forEach((button) => {
         button.addEventListener('click', () => navigateTo(button.dataset.page));
@@ -134,6 +140,25 @@ export function renderNavigation() {
         const expanded = localStorage.getItem('sidebar_expanded') === '1';
         if (expanded) { bottomNav.classList.add('sidebar-expanded'); }
     }
+
+    // Menu extra (mobile) — Contratos/Relatório, itens que não cabem na
+    // barra de baixo. Aberto pelo ☰ do cabeçalho (ver initSidebarToggle).
+    const extraMenu = document.getElementById('mobile-extra-menu');
+    if (extraMenu && extraItems.length) {
+        extraMenu.innerHTML = `<p class="mobile-extra-menu-heading">Mais opções</p>` + extraItems.map(navBtnHtml).join('');
+        extraMenu.querySelectorAll('[data-page]').forEach((button) => {
+            button.addEventListener('click', () => {
+                navigateTo(button.dataset.page);
+                closeMobileExtraMenu();
+            });
+        });
+    }
+}
+
+
+export function closeMobileExtraMenu() {
+    document.getElementById('mobile-extra-menu')?.classList.remove('open');
+    document.getElementById('mobile-extra-overlay')?.classList.remove('open');
 }
 
 
@@ -196,11 +221,24 @@ export function initSidebarToggle() {
     if (!btn || btn.dataset.toggleBound) { return; }
     btn.dataset.toggleBound = '1';
     btn.addEventListener('click', () => {
+        // No mobile a barra lateral não existe — o mesmo botão ☰ abre/fecha
+        // o menu extra (Contratos/Relatório) em vez de expandir a sidebar.
+        if (window.innerWidth < 1024) {
+            const menu = document.getElementById('mobile-extra-menu');
+            if (menu?.classList.contains('open')) { closeMobileExtraMenu(); }
+            else {
+                menu?.classList.add('open');
+                document.getElementById('mobile-extra-overlay')?.classList.add('open');
+            }
+            return;
+        }
         const nav = document.getElementById('bottom-nav');
         if (!nav) { return; }
         const expanded = nav.classList.toggle('sidebar-expanded');
         localStorage.setItem('sidebar_expanded', expanded ? '1' : '0');
     });
+
+    document.getElementById('mobile-extra-overlay')?.addEventListener('click', closeMobileExtraMenu);
 }
 
 
