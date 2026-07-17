@@ -297,6 +297,7 @@
 
     /* ── Sidebar nav ── */
     #bottom-nav {
+        position: static;
         grid-column: 1;
         grid-row: 2;
         flex-direction: column;

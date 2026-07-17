@@ -152,7 +152,10 @@ body {
     justify-content: space-around;
     align-items: stretch;
     box-shadow: 0 -1px 0 var(--border);
-    position: relative;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 100;
     flex-shrink: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -287,6 +290,7 @@ header {
 main {
     flex-grow: 1;
     padding: var(--content-pad);
+    padding-bottom: calc(var(--content-pad) + var(--nav-height) + var(--safe-bottom));
     overflow-y: auto;
     overscroll-behavior: contain;
 }
