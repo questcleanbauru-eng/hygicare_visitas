@@ -99,6 +99,13 @@
     .report-print-header { display: block; margin-bottom: 1rem; }
     .report-print-header h2 { margin: 0 0 0.2rem; font-size: 1.2rem; }
     .report-print-header p { margin: 0; font-size: 0.8rem; color: #555; }
-    .report-section { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+    /* Sem break-inside:avoid na seção inteira — como "Por tipo"/"Por
+       vendedor" crescem com os dados (podem passar de uma página fácil),
+       isso forçava a seção pra página seguinte mesmo quando ela não cabia
+       em nenhuma página inteira, deixando a página anterior quase em
+       branco. Aplica só nas linhas curtas, que aí sim nunca devem partir
+       ao meio. */
+    .report-section { box-shadow: none; border: 1px solid #ccc; }
+    .report-kpi-row, .report-bar-row { break-inside: avoid; }
     .breadcrumb { display: none; }
 }

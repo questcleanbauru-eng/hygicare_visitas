@@ -279,7 +279,6 @@
 @media (min-width: 1024px) {
     :root {
         --content-pad:   1.5rem;
-        --nav-height:    0px;
     }
 
     /* App grid: sidebar | content (header spans both) */
@@ -297,6 +296,7 @@
 
     /* ── Sidebar nav ── */
     #bottom-nav {
+        display: flex;
         position: static;
         grid-column: 1;
         grid-row: 2;

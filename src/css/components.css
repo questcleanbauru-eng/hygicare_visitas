@@ -940,7 +940,6 @@ input:disabled {
 .visits-filter-card {
     padding: 0.85rem;
     margin-bottom: 0.75rem;
-    overflow: hidden;
 }
 
 .visits-filter-grid .form-group { min-width: 0; }

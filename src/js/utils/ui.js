@@ -96,9 +96,10 @@ export function renderNavigation() {
         allNavItems.push({ id: 'admin', label: 'Admin', icon: NAV_ICON_SVG.admin });
     }
 
-    const mobileItems = allNavItems.filter((i) => ['dashboard','visits','calendar','proposals','funil','admin'].includes(i.id));
-    const extraItems = allNavItems.filter((i) => !mobileItems.includes(i));
-    const navItems = isDesktop ? allNavItems : mobileItems;
+    // Desktop: sidebar com tudo. Mobile: barra de baixo nem existe mais —
+    // a navegação inteira vive na gaveta do botão ☰ (drawerItems).
+    const navItems = isDesktop ? allNavItems : [];
+    const drawerItems = allNavItems;
 
     const user = state.currentUser;
     const userInitial = user ? (user.name || user.nomeVendedor || 'U')[0].toUpperCase() : 'U';
@@ -141,11 +142,11 @@ export function renderNavigation() {
         if (expanded) { bottomNav.classList.add('sidebar-expanded'); }
     }
 
-    // Menu extra (mobile) — Contratos/Relatório, itens que não cabem na
-    // barra de baixo. Aberto pelo ☰ do cabeçalho (ver initSidebarToggle).
+    // Menu do mobile — a navegação inteira vive aqui agora (não tem mais
+    // barra de baixo). Aberto pelo ☰ do cabeçalho (ver initSidebarToggle).
     const extraMenu = document.getElementById('mobile-extra-menu');
-    if (extraMenu && extraItems.length) {
-        extraMenu.innerHTML = `<p class="mobile-extra-menu-heading">Mais opções</p>` + extraItems.map(navBtnHtml).join('');
+    if (extraMenu && drawerItems.length) {
+        extraMenu.innerHTML = drawerItems.map(navBtnHtml).join('');
         extraMenu.querySelectorAll('[data-page]').forEach((button) => {
             button.addEventListener('click', () => {
                 navigateTo(button.dataset.page);

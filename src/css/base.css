@@ -153,11 +153,13 @@ body {
 
 /* Safe area em modo PWA standalone */
 
+/* A barra de baixo só existe mais como sidebar do desktop (ver
+   @media min-width:1024px em dashboard.css, que reativa o display) — no
+   mobile a navegação é toda pela gaveta do botão ☰. */
 #bottom-nav {
+    display: none;
     background: var(--surface);
-    height: var(--nav-height);
     border-top: 1px solid var(--border);
-    display: flex;
     justify-content: space-around;
     align-items: stretch;
     box-shadow: 0 -1px 0 var(--border);
@@ -223,15 +225,6 @@ body {
 }
 
 .mobile-extra-menu .nav-btn.active { background: var(--primary-light); color: var(--primary); }
-
-.mobile-extra-menu-heading {
-    margin: 0 0 0.3rem 0.85rem;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-}
 
 .mobile-extra-menu .nav-btn .nav-btn-label { font-size: inherit; margin: 0; }
 
@@ -309,7 +302,9 @@ body {
     --text-base: 0.92rem;
     --text-lg:   1.1rem;
     --header-height:  56px;
-    --nav-height:     64px;
+    /* Barra de baixo saiu do mobile (virou gaveta pelo ☰) e no desktop já
+       é sidebar — 0 pra ninguém mais reservar espaço embaixo pra ela. */
+    --nav-height:     0px;
     --radius-sm:      8px;
     --radius:         12px;
     --radius-lg:      18px;

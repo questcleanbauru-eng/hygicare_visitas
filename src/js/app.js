@@ -191,7 +191,11 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         bottomNav.style.display = 'none';
     } else {
         header.style.display = 'flex';
-        bottomNav.style.display = 'flex';
+        // Não força 'flex' aqui — deixa o CSS decidir (escondido no mobile,
+        // vira sidebar a partir de 1024px). Um display inline sempre vence
+        // a media query, então isso já causou a barra aparecer no mobile
+        // mesmo com a regra de escondê-la.
+        bottomNav.style.display = '';
         renderNavigation();
         updateHeaderUI(state.currentUser);
         initSidebarToggle();
