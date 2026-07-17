@@ -178,10 +178,13 @@ function fillAdminContent(mainContent, data, emailConfig) {
                             const gerencia = user.gerencia || user.Gerencia || '-';
                             const ultimoLogin = user.ultimoLogin || user.UltimoLogin || '';
                             const pc = profileClass(perfil);
-                            return `<tr>
+                            return `<tr class="admin-user-row row-collapsed">
                                 <td data-label=""><div class="user-avatar-cell">
                                     <div class="user-avatar-initials ${pc}">${escapeHtml(getInitials(nome))}</div>
                                     <span>${escapeHtml(titleCase(nome))}</span>
+                                    <button type="button" class="row-toggle-btn" data-row-toggle aria-label="Mostrar detalhes de ${escapeHtml(nome)}" aria-expanded="false">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
                                 </div></td>
                                 <td data-label="Cargo"><span class="profile-badge ${pc}">${escapeHtml(titleCase(perfil))}</span></td>
                                 <td data-label="Região" style="font-size:0.85rem;color:var(--text-muted-strong)">${escapeHtml(gerencia)}</td>
@@ -458,6 +461,14 @@ export function bindAdminEvents(data) {
     document.querySelectorAll('.email-copy-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
             navigator.clipboard?.writeText(btn.dataset.email).then(() => showToast('E-mail copiado.'));
+        });
+    });
+
+    document.querySelectorAll('[data-row-toggle]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const row = btn.closest('.admin-user-row');
+            const collapsed = row.classList.toggle('row-collapsed');
+            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         });
     });
 

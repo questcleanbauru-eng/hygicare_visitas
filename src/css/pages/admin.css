@@ -398,6 +398,10 @@
 
 .admin-user-table tr:hover td { background: #F8FAFC; }
 
+/* Seta de recolher só existe no layout de cards (mobile) — na tabela
+   normal do desktop todas as colunas já ficam visíveis o tempo todo. */
+.row-toggle-btn { display: none; }
+
 /* Tabela de usuários vira uma lista de cards no mobile — evita rolagem
    horizontal pra ler cada linha. */
 @media (max-width: 640px) {
@@ -439,6 +443,31 @@
     }
 
     .admin-user-table .user-avatar-cell { width: 100%; }
+
+    /* Linha recolhida por padrão — só mostra nome + seta; clicar na seta
+       revela Cargo/Região/Último acesso/E-mail/Editar. */
+    .admin-user-table tr.row-collapsed td:not(:first-child) { display: none; }
+
+    .admin-user-table tr.row-collapsed td:first-child {
+        padding-bottom: 0;
+        margin-bottom: 0;
+        border-bottom: none;
+    }
+
+    .row-toggle-btn {
+        display: flex;
+        margin-left: auto;
+        background: none;
+        border: none;
+        padding: 0.3rem;
+        color: var(--text-muted);
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: transform 0.15s;
+    }
+
+    .row-collapsed .row-toggle-btn { transform: rotate(-90deg); }
 }
 
 .user-avatar-cell {
