@@ -425,6 +425,15 @@ main {
     transition: background-color 0.15s, border-color 0.15s;
 }
 
+/* Variantes de cor pro grupo de ações do cabeçalho (Editar/WhatsApp/Apagar
+   lado a lado) — mesmo tamanho do .mini-button, só muda a cor. */
+.mini-button-whatsapp { color: #15803d; background-color: #dcfce7; border-color: #86efac; }
+.mini-button-whatsapp:hover { background-color: #bbf7d0; }
+.mini-button-danger { color: #b91c1c; background-color: #fef2f2; border-color: #fecaca; }
+.mini-button-danger:hover { background-color: #fee2e2; }
+
+.header-actions-group { display: flex; align-items: center; gap: 0.4rem; }
+
 /* .primary-button não tinha estilo base nenhum — só um ajuste de largura
    dentro de .modal-card — então renderizava com a aparência padrão cinza
    do navegador sempre que usado fora de .form-actions. */
@@ -506,33 +515,6 @@ main {
     justify-content: center;
 }
 
-.whatsapp-button {
-    width: 100%;
-    border: none;
-    border-radius: var(--radius);
-    padding: 0.95rem;
-    background: linear-gradient(135deg, #16a34a, #22c55e);
-    color: #fff;
-    font-size: 0.95rem;
-    font-weight: 700;
-    box-shadow: 0 4px 16px rgba(22,163,74,0.3);
-    transition: transform 0.15s, box-shadow 0.15s;
-}
-
-.danger-button {
-    min-height: 44px;
-    padding: 0.55rem 1rem;
-    border: 1.5px solid #fecaca;
-    border-radius: var(--radius-sm);
-    background: #fef2f2;
-    color: #b91c1c;
-    font-size: 0.88rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.danger-button:hover { background: #fee2e2; }
-.danger-button:active { transform: scale(0.97); }
 
 .visits-filter-header {
     display: flex;

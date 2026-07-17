@@ -618,7 +618,13 @@ export async function renderFunilDetailPage(id) {
         <div class="page-header compact-header">
             <button type="button" class="mini-button" id="back-funil">Voltar</button>
             <h2>Funil de Vendas</h2>
-            <button type="button" class="mini-button" id="edit-funil">Editar</button>
+            <div class="header-actions-group">
+                <button type="button" class="mini-button" id="edit-funil">Editar</button>
+                <button type="button" class="mini-button mini-button-whatsapp" id="share-funil-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                </button>
+                ${state.canDelete ? '<button type="button" class="mini-button mini-button-danger" id="delete-funil" aria-label="Apagar" title="Apagar">🗑️</button>' : ''}
+            </div>
         </div>
         <div class="funil-status-banner funil-status-${escapeHtml((f.status || '').toLowerCase())}">
             ${escapeHtml(f.status || '-')}
@@ -639,13 +645,6 @@ export async function renderFunilDetailPage(id) {
             ${renderDetailRow('Inf Importantes', f.infImportantes || '-')}
             ${renderDetailRow('Comentários', f.comentarios || '-')}
         </div>
-        <div class="sticky-action-bar">
-            <button type="button" id="share-funil-whatsapp" class="proposal-action-whatsapp">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                WhatsApp
-            </button>
-        </div>
-        ${state.canDelete ? `<div style="margin-top:0.75rem"><button type="button" class="danger-button" id="delete-funil">Apagar</button></div>` : ''}
     `;
 
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => navigateTo('funil')));

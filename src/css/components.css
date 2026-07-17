@@ -39,7 +39,7 @@
 
 /* ── Form elements ── */
 
-.form-group { margin-bottom: 0.8rem; }
+.form-group { margin-bottom: 0.6rem; }
 
 .form-group label {
     display: block;
@@ -662,21 +662,6 @@ textarea { resize: vertical; }
     pointer-events: auto;
 }
 
-/* ── Sticky action button (detail pages) ── */
-
-.sticky-action-bar {
-    position: sticky;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    display: flex;
-    gap: 0.5rem;
-    z-index: 5;
-    margin-top: 1rem;
-}
 
 /* ── Admin collapsible cards ── */
 
@@ -692,6 +677,14 @@ textarea { resize: vertical; }
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.85rem;
+}
+
+/* Datas em formato longo (ex: iOS "10 de jun. de 2014") não cabem em meia
+   coluna em telas bem estreitas — empilha nesse caso. */
+@media (max-width: 400px) {
+    .form-row-pair:has(input[type="date"]) {
+        grid-template-columns: 1fr;
+    }
 }
 
 .field-helper-text {
@@ -881,7 +874,7 @@ textarea { resize: vertical; }
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.55rem 0.9rem;
+    padding: 0.45rem 0.85rem;
     border-bottom: 1px solid var(--border);
 }
 
@@ -908,8 +901,6 @@ textarea { resize: vertical; }
     text-align: right;
 }
 
-.detail-actions { margin-top: 0.85rem; }
-
 /* Input auto-filled from client data */
 
 input.autofilled {
@@ -923,16 +914,6 @@ input:disabled {
     color: var(--text-muted);
     cursor: not-allowed;
     opacity: 0.7;
-}
-
-.whatsapp-button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(22,163,74,0.38);
-}
-
-.whatsapp-button:active {
-    transform: scale(0.97);
-    box-shadow: 0 2px 8px rgba(22,163,74,0.2);
 }
 
 /* ── Filters ── */
@@ -1217,9 +1198,7 @@ input:disabled {
 
 /* ── Button tactile feedback ── */
 
-.btn-add, .secondary-button, .mini-button,
-
-.whatsapp-button, .fab {
+.btn-add, .secondary-button, .mini-button, .fab {
     transition: transform 0.1s ease-out;
 }
 
@@ -1228,8 +1207,6 @@ input:disabled {
 .secondary-button:active:not(:disabled),
 
 .mini-button:active:not(:disabled),
-
-.whatsapp-button:active:not(:disabled),
 
 .fab:active:not(:disabled) {
     transform: scale(0.96);

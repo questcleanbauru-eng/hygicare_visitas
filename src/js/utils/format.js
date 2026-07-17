@@ -60,6 +60,11 @@ export function normalizeContrato(contrato) {
     const fim = c.Fim || c.fim || '';
     const inicio = c.Inicio || c.inicio || '';
     const diasRestantes = fim ? -calculateDaysFromDisplayDate(fim) : null;
+    // Algumas linhas antigas trazem erro de fórmula da planilha (ex: "#REF!")
+    // em vez de Sim/Não — trata qualquer coisa que não seja "Não" como "Sim"
+    // em vez de mostrar o erro cru pro usuário.
+    const rawAviso = String(c.EnviarAviso || c.enviarAviso || '').trim().toLowerCase();
+    const enviarAviso = ['nao', 'não', 'no'].includes(rawAviso) ? 'Não' : 'Sim';
     return {
         id: String(c.Id || c.ID || c.id || ''),
         ativo: c.Ativo || c.ativo || 'Sim',
@@ -71,7 +76,7 @@ export function normalizeContrato(contrato) {
         inicio,
         fim,
         anexo: c.Anexo || c.anexo || '',
-        enviarAviso: c.EnviarAviso || c.enviarAviso || 'Sim',
+        enviarAviso,
         obs: c.Obs || c.obs || '',
         diasRestantes,
         vencido: diasRestantes !== null && diasRestantes < 0,
