@@ -2,7 +2,8 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
-    formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml
+    formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml,
+    formatInputDateFromDisplay
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, renderDetailRow, showToast, renderSimpleOptions,
@@ -485,6 +486,15 @@ export async function renderProposalFormPage(proposal) {
     ensureStyles('proposals');
     const normalized = normalizeProposal(proposal || state.currentProposal);
     const mainContent = document.getElementById('main-content');
+    const isAdminUser = String(state.currentUser.profile || '').trim().toLowerCase() === 'admin';
+
+    let cidades = [];
+    let potenciais = [];
+    if (isAdminUser) {
+        const fdResult = await ensureFormData();
+        cidades = (fdResult.data && fdResult.data.cidades) || [];
+        potenciais = (fdResult.data && fdResult.data.potenciaisCliente) || [];
+    }
 
     mainContent.innerHTML = `
         <div class="page-header compact-header">
@@ -493,10 +503,47 @@ export async function renderProposalFormPage(proposal) {
         </div>
         <form id="proposal-form" class="card form-card form-layout">
             <input type="hidden" id="proposal-id" value="${escapeHtml(normalized.id)}">
+            ${isAdminUser ? `
+            <div class="form-group full-width">
+                <label for="proposal-cliente">Cliente</label>
+                <input type="text" id="proposal-cliente" value="${escapeHtml(normalized.cliente)}" required>
+            </div>
+            <div class="form-group">
+                <label for="proposal-cidade">Cidade</label>
+                <div class="searchable-select">
+                    <input type="text" id="proposal-cidade" value="${escapeHtml(normalized.cidade)}" placeholder="Pesquise a cidade" autocomplete="off">
+                    <div class="searchable-select-menu" id="proposal-cidade-menu"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="proposal-vendedor">Vendedor</label>
+                <input type="text" id="proposal-vendedor" value="${escapeHtml(normalized.vendedor)}">
+            </div>
+            <div class="form-group">
+                <label for="proposal-gerencia">Gerência</label>
+                <input type="text" id="proposal-gerencia" value="${escapeHtml(normalized.gerencia)}">
+            </div>
+            <div class="form-group">
+                <label for="proposal-foco">Potencial</label>
+                <div class="searchable-select">
+                    <input type="text" id="proposal-foco" value="${escapeHtml(normalized.foco)}" placeholder="Pesquise o potencial" autocomplete="off">
+                    <div class="searchable-select-menu" id="proposal-foco-menu"></div>
+                </div>
+            </div>
+            <div class="form-group full-width">
+                <label for="proposal-produtos">Produtos</label>
+                <input type="text" id="proposal-produtos" value="${escapeHtml(normalized.produtos)}">
+            </div>
+            <div class="form-group">
+                <label for="proposal-data-limite">Data Limite</label>
+                <input type="date" id="proposal-data-limite" value="${escapeHtml(formatInputDateFromDisplay(normalized.dataLimite) || '')}">
+            </div>
+            ` : `
             <div class="form-group full-width readonly-group">
                 <label>Cliente</label>
                 <input type="text" value="${escapeHtml(normalized.cliente)}" readonly>
             </div>
+            `}
             <div class="form-group">
                 <label for="proposal-status">Status</label>
                 <select id="proposal-status" required>
@@ -514,6 +561,19 @@ export async function renderProposalFormPage(proposal) {
         </form>
     `;
 
+    if (isAdminUser) {
+        initializeSearchableInput({
+            input: document.getElementById('proposal-cidade'),
+            menu: document.getElementById('proposal-cidade-menu'),
+            items: cidades
+        });
+        initializeSearchableInput({
+            input: document.getElementById('proposal-foco'),
+            menu: document.getElementById('proposal-foco-menu'),
+            items: potenciais
+        });
+    }
+
     document.getElementById('back-proposal-detail').addEventListener('click', () => navigateTo('proposal-detail', { id: normalized.id }));
     document.getElementById('cancel-proposal').addEventListener('click', () => navigateTo('proposal-detail', { id: normalized.id }));
 
@@ -526,6 +586,16 @@ export async function renderProposalFormPage(proposal) {
         const newObs = document.getElementById('proposal-obs').value.trim();
         const proposalId = normalized.id;
 
+        const adminFields = isAdminUser ? {
+            cliente: document.getElementById('proposal-cliente').value.trim(),
+            cidade: document.getElementById('proposal-cidade').value.trim(),
+            vendedor: document.getElementById('proposal-vendedor').value.trim(),
+            gerencia: document.getElementById('proposal-gerencia').value.trim(),
+            foco: document.getElementById('proposal-foco').value.trim(),
+            produtos: document.getElementById('proposal-produtos').value.trim(),
+            dataLimite: document.getElementById('proposal-data-limite').value
+        } : {};
+
         // Optimistic update: reflect changes immediately in state + cache
         const idx = state.proposals.findIndex((p) => String(p.Id || p.id) === String(proposalId));
         const original = idx >= 0 ? { ...state.proposals[idx] } : null;
@@ -535,7 +605,15 @@ export async function renderProposalFormPage(proposal) {
                 ...state.proposals[idx],
                 status: newStatus, Status: newStatus,
                 obs: newObs, Obs: newObs,
-                atualizacao: nowDisplay, Atualizacao: nowDisplay
+                atualizacao: nowDisplay, Atualizacao: nowDisplay,
+                ...(isAdminUser ? {
+                    cliente: adminFields.cliente, Cliente: adminFields.cliente,
+                    cidade: adminFields.cidade, Cidade: adminFields.cidade,
+                    vendedor: adminFields.vendedor, Vendedor: adminFields.vendedor,
+                    gerencia: adminFields.gerencia, Gerencia: adminFields.gerencia,
+                    foco: adminFields.foco, Foco: adminFields.foco,
+                    produtos: adminFields.produtos, Produtos: adminFields.produtos
+                } : {})
             };
             saveCache('proposals', state.proposals);
         }
@@ -545,7 +623,7 @@ export async function renderProposalFormPage(proposal) {
         showToast('Proposta atualizada.');
 
         // API call in background
-        attemptOrQueue('updateProposal', { id: proposalId, status: newStatus, obs: newObs, user: state.currentUser },
+        attemptOrQueue('updateProposal', { id: proposalId, status: newStatus, obs: newObs, user: state.currentUser, ...adminFields },
             { entity: 'proposals', tempId: proposalId })
             .then((result) => {
                 if (result && result.status === 'success') {

@@ -24,7 +24,7 @@ export function fillFunilContent(mainContent, funil) {
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Funil de Vendas</h2></div>
-                <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Novo</button>
+                <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
             </div>
             ${scopeIsLimited ? `
             <div class="scope-banner scope-days-ctrl">
@@ -39,7 +39,7 @@ export function fillFunilContent(mainContent, funil) {
                 ${scopeIsLimited
                     ? `<p>Nenhum registro nos últimos ${state.loadDias || 90} dias.</p>`
                     : `<p>Nenhum registro encontrado no funil.</p>
-                       <button type="button" class="btn-add" id="btn-new-funil-empty" ${newFunilDisabledAttr}>+ Novo</button>`
+                       <button type="button" class="btn-add" id="btn-new-funil-empty" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>`
                 }
                 <button type="button" class="secondary-button" id="funil-force-refresh" style="margin-top:0.5rem">↺ Recarregar</button>
             </div>
@@ -77,7 +77,7 @@ export function fillFunilContent(mainContent, funil) {
                 <h2>Funil de Vendas</h2>
                 <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
             </div>
-            <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Novo</button>
+            <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
         </div>
         ${summaryCount > 0 ? `<div style="margin-bottom:0.75rem">
             <button type="button" class="csv-export-btn" id="update-summary-btn" title="Compartilhar resumo de atualizações">

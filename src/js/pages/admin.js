@@ -4,6 +4,8 @@ import { escapeHtml, titleCase, getInitials, profileClass } from '../utils/forma
 import { showToast, loadingState, renderSimpleOptions, showRefreshIndicator, hideRefreshIndicator, setSaving } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 
+let activeAdminTab = 'users';
+
 export async function renderAdminPage() {
     ensureStyles('admin');
     const mainContent = document.getElementById('main-content');
@@ -130,26 +132,26 @@ function fillAdminContent(mainContent, data, emailConfig) {
         </div>
 
         <div class="admin-tabs-bar">
-            <button type="button" class="admin-tab active" data-tab="users">
+            <button type="button" class="admin-tab${activeAdminTab === 'users' ? ' active' : ''}" data-tab="users">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 Usuários
             </button>
-            <button type="button" class="admin-tab" data-tab="whatsapp">
+            <button type="button" class="admin-tab${activeAdminTab === 'whatsapp' ? ' active' : ''}" data-tab="whatsapp">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 WhatsApp
             </button>
-            <button type="button" class="admin-tab" data-tab="listas">
+            <button type="button" class="admin-tab${activeAdminTab === 'listas' ? ' active' : ''}" data-tab="listas">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                 Listas
             </button>
-            <button type="button" class="admin-tab" data-tab="email">
+            <button type="button" class="admin-tab${activeAdminTab === 'email' ? ' active' : ''}" data-tab="email">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
                 E-mail
             </button>
         </div>
 
         <!-- Tab: Usuários -->
-        <div class="admin-tab-panel active card" id="admin-tab-users" style="padding:1rem">
+        <div class="admin-tab-panel${activeAdminTab === 'users' ? ' active' : ''} card" id="admin-tab-users" style="padding:1rem">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
                 <span style="font-size:0.82rem;color:var(--text-muted-strong)">${data.users.length} usuário(s)</span>
                 <button type="button" class="btn-add" id="btn-new-user" style="padding:0.4rem 0.85rem;font-size:0.82rem">+ Novo Usuário</button>
@@ -194,7 +196,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
         </div>
 
         <!-- Tab: WhatsApp -->
-        <div class="admin-tab-panel card" id="admin-tab-whatsapp" style="padding:1rem">
+        <div class="admin-tab-panel${activeAdminTab === 'whatsapp' ? ' active' : ''} card" id="admin-tab-whatsapp" style="padding:1rem">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
                 <span style="font-size:0.82rem;color:var(--text-muted-strong)">${data.notifications.length} fluxo(s)</span>
                 <button type="button" class="btn-add" id="btn-new-notif" style="padding:0.4rem 0.85rem;font-size:0.82rem">+ Novo Fluxo</button>
@@ -222,7 +224,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
         </div>
 
         <!-- Tab: Listas de Apoio -->
-        <div class="admin-tab-panel card" id="admin-tab-listas" style="padding:1rem">
+        <div class="admin-tab-panel${activeAdminTab === 'listas' ? ' active' : ''} card" id="admin-tab-listas" style="padding:1rem">
             <div class="lookup-grid">
                 ${renderLookupEditor('Cidades', 'cidades', data.lookups.cidades)}
                 ${renderLookupEditor('Areas de Atuacao', 'areasAtuacao', data.lookups.areasAtuacao)}
@@ -233,7 +235,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
         </div>
 
         <!-- Tab: E-mail -->
-        <div class="admin-tab-panel" id="admin-tab-email">
+        <div class="admin-tab-panel${activeAdminTab === 'email' ? ' active' : ''}" id="admin-tab-email">
             <div class="admin-section" style="margin-bottom:1.25rem">
                 <div class="section-title-row"><h3 class="section-title">Configurações Gerais</h3></div>
                 <div class="card" style="padding:1rem">
@@ -277,17 +279,6 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 ${emailPanel('agendamentos', 'Retornos agendados', 'Avisa vendedores com retorno de visita agendado nos próximos X dias', ['nome', 'quantidade', 'dias'], emailConfig, 'Dias de antecedência do retorno')}
             </div>
         </div>
-
-        <!-- Drawer overlay + drawer -->
-        <div class="admin-drawer-overlay" id="admin-drawer-overlay"></div>
-        <div class="admin-drawer" id="admin-drawer">
-            <div class="admin-drawer-header">
-                <h3 id="admin-drawer-title"></h3>
-                <button type="button" class="admin-drawer-close" id="admin-drawer-close" aria-label="Fechar">✕</button>
-            </div>
-            <div class="admin-drawer-body" id="admin-drawer-body"></div>
-            <div class="admin-drawer-footer" id="admin-drawer-footer"></div>
-        </div>
     `;
 
     bindAdminEvents(data);
@@ -298,6 +289,7 @@ export function bindAdminEvents(data) {
     // Tabs
     document.querySelectorAll('.admin-tab').forEach((tab) => {
         tab.addEventListener('click', () => {
+            activeAdminTab = tab.dataset.tab;
             document.querySelectorAll('.admin-tab').forEach((t) => t.classList.remove('active'));
             document.querySelectorAll('.admin-tab-panel').forEach((p) => p.classList.remove('active'));
             tab.classList.add('active');
@@ -305,29 +297,6 @@ export function bindAdminEvents(data) {
             if (panel) { panel.classList.add('active'); }
         });
     });
-
-    // Drawer helpers
-    const overlay = document.getElementById('admin-drawer-overlay');
-    const drawer = document.getElementById('admin-drawer');
-    const drawerTitle = document.getElementById('admin-drawer-title');
-    const drawerBody = document.getElementById('admin-drawer-body');
-    const drawerFooter = document.getElementById('admin-drawer-footer');
-
-    const openDrawer = (title, bodyHtml, footerHtml) => {
-        drawerTitle.textContent = title;
-        drawerBody.innerHTML = bodyHtml;
-        drawerFooter.innerHTML = footerHtml;
-        overlay.classList.add('open');
-        drawer.classList.add('open');
-    };
-
-    const closeDrawer = () => {
-        overlay.classList.remove('open');
-        drawer.classList.remove('open');
-    };
-
-    document.getElementById('admin-drawer-close').addEventListener('click', closeDrawer);
-    overlay.addEventListener('click', closeDrawer);
 
     document.getElementById('btn-new-user').addEventListener('click', () => {
         if (document.getElementById('uif-new-row')) {
@@ -469,53 +438,70 @@ export function bindAdminEvents(data) {
         });
     });
 
-    // Notification drawer
-    const notifDrawerBody = (item) => `
-        <input type="hidden" id="notification-original-tipo" value="${escapeHtml(item ? (item.tipo || '') : '')}">
+    // Edição de fluxo do WhatsApp em linha (mesmo padrão do editar/novo Usuário
+    // acima) — evita o drawer flutuante, que em algumas telas de celular ficava
+    // sem um jeito visível de fechar/voltar.
+    const notifRowFormHtml = (item) => `
+        <div class="uif-header">
+            <span class="uif-title">${item ? 'Editar — ' + escapeHtml(titleCase(item.tipo || '')) : 'Novo Fluxo'}</span>
+        </div>
+        <input type="hidden" class="ntf-original-tipo" value="${escapeHtml(item ? (item.tipo || '') : '')}">
         <div class="form-group">
-            <label for="notification-type">Tipo da Visita</label>
-            <input type="text" id="notification-type" value="${escapeHtml(item ? (item.tipo || '') : '')}" placeholder="Ex: Preventiva" required>
+            <label>Tipo da Visita</label>
+            <input type="text" class="ntf-tipo" value="${escapeHtml(item ? (item.tipo || '') : '')}" placeholder="Ex: Preventiva">
         </div>
         <div class="form-group">
-            <label for="notification-message">Mensagem padrão</label>
+            <label>Mensagem padrão</label>
             <p class="helper-text" style="margin:0.2rem 0 0.4rem;font-size:0.78rem">Variáveis: {{cliente}}, {{tipoVisita}}, {{observacao}}, {{vendedor}}, {{cidade}}, {{data}}</p>
-            <textarea id="notification-message" rows="4" required>${escapeHtml(item ? (item.mensagemPadrao || '') : '')}</textarea>
+            <textarea class="ntf-msg" rows="4">${escapeHtml(item ? (item.mensagemPadrao || '') : '')}</textarea>
         </div>
-        <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer;margin-top:0.25rem">
-            <input type="checkbox" id="notification-obrigatorio" style="width:auto;accent-color:var(--primary)" ${item && item.obrigatorio ? 'checked' : ''}>
+        <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer;margin-bottom:0.75rem">
+            <input type="checkbox" class="ntf-obrigatorio" style="width:auto;accent-color:var(--primary)" ${item && item.obrigatorio ? 'checked' : ''}>
             Compartilhamento obrigatório
         </label>
+        <div class="uif-actions">
+            <button type="button" class="uif-cancel">Cancelar</button>
+            <button type="button" class="uif-save">Salvar</button>
+        </div>
     `;
 
-    const openNotifDrawer = (item) => {
-        openDrawer(
-            item ? `Editar — ${titleCase(item.tipo || '')}` : 'Novo Fluxo',
-            notifDrawerBody(item),
-            `<button type="button" class="secondary-button" id="drawer-cancel-notif">Cancelar</button>
-             <button type="button" id="drawer-save-notif" style="flex:1">Salvar</button>`
-        );
-        document.getElementById('drawer-cancel-notif').addEventListener('click', closeDrawer);
-        document.getElementById('drawer-save-notif').addEventListener('click', async () => {
-            const btn = document.getElementById('drawer-save-notif');
-            setSaving(true, btn, 'Salvando...');
+    const bindNotifRowForm = (cell) => {
+        cell.querySelector('.uif-cancel').addEventListener('click', () => renderAdminPage());
+        cell.querySelector('.uif-save').addEventListener('click', async () => {
+            const saveBtn = cell.querySelector('.uif-save');
+            setSaving(true, saveBtn, 'Salvando...');
             const result = await saveNotificationConfig({
-                originalTipo: document.getElementById('notification-original-tipo').value.trim(),
-                tipo: document.getElementById('notification-type').value.trim(),
-                mensagemPadrao: document.getElementById('notification-message').value.trim(),
-                obrigatorio: document.getElementById('notification-obrigatorio').checked
+                originalTipo: cell.querySelector('.ntf-original-tipo').value.trim(),
+                tipo: cell.querySelector('.ntf-tipo').value.trim(),
+                mensagemPadrao: cell.querySelector('.ntf-msg').value.trim(),
+                obrigatorio: cell.querySelector('.ntf-obrigatorio').checked
             });
-            if (result.status === 'success') { showToast('Configuração salva.'); closeDrawer(); await renderAdminPage(); }
-            else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
+            if (result.status === 'success') { showToast('Configuração salva.'); renderAdminPage(); }
+            else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, saveBtn); }
         });
     };
 
-    document.getElementById('btn-new-notif').addEventListener('click', () => openNotifDrawer(null));
+    document.getElementById('btn-new-notif').addEventListener('click', () => {
+        if (document.getElementById('ntf-new-row')) {
+            document.getElementById('ntf-new-row').querySelector('.ntf-tipo').focus();
+            return;
+        }
+        const tbody = document.querySelector('.admin-notif-table tbody');
+        const tr = document.createElement('tr');
+        tr.id = 'ntf-new-row';
+        tr.innerHTML = `<td colspan="2" class="uif-cell uif-cell-new">${notifRowFormHtml(null)}</td>`;
+        tbody.prepend(tr);
+        tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        tr.querySelector('.ntf-tipo').focus();
+        bindNotifRowForm(tr);
+    });
 
     document.querySelectorAll('.admin-notif-row').forEach((row) => {
         row.addEventListener('click', (e) => {
             if (e.target.closest('[data-notif-toggle]') || e.target.type === 'checkbox') { return; }
             const item = state.adminData.notifications[Number(row.dataset.notificationIndex)];
-            openNotifDrawer(item);
+            row.innerHTML = `<td colspan="2" class="uif-cell">${notifRowFormHtml(item)}</td>`;
+            bindNotifRowForm(row);
         });
     });
 
