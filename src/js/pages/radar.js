@@ -49,6 +49,7 @@ export async function renderRadarPage() {
         <div class="radar-tabs-bar">
             <button type="button" class="radar-tab${activeRadarTab === 'buscar' ? ' active' : ''}" data-tab="buscar">Buscar</button>
             <button type="button" class="radar-tab${activeRadarTab === 'historico' ? ' active' : ''}" data-tab="historico">Histórico</button>
+            ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'importar' ? ' active' : ''}" data-tab="importar">Importar CSV</button>` : ''}
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'buscar' ? ' active' : ''}" id="radar-tab-buscar">
             <div class="card radar-search-card">
@@ -89,6 +90,27 @@ export async function renderRadarPage() {
                 </div>
             ` : ''}
         </div>
+        ${isAdmin ? `
+            <div class="radar-tab-panel${activeRadarTab === 'importar' ? ' active' : ''}" id="radar-tab-importar">
+                <div class="card">
+                    <h3 style="margin-top:0">Importar base do Radar (CSV)</h3>
+                    <p class="helper-text" style="text-align:left">
+                        Sobe o CSV exportado do programa de consulta de CNPJ. Empresa nova entra
+                        como "nunca contatada"; empresa já cadastrada (mesmo CNPJ) só atualiza os
+                        dados informativos — o status dado pelo vendedor nunca é sobrescrito.
+                        Cidade nova é liberada automaticamente pra todo mundo.
+                    </p>
+                    <div class="form-group full-width">
+                        <label for="radar-import-file">Arquivo CSV</label>
+                        <input type="file" id="radar-import-file" accept=".csv,text/csv">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="primary-button" id="radar-import-btn" disabled>Importar</button>
+                    </div>
+                    <div id="radar-import-summary" style="margin-top:1rem"></div>
+                </div>
+            </div>
+        ` : ''}
     `;
 
     document.querySelectorAll('.radar-tab').forEach((tab) => {
@@ -106,6 +128,8 @@ export async function renderRadarPage() {
         });
     });
 
+    if (isAdmin) { bindImportTab(); }
+
     await renderBuscarTab();
 
     if (activeRadarTab === 'historico') {
@@ -113,6 +137,55 @@ export async function renderRadarPage() {
         await loadHistorico();
         if (isAdmin) { await loadSolicitacoes(); }
     }
+}
+
+function bindImportTab() {
+    const fileInput = document.getElementById('radar-import-file');
+    const importBtn = document.getElementById('radar-import-btn');
+    const summaryEl = document.getElementById('radar-import-summary');
+    let selectedFile = null;
+
+    fileInput.addEventListener('change', () => {
+        selectedFile = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+        importBtn.disabled = !selectedFile;
+        summaryEl.innerHTML = '';
+    });
+
+    importBtn.addEventListener('click', () => {
+        if (!selectedFile) return;
+        setSaving(true, importBtn, 'Importando...');
+        summaryEl.innerHTML = '';
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const csvText = String(reader.result || '');
+            const result = await callAPI('importRadarClientesCsv', { user: state.currentUser, csvText });
+            setSaving(false, importBtn);
+            if (result.status !== 'success') {
+                summaryEl.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao importar o CSV.')}</p>`;
+                return;
+            }
+            summaryEl.innerHTML = `
+                <div class="card" style="background:var(--bg-alt, #f8fafc)">
+                    <p style="margin:0 0 0.4rem"><strong>${result.novas}</strong> empresa(s) nova(s)</p>
+                    <p style="margin:0 0 0.4rem"><strong>${result.atualizadas}</strong> empresa(s) atualizada(s)</p>
+                    ${result.cidadesAdicionadas ? `<p style="margin:0 0 0.4rem"><strong>${result.cidadesAdicionadas}</strong> cidade(s) nova(s) liberada(s)</p>` : ''}
+                    ${result.solicitacoesAtendidas ? `<p style="margin:0 0 0.4rem"><strong>${result.solicitacoesAtendidas}</strong> solicitação(ões) de cidade atendida(s)</p>` : ''}
+                    ${result.ignoradas ? `<p style="margin:0 0 0.4rem">${result.ignoradas} linha(s) ignorada(s) (sem CNPJ, Cliente ou Cidade)</p>` : ''}
+                    ${result.duplicadasNoArquivo ? `<p style="margin:0">${result.duplicadasNoArquivo} linha(s) duplicada(s) dentro do próprio arquivo</p>` : ''}
+                </div>
+            `;
+            showToast('Importação concluída.');
+            fileInput.value = '';
+            selectedFile = null;
+            importBtn.disabled = true;
+            historicoLoaded = false;
+        };
+        reader.onerror = () => {
+            setSaving(false, importBtn);
+            summaryEl.innerHTML = `<p class="error-message">Não foi possível ler o arquivo.</p>`;
+        };
+        reader.readAsText(selectedFile, 'UTF-8');
+    });
 }
 
 async function renderBuscarTab() {
