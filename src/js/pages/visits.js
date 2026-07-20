@@ -779,7 +779,7 @@ export async function renderCalendarPage() {
 }
 
 
-export async function renderVisitFormPage(visit = null) {
+export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     ensureStyles('visits');
     const mainContent = document.getElementById('main-content');
     const isEdit = Boolean(visit && (visit.ID || visit.id));
@@ -811,6 +811,14 @@ export async function renderVisitFormPage(visit = null) {
     const now = new Date();
     const currentProspection = normalizedVisit ? normalizedVisit.prospeccao : 'Sim';
     const currentClient = normalizedVisit ? normalizedVisit.cliente : '';
+    // Um prefill parcial (ex.: "Agendar prospecção" do Radar, ou Agendamento
+    // concluído virando Visita) só traz Cliente/Cidade — normalizedVisit fica
+    // "verdadeiro" mas sem Data/Horário. Sem esse fallback, os campos vinham
+    // em branco em vez de cair no padrão "agora" que uma Nova Visita comum já tem.
+    const currentDataVisita = (normalizedVisit && normalizedVisit.dataVisita) || formatDateForDisplay(now);
+    const currentDataVisitaInput = (normalizedVisit && normalizedVisit.dataVisitaInput)
+        || (normalizedVisit && normalizedVisit.dataVisita ? formatInputDateFromDisplay(normalizedVisit.dataVisita) : formatDateForInput(now));
+    const currentHorario = (normalizedVisit && normalizedVisit.horario) || formatTimeForInput(now);
     // Admin pode reatribuir/corrigir o Vendedor/Gerente de uma visita (ex.:
     // editar visita de outro vendedor sem sobrescrever o dono original).
     // Outros perfis continuam travados no próprio nome, como sempre foi.
@@ -862,20 +870,20 @@ export async function renderVisitFormPage(visit = null) {
                 <div class="form-group">
                     <label for="data-visita">Data da Visita</label>
                     <div class="date-input-group">
-                        <input type="text" id="data-visita" value="${escapeHtml(normalizedVisit ? normalizedVisit.dataVisita : formatDateForDisplay(now))}" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" required>
+                        <input type="text" id="data-visita" value="${escapeHtml(currentDataVisita)}" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" required>
                         <button type="button" class="date-picker-button" id="open-date-picker" aria-label="Abrir calendario">📅</button>
                         <div class="picker-menu" id="data-visita-menu">
-                            <input type="date" id="data-visita-picker" class="picker-native-input" value="${escapeHtml(normalizedVisit ? (normalizedVisit.dataVisitaInput || formatInputDateFromDisplay(normalizedVisit.dataVisita)) : formatDateForInput(now))}">
+                            <input type="date" id="data-visita-picker" class="picker-native-input" value="${escapeHtml(currentDataVisitaInput)}">
                         </div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="horario">Horário</label>
                     <div class="date-input-group">
-                        <input type="text" id="horario" value="${escapeHtml(normalizedVisit ? normalizedVisit.horario : formatTimeForInput(now))}" placeholder="hh:mm" inputmode="numeric" maxlength="5" required>
+                        <input type="text" id="horario" value="${escapeHtml(currentHorario)}" placeholder="hh:mm" inputmode="numeric" maxlength="5" required>
                         <button type="button" class="date-picker-button" id="open-time-picker" aria-label="Abrir horario">🕒</button>
                         <div class="picker-menu" id="horario-menu">
-                            <input type="time" id="horario-picker" class="picker-native-input" value="${escapeHtml(normalizedVisit ? normalizedVisit.horario : formatTimeForInput(now))}">
+                            <input type="time" id="horario-picker" class="picker-native-input" value="${escapeHtml(currentHorario)}">
                         </div>
                     </div>
                 </div>
@@ -1312,6 +1320,16 @@ export async function renderVisitFormPage(visit = null) {
         if (result && (result.status === 'success' || result.status === 'queued')) {
             const createdVisits = Array.isArray(result.visits) ? result.visits.map(v => normalizeVisit(v)) : [];
             state.currentVisit = normalizeVisit(result.visit || createdVisits[0] || payload);
+            if (radarClienteId) {
+                // Best-effort, sem garantia transacional com a criação da Visita
+                // acima (mesmo padrão já aceito hoje pro fluxo de Agendamento
+                // concluído) — se uma falhar e a outra não, corrige na aba
+                // Histórico do Radar depois.
+                attemptOrQueue('updateRadarClienteStatus', {
+                    user: state.currentUser, id: radarClienteId, status: 'prospeccao_agendada',
+                    visitaOrigemId: state.currentVisit.id
+                }, { entity: 'radar', tempId: 'radar_' + radarClienteId });
+            }
             const tipoAtual = (payload.tiposVisita || [])[0];
             const waConfig = getWhatsappConfigForVisit(tipoAtual);
             if (waConfig && waConfig.obrigatorio) {
