@@ -171,6 +171,13 @@ export function formatCurrency(value) {
     return clean ? `R$ ${clean}` : '';
 }
 
+// Converte texto de moeda BR ("R$ 1.234,56") pro Number equivalente (1234.56)
+// — remove "R$"/espaços, remove "." de milhar, troca "," decimal por ".".
+export function parseCurrencyBR(raw) {
+    const cleaned = String(raw || '').replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
+    return Number(cleaned) || 0;
+}
+
 export function proposalStatusIcon(status) {
     const s = (status || '').toUpperCase();
     if (s.includes('GANH'))     { return '🏆'; }
@@ -295,9 +302,17 @@ export function formatInputDateFromDisplay(value) {
     if (!value || typeof value !== 'string' || !value.includes('/')) {
         return value;
     }
-    const [day, month, year] = value.split('/');
-    if (!day || !month || !year) {
+    const [day, month, yearRaw] = value.split('/');
+    if (!day || !month || !yearRaw) {
         return value;
+    }
+    // Dado legado às vezes vem com ano de 2 dígitos ("10/06/14") — sem
+    // expandir pra 4 dígitos, o <input type="date"> recebe um ISO inválido
+    // e mostra o campo em branco. Pivô 69: 00-69 vira 20xx, 70-99 vira 19xx.
+    let year = yearRaw;
+    if (/^\d{2}$/.test(year)) {
+        const y = Number(year);
+        year = String(y <= 69 ? 2000 + y : 1900 + y);
     }
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
@@ -340,10 +355,14 @@ export function normalizeDisplayDateValue(value) {
 
 
 export function calculateDaysFromDisplayDate(value) {
-    if (!value || typeof value !== 'string' || !value.includes('/')) {
+    // Passa pela mesma validação de calendário do normalizeDisplayDateValue —
+    // sem isso, uma data impossível como 31/02 rolava silenciosamente pro JS
+    // (vira 03/03) em vez de ser tratada como inválida.
+    const normalized = normalizeDisplayDateValue(value);
+    if (!normalized) {
         return 0;
     }
-    const [day, month, year] = value.split('/').map(Number);
+    const [day, month, year] = normalized.split('/').map(Number);
     const date = new Date(year, month - 1, day);
     const diff = Date.now() - date.getTime();
     return Math.floor(diff / 86400000);

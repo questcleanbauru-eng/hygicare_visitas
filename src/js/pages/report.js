@@ -1,12 +1,7 @@
 import { state, navigateTo } from '../app.js';
-import { escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, normalizeVisit, normalizeProposal, titleCase } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, normalizeVisit, normalizeProposal, titleCase, parseCurrencyBR } from '../utils/format.js';
 import { loadingState, showToast } from '../utils/dom.js';
 import { ensureStyles, renderBreadcrumb } from '../utils/ui.js';
-
-function parseValorMensal(raw) {
-    const cleaned = String(raw || '').replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
-    return Number(cleaned) || 0;
-}
 
 function formatMoney(value) {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -88,7 +83,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
 
     const funilByStatus = countBy(funil, (f) => f.status);
     const funilAtivo = funil.filter((f) => String(f.ativo || '').toLowerCase() === 'sim');
-    const funilValorTotal = funilAtivo.reduce((sum, f) => sum + parseValorMensal(f.vlMensal), 0);
+    const funilValorTotal = funilAtivo.reduce((sum, f) => sum + parseCurrencyBR(f.vlMensal), 0);
     const funilAtrasado = funil.filter((f) => {
         const dias = parseDisplayDate(f.atualizacao || f.data);
         return String(f.ativo || '').toLowerCase() === 'sim' && dias && (new Date() - dias) / 86400000 > 30;

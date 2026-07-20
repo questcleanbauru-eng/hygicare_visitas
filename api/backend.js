@@ -78,7 +78,11 @@ export default async function handler(req, res) {
 
         if (action !== 'ping' && action !== 'login' && action !== 'forgotPassword') {
             const rlEmail = (payload.user && payload.user.email) ? String(payload.user.email) : '';
-            checkRateLimit(rlEmail);
+            // Ações sem usuário autenticado (ex.: getManutencao, chamada antes do
+            // login) caem pro IP do cliente, senão o rate limit é ignorado de fato
+            // (checkRateLimit não faz nada com chave vazia).
+            const rlIp = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+            checkRateLimit(rlEmail || 'ip:' + rlIp);
         }
 
         const fn = HANDLERS[action];

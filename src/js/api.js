@@ -114,15 +114,23 @@ export async function _callAPIRaw(action, payload = {}) {
 // reenviado automaticamente quando a conexao volta. Erros de negocio (ex.:
 // validacao) NAO entram na fila — so falha de rede/conectividade.
 export async function attemptOrQueue(action, payload, meta) {
+    // Ações de criação levam uma idempotencyKey (derivada do tempId
+    // otimista, já único por tentativa) — se a escrita for bem-sucedida no
+    // servidor mas a resposta se perder (timeout, cold start), a retentativa
+    // da fila reenvia a MESMA chave, permitindo ao servidor detectar que já
+    // foi processada em vez de duplicar a linha.
+    const finalPayload = (action.startsWith('create') && !payload.idempotencyKey && meta && meta.tempId)
+        ? { ...payload, idempotencyKey: String(meta.tempId) }
+        : payload;
     if (!navigator.onLine) {
-        await enqueueWrite(action, payload, meta);
+        await enqueueWrite(action, finalPayload, meta);
         refreshPendingSyncBanner();
         return { status: 'queued' };
     }
     try {
-        return await callAPI(action, payload);
+        return await callAPI(action, finalPayload);
     } catch (error) {
-        await enqueueWrite(action, payload, meta);
+        await enqueueWrite(action, finalPayload, meta);
         refreshPendingSyncBanner();
         return { status: 'queued' };
     }
@@ -139,8 +147,13 @@ export async function flushOfflineQueue() {
         let synced = 0;
         for (const item of items) {
             let result;
+            // Marca explicitamente como retentativa — só nesse caso o servidor
+            // paga o custo extra de checar duplicata pela idempotencyKey.
+            const retryPayload = item.payload && item.payload.idempotencyKey
+                ? { ...item.payload, _queueRetry: true }
+                : item.payload;
             try {
-                result = await _callAPIRaw(item.action, item.payload);
+                result = await _callAPIRaw(item.action, retryPayload);
             } catch (error) {
                 break; // ainda sem conexao/servidor fora — tenta de novo mais tarde
             }

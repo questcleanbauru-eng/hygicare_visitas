@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
+import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
 import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, contratoSituacaoIcon, filterLabelHtml } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, showToast,
@@ -403,14 +403,25 @@ export async function renderContratoFormPage(contrato) {
             payload.ativo = document.querySelector('input[name="ctf-ativo"]:checked')?.value || 'Sim';
         }
 
-        const result = await callAPI(isEdit ? 'updateContrato' : 'createContrato', payload);
-        if (result && result.status === 'success') {
-            saveCache('contratos', null);
-            state.contratos = [];
-            showToast(isEdit ? 'Contrato atualizado.' : 'Contrato criado com sucesso.');
-            navigateTo('contrato-detail', { id: result.contrato.id });
-        } else {
-            showToast((result && result.message) || 'Erro ao salvar contrato.', true);
+        try {
+            const result = await attemptOrQueue(isEdit ? 'updateContrato' : 'createContrato', payload,
+                { entity: 'contratos', tempId: String(payload.id || Date.now()) });
+            if (result && result.status === 'success') {
+                saveCache('contratos', null);
+                state.contratos = [];
+                showToast(isEdit ? 'Contrato atualizado.' : 'Contrato criado com sucesso.');
+                navigateTo('contrato-detail', { id: result.contrato.id });
+            } else if (result && result.status === 'queued') {
+                saveCache('contratos', null);
+                state.contratos = [];
+                showToast('Sem conexão — o contrato foi salvo no aparelho e será enviado quando a conexão voltar.');
+                navigateTo('contratos');
+            } else {
+                showToast((result && result.message) || 'Erro ao salvar contrato.', true);
+                setSaving(false, btn);
+            }
+        } catch (error) {
+            showToast('Erro ao salvar contrato. Tente novamente.', true);
             setSaving(false, btn);
         }
     });

@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyn
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay,
-    funilStatusIcon, filterLabelHtml, formatCurrency
+    funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, showToast, renderSimpleOptions,
@@ -213,7 +213,7 @@ export function fillFunilContent(mainContent, funil) {
             const matchVendor  = !vendorFilter || f.vendedor === vendorFilter;
             const atuDate      = parseDisplayDate(f.atualizacao) || parseDisplayDate(f.data);
             const matchPeriod  = !period || (atuDate && atuDate >= periodStart && atuDate <= periodEnd);
-            const matchVl      = !vlMin || Number(String(f.vlMensal).replace(/[^\d.]/g, '') || 0) >= vlMin;
+            const matchVl      = !vlMin || parseCurrencyBR(f.vlMensal) >= vlMin;
             const matchYear    = !state.funilYearFilter || (atuDate && atuDate.getFullYear() === state.funilYearFilter);
             return matchSearch && matchStatus && matchCidade && matchAtivo && matchAtrasado && matchVendor && matchPeriod && matchVl && matchYear;
         });
@@ -568,7 +568,11 @@ export async function renderFunilCreatePage() {
         showToast('Funil criado com sucesso.');
         navigateTo('funil');
 
-        attemptOrQueue('createFunil', { ...funilPayload, user: state.currentUser }, { entity: 'funil', tempId: tempFCId })
+        // conclusao vai como ISO cru (igual todo outro campo de data com
+        // <input type="date">) — o servidor que converte pro formato de
+        // exibição, via formatDateFromInput. funilPayload.conclusao continua
+        // em dd/mm/aaaa só pro objeto otimista local.
+        attemptOrQueue('createFunil', { ...funilPayload, conclusao: conclusaoValue, user: state.currentUser }, { entity: 'funil', tempId: tempFCId })
             .then(result => {
                 if (result && result.status === 'success') {
                     const real = result.funil || optimisticFunil;
@@ -879,8 +883,11 @@ export async function renderFunilFormPage(funil) {
         showToast('Funil atualizado com sucesso.');
         navigateTo('funil-detail', { id: f.id });
 
+        // conclusao vai como ISO cru pro servidor (igual o campo "data" do
+        // admin, alguns parágrafos acima) — newFConcl (dd/mm/aaaa) fica só
+        // pro estado local otimista.
         attemptOrQueue('updateFunil', { id: f.id, status: newFStatus, vlMensal: newFVl,
-            conclusao: newFConcl, infImportantes: newFInf, comentarios: newFComent, user: state.currentUser, ...adminFields },
+            conclusao: conclusaoValue, infImportantes: newFInf, comentarios: newFComent, user: state.currentUser, ...adminFields },
             { entity: 'funil', tempId: f.id })
             .then(result => {
                 if (result && result.status === 'success') {
