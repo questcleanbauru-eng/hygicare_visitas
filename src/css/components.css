@@ -956,7 +956,22 @@ input:disabled {
 
 .visits-filter-grid .form-group { min-width: 0; }
 
-.visits-filter-grid input[type="date"] { min-width: 0; }
+/* iOS Safari desenha input[type=date] com o valor por extenso no idioma do
+   aparelho ("20 de jul. de 2026"), bem mais largo que o "20/07/2026"
+   compacto que o Chromium sempre mostra — por isso não reproduzia em teste
+   automatizado (Chromium), só num iPhone real. Fonte um pouco menor ajuda
+   o texto longo caber; overflow:hidden no wrapper clipa qualquer sobra que
+   ainda assim não caiba, pra nunca estourar o card. Restrito a filho direto
+   pra não afetar .form-group de searchable-select, que precisa do próprio
+   dropdown escapando do wrapper. */
+input[type="date"] {
+    min-width: 0;
+    font-size: 0.84rem;
+}
+
+.form-group:has(> input[type="date"]) {
+    overflow: hidden;
+}
 
 .visits-filter-header strong {
     font-size: 0.88rem;
