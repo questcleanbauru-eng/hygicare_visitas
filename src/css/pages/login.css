@@ -308,7 +308,7 @@
 
 /* ── Login: redesign mobile ── */
 
-.welcome-splash { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; background: linear-gradient(155deg, #1E3A8A 0%, #1D4ED8 100%); position: fixed; inset: 0; z-index: 50; }
+.welcome-splash { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; background: linear-gradient(155deg, #1E3A8A 0%, #1D4ED8 100%); position: fixed; inset: 0; z-index: var(--z-splash); }
 
 .welcome-splash-inner { text-align: center; padding: 2rem; animation: pageIn 0.35s ease both; }
 
@@ -497,9 +497,6 @@
     .admin-overview-card        { padding: 0.65rem 0.7rem; }
     .admin-overview-card strong { font-size: 1.25rem; }
 
-    .form-layout          { grid-template-columns: 1fr; }
-    .visits-filter-grid   { grid-template-columns: 1fr; }
-
     .compact-header {
         flex-direction: row;
         align-items: center;
@@ -572,9 +569,6 @@
     .stat-card { padding: 0.85rem 0.9rem; }
     .stat-label { font-size: 0.65rem; }
     .stat-value { font-size: 1.4rem; }
-
-    /* Formulários: coluna única no mobile */
-    .form-layout { grid-template-columns: 1fr; }
 
     /* Alvos de toque maiores */
     input, select, textarea { min-height: 44px; }

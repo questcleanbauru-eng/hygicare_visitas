@@ -2,7 +2,7 @@ import { API_URL, loadStoredUser, getDashboardData, initOfflineQueueSync, callAP
 import { escapeHtml } from './utils/format.js';
 import {
     registerServiceWorker, initOfflineBanner, initSessionExpiry, initNavHoverPrefetch,
-    renderNavigation, updateHeaderUI, initSidebarToggle
+    renderNavigation, updateHeaderUI, initSidebarToggle, initSidebarTooltip
 } from './utils/ui.js';
 import { renderLoginPage, renderForgotPasswordPage } from './pages/auth.js';
 import { renderDashboard, fillDashboard } from './pages/dashboard.js';
@@ -199,6 +199,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         renderNavigation();
         updateHeaderUI(state.currentUser);
         initSidebarToggle();
+        initSidebarTooltip();
     }
 
     switch (page) {

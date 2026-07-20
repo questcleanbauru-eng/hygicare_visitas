@@ -167,7 +167,7 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 100;
+    z-index: var(--z-header);
     flex-shrink: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -185,7 +185,7 @@ body {
     right: 0;
     bottom: 0;
     background: rgba(0,0,0,0.3);
-    z-index: 200;
+    z-index: var(--z-overlay);
 }
 
 .mobile-extra-overlay.open { display: block; }
@@ -198,7 +198,7 @@ body {
     width: min(260px, 78vw);
     background: var(--surface);
     box-shadow: 4px 0 24px rgba(0,0,0,0.15);
-    z-index: 201;
+    z-index: var(--z-overlay-top);
     transform: translateX(-100%);
     transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
     padding: 0.75rem 0.6rem 1rem;
@@ -323,6 +323,23 @@ body {
     --sidebar-w:         var(--sidebar-collapsed);
     /* Layout */
     --content-pad:    1rem;
+    /* Escala de z-index — antes eram números soltos (às vezes coincidentes,
+       às vezes não) espalhados por vários arquivos CSS, difícil de saber
+       quem deveria ficar por cima de quem. Valores mantidos iguais aos que
+       já estavam em uso (só nomeados), pra não mudar nenhuma sobreposição
+       visual existente. */
+    --z-local-overlay: 5;      /* overlay dentro do próprio card (ex.: loading de formulário) */
+    --z-sticky:         20;    /* elementos sticky no fluxo (busca) e seus próprios menus */
+    --z-picker:         25;    /* menu de date/time picker */
+    --z-fab:            40;    /* botões flutuantes (FAB, voltar ao topo) */
+    --z-splash:         50;    /* tela cheia de boas-vindas do login */
+    --z-header:         100;   /* header fixo, sidebar/bottom-nav */
+    --z-banner-low:     199;   /* aviso de sync pendente */
+    --z-overlay:        200;   /* backdrops e avisos fixos (gaveta, banners, popup de sucesso, tooltip) */
+    --z-overlay-top:    201;   /* conteúdo por cima do --z-overlay correspondente (gaveta, banner de update) */
+    --z-modal-overlay:  900;   /* fundo dos modais */
+    --z-toast:          1000;  /* notificação toast — sempre visível, acima de modal */
+    --z-search-modal:   2000;  /* busca global */
 }
 
 /* ── Base ── */
@@ -354,7 +371,7 @@ header {
     border-bottom: 1px solid var(--border);
     box-shadow: var(--shadow-xs);
     position: relative;
-    z-index: 100;
+    z-index: var(--z-header);
     flex-shrink: 0;
 }
 

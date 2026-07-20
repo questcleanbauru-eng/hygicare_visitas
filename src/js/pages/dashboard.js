@@ -221,8 +221,19 @@ export async function renderDashboard() {
     if (result.status === 'success' && document.getElementById('main-content') === mainContent) {
         if (result.data.loadDias) { state.loadDias = result.data.loadDias; }
         fillDashboard(mainContent, result.data, state.currentUser);
-    } else if (!cached) {
-        fillDashboard(mainContent, buildLocalDashboardData(), state.currentUser);
+    } else if (!cached && result.status !== 'success') {
+        // Sem cache e a busca falhou — mostrar erro real, não um dashboard
+        // "zerado" a partir de state.visits/proposals vazios, que passaria
+        // a impressão enganosa de que não há nenhuma atividade registrada.
+        if (document.getElementById('main-content') === mainContent) {
+            mainContent.innerHTML = `<div class="page-header"><div><h2>Dashboard</h2></div></div>
+                <div class="empty-state">
+                    <span class="empty-state-icon">⚠️</span>
+                    <p>${escapeHtml(result.message || 'Não foi possível carregar o dashboard.')}</p>
+                    <button type="button" class="secondary-button" id="dashboard-retry-btn">Tentar novamente</button>
+                </div>`;
+            document.getElementById('dashboard-retry-btn')?.addEventListener('click', () => navigateTo('dashboard'));
+        }
     }
     warmListCaches();
 }

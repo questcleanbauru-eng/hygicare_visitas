@@ -84,6 +84,12 @@ export function fillFunilContent(mainContent, funil) {
                 📤 Resumo <span class="pending-badge" style="margin-left:0.2rem">${summaryCount}</span>
             </button>
         </div>` : ''}
+        <div class="search-bar-wrapper">
+            <div class="search-bar-input-group">
+                <span class="search-bar-icon">🔍</span>
+                <input type="text" id="funil-filter-search" placeholder="Cliente, foco ou obs" class="form-input">
+            </div>
+        </div>
         <div class="card funil-filter-card">
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
@@ -93,10 +99,6 @@ export function fillFunilContent(mainContent, funil) {
                 </div>
             </div>
             <div class="visits-filter-grid" id="funil-filter-panel">
-                <div class="form-group">
-                    <label for="funil-filter-search">${filterLabelHtml('Busca')}</label>
-                    <input type="text" id="funil-filter-search" placeholder="Cliente, foco ou obs">
-                </div>
                 <div class="form-group">
                     <label for="funil-filter-status">${filterLabelHtml('Status')}</label>
                     <div class="searchable-select">
@@ -784,7 +786,7 @@ export async function renderFunilFormPage(funil) {
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-funil">Cancelar</button>
-                <button type="submit" id="save-funil">Salvar</button>
+                <button type="submit" id="save-funil">Salvar Alterações</button>
             </div>
         </form>
         ` : `
@@ -821,7 +823,7 @@ export async function renderFunilFormPage(funil) {
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-funil">Cancelar</button>
-                <button type="submit" id="save-funil">Salvar</button>
+                <button type="submit" id="save-funil">Salvar Alterações</button>
             </div>
         </form>
         `}

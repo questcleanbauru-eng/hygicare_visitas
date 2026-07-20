@@ -563,7 +563,7 @@ export async function renderProposalFormPage(proposal) {
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-proposal">Cancelar</button>
-                <button type="submit" id="save-proposal">Salvar Atualizacao</button>
+                <button type="submit" id="save-proposal">Salvar Alterações</button>
             </div>
         </form>
     `;

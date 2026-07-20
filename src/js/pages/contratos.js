@@ -109,8 +109,18 @@ export function fillContratosContent(mainContent, contratos) {
         const container = document.getElementById('contratos-list-container');
         if (!container) return;
 
+        if (normalized.length === 0) {
+            container.innerHTML = `<div class="empty-state">
+                <span class="empty-state-icon">📑</span>
+                <p>Nenhum contrato cadastrado ainda.</p>
+                <button type="button" class="btn-add" id="btn-new-contrato2" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de contratos."'}>+ Novo Contrato</button>
+            </div>`;
+            document.getElementById('btn-new-contrato2')?.addEventListener('click', () => navigateTo('contrato-new'));
+            return;
+        }
+
         if (filtered.length === 0) {
-            container.innerHTML = `<div class="empty-state"><p>Nenhum contrato encontrado.</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Nenhum contrato para os filtros selecionados.</p></div>`;
             return;
         }
 
@@ -373,7 +383,7 @@ export async function renderContratoFormPage(contrato) {
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-contrato-form">Cancelar</button>
-                <button type="submit" id="save-contrato-form">Salvar Contrato</button>
+                <button type="submit" id="save-contrato-form">${isEdit ? 'Salvar Alterações' : 'Salvar Contrato'}</button>
             </div>
         </form>
     `;

@@ -93,6 +93,12 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
     const normalizedItems = Array.from(new Set((Array.isArray(items) ? items : []).filter(Boolean)));
     const selectedValues = Array.isArray(selectedItems) ? selectedItems : [];
 
+    // Ignora acento na busca ("sao paulo" acha "São Paulo") e serve também
+    // pra checar no blur se o texto digitado bate com alguma opção real.
+    const stripAccents = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const matchKey = (s) => stripAccents(s).trim().toLowerCase();
+    const exactMatch = (value) => normalizedItems.find((item) => matchKey(item) === matchKey(value));
+
     const renderSelectedItems = () => {
         if (!selectedContainer) {
             return;
@@ -132,9 +138,9 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
     };
 
     const openMenu = (query = '') => {
-        const normalizedQuery = String(query || '').trim().toLowerCase();
+        const normalizedQuery = matchKey(query);
         const filteredItems = normalizedQuery
-            ? normalizedItems.filter((item) => String(item).toLowerCase().includes(normalizedQuery))
+            ? normalizedItems.filter((item) => matchKey(item).includes(normalizedQuery))
             : normalizedItems;
 
         if (filteredItems.length === 0) {
@@ -182,10 +188,32 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
         });
     };
 
+    // Só valida no blur se o usuário de fato digitou algo — assim um valor
+    // pré-preenchido (edição) que o usuário só tabulou sem tocar nunca é
+    // apagado, mesmo que não bata 100% com a lista atual de opções.
+    let dirty = false;
     input.addEventListener('focus', () => openMenu(input.value));
-    input.addEventListener('input', () => openMenu(input.value));
+    input.addEventListener('input', () => { dirty = true; openMenu(input.value); });
     input.addEventListener('blur', () => {
-        setTimeout(closeMenu, 120);
+        // Atraso pra deixar o click numa opção do menu (que também dispara
+        // blur) rodar primeiro e já preencher input.value com um valor válido.
+        setTimeout(() => {
+            closeMenu();
+            if (!dirty) return;
+            const typed = input.value.trim();
+            if (!typed) return;
+            if (multiSelect) {
+                // Sobra de texto que não virou chip — limpa sem aviso, já
+                // que a seleção real fica em selectedValues, não no input.
+                if (!exactMatch(typed)) { input.value = ''; }
+                return;
+            }
+            if (!exactMatch(typed)) {
+                input.value = '';
+                showToast(`Nenhuma opção encontrada para "${typed}".`, true);
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 120);
     });
 
     addDocumentClickListener((event) => {
@@ -209,9 +237,19 @@ export function renderDetailRow(label, value) {
 }
 
 
+// Só http(s) — bloqueia javascript:/data:/outros esquemas que um link salvo
+// (ex.: anexo de contrato, texto livre) pudesse carregar e executar ao clicar.
 export function openExternal(url) {
+    // Sem base: exige URL absoluta — um link de anexo nunca deveria ser um
+    // caminho relativo, e isso também rejeita string vazia/lixo de cara.
+    let parsed;
+    try { parsed = new URL(String(url || '')); } catch (e) { parsed = null; }
+    if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) {
+        showToast('Link inválido.', true);
+        return;
+    }
     const a = document.createElement('a');
-    a.href = url;
+    a.href = parsed.href;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     document.body.appendChild(a);

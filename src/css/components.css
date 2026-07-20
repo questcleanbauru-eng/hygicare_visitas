@@ -331,7 +331,7 @@ textarea { resize: vertical; }
 .search-bar-wrapper {
     position: sticky;
     top: 0;
-    z-index: 20;
+    z-index: var(--z-sticky);
     background: var(--bg);
     padding-top: 0.25rem;
     padding-bottom: 0.35rem;
@@ -624,7 +624,7 @@ textarea { resize: vertical; }
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 18px rgba(37,99,235,0.42);
-    z-index: 40;
+    z-index: var(--z-fab);
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -649,7 +649,7 @@ textarea { resize: vertical; }
     align-items: center;
     justify-content: center;
     box-shadow: var(--shadow-sm);
-    z-index: 40;
+    z-index: var(--z-fab);
     opacity: 0;
     transform: translateY(12px);
     transition: opacity 0.25s, transform 0.25s;
@@ -665,10 +665,18 @@ textarea { resize: vertical; }
 
 /* ── Admin collapsible cards ── */
 
+/* Breakpoints de .form-layout/.visits-filter-grid consolidados aqui (antes
+   espalhados entre login.css e dashboard.css, com max-width/min-width se
+   sobrepondo de um jeito que só a ordem de carregamento dos <link> decidia
+   quem vencia) — ver .visits-filter-grid mais abaixo pros tiers de 1024/1280px. */
 .form-layout {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 0.85rem;
+}
+
+@media (min-width: 640px) {
+    .form-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .full-width { grid-column: 1 / -1; }
@@ -812,7 +820,7 @@ textarea { resize: vertical; }
     border: 1.5px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
-    z-index: 25;
+    z-index: var(--z-picker);
 }
 
 .picker-menu.visible { display: block; }
@@ -836,7 +844,7 @@ textarea { resize: vertical; }
     border: 1.5px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
-    z-index: 20;
+    z-index: var(--z-sticky);
 }
 
 .searchable-select-menu.visible { display: flex; }
@@ -934,8 +942,20 @@ input:disabled {
 
 .visits-filter-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 0.6rem;
+}
+
+@media (min-width: 640px) {
+    .visits-filter-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1024px) {
+    .visits-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1280px) {
+    .visits-filter-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
 .visits-filter-grid.collapsed { display: none; }
@@ -1006,7 +1026,7 @@ input:disabled {
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.45);
-    z-index: 200;
+    z-index: var(--z-overlay);
     align-items: center;
     justify-content: center;
 }
@@ -1070,7 +1090,7 @@ input:disabled {
     opacity: 0;
     pointer-events: none;
     transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-    z-index: 1000;
+    z-index: var(--z-toast);
     text-align: center;
     font-size: 0.88rem;
     font-weight: 500;
@@ -1120,7 +1140,7 @@ input:disabled {
     left: 0;
     right: 0;
     height: 3px;
-    z-index: 200;
+    z-index: var(--z-overlay);
     opacity: 0;
     transition: opacity 0.3s;
     background: linear-gradient(90deg, #2563eb 0%, #60a5fa 50%, #2563eb 100%);
@@ -1217,7 +1237,7 @@ input:disabled {
     top: calc(var(--header-height) + var(--safe-top, 0px));
     left: 0;
     right: 0;
-    z-index: 200;
+    z-index: var(--z-overlay);
     background: #fef3c7;
     color: #78350f;
     height: 36px;
@@ -1240,7 +1260,7 @@ input:disabled {
     top: calc(var(--header-height) + var(--safe-top, 0px));
     left: 0;
     right: 0;
-    z-index: 201;
+    z-index: var(--z-overlay-top);
     background: #1e3a8a;
     color: #fff;
     min-height: 40px;
@@ -1274,7 +1294,7 @@ input:disabled {
     left: 0.75rem;
     right: 0.75rem;
     bottom: calc(var(--nav-height) + 0.6rem);
-    z-index: 199;
+    z-index: var(--z-banner-low);
     background: #1e293b;
     color: #fff;
     border-radius: 999px;
@@ -1439,7 +1459,7 @@ input:disabled {
 
 /* ── Form loading overlay ── */
 
-.form-loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.88); border-radius: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; font-size: 0.82rem; color: var(--text-muted-strong); font-weight: 500; z-index: 5; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.form-loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.88); border-radius: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; font-size: 0.82rem; color: var(--text-muted-strong); font-weight: 500; z-index: var(--z-local-overlay); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
 
 .form-loading-spinner { width: 20px; height: 20px; border: 2.5px solid #E2E8F0; border-top-color: #2563EB; border-radius: 50%; animation: spin 0.7s linear infinite; }
 
@@ -1469,7 +1489,7 @@ input:disabled {
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.55);
-    z-index: 900;
+    z-index: var(--z-modal-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1574,7 +1594,7 @@ input:disabled {
 
 .global-search-modal {
     position: fixed; inset: 0; background: rgba(0,0,0,0.45);
-    z-index: 2000; display: flex; align-items: flex-start; justify-content: center;
+    z-index: var(--z-search-modal); display: flex; align-items: flex-start; justify-content: center;
     padding-top: max(env(safe-area-inset-top,0px), 3.5rem);
     animation: fadeIn 0.15s ease;
 }

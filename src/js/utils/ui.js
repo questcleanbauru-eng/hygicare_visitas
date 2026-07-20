@@ -243,6 +243,54 @@ export function initSidebarToggle() {
 }
 
 
+// Tooltip do item de menu quando a sidebar desktop está recolhida.
+// position:fixed + posição calculada via getBoundingClientRect, em vez de
+// um ::after absoluto dentro do #bottom-nav — esse container tem
+// overflow-y:auto, e por regra do CSS overflow-x não pode ficar "visible"
+// sozinho quando o outro eixo tem scroll (vira "auto" e corta do mesmo
+// jeito), então o pseudo-elemento antigo sempre saía cortado.
+export function initSidebarTooltip() {
+    const nav = document.getElementById('bottom-nav');
+    if (!nav || nav.dataset.tooltipBound) { return; }
+    nav.dataset.tooltipBound = '1';
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'sidebar-tooltip';
+    tooltip.id = 'sidebar-tooltip';
+    document.body.appendChild(tooltip);
+
+    const show = (btn) => {
+        if (window.innerWidth < 1024 || nav.classList.contains('sidebar-expanded')) return;
+        const label = btn.dataset.label;
+        if (!label) return;
+        const rect = btn.getBoundingClientRect();
+        tooltip.textContent = label;
+        tooltip.style.left = `${rect.right + 8}px`;
+        tooltip.style.top = `${rect.top + rect.height / 2}px`;
+        tooltip.style.transform = 'translateY(-50%)';
+        tooltip.classList.add('visible');
+    };
+    const hide = () => tooltip.classList.remove('visible');
+
+    nav.addEventListener('mouseover', (e) => {
+        const btn = e.target.closest('.nav-btn[data-label]');
+        if (btn) show(btn);
+    });
+    nav.addEventListener('mouseout', (e) => {
+        const btn = e.target.closest('.nav-btn[data-label]');
+        if (btn) hide();
+    });
+    nav.addEventListener('focusin', (e) => {
+        const btn = e.target.closest('.nav-btn[data-label]');
+        if (btn) show(btn);
+    });
+    nav.addEventListener('focusout', (e) => {
+        const btn = e.target.closest('.nav-btn[data-label]');
+        if (btn) hide();
+    });
+}
+
+
 export function isNavActive(navId) {
     if (navId === 'visits') {
         return ['visits', 'visit-new', 'visit-detail', 'visit-edit'].includes(state.currentPage);

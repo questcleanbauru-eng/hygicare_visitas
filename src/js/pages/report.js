@@ -48,9 +48,24 @@ export async function renderReportPage() {
     state.reportCustomFrom = state.reportCustomFrom || '';
     state.reportCustomTo = state.reportCustomTo || '';
 
-    const allVisits = (visitsRes.status === 'success' ? visitsRes.visits : []).map(normalizeVisit);
-    const allProposals = (proposalsRes.status === 'success' ? proposalsRes.proposals : []).map(normalizeProposal);
-    const allFunil = funilRes.status === 'success' ? (funilRes.funil || []) : [];
+    if (visitsRes.status !== 'success' || proposalsRes.status !== 'success' || funilRes.status !== 'success') {
+        // Não renderiza um relatório "zerado" quando a busca falhou de
+        // verdade — daria a entender que não houve nenhuma atividade.
+        const body = document.getElementById('report-body');
+        if (body) {
+            body.innerHTML = `<div class="empty-state">
+                <span class="empty-state-icon">⚠️</span>
+                <p>Não foi possível carregar os dados do relatório.</p>
+                <button type="button" class="secondary-button" id="report-retry-btn">Tentar novamente</button>
+            </div>`;
+            document.getElementById('report-retry-btn')?.addEventListener('click', () => navigateTo('report'));
+        }
+        return;
+    }
+
+    const allVisits = visitsRes.visits.map(normalizeVisit);
+    const allProposals = proposalsRes.proposals.map(normalizeProposal);
+    const allFunil = funilRes.funil || [];
 
     renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
 }

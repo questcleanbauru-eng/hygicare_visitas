@@ -268,8 +268,6 @@
 
     .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .tile-wide { grid-column: 1 / -1; }
-    .form-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .visits-filter-grid { grid-template-columns: repeat(2, 1fr); }
 
     header h1 { font-size: 1.1rem; }
 }
@@ -351,13 +349,13 @@
         font-size: 0.86rem;
     }
 
-    /* Tooltip when collapsed */
-    .nav-btn::after {
-        content: attr(data-label);
-        position: absolute;
-        left: calc(var(--sidebar-collapsed) + 8px);
-        top: 50%;
-        transform: translateY(-50%);
+    /* Tooltip when collapsed — elemento real posicionado via JS (ver
+       initSidebarTooltip em ui.js), não ::after: o antigo pseudo-elemento
+       era clipado pelo overflow-y:auto do #bottom-nav (overflow-x não pode
+       ficar "visible" sozinho quando o outro eixo tem scroll — vira "auto"
+       pela spec e corta do mesmo jeito). */
+    .sidebar-tooltip {
+        position: fixed;
         background: var(--text);
         color: #fff;
         font-size: 0.78rem;
@@ -368,9 +366,9 @@
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.12s;
-        z-index: 200;
+        z-index: var(--z-overlay);
     }
-    .nav-btn:hover::after { opacity: 1; }
+    .sidebar-tooltip.visible { opacity: 1; }
 
     .nav-btn.active .nav-icon {
         background: rgba(30,58,138,0.08);
@@ -451,7 +449,6 @@
     #bottom-nav.sidebar-expanded .nav-btn-label { opacity: 1; }
     #bottom-nav.sidebar-expanded .nav-badge     { opacity: 1; }
     #bottom-nav.sidebar-expanded .nav-user-details { opacity: 1; }
-    #bottom-nav.sidebar-expanded .nav-btn::after { display: none; }
 
     #bottom-nav.sidebar-expanded .nav-btn {
         padding-left: 0;
@@ -479,11 +476,6 @@
     .visit-card { padding: 0.85rem 1rem; }
     .proposal-card { padding: 0.6rem 2rem 0.6rem 1rem; }
 
-    /* Forms */
-    .form-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .form-layout .full-width { grid-column: 1 / -1; }
-    .visits-filter-grid { grid-template-columns: repeat(3, 1fr); }
-
     /* Dashboard */
     .dashboard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .tile-wide { grid-column: 1 / -1; }
@@ -500,6 +492,5 @@
 @media (min-width: 1280px) {
     main { padding: 2rem 3rem; }
     .dash-panels-grid { grid-template-columns: repeat(3, 1fr); }
-    .visits-filter-grid { grid-template-columns: repeat(4, 1fr); }
     .visits-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
