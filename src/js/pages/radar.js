@@ -18,11 +18,21 @@ const STATUS_CLASSES = {
     prospeccao_agendada: 'status-pill radar-status-agendada'
 };
 
+let activeRadarTab = 'buscar';
+
 // Lista da cidade atualmente carregada — vive só neste módulo (não em
 // `state`), já que o Radar não segue o padrão "carrega tudo" do resto do
 // app (é filtrado por cidade no servidor), então não faz sentido tratar
 // como uma lista global igual state.visits/state.proposals.
 let currentClientes = [];
+let currentCidade = null; // { cidade, uf } selecionado na aba Buscar
+
+// Aba Histórico: por padrão mostra a mesma cidade selecionada na aba
+// Buscar (mesma trava de segurança de escala da seção 4 do plano) — só
+// busca todas as cidades sob um clique explícito.
+let historicoClientes = [];
+let historicoScopeAll = false;
+let historicoLoaded = false;
 
 function cidadeLabel(c) {
     return c.uf ? `${c.cidade} - ${c.uf}` : c.cidade;
@@ -30,27 +40,82 @@ function cidadeLabel(c) {
 
 export async function renderRadarPage() {
     ensureStyles('radar');
+    const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Radar de Clientes</h2><p class="page-subtitle">Encontre empresas por cidade pra prospectar</p></div>
         </div>
-        <div class="card radar-search-card">
-            <div class="form-group">
-                <label for="radar-cidade">Cidade</label>
-                <div class="searchable-select">
-                    <input type="text" id="radar-cidade" placeholder="Escolha uma cidade liberada" autocomplete="off">
-                    <div class="searchable-select-menu" id="radar-cidade-menu"></div>
+        <div class="radar-tabs-bar">
+            <button type="button" class="radar-tab${activeRadarTab === 'buscar' ? ' active' : ''}" data-tab="buscar">Buscar</button>
+            <button type="button" class="radar-tab${activeRadarTab === 'historico' ? ' active' : ''}" data-tab="historico">Histórico</button>
+        </div>
+        <div class="radar-tab-panel${activeRadarTab === 'buscar' ? ' active' : ''}" id="radar-tab-buscar">
+            <div class="card radar-search-card">
+                <div class="form-group">
+                    <label for="radar-cidade">Cidade</label>
+                    <div class="searchable-select">
+                        <input type="text" id="radar-cidade" placeholder="Escolha uma cidade liberada" autocomplete="off">
+                        <div class="searchable-select-menu" id="radar-cidade-menu"></div>
+                    </div>
+                </div>
+                <div class="form-group" id="radar-segmento-group" style="display:none">
+                    <label for="radar-segmento">Segmento</label>
+                    <input type="text" id="radar-segmento" placeholder="Filtrar por segmento (ex: restaurante, farmácia...)">
                 </div>
             </div>
-            <div class="form-group" id="radar-segmento-group" style="display:none">
-                <label for="radar-segmento">Segmento</label>
-                <input type="text" id="radar-segmento" placeholder="Filtrar por segmento (ex: restaurante, farmácia...)">
-            </div>
+            <div id="radar-results"></div>
         </div>
-        <div id="radar-results"></div>
+        <div class="radar-tab-panel${activeRadarTab === 'historico' ? ' active' : ''}" id="radar-tab-historico">
+            <div class="card radar-search-card">
+                <div class="form-group">
+                    <label for="radar-historico-status">Status</label>
+                    <select id="radar-historico-status">
+                        <option value="todos">Todos</option>
+                        <option value="buscado">Nunca contatado</option>
+                        <option value="ja_atendido">Já é cliente</option>
+                        <option value="recusado">Recusou</option>
+                        <option value="prospeccao_agendada">Prospecção agendada</option>
+                    </select>
+                </div>
+                <p class="field-helper-text" id="radar-historico-scope-label"></p>
+                <button type="button" class="mini-button" id="radar-historico-scope-btn" style="display:none">Ver todas as cidades</button>
+            </div>
+            <div id="radar-historico-results"></div>
+            ${isAdmin ? `
+                <div class="card" style="margin-top:1rem">
+                    <h3 style="margin-top:0">Solicitações de cidade pendentes</h3>
+                    <div id="radar-solicitacoes-list"><p class="page-subtitle">Carregando...</p></div>
+                </div>
+            ` : ''}
+        </div>
     `;
 
+    document.querySelectorAll('.radar-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+            activeRadarTab = tab.dataset.tab;
+            document.querySelectorAll('.radar-tab').forEach((t) => t.classList.remove('active'));
+            document.querySelectorAll('.radar-tab-panel').forEach((p) => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(`radar-tab-${tab.dataset.tab}`)?.classList.add('active');
+            if (tab.dataset.tab === 'historico' && !historicoLoaded) {
+                historicoLoaded = true;
+                loadHistorico();
+                if (isAdmin) { loadSolicitacoes(); }
+            }
+        });
+    });
+
+    await renderBuscarTab();
+
+    if (activeRadarTab === 'historico') {
+        historicoLoaded = true;
+        await loadHistorico();
+        if (isAdmin) { await loadSolicitacoes(); }
+    }
+}
+
+async function renderBuscarTab() {
     const resultsEl = document.getElementById('radar-results');
     resultsEl.innerHTML = loadingState('📡', 'Carregando cidades liberadas...');
 
@@ -95,9 +160,11 @@ export async function renderRadarPage() {
                 return;
             }
             currentClientes = result.clientes || [];
+            currentCidade = { cidade: match.cidade, uf: match.uf };
             segmentoGroup.style.display = '';
             segmentoInput.value = '';
             renderRadarResults(resultsEl);
+            updateHistoricoScopeLabel();
         }
     });
 
@@ -112,17 +179,32 @@ function renderRadarResults(resultsEl) {
             String(c.cnaeCodigo || '').toLowerCase().includes(segmento))
         : currentClientes;
 
-    if (filtered.length === 0) {
-        resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Nenhuma empresa encontrada.</p></div>`;
+    renderClienteCards(filtered, resultsEl, {
+        emptyMessage: 'Nenhuma empresa encontrada.',
+        onUpdated: () => renderRadarResults(resultsEl)
+    });
+}
+
+function rerenderRadarList() {
+    const el = document.getElementById('radar-results');
+    if (el) renderRadarResults(el);
+}
+
+// Compartilhado entre a aba Buscar e a aba Histórico — mesmo card
+// (.proposal-card com status-pill), mesma ordenação por prioridade de
+// contato, só muda a lista de entrada e o callback de refresh pós-ação.
+function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated }) {
+    if (list.length === 0) {
+        resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>${escapeHtml(emptyMessage)}</p></div>`;
         return;
     }
 
     // Prioriza quem nunca foi contatado — é literalmente o objetivo do Radar.
     const priority = { buscado: 0, prospeccao_agendada: 1, recusado: 2, ja_atendido: 3 };
-    const sorted = [...filtered].sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9));
+    const sorted = [...list].sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9));
 
     resultsEl.innerHTML = `
-        <p class="page-subtitle" style="margin-bottom:0.5rem">${filtered.length} empresa(s)</p>
+        <p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>
         <div class="visits-list">${sorted.map((c) => `
             <button type="button" class="proposal-card" data-radar-id="${escapeHtml(c.id)}">
                 <div class="visit-card-header">
@@ -142,18 +224,98 @@ function renderRadarResults(resultsEl) {
 
     resultsEl.querySelectorAll('[data-radar-id]').forEach((btn) => {
         btn.addEventListener('click', () => {
-            const cliente = currentClientes.find((c) => String(c.id) === btn.dataset.radarId);
-            if (cliente) openRadarDetailCard(cliente);
+            const cliente = list.find((c) => String(c.id) === btn.dataset.radarId);
+            if (cliente) openRadarDetailCard(cliente, onUpdated);
         });
     });
 }
 
-function rerenderRadarList() {
-    const el = document.getElementById('radar-results');
-    if (el) renderRadarResults(el);
+function updateHistoricoScopeLabel() {
+    const label = document.getElementById('radar-historico-scope-label');
+    const btn = document.getElementById('radar-historico-scope-btn');
+    if (!label || !btn) return;
+    if (historicoScopeAll) {
+        label.textContent = 'Mostrando empresas de todas as cidades.';
+        btn.style.display = 'none';
+    } else if (currentCidade) {
+        label.textContent = `Mostrando empresas de ${cidadeLabel(currentCidade)}.`;
+        btn.style.display = '';
+    } else {
+        label.textContent = 'Escolha uma cidade na aba Buscar, ou veja todas as cidades.';
+        btn.style.display = '';
+    }
 }
 
-function openRadarDetailCard(cliente) {
+async function loadHistorico() {
+    updateHistoricoScopeLabel();
+    const statusSelect = document.getElementById('radar-historico-status');
+    statusSelect?.addEventListener('change', () => renderHistoricoResults());
+    document.getElementById('radar-historico-scope-btn')?.addEventListener('click', async () => {
+        historicoScopeAll = true;
+        updateHistoricoScopeLabel();
+        const resultsEl = document.getElementById('radar-historico-results');
+        resultsEl.innerHTML = loadingState('📡', 'Carregando todas as cidades...');
+        const result = await callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' });
+        if (result.status !== 'success') {
+            resultsEl.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao buscar empresas.')}</p>`;
+            return;
+        }
+        historicoClientes = result.clientes || [];
+        renderHistoricoResults();
+    });
+    renderHistoricoResults();
+}
+
+function renderHistoricoResults() {
+    const resultsEl = document.getElementById('radar-historico-results');
+    if (!resultsEl) return;
+    const source = historicoScopeAll ? historicoClientes : currentClientes;
+
+    if (!historicoScopeAll && !currentCidade) {
+        resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🕘</span><p>Nenhuma cidade selecionada ainda.</p></div>`;
+        return;
+    }
+
+    const status = document.getElementById('radar-historico-status')?.value || 'todos';
+    const filtered = status === 'todos' ? source : source.filter((c) => c.status === status);
+
+    renderClienteCards(filtered, resultsEl, {
+        emptyMessage: 'Nenhuma empresa encontrada.',
+        onUpdated: () => renderHistoricoResults()
+    });
+}
+
+async function loadSolicitacoes() {
+    const listEl = document.getElementById('radar-solicitacoes-list');
+    if (!listEl) return;
+    const result = await callAPI('getRadarSolicitacoesCidade', { user: state.currentUser });
+    if (result.status !== 'success') {
+        listEl.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar solicitações.')}</p>`;
+        return;
+    }
+    const solicitacoes = result.solicitacoes || [];
+    if (solicitacoes.length === 0) {
+        listEl.innerHTML = `<p class="page-subtitle">Nenhuma solicitação pendente.</p>`;
+        return;
+    }
+    listEl.innerHTML = `
+        <div class="visits-list">${solicitacoes.map((s) => `
+            <div class="proposal-card" style="cursor:default">
+                <div class="visit-card-header">
+                    <strong>${escapeHtml(s.uf ? `${s.cidadeSolicitada} - ${s.uf}` : s.cidadeSolicitada)}</strong>
+                    ${s.urgente ? '<span class="status-pill radar-status-recusado">Urgente</span>' : ''}
+                </div>
+                <div class="proposal-meta">
+                    <span>Solicitado por ${escapeHtml(s.solicitadoPor || '-')}</span>
+                    <span>${escapeHtml(s.dataSolicitacao || '-')}</span>
+                </div>
+            </div>
+        `).join('')}</div>
+    `;
+}
+
+function openRadarDetailCard(cliente, onUpdated) {
+    const refresh = onUpdated || rerenderRadarList;
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
@@ -185,7 +347,7 @@ function openRadarDetailCard(cliente) {
             cliente.status = 'ja_atendido';
             showToast('Marcado como já atendido.');
             close();
-            rerenderRadarList();
+            refresh();
         } else {
             showToast(result.message || 'Não foi possível atualizar.', true);
             setSaving(false, btn);
@@ -194,7 +356,7 @@ function openRadarDetailCard(cliente) {
 
     overlay.querySelector('#radar-btn-recusou').addEventListener('click', () => {
         close();
-        openRecusarModal(cliente);
+        openRecusarModal(cliente, refresh);
     });
 
     overlay.querySelector('#radar-btn-agendar').addEventListener('click', () => {
@@ -206,7 +368,7 @@ function openRadarDetailCard(cliente) {
     });
 }
 
-function openRecusarModal(cliente) {
+function openRecusarModal(cliente, refresh) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
@@ -256,7 +418,7 @@ function openRecusarModal(cliente) {
             cliente.status = 'recusado';
             showToast('Marcado como recusado.');
             close();
-            rerenderRadarList();
+            refresh();
         } else {
             showToast(result.message || 'Não foi possível atualizar.', true);
             setSaving(false, btn);
