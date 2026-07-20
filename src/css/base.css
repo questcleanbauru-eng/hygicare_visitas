@@ -16,6 +16,27 @@ body {
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
+    /* Comportamento de app nativo, não de página de navegador — sem isso,
+       segurar o dedo em qualquer lugar seleciona texto (mostra as alças de
+       seleção) ou abre o menu de contexto do iOS (copiar/compartilhar),
+       coisa que nenhum app nativo faz. user-select é herdado, então isso já
+       cobre a árvore inteira; reabilitado especificamente em input/textarea
+       e nas áreas de exibição de dados (.detail-value etc.) mais abaixo,
+       onde faz sentido o usuário copiar o texto. */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    touch-action: manipulation;
+}
+
+input, textarea, select,
+.detail-value, .detail-row {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
 }
 
 #app {
