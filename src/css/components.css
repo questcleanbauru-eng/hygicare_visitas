@@ -13,7 +13,18 @@
 .visits-filter-card,
 
 .alert-banner {
-    animation: pageIn 0.13s cubic-bezier(0.22, 1, 0.36, 1) both;
+    /* Sem fill-mode "both"/"forwards": esse rótulo mantinha transform/opacity
+       aplicados pra sempre depois da animação acabar (translateY(0) calcula
+       pra uma matrix, não pro keyword "none" — CSS cria stacking context pra
+       QUALQUER transform computado diferente de "none", mesmo uma matriz
+       identidade). Isso prendia dropdowns (position:absolute + z-index)
+       dentro desses containers numa stacking context isolada, incapazes de
+       ficar por cima de QUALQUER elemento fora deles — inclusive irmãos sem
+       z-index nenhum, como o banner "Ver tudo" logo abaixo do filtro. Sem
+       "both"/"forwards" a animação toca igual, só não segura mais nada
+       depois de terminar (não tem animation-delay aqui, então "backwards"
+       também não fazia diferença nenhuma). */
+    animation: pageIn 0.13s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ── Card ── */
@@ -1041,7 +1052,11 @@ input:disabled {
     max-width: 280px;
     width: 90%;
     box-shadow: var(--shadow-lg);
-    animation: pageIn 0.22s cubic-bezier(0.22,1,0.36,1) both;
+    /* Sem "both": mesmo motivo do bloco .page-header/.form-card/etc no topo
+       do arquivo — fill-mode "both"/"forwards" prende um transform calculado
+       (não o keyword "none") pra sempre, criando uma stacking context
+       permanente que prenderia qualquer z-index dentro deste popup. */
+    animation: pageIn 0.22s cubic-bezier(0.22,1,0.36,1);
 }
 
 .success-popup-icon {
@@ -1443,7 +1458,7 @@ input:disabled {
 
 /* ── Sync banner ── */
 
-.sync-banner { display: flex; align-items: center; gap: 0.5rem; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 0.6rem 0.9rem; font-size: 0.82rem; color: #1D4ED8; font-weight: 500; margin-bottom: 0.85rem; animation: pageIn 0.2s ease both; }
+.sync-banner { display: flex; align-items: center; gap: 0.5rem; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 0.6rem 0.9rem; font-size: 0.82rem; color: #1D4ED8; font-weight: 500; margin-bottom: 0.85rem; animation: pageIn 0.2s ease; }
 
 .sync-spinner { width: 14px; height: 14px; border: 2px solid #BFDBFE; border-top-color: #2563EB; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
 
