@@ -66,6 +66,11 @@ select,
 
 textarea {
     width: 100%;
+    /* Teto defensivo — controles nativos (sobretudo input[type=date]) podem
+       ter uma largura mínima intrínseca própria do navegador/SO que ignora
+       width:100% quando o container é mais estreito que esse mínimo; isso
+       impede o controle de forçar a caixa a ficar maior que o pai. */
+    max-width: 100%;
     min-height: 44px;
     padding: 0.7rem 0.8rem;
     border: 1.5px solid var(--border);
@@ -694,9 +699,16 @@ textarea { resize: vertical; }
 
 .form-row-pair {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* minmax(0, 1fr), não "1fr" puro — um item de grid tem min-width:auto
+       por padrão, então sem isso a coluna nunca encolhe abaixo do
+       min-content do próprio input nativo (relevante pra input[type=date],
+       que tem largura intrínseca própria do navegador). Mesmo padrão já
+       usado em .form-layout/.visits-filter-grid. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 0.85rem;
 }
+
+.form-row-pair .form-group { min-width: 0; }
 
 /* Datas em formato longo (ex: iOS "10 de jun. de 2014") não cabem em meia
    coluna em telas bem estreitas — empilha nesse caso. */
