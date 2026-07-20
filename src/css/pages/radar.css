@@ -1,0 +1,43 @@
+.radar-search-card {
+    margin-bottom: 0.85rem;
+}
+
+/* Cores por status — mesmo padrão de .funil-status-* (funil.css): "buscado"
+   (nunca contatado) em verde, prioridade de contato; azul pra já atendido;
+   vermelho pra recusado; amarelo pra prospecção já agendada. */
+.status-pill.radar-status-buscado   { background: #dcfce7; color: #166534; }
+.status-pill.radar-status-atendido  { background: #dbeafe; color: #1d4ed8; }
+.status-pill.radar-status-recusado  { background: #fee2e2; color: #991b1b; }
+.status-pill.radar-status-agendada  { background: #fef3c7; color: #b45309; }
+
+.radar-tabs-bar {
+    display: flex;
+    border-bottom: 1.5px solid var(--border);
+    margin-bottom: 1.25rem;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.radar-tabs-bar::-webkit-scrollbar { display: none; }
+
+.radar-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1.5px;
+    padding: 0.7rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #64748B;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.radar-tab:hover { color: var(--text); }
+
+.radar-tab.active { color: #2563EB; border-bottom-color: #2563EB; font-weight: 600; }
+
+.radar-tab-panel { display: none; }
+
+.radar-tab-panel.active { display: block; }

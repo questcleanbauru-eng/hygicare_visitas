@@ -264,6 +264,9 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'contrato-edit':
             await (await import('./pages/contratos.js')).renderContratoFormPage(options.contrato || state.currentContrato);
             break;
+        case 'radar':
+            await (await import('./pages/radar.js')).renderRadarPage();
+            break;
         case 'admin':
             await (await import('./pages/admin.js')).renderAdminPage();
             break;

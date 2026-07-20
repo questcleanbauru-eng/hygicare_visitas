@@ -1,6 +1,6 @@
 import { state } from './app.js';
 import { renderLoginPage } from './pages/auth.js';
-import { resetNavCache } from './utils/ui.js';
+import { resetNavCache, renderNavigation } from './utils/ui.js';
 import { showLoginNotification, showRefreshIndicator, hideRefreshIndicator, showToast, updatePendingSyncBanner } from './utils/dom.js';
 import { normalizeVisit, normalizeProposal } from './utils/format.js';
 import { fillDashboard } from './pages/dashboard.js';
@@ -278,6 +278,17 @@ export async function _fetchAndSaveFormData(storageKey, versionKey, serverVersio
 }
 
 
+// O item de nav "Radar" só existe depois que allNavItems é montado em
+// renderNavigation() — e isso acontece uma vez só (síncrono, logo após o
+// login), ANTES desse fetch assíncrono resolver. Sem isso, canAccessRadar
+// muda em state mas o nav já foi construído sem o item e nunca mais atualiza.
+function setCanAccessRadar(value) {
+    if (state.canAccessRadar === value) return;
+    state.canAccessRadar = value;
+    resetNavCache();
+    renderNavigation();
+}
+
 export async function getDashboardData() {
     const cached = loadCache('dashboard');
     const fresh = callAPI('getDashboardData', { user: state.currentUser })
@@ -287,7 +298,7 @@ export async function getDashboardData() {
                 state.dashboardData = r.data;
                 state.canDelete = !!r.data.canDelete;
                 state.canCreateProposalFunil = !!r.data.canCreateProposalFunil;
-                state.canAccessRadar = !!r.data.canAccessRadar;
+                setCanAccessRadar(!!r.data.canAccessRadar);
             }
             return r;
         })
@@ -296,7 +307,7 @@ export async function getDashboardData() {
         state.dashboardData = cached;
         state.canDelete = !!cached.canDelete;
         state.canCreateProposalFunil = !!cached.canCreateProposalFunil;
-        state.canAccessRadar = !!cached.canAccessRadar;
+        setCanAccessRadar(!!cached.canAccessRadar);
         showRefreshIndicator();
         fresh.then(function(r) {
             hideRefreshIndicator();
