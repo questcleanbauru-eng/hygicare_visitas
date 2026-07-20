@@ -85,7 +85,7 @@ export function renderYearChips(container, dates, selectedYear, onSelectYear) {
 }
 
 
-export function initializeSearchableInput({ input, menu, items = [], onSelect = null, multiSelect = false, maxSelections = 1, selectedItems = [], selectedContainer = null, selectionLabel = 'item', onSelectionChange = null }) {
+export function initializeSearchableInput({ input, menu, items = [], onSelect = null, multiSelect = false, maxSelections = 1, selectedItems = [], selectedContainer = null, selectionLabel = 'item', onSelectionChange = null, allowFreeText = false }) {
     if (!input || !menu) {
         return;
     }
@@ -208,7 +208,10 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
                 if (!exactMatch(typed)) { input.value = ''; }
                 return;
             }
-            if (!exactMatch(typed)) {
+            // allowFreeText: pra campos onde a lista é só uma sugestão (ex.:
+            // cliente cadastrado), não um valor fechado (ex.: filtro) — texto
+            // que não bate com nada é aceito como está, sem limpar/avisar.
+            if (!allowFreeText && !exactMatch(typed)) {
                 input.value = '';
                 showToast(`Nenhuma opção encontrada para "${typed}".`, true);
                 input.dispatchEvent(new Event('change', { bubbles: true }));

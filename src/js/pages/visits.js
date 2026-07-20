@@ -1695,7 +1695,10 @@ export function showScheduleReturnModal(visit) {
 }
 
 
-export function showCreateAgendamentoModal(onCreated) {
+export async function showCreateAgendamentoModal(onCreated) {
+    const formDataResult = await ensureFormData();
+    const clientes = (formDataResult.data && formDataResult.data.clientes) || [];
+
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
@@ -1707,7 +1710,10 @@ export function showCreateAgendamentoModal(onCreated) {
                 <h3>Novo agendamento</h3>
                 <div class="form-group full-width" style="text-align:left">
                     <label for="newag-cliente">Cliente *</label>
-                    <input type="text" id="newag-cliente" placeholder="Nome do cliente">
+                    <div class="searchable-select">
+                        <input type="text" id="newag-cliente" placeholder="Nome do cliente" autocomplete="off">
+                        <div class="searchable-select-menu" id="newag-cliente-menu"></div>
+                    </div>
                 </div>
                 <div class="form-group full-width" style="text-align:left">
                     <label for="newag-cidade">Cidade</label>
@@ -1726,6 +1732,22 @@ export function showCreateAgendamentoModal(onCreated) {
             </div>
         `;
         document.body.appendChild(overlay);
+
+        // Busca no nome do cliente já cadastrado e autopreenche a cidade —
+        // mas aceita texto livre (allowFreeText), já que o agendamento
+        // também vale pra prospecção que ainda não tem cadastro.
+        initializeSearchableInput({
+            input: overlay.querySelector('#newag-cliente'),
+            menu: overlay.querySelector('#newag-cliente-menu'),
+            items: clientes.map((c) => c.nome).filter(Boolean),
+            allowFreeText: true,
+            onSelect: (value) => {
+                const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+                if (match && match.cidade) {
+                    overlay.querySelector('#newag-cidade').value = match.cidade;
+                }
+            }
+        });
 
         const close = () => { overlay.remove(); resolve(); };
         overlay.querySelector('#modal-newag-cancel').addEventListener('click', close);
