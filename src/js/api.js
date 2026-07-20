@@ -287,6 +287,7 @@ export async function getDashboardData() {
                 state.dashboardData = r.data;
                 state.canDelete = !!r.data.canDelete;
                 state.canCreateProposalFunil = !!r.data.canCreateProposalFunil;
+                state.canAccessRadar = !!r.data.canAccessRadar;
             }
             return r;
         })
@@ -295,6 +296,7 @@ export async function getDashboardData() {
         state.dashboardData = cached;
         state.canDelete = !!cached.canDelete;
         state.canCreateProposalFunil = !!cached.canCreateProposalFunil;
+        state.canAccessRadar = !!cached.canAccessRadar;
         showRefreshIndicator();
         fresh.then(function(r) {
             hideRefreshIndicator();

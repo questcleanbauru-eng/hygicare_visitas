@@ -11,6 +11,10 @@ import {
 import {
     handleGetAgendamentos, handleCreateAgendamento, handleUpdateAgendamento, handleDeleteAgendamento
 } from '../lib/handlers/agendamentos.js';
+import {
+    handleGetRadarCidadesDisponiveis, handleGetRadarClientes, handleUpdateRadarClienteStatus,
+    handleCreateRadarSolicitacaoCidade, handleGetRadarSolicitacoesCidade
+} from '../lib/handlers/radar.js';
 import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList } from '../lib/handlers/admin.js';
 import { handleGetFormData } from '../lib/handlers/formdata.js';
@@ -52,6 +56,11 @@ const HANDLERS = {
     createAgendamento: handleCreateAgendamento,
     updateAgendamento: handleUpdateAgendamento,
     deleteAgendamento: handleDeleteAgendamento,
+    getRadarCidadesDisponiveis: handleGetRadarCidadesDisponiveis,
+    getRadarClientes: handleGetRadarClientes,
+    updateRadarClienteStatus: handleUpdateRadarClienteStatus,
+    createRadarSolicitacaoCidade: handleCreateRadarSolicitacaoCidade,
+    getRadarSolicitacoesCidade: handleGetRadarSolicitacoesCidade,
     getDashboardData: handleGetDashboardData,
     getAdminData: handleGetAdminData,
     saveUser: handleSaveUser,

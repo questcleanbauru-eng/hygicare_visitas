@@ -35,7 +35,8 @@ export const state = {
     inPlaceEditActive: false,
     scrollPositions: {},
     canDelete: false,
-    canCreateProposalFunil: false
+    canCreateProposalFunil: false,
+    canAccessRadar: false
 };
 
 

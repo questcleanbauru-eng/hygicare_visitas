@@ -270,7 +270,11 @@ function fillAdminContent(mainContent, data, emailConfig) {
                         <input type="checkbox" id="config-permitir-criar" style="width:auto;accent-color:var(--primary)" ${emailConfig.permitir_criar_proposta_funil === 'true' ? 'checked' : ''}>
                         Permitir que Gerentes e Vendedores criem novas Propostas e Funil
                     </label>
-                    <p class="helper-text" style="text-align:left;margin:0">Admin sempre pode criar/apagar. Nova Visita continua liberada pra todos. Isso só afeta a criação de Proposta e Funil.</p>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-permitir-radar" style="width:auto;accent-color:var(--primary)" ${emailConfig.permitir_acesso_radar === 'true' ? 'checked' : ''}>
+                        Permitir que Gerentes e Vendedores acessem o Radar de Clientes
+                    </label>
+                    <p class="helper-text" style="text-align:left;margin:0">Admin sempre pode criar/apagar/acessar o Radar. Nova Visita continua liberada pra todos. As outras opções afetam Proposta, Funil e o Radar de Clientes.</p>
                     <button type="button" id="save-permissoes" class="primary-button" style="align-self:flex-start">Salvar</button>
                 </div>
             </div>
@@ -589,13 +593,15 @@ export function bindAdminEvents(data) {
         }
     });
 
-    // Permissões (Gerente/Vendedor): apagar registros e criar Proposta/Funil
+    // Permissões (Gerente/Vendedor): apagar registros, criar Proposta/Funil, acessar Radar
     document.getElementById('save-permissoes')?.addEventListener('click', async () => {
         const permitirApagar = document.getElementById('config-permitir-apagar').checked;
         const permitirCriar = document.getElementById('config-permitir-criar').checked;
+        const permitirRadar = document.getElementById('config-permitir-radar').checked;
         const result = await saveEmailConfig({
             permitir_apagar_outros: permitirApagar ? 'true' : 'false',
-            permitir_criar_proposta_funil: permitirCriar ? 'true' : 'false'
+            permitir_criar_proposta_funil: permitirCriar ? 'true' : 'false',
+            permitir_acesso_radar: permitirRadar ? 'true' : 'false'
         });
         if (result.status === 'success') {
             showToast('Configuração salva.');
