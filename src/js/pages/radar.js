@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI } from '../api.js';
 import { escapeHtml, parseDisplayDate } from '../utils/format.js';
-import { debounce, initializeSearchableInput, showToast, loadingState, setSaving } from '../utils/dom.js';
+import { initializeSearchableInput, showToast, loadingState, setSaving } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 import { BRAZIL_MAP_SIZE, BRAZIL_OUTLINE_PATH, BRAZIL_STATE_PATHS, projectLatLng } from '../data/brazilOutline.js';
 
@@ -98,7 +98,9 @@ export async function renderRadarPage() {
                 </div>
                 <div class="form-group" id="radar-segmento-group" style="display:none">
                     <label for="radar-segmento">Segmento</label>
-                    <input type="text" id="radar-segmento" placeholder="Filtrar por segmento (ex: restaurante, farmácia...)">
+                    <select id="radar-segmento">
+                        <option value="">Todos os segmentos</option>
+                    </select>
                 </div>
             </div>
             <div id="radar-results"></div>
@@ -324,7 +326,7 @@ async function renderBuscarTab() {
         currentClientes = result.clientes || [];
         currentCidade = { cidade: match.cidade, uf: match.uf };
         segmentoGroup.style.display = '';
-        segmentoInput.value = '';
+        populateSegmentoOptions(segmentoInput);
         renderRadarResults(resultsEl);
         updateHistoricoScopeLabel();
         document.querySelectorAll('.radar-map-pin').forEach((pin) => {
@@ -345,9 +347,24 @@ async function renderBuscarTab() {
         }
     });
 
-    segmentoInput.addEventListener('input', debounce(() => renderRadarResults(resultsEl), 250));
+    segmentoInput.addEventListener('change', () => renderRadarResults(resultsEl));
 
     renderCidadeMapa(cidades, selectCidade);
+}
+
+// Dropdown com um resumo de verdade (valores que realmente existem nessa
+// cidade) em vez de campo livre — o vendedor via a lista em vez de ter que
+// adivinhar o que digitar. Cai pro CNAE quando Segmento vier vazio (dado
+// importado antes dessa coluna existir no CSV).
+function populateSegmentoOptions(segmentoSelect) {
+    const valores = new Set();
+    currentClientes.forEach((c) => {
+        const v = String(c.segmento || c.cnaeDescricao || '').trim();
+        if (v) valores.add(v);
+    });
+    const ordenados = Array.from(valores).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    segmentoSelect.innerHTML = '<option value="">Todos os segmentos</option>' +
+        ordenados.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
 }
 
 const MAP_ZOOM_MIN = 1;
