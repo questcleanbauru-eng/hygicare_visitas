@@ -26,7 +26,8 @@ let activeRadarTab = 'buscar';
 // app (é filtrado por cidade no servidor), então não faz sentido tratar
 // como uma lista global igual state.visits/state.proposals.
 let currentClientes = [];
-let currentCidade = null; // { cidade, uf } selecionado na aba Buscar
+let currentCidade = null; // { cidade, uf, lat, lng } selecionado na aba Buscar
+let mapApi = null; // API do mapa (ver renderCidadeMapa) — atualiza pins/zoom a partir daqui e de renderRadarResults
 
 // Aba Histórico: por padrão mostra a mesma cidade selecionada na aba
 // Buscar (mesma trava de segurança de escala da seção 4 do plano) — só
@@ -314,7 +315,6 @@ async function renderBuscarTab() {
     const cidadeMenu = document.getElementById('radar-cidade-menu');
     const segmentoGroup = document.getElementById('radar-segmento-group');
     const segmentoInput = document.getElementById('radar-segmento');
-    let mapApi = null;
 
     const selectCidade = async (match) => {
         cidadeInput.value = cidadeLabel(match);
@@ -325,7 +325,7 @@ async function renderBuscarTab() {
             return;
         }
         currentClientes = result.clientes || [];
-        currentCidade = { cidade: match.cidade, uf: match.uf };
+        currentCidade = { cidade: match.cidade, uf: match.uf, lat: match.lat, lng: match.lng };
         segmentoGroup.style.display = '';
         populateSegmentoOptions(segmentoInput);
         renderRadarResults(resultsEl);
@@ -336,7 +336,7 @@ async function renderBuscarTab() {
         document.querySelectorAll('.radar-map-state').forEach((state) => {
             state.classList.toggle('active', state.dataset.uf === match.uf);
         });
-        mapApi?.updateCompanyPins(match, currentClientes);
+        mapApi?.focusOnCity(match);
     };
 
     initializeSearchableInput({
@@ -564,6 +564,17 @@ function renderCidadeMapa(cidades, onSelect) {
                 const statusClass = (STATUS_CLASSES[c.status] || '').replace('status-pill', '').trim();
                 return `<circle class="radar-company-pin ${statusClass}" cx="${(center.x + dx).toFixed(2)}" cy="${(center.y + dy).toFixed(2)}" r="2.4"><title>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</title></circle>`;
             }).join('');
+        },
+
+        // Centraliza e amplia o mapa na cidade escolhida — sem isso, o mapa
+        // ficava no zoom do Brasil inteiro e o aglomerado de pins da cidade
+        // aparecia minúsculo, exigindo zoom manual toda vez.
+        focusOnCity(cidadeMatch) {
+            if (!cidadeMatch || cidadeMatch.lat === null || cidadeMatch.lng === null) return;
+            const p = projectLatLng(cidadeMatch.lat, cidadeMatch.lng);
+            scale = Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, 7));
+            ({ tx, ty } = clampPan(scale, BRAZIL_MAP_SIZE / 2 - p.x * scale, BRAZIL_MAP_SIZE / 2 - p.y * scale));
+            applyTransform();
         }
     };
 }
@@ -600,6 +611,10 @@ function renderRadarResults(resultsEl) {
         emptyMessage: 'Nenhuma empresa encontrada.',
         onUpdated: () => renderRadarResults(resultsEl)
     });
+    // Mapa mostra os mesmos pins que a lista abaixo dele — sem isso, filtrar
+    // por segmento escondia empresas na lista mas elas continuavam
+    // aparecendo no mapa, uma inconsistência confusa.
+    mapApi?.updateCompanyPins(currentCidade, filtered);
 }
 
 function rerenderRadarList() {

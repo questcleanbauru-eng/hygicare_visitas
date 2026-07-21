@@ -98,7 +98,7 @@
 .radar-map-viewport {
     position: relative;
     width: 100%;
-    max-width: 280px;
+    max-width: 640px;
     aspect-ratio: 1 / 1;
     overflow: hidden;
     border-radius: var(--radius-sm);
