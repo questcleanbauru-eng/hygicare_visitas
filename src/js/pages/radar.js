@@ -3,6 +3,7 @@ import { callAPI } from '../api.js';
 import { escapeHtml } from '../utils/format.js';
 import { debounce, initializeSearchableInput, showToast, loadingState, setSaving } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
+import { BRAZIL_MAP_SIZE, BRAZIL_OUTLINE_PATH, projectLatLng } from '../data/brazilOutline.js';
 
 const STATUS_LABELS = {
     buscado: 'Nunca contatado',
@@ -52,6 +53,7 @@ export async function renderRadarPage() {
             ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'importar' ? ' active' : ''}" data-tab="importar">Importar CSV</button>` : ''}
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'buscar' ? ' active' : ''}" id="radar-tab-buscar">
+            <div id="radar-map-wrap"></div>
             <div class="card radar-search-card">
                 <div class="form-group">
                     <label for="radar-cidade">Cidade</label>
@@ -218,30 +220,70 @@ async function renderBuscarTab() {
     const segmentoGroup = document.getElementById('radar-segmento-group');
     const segmentoInput = document.getElementById('radar-segmento');
 
+    const selectCidade = async (match) => {
+        cidadeInput.value = cidadeLabel(match);
+        resultsEl.innerHTML = loadingState('📡', 'Buscando empresas...');
+        const result = await callAPI('getRadarClientes', { user: state.currentUser, cidade: match.cidade, uf: match.uf });
+        if (result.status !== 'success') {
+            resultsEl.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao buscar empresas.')}</p>`;
+            return;
+        }
+        currentClientes = result.clientes || [];
+        currentCidade = { cidade: match.cidade, uf: match.uf };
+        segmentoGroup.style.display = '';
+        segmentoInput.value = '';
+        renderRadarResults(resultsEl);
+        updateHistoricoScopeLabel();
+        document.querySelectorAll('.radar-map-pin').forEach((pin) => {
+            pin.classList.toggle('active', pin.dataset.cidade === match.cidade && pin.dataset.uf === match.uf);
+        });
+    };
+
     initializeSearchableInput({
         input: cidadeInput,
         menu: cidadeMenu,
         items: cidades.map(cidadeLabel),
-        onSelect: async (value) => {
+        onSelect: (value) => {
             const match = cidades.find((c) => cidadeLabel(c) === value);
-            if (!match) return;
-
-            resultsEl.innerHTML = loadingState('📡', 'Buscando empresas...');
-            const result = await callAPI('getRadarClientes', { user: state.currentUser, cidade: match.cidade, uf: match.uf });
-            if (result.status !== 'success') {
-                resultsEl.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao buscar empresas.')}</p>`;
-                return;
-            }
-            currentClientes = result.clientes || [];
-            currentCidade = { cidade: match.cidade, uf: match.uf };
-            segmentoGroup.style.display = '';
-            segmentoInput.value = '';
-            renderRadarResults(resultsEl);
-            updateHistoricoScopeLabel();
+            if (match) selectCidade(match);
         }
     });
 
     segmentoInput.addEventListener('input', debounce(() => renderRadarResults(resultsEl), 250));
+
+    renderCidadeMapa(cidades, selectCidade);
+}
+
+// Mapa esquemático (contorno estático + pins) por cima da lista de
+// cidades — só entram cidades com Lat/Lng resolvida (ver seção 6 do
+// plano); quem não tem coordenada continua acessível pelo campo de busca
+// acima, que não muda nada com ou sem mapa.
+function renderCidadeMapa(cidades, onSelect) {
+    const wrap = document.getElementById('radar-map-wrap');
+    if (!wrap) return;
+    const comCoordenada = cidades.filter((c) => c.lat !== null && c.lng !== null && !Number.isNaN(c.lat) && !Number.isNaN(c.lng));
+    if (comCoordenada.length === 0) { wrap.innerHTML = ''; return; }
+
+    const pins = comCoordenada.map((c) => {
+        const { x, y } = projectLatLng(c.lat, c.lng);
+        return `<circle class="radar-map-pin" cx="${x}" cy="${y}" r="5" data-cidade="${escapeHtml(c.cidade)}" data-uf="${escapeHtml(c.uf)}"><title>${escapeHtml(cidadeLabel(c))}</title></circle>`;
+    }).join('');
+
+    wrap.innerHTML = `
+        <div class="card radar-map-card">
+            <svg viewBox="0 0 ${BRAZIL_MAP_SIZE} ${BRAZIL_MAP_SIZE}" class="radar-map-svg" role="img" aria-label="Mapa com as cidades liberadas do Radar">
+                <path d="${BRAZIL_OUTLINE_PATH}" class="radar-map-outline"></path>
+                ${pins}
+            </svg>
+        </div>
+    `;
+
+    wrap.querySelectorAll('.radar-map-pin').forEach((pin) => {
+        pin.addEventListener('click', () => {
+            const match = comCoordenada.find((c) => c.cidade === pin.dataset.cidade && c.uf === pin.dataset.uf);
+            if (match) onSelect(match);
+        });
+    });
 }
 
 function renderRadarResults(resultsEl) {

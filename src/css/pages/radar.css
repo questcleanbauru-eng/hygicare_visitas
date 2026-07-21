@@ -2,6 +2,46 @@
     margin-bottom: 0.85rem;
 }
 
+/* Mapa esquemático (contorno estático + pins) — só contexto visual pra
+   escolher a cidade clicando; o campo de busca abaixo dele continua
+   funcionando igual, é o fallback pra cidade sem coordenada resolvida. */
+.radar-map-card {
+    margin-bottom: 0.85rem;
+    padding: 0.75rem;
+    display: flex;
+    justify-content: center;
+}
+
+.radar-map-svg {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    aspect-ratio: 1 / 1;
+}
+
+.radar-map-outline {
+    fill: #eef2f7;
+    stroke: #cbd5e1;
+    stroke-width: 1.5;
+}
+
+.radar-map-pin {
+    fill: var(--primary);
+    stroke: #fff;
+    stroke-width: 1.5;
+    cursor: pointer;
+    transition: r 0.12s ease, fill 0.12s ease;
+}
+
+.radar-map-pin:hover {
+    r: 7;
+}
+
+.radar-map-pin.active {
+    fill: #b45309;
+    r: 7;
+}
+
 /* Cores por status — mesmo padrão de .funil-status-* (funil.css): "buscado"
    (nunca contatado) em verde, prioridade de contato; azul pra já atendido;
    vermelho pra recusado; amarelo pra prospecção já agendada. */
