@@ -6,6 +6,14 @@ import { ensureStyles } from '../utils/ui.js';
 
 let activeAdminTab = 'users';
 
+// A API do Sheets pode devolver "TRUE" (maiúsculo) em vez do "true" que o
+// app grava, quando a célula vira um tipo booleano de verdade na planilha
+// (ex.: editada direto no Sheets) — comparação exata `=== 'true'` sem isso
+// mostra o checkbox desmarcado mesmo com o toggle "ligado" na planilha.
+function isConfigOn(value) {
+    return String(value ?? '').trim().toLowerCase() === 'true';
+}
+
 export async function renderAdminPage() {
     ensureStyles('admin');
     const mainContent = document.getElementById('main-content');
@@ -53,7 +61,7 @@ export async function renderAdminPage() {
 
 function fillAdminContent(mainContent, data, emailConfig) {
     function emailPanel(prefix, label, subtitle, vars, config, diasLabel) {
-        const isActive = config[`${prefix}_ativas`] === 'true';
+        const isActive = isConfigOn(config[`${prefix}_ativas`]);
         return `
         <div class="email-notif-panel">
             <div class="email-notif-panel-header">
@@ -263,15 +271,15 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <div class="section-title-row"><h3 class="section-title">Permissões</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
-                        <input type="checkbox" id="config-permitir-apagar" style="width:auto;accent-color:var(--primary)" ${emailConfig.permitir_apagar_outros === 'true' ? 'checked' : ''}>
+                        <input type="checkbox" id="config-permitir-apagar" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.permitir_apagar_outros) ? 'checked' : ''}>
                         Permitir que Gerentes e Vendedores apaguem visitas, propostas e funil
                     </label>
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
-                        <input type="checkbox" id="config-permitir-criar" style="width:auto;accent-color:var(--primary)" ${emailConfig.permitir_criar_proposta_funil === 'true' ? 'checked' : ''}>
+                        <input type="checkbox" id="config-permitir-criar" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.permitir_criar_proposta_funil) ? 'checked' : ''}>
                         Permitir que Gerentes e Vendedores criem novas Propostas e Funil
                     </label>
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
-                        <input type="checkbox" id="config-permitir-radar" style="width:auto;accent-color:var(--primary)" ${emailConfig.permitir_acesso_radar === 'true' ? 'checked' : ''}>
+                        <input type="checkbox" id="config-permitir-radar" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.permitir_acesso_radar) ? 'checked' : ''}>
                         Permitir que Gerentes e Vendedores acessem o Radar de Clientes
                     </label>
                     <p class="helper-text" style="text-align:left;margin:0">Admin sempre pode criar/apagar/acessar o Radar. Nova Visita continua liberada pra todos. As outras opções afetam Proposta, Funil e o Radar de Clientes.</p>
@@ -283,7 +291,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <p class="helper-text" style="text-align:left;margin:0">Quando ativo, apenas Admins conseguem acessar o app. Os demais usuários veem uma tela de manutenção com a mensagem abaixo.</p>
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
-                        <input type="checkbox" id="manutencao-ativa" style="width:auto;accent-color:var(--primary)" ${emailConfig.manutencao_ativa === 'true' ? 'checked' : ''}>
+                        <input type="checkbox" id="manutencao-ativa" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.manutencao_ativa) ? 'checked' : ''}>
                         Ativar modo manutenção
                     </label>
                     <div class="form-group" style="margin:0">
