@@ -54,8 +54,28 @@ function reservaAtivaDeOutro(cliente) {
 
 export async function renderRadarPage() {
     ensureStyles('radar');
-    const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
     const mainContent = document.getElementById('main-content');
+
+    // O item de nav aparece pra qualquer um com o toggle do admin ligado —
+    // a exigência de visita recente (ensureCanAccessRadar, backend) só é
+    // checada de fato aqui, na hora de abrir a tela. Sem isso, o vendedor
+    // via "Radar" sumir do menu sem nenhuma explicação; agora ele entra e
+    // a própria tela informa o motivo (ex.: falta registrar visita).
+    const acessoCheck = await callAPI('getRadarCidadesDisponiveis', { user: state.currentUser });
+    if (acessoCheck.status !== 'success') {
+        mainContent.innerHTML = `
+            <div class="page-header">
+                <div><h2>Radar de Clientes</h2><p class="page-subtitle">Encontre empresas por cidade pra prospectar</p></div>
+            </div>
+            <div class="empty-state">
+                <span class="empty-state-icon">🔒</span>
+                <p>${escapeHtml(acessoCheck.message || 'Você não tem acesso ao Radar de Clientes no momento.')}</p>
+            </div>
+        `;
+        return;
+    }
+
+    const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Radar de Clientes</h2><p class="page-subtitle">Encontre empresas por cidade pra prospectar</p></div>
@@ -64,6 +84,7 @@ export async function renderRadarPage() {
             <button type="button" class="radar-tab${activeRadarTab === 'buscar' ? ' active' : ''}" data-tab="buscar">Buscar</button>
             <button type="button" class="radar-tab${activeRadarTab === 'historico' ? ' active' : ''}" data-tab="historico">Histórico</button>
             ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'importar' ? ' active' : ''}" data-tab="importar">Importar CSV</button>` : ''}
+            ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'config' ? ' active' : ''}" data-tab="config">Configurações</button>` : ''}
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'buscar' ? ' active' : ''}" id="radar-tab-buscar">
             <div id="radar-map-wrap"></div>
@@ -126,6 +147,35 @@ export async function renderRadarPage() {
                 </div>
             </div>
         ` : ''}
+        ${isAdmin ? `
+            <div class="radar-tab-panel${activeRadarTab === 'config' ? ' active' : ''}" id="radar-tab-config">
+                <div class="card">
+                    <h3 style="margin-top:0">Regras do Radar</h3>
+                    <div class="form-group full-width">
+                        <label for="radar-cfg-reserva-meses">Duração da reserva (meses)</label>
+                        <input type="number" id="radar-cfg-reserva-meses" min="1" max="24">
+                        <p class="field-helper-text">
+                            Quando um vendedor clica em "Agendar prospecção", a empresa fica reservada
+                            só pra ele por esse tempo — nenhum outro vendedor consegue agir nela até a
+                            reserva expirar ou ele concluir (marcar "já é atendido" ou "recusou").
+                        </p>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="radar-cfg-visita-dias">Dias sem visita registrada pra perder acesso</label>
+                        <input type="number" id="radar-cfg-visita-dias" min="1" max="90">
+                        <p class="field-helper-text">
+                            Vendedor e gerente só acessam o Radar se tiverem registrado pelo menos 1
+                            visita (cliente ativo ou prospecção, qualquer tipo) dentro desse prazo. Sem
+                            isso, o Radar não deveria virar substituto do trabalho de campo já registrado
+                            no resto do app. Admin sempre acessa, sem essa exigência.
+                        </p>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="primary-button" id="radar-cfg-salvar">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        ` : ''}
     `;
 
     document.querySelectorAll('.radar-tab').forEach((tab) => {
@@ -143,7 +193,7 @@ export async function renderRadarPage() {
         });
     });
 
-    if (isAdmin) { bindImportTab(); }
+    if (isAdmin) { bindImportTab(); bindConfigTab(); }
 
     await renderBuscarTab();
 
@@ -200,6 +250,36 @@ function bindImportTab() {
             summaryEl.innerHTML = `<p class="error-message">Não foi possível ler o arquivo.</p>`;
         };
         reader.readAsText(selectedFile, 'UTF-8');
+    });
+}
+
+function bindConfigTab() {
+    const reservaInput = document.getElementById('radar-cfg-reserva-meses');
+    const visitaInput = document.getElementById('radar-cfg-visita-dias');
+    const saveBtn = document.getElementById('radar-cfg-salvar');
+
+    callAPI('getEmailConfig', { user: state.currentUser }).then((result) => {
+        if (result.status !== 'success') return;
+        reservaInput.value = result.data.radar_reserva_meses || '6';
+        visitaInput.value = result.data.radar_visita_dias || '7';
+    });
+
+    saveBtn.addEventListener('click', async () => {
+        const reservaMeses = Number(reservaInput.value);
+        const visitaDias = Number(visitaInput.value);
+        if (!reservaMeses || reservaMeses < 1) { showToast('Informe uma duração de reserva válida.', true); return; }
+        if (!visitaDias || visitaDias < 1) { showToast('Informe um número de dias válido.', true); return; }
+        setSaving(true, saveBtn, 'Salvando...');
+        const result = await callAPI('saveEmailConfig', {
+            user: state.currentUser,
+            config: { radar_reserva_meses: String(reservaMeses), radar_visita_dias: String(visitaDias) }
+        });
+        setSaving(false, saveBtn);
+        if (result.status === 'success') {
+            showToast('Configurações do Radar salvas.');
+        } else {
+            showToast(result.message || 'Não foi possível salvar.', true);
+        }
     });
 }
 
