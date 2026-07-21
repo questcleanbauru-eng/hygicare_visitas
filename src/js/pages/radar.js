@@ -430,6 +430,23 @@ function renderCidadeMapa(cidades, onSelect) {
     }
     applyTransform();
 
+    // Raio dos pins fica dentro do <g> transformado, então escala junto com
+    // o zoom (vector-effect="non-scaling-stroke" só protege o contorno, não
+    // o raio) — sem isso, o zoom automático da cidade (7x) deixava os pins
+    // 7x maiores na tela e eles colavam uns nos outros, virando uma bolha
+    // sólida (visto direto em produção). Chamado sempre que `scale` muda por
+    // interação do usuário, pra manter os pins já existentes do mesmo
+    // tamanho na tela; ver também o cálculo de `pinR` em updateCompanyPins,
+    // que cobre os pins recém-criados.
+    function refreshPinRadii() {
+        document.querySelectorAll('.radar-map-pin').forEach((pin) => {
+            pin.setAttribute('r', (5 / scale).toFixed(2));
+        });
+        document.querySelectorAll('.radar-company-pin').forEach((pin) => {
+            pin.setAttribute('r', (2.4 / scale).toFixed(2));
+        });
+    }
+
     function clampPan(nextScale, nextTx, nextTy) {
         const slack = BRAZIL_MAP_SIZE * 0.4;
         const min = (1 - nextScale) * BRAZIL_MAP_SIZE - slack;
@@ -459,6 +476,7 @@ function renderCidadeMapa(cidades, onSelect) {
         scale = nextScale;
         ({ tx, ty } = clampPan(scale, nextTx, nextTy));
         applyTransform();
+        refreshPinRadii();
     }
 
     svg.addEventListener('wheel', (e) => {
@@ -476,6 +494,7 @@ function renderCidadeMapa(cidades, onSelect) {
     document.getElementById('radar-map-zoom-reset').addEventListener('click', () => {
         scale = 1; tx = 0; ty = 0;
         applyTransform();
+        refreshPinRadii();
     });
 
     function svgCenterClient() {
@@ -551,18 +570,23 @@ function renderCidadeMapa(cidades, onSelect) {
             if (!container) return;
             if (!cidadeMatch || cidadeMatch.lat === null || cidadeMatch.lng === null) { container.innerHTML = ''; return; }
             const center = projectLatLng(cidadeMatch.lat, cidadeMatch.lng);
-            const raioMax = 9; // espaço interno do SVG (400x400) — fica na vizinhança do pin da cidade
+            // Cresce com a quantidade de empresas (área precisa crescer junto
+            // pra manter a mesma densidade) — sem isso, uma cidade com 300
+            // empresas ficava tão amontoada quanto uma com 5. Raiz quadrada
+            // porque a área do círculo é proporcional ao raio ao quadrado.
+            const raioMax = Math.min(20, 6 + 2 * Math.sqrt(clientes.length));
             // Só decorativo (passar o mouse mostra o nome) — sem clique: com
             // dezenas/centenas de empresas na mesma cidade é comum dois pins
             // caírem quase no mesmo lugar (o espalhamento é só visual, não
             // tem colisão real evitada), e um cobriria o clique do outro. A
             // lista de cards logo abaixo já é o jeito confiável de abrir o
             // detalhe de uma empresa específica.
+            const pinR = (2.4 / scale).toFixed(2); // ver refreshPinRadii — mesmo raio na tela em qualquer zoom
             container.innerHTML = clientes.map((c) => {
                 const seed = String(c.cep || '').trim() + String(c.numero || '').trim() || c.id;
                 const { dx, dy } = cepScatterOffset(seed, raioMax);
                 const statusClass = (STATUS_CLASSES[c.status] || '').replace('status-pill', '').trim();
-                return `<circle class="radar-company-pin ${statusClass}" cx="${(center.x + dx).toFixed(2)}" cy="${(center.y + dy).toFixed(2)}" r="2.4"><title>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</title></circle>`;
+                return `<circle class="radar-company-pin ${statusClass}" cx="${(center.x + dx).toFixed(2)}" cy="${(center.y + dy).toFixed(2)}" r="${pinR}"><title>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</title></circle>`;
             }).join('');
         },
 
@@ -575,6 +599,7 @@ function renderCidadeMapa(cidades, onSelect) {
             scale = Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, 7));
             ({ tx, ty } = clampPan(scale, BRAZIL_MAP_SIZE / 2 - p.x * scale, BRAZIL_MAP_SIZE / 2 - p.y * scale));
             applyTransform();
+            refreshPinRadii();
         }
     };
 }
