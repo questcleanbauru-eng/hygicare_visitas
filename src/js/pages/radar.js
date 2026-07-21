@@ -254,10 +254,15 @@ async function renderBuscarTab() {
     renderCidadeMapa(cidades, selectCidade);
 }
 
+const MAP_ZOOM_MIN = 1;
+const MAP_ZOOM_MAX = 10;
+
 // Mapa esquemático (contorno estático + pins) por cima da lista de
 // cidades — só entram cidades com Lat/Lng resolvida (ver seção 6 do
 // plano); quem não tem coordenada continua acessível pelo campo de busca
-// acima, que não muda nada com ou sem mapa.
+// acima, que não muda nada com ou sem mapa. Arrastar (mouse/touch) e zoom
+// (scroll, pinça de 2 dedos, botões +/-) via transform num <g> interno —
+// o path/pins em si nunca mudam, só a transformação aplicada por cima.
 function renderCidadeMapa(cidades, onSelect) {
     const wrap = document.getElementById('radar-map-wrap');
     if (!wrap) return;
@@ -271,19 +276,150 @@ function renderCidadeMapa(cidades, onSelect) {
 
     wrap.innerHTML = `
         <div class="card radar-map-card">
-            <svg viewBox="0 0 ${BRAZIL_MAP_SIZE} ${BRAZIL_MAP_SIZE}" class="radar-map-svg" role="img" aria-label="Mapa com as cidades liberadas do Radar">
-                <path d="${BRAZIL_OUTLINE_PATH}" class="radar-map-outline"></path>
-                ${pins}
-            </svg>
+            <div class="radar-map-viewport">
+                <svg viewBox="0 0 ${BRAZIL_MAP_SIZE} ${BRAZIL_MAP_SIZE}" class="radar-map-svg" id="radar-map-svg" role="img" aria-label="Mapa com as cidades liberadas do Radar — arraste pra mover, use scroll ou pinça pra dar zoom">
+                    <g id="radar-map-group">
+                        <path d="${BRAZIL_OUTLINE_PATH}" class="radar-map-outline"></path>
+                        ${pins}
+                    </g>
+                </svg>
+                <div class="radar-map-toolbar">
+                    <button type="button" class="radar-map-zoom-btn" id="radar-map-zoom-in" aria-label="Aumentar zoom">+</button>
+                    <button type="button" class="radar-map-zoom-btn" id="radar-map-zoom-out" aria-label="Diminuir zoom">−</button>
+                    <button type="button" class="radar-map-zoom-btn" id="radar-map-zoom-reset" aria-label="Redefinir zoom">⟲</button>
+                </div>
+            </div>
         </div>
     `;
 
     wrap.querySelectorAll('.radar-map-pin').forEach((pin) => {
         pin.addEventListener('click', () => {
+            if (mapDragged) return; // arrastar não deve também selecionar a cidade
             const match = comCoordenada.find((c) => c.cidade === pin.dataset.cidade && c.uf === pin.dataset.uf);
             if (match) onSelect(match);
         });
     });
+
+    const svg = document.getElementById('radar-map-svg');
+    const group = document.getElementById('radar-map-group');
+    let scale = 1, tx = 0, ty = 0;
+    let mapDragged = false;
+
+    function applyTransform() {
+        group.setAttribute('transform', `translate(${tx},${ty}) scale(${scale})`);
+    }
+    applyTransform();
+
+    function clampPan(nextScale, nextTx, nextTy) {
+        const slack = BRAZIL_MAP_SIZE * 0.4;
+        const min = (1 - nextScale) * BRAZIL_MAP_SIZE - slack;
+        const max = slack;
+        return { tx: Math.min(max, Math.max(min, nextTx)), ty: Math.min(max, Math.max(min, nextTy)) };
+    }
+
+    function toSvgPoint(clientX, clientY) {
+        const pt = svg.createSVGPoint();
+        pt.x = clientX;
+        pt.y = clientY;
+        const ctm = svg.getScreenCTM();
+        if (!ctm) return { x: 0, y: 0 };
+        const p = pt.matrixTransform(ctm.inverse());
+        return { x: p.x, y: p.y };
+    }
+
+    function zoomAt(svgPoint, nextScaleRaw) {
+        const nextScale = Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, nextScaleRaw));
+        // Ponto do desenho (espaço interno do <g>, antes do transform) que
+        // está embaixo do cursor/centro do gesto — precisa continuar embaixo
+        // dele depois do zoom, senão o mapa "pula".
+        const localX = (svgPoint.x - tx) / scale;
+        const localY = (svgPoint.y - ty) / scale;
+        const nextTx = svgPoint.x - localX * nextScale;
+        const nextTy = svgPoint.y - localY * nextScale;
+        scale = nextScale;
+        ({ tx, ty } = clampPan(scale, nextTx, nextTy));
+        applyTransform();
+    }
+
+    svg.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+        zoomAt(toSvgPoint(e.clientX, e.clientY), scale * factor);
+    }, { passive: false });
+
+    document.getElementById('radar-map-zoom-in').addEventListener('click', () => {
+        zoomAt(toSvgPoint(...svgCenterClient()), scale * 1.4);
+    });
+    document.getElementById('radar-map-zoom-out').addEventListener('click', () => {
+        zoomAt(toSvgPoint(...svgCenterClient()), scale / 1.4);
+    });
+    document.getElementById('radar-map-zoom-reset').addEventListener('click', () => {
+        scale = 1; tx = 0; ty = 0;
+        applyTransform();
+    });
+
+    function svgCenterClient() {
+        const rect = svg.getBoundingClientRect();
+        return [rect.left + rect.width / 2, rect.top + rect.height / 2];
+    }
+
+    // Arrastar com mouse/caneta/1 dedo; pinça com 2 dedos pra zoom — tudo
+    // via Pointer Events (unifica mouse e touch num só conjunto de handlers).
+    const activePointers = new Map(); // pointerId -> {x, y} (client)
+    let dragStart = null; // { svgX, svgY, tx, ty }
+    let pinch = null; // { startDist, startScale, midSvg }
+
+    function pointerDistance() {
+        const pts = Array.from(activePointers.values());
+        return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    }
+
+    svg.addEventListener('pointerdown', (e) => {
+        svg.setPointerCapture(e.pointerId);
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        mapDragged = false;
+        if (activePointers.size === 2) {
+            dragStart = null;
+            const pts = Array.from(activePointers.values());
+            const midClient = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+            pinch = { startDist: pointerDistance(), startScale: scale, midSvg: toSvgPoint(midClient.x, midClient.y) };
+        } else {
+            const p = toSvgPoint(e.clientX, e.clientY);
+            dragStart = { svgX: p.x, svgY: p.y, tx, ty };
+        }
+    });
+
+    svg.addEventListener('pointermove', (e) => {
+        if (!activePointers.has(e.pointerId)) return;
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (activePointers.size === 2 && pinch) {
+            const factor = pointerDistance() / pinch.startDist;
+            zoomAt(pinch.midSvg, pinch.startScale * factor);
+            return;
+        }
+        if (dragStart) {
+            const p = toSvgPoint(e.clientX, e.clientY);
+            const dx = p.x - dragStart.svgX;
+            const dy = p.y - dragStart.svgY;
+            if (Math.hypot(dx, dy) > 2) mapDragged = true;
+            ({ tx, ty } = clampPan(scale, dragStart.tx + dx, dragStart.ty + dy));
+            applyTransform();
+        }
+    });
+
+    const endPointer = (e) => {
+        activePointers.delete(e.pointerId);
+        if (activePointers.size < 2) pinch = null;
+        if (activePointers.size === 0) {
+            dragStart = null;
+            // Só some a flag depois do 'click' (que o navegador dispara logo
+            // após o pointerup) já ter checado — senão o clique some junto.
+            setTimeout(() => { mapDragged = false; }, 0);
+        }
+    };
+    svg.addEventListener('pointerup', endPointer);
+    svg.addEventListener('pointercancel', endPointer);
 }
 
 function renderRadarResults(resultsEl) {
@@ -291,6 +427,7 @@ function renderRadarResults(resultsEl) {
     const filtered = segmento
         ? currentClientes.filter((c) =>
             String(c.cnaeDescricao || '').toLowerCase().includes(segmento) ||
+            String(c.segmento || '').toLowerCase().includes(segmento) ||
             String(c.cnaeCodigo || '').toLowerCase().includes(segmento))
         : currentClientes;
 
@@ -429,8 +566,20 @@ async function loadSolicitacoes() {
     `;
 }
 
+// Junta Endereco/Numero/Complemento/Bairro/Cep (colunas separadas na
+// planilha, fiel ao CSV) numa única linha legível pro card de detalhe.
+function formatEndereco(c) {
+    const parts = [];
+    if (c.endereco) parts.push(c.numero ? `${c.endereco}, ${c.numero}` : c.endereco);
+    if (c.complemento) parts.push(c.complemento);
+    if (c.bairro) parts.push(c.bairro);
+    if (c.cep) parts.push(`CEP ${c.cep}`);
+    return parts.join(' - ');
+}
+
 function openRadarDetailCard(cliente, onUpdated) {
     const refresh = onUpdated || rerenderRadarList;
+    const endereco = formatEndereco(cliente);
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
@@ -439,7 +588,10 @@ function openRadarDetailCard(cliente, onUpdated) {
             ${cliente.nomeFantasia && cliente.nome && cliente.nomeFantasia !== cliente.nome
                 ? `<p class="helper-text" style="margin:0 0 0.5rem;text-align:left">${escapeHtml(cliente.nome)}</p>` : ''}
             <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cidadeLabel(cliente))}</p>
-            <p class="helper-text" style="text-align:left;margin:0 0 0.85rem">${escapeHtml(cliente.cnaeDescricao || '-')}</p>
+            <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.cnaeDescricao || '-')}</p>
+            ${cliente.segmento ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.segmento)}</p>` : ''}
+            ${endereco ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📍 ${escapeHtml(endereco)}</p>` : ''}
+            ${cliente.telefone ? `<p class="helper-text" style="text-align:left;margin:0 0 0.85rem">📞 <a href="tel:${escapeHtml(cliente.telefone.replace(/\D/g, ''))}">${escapeHtml(cliente.telefone)}</a></p>` : ''}
             <span class="${STATUS_CLASSES[cliente.status] || 'status-pill'}" style="margin-bottom:1rem;display:inline-block">${escapeHtml(STATUS_LABELS[cliente.status] || cliente.status)}</span>
             <div class="form-actions" style="flex-direction:column;gap:0.5rem;margin-top:0.5rem">
                 <button type="button" class="primary-button" id="radar-btn-atendido">Já é atendido</button>
