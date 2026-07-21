@@ -2,6 +2,68 @@
     margin-bottom: 0.85rem;
 }
 
+/* Card da lista de empresas — cópia deliberada de .proposal-card/
+   .visit-card-header/.proposal-meta (proposals.css/visits.css), NÃO um
+   reaproveitamento direto: essas classes só carregam quando o usuário
+   visita Propostas/Visitas antes do Radar na mesma sessão (CSS de página
+   é lazy — ensureStyles('radar') não traz o CSS de outra página), então
+   usar o nome delas aqui fazia o card ficar sem estilo até isso acontecer
+   por acaso. Classe própria = sempre estilizado, sem depender de ordem de
+   navegação. */
+.radar-cliente-card {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 1.8rem 0.45rem 0.75rem;
+    text-align: left;
+    width: 100%;
+    box-shadow: none;
+    transition: box-shadow 0.15s, background-color 0.1s;
+    cursor: pointer;
+    position: relative;
+}
+
+.radar-cliente-card::after {
+    content: '›';
+    position: absolute;
+    right: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--border);
+    font-size: 1.3rem;
+    font-weight: 300;
+    line-height: 1;
+}
+
+.radar-cliente-card:hover { box-shadow: var(--shadow); }
+
+.radar-cliente-card:active {
+    transform: scale(0.985);
+    background-color: #f8fafc;
+}
+
+.radar-cliente-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.38rem;
+}
+
+.radar-cliente-header strong {
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.radar-cliente-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
 /* Mapa esquemático (contorno estático + pins) — só contexto visual pra
    escolher a cidade clicando; o campo de busca abaixo dele continua
    funcionando igual, é o fallback pra cidade sem coordenada resolvida.

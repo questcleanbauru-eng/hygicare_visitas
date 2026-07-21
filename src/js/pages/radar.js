@@ -465,17 +465,18 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated }) {
     resultsEl.innerHTML = `
         <p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>
         <div class="visits-list">${sorted.map((c) => `
-            <button type="button" class="proposal-card" data-radar-id="${escapeHtml(c.id)}">
-                <div class="visit-card-header">
+            <button type="button" class="radar-cliente-card" data-radar-id="${escapeHtml(c.id)}">
+                <div class="radar-cliente-header">
                     <strong>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</strong>
                     <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
                 </div>
-                <div class="proposal-meta">
-                    <span>${escapeHtml(c.cnaeDescricao || '-')}</span>
+                ${c.nomeFantasia && c.nome && c.nomeFantasia !== c.nome ? `<div class="radar-cliente-meta"><span>${escapeHtml(c.nome)}</span></div>` : ''}
+                <div class="radar-cliente-meta">
+                    ${c.telefone ? `<span>📞 ${escapeHtml(c.telefone)}</span>` : ''}
                     <span>${escapeHtml(cidadeLabel(c))}</span>
                 </div>
                 ${c.status === 'recusado' && c.statusRetornoPrevisto
-                    ? `<div class="proposal-meta"><span>Retornar em: ${escapeHtml(c.statusRetornoPrevisto)}</span></div>`
+                    ? `<div class="radar-cliente-meta"><span>Retornar em: ${escapeHtml(c.statusRetornoPrevisto)}</span></div>`
                     : ''}
             </button>
         `).join('')}</div>
@@ -602,7 +603,7 @@ function openRadarDetailCard(cliente, onUpdated) {
             <span class="${STATUS_CLASSES[cliente.status] || 'status-pill'}" style="margin-bottom:1rem;display:inline-block">${escapeHtml(STATUS_LABELS[cliente.status] || cliente.status)}</span>
             <div class="form-actions" style="flex-direction:column;gap:0.5rem;margin-top:0.5rem">
                 <button type="button" class="primary-button" id="radar-btn-atendido">Já é atendido</button>
-                <button type="button" class="mini-button-danger" style="width:100%;padding:0.7rem;border-radius:var(--radius-sm)" id="radar-btn-recusou">Recusou / não quer</button>
+                <button type="button" class="mini-button-danger" style="width:100%;padding:0.7rem;border-radius:var(--radius-sm);background:#fef2f2;color:#b91c1c;border:1.5px solid #fecaca" id="radar-btn-recusou">Recusou / não quer</button>
                 <button type="button" class="secondary-button" id="radar-btn-agendar">Agendar prospecção</button>
                 <button type="button" class="secondary-button" id="radar-btn-fechar">Fechar</button>
             </div>
