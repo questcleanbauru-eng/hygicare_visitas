@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI } from '../api.js';
-import { escapeHtml } from '../utils/format.js';
+import { escapeHtml, parseDisplayDate } from '../utils/format.js';
 import { debounce, initializeSearchableInput, showToast, loadingState, setSaving } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 import { BRAZIL_MAP_SIZE, BRAZIL_OUTLINE_PATH, BRAZIL_STATE_PATHS, projectLatLng } from '../data/brazilOutline.js';
@@ -37,6 +37,19 @@ let historicoLoaded = false;
 
 function cidadeLabel(c) {
     return c.uf ? `${c.cidade} - ${c.uf}` : c.cidade;
+}
+
+// Reserva de 6 meses (ver handleUpdateRadarClienteStatus no backend): quem
+// agendou prospecção primeiro trava a empresa pros outros vendedores.
+// Admin ignora a trava (mesmo padrão do backend); a checagem de data é só
+// pra não mostrar cadeado numa reserva que já expirou.
+function reservaAtivaDeOutro(cliente) {
+    if (!cliente.reservadoPorEmail) return false;
+    const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
+    if (isAdmin || cliente.reservadoPorEmail === state.currentUser?.email) return false;
+    const ate = parseDisplayDate(cliente.reservadoAte);
+    if (!ate) return false;
+    return ate >= new Date(new Date().setHours(0, 0, 0, 0));
 }
 
 export async function renderRadarPage() {
@@ -478,6 +491,9 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated }) {
                 ${c.status === 'recusado' && c.statusRetornoPrevisto
                     ? `<div class="radar-cliente-meta"><span>Retornar em: ${escapeHtml(c.statusRetornoPrevisto)}</span></div>`
                     : ''}
+                ${reservaAtivaDeOutro(c)
+                    ? `<div class="radar-cliente-meta radar-reserva-tag"><span>🔒 Reservado por ${escapeHtml(c.reservadoPor)}</span></div>`
+                    : ''}
             </button>
         `).join('')}</div>
     `;
@@ -588,6 +604,7 @@ function formatEndereco(c) {
 function openRadarDetailCard(cliente, onUpdated) {
     const refresh = onUpdated || rerenderRadarList;
     const endereco = formatEndereco(cliente);
+    const bloqueada = reservaAtivaDeOutro(cliente);
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
@@ -601,10 +618,11 @@ function openRadarDetailCard(cliente, onUpdated) {
             ${endereco ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📍 ${escapeHtml(endereco)}</p>` : ''}
             ${cliente.telefone ? `<p class="helper-text" style="text-align:left;margin:0 0 0.85rem">📞 <a href="tel:${escapeHtml(cliente.telefone.replace(/\D/g, ''))}">${escapeHtml(cliente.telefone)}</a></p>` : ''}
             <span class="${STATUS_CLASSES[cliente.status] || 'status-pill'}" style="margin-bottom:1rem;display:inline-block">${escapeHtml(STATUS_LABELS[cliente.status] || cliente.status)}</span>
+            ${bloqueada ? `<p class="radar-reserva-aviso">🔒 Reservado por ${escapeHtml(cliente.reservadoPor)} até ${escapeHtml(cliente.reservadoAte)} — só ${escapeHtml(cliente.reservadoPor)} pode agir nessa empresa até lá.</p>` : ''}
             <div class="form-actions" style="flex-direction:column;gap:0.5rem;margin-top:0.5rem">
-                <button type="button" class="primary-button" id="radar-btn-atendido">Já é atendido</button>
-                <button type="button" class="mini-button-danger" style="width:100%;padding:0.7rem;border-radius:var(--radius-sm);background:#fef2f2;color:#b91c1c;border:1.5px solid #fecaca" id="radar-btn-recusou">Recusou / não quer</button>
-                <button type="button" class="secondary-button" id="radar-btn-agendar">Agendar prospecção</button>
+                <button type="button" class="primary-button${bloqueada ? ' radar-action-disabled' : ''}" id="radar-btn-atendido" ${bloqueada ? 'disabled' : ''}>Já é atendido</button>
+                <button type="button" class="mini-button-danger${bloqueada ? ' radar-action-disabled' : ''}" style="width:100%;padding:0.7rem;border-radius:var(--radius-sm);background:#fef2f2;color:#b91c1c;border:1.5px solid #fecaca" id="radar-btn-recusou" ${bloqueada ? 'disabled' : ''}>Recusou / não quer</button>
+                <button type="button" class="secondary-button${bloqueada ? ' radar-action-disabled' : ''}" id="radar-btn-agendar" ${bloqueada ? 'disabled' : ''}>Agendar prospecção</button>
                 <button type="button" class="secondary-button" id="radar-btn-fechar">Fechar</button>
             </div>
         </div>

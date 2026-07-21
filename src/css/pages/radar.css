@@ -2,6 +2,26 @@
     margin-bottom: 0.85rem;
 }
 
+/* Reserva de 6 meses (quem agendou prospecção primeiro trava a empresa
+   pros outros vendedores) — só avisa, não é um estado de erro. */
+.radar-reserva-tag span { color: #b45309; font-weight: 500; }
+
+.radar-reserva-aviso {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    font-size: 0.82rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--radius-sm);
+    text-align: left;
+    margin: 0 0 0.85rem;
+}
+
+.radar-action-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 /* Card da lista de empresas — cópia deliberada de .proposal-card/
    .visit-card-header/.proposal-meta (proposals.css/visits.css), NÃO um
    reaproveitamento direto: essas classes só carregam quando o usuário
