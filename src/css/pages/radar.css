@@ -156,6 +156,25 @@
     fill: #b45309;
 }
 
+/* Pin por empresa — só aparece depois de escolher uma cidade. Posição é um
+   espalhamento visual determinístico por CEP (ver cepScatterOffset em
+   radar.js), NÃO geocodificação real — só evita empilhar tudo no mesmo
+   ponto. Cor segue o mesmo status da empresa (igual .status-pill).
+   Só decorativo (passa o mouse mostra o nome) — sem clique, ver comentário
+   em updateCompanyPins sobre por que isso não é confiável com muitos pins
+   próximos uns dos outros. */
+.radar-company-pin {
+    fill: #94a3b8;
+    stroke: #fff;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.radar-company-pin.radar-status-buscado   { fill: #166534; }
+.radar-company-pin.radar-status-atendido  { fill: #1d4ed8; }
+.radar-company-pin.radar-status-recusado  { fill: #991b1b; }
+.radar-company-pin.radar-status-agendada  { fill: #b45309; }
+
 .radar-map-toolbar {
     position: absolute;
     top: 0.4rem;

@@ -314,6 +314,7 @@ async function renderBuscarTab() {
     const cidadeMenu = document.getElementById('radar-cidade-menu');
     const segmentoGroup = document.getElementById('radar-segmento-group');
     const segmentoInput = document.getElementById('radar-segmento');
+    let mapApi = null;
 
     const selectCidade = async (match) => {
         cidadeInput.value = cidadeLabel(match);
@@ -335,6 +336,7 @@ async function renderBuscarTab() {
         document.querySelectorAll('.radar-map-state').forEach((state) => {
             state.classList.toggle('active', state.dataset.uf === match.uf);
         });
+        mapApi?.updateCompanyPins(match, currentClientes);
     };
 
     initializeSearchableInput({
@@ -349,7 +351,7 @@ async function renderBuscarTab() {
 
     segmentoInput.addEventListener('change', () => renderRadarResults(resultsEl));
 
-    renderCidadeMapa(cidades, selectCidade);
+    mapApi = renderCidadeMapa(cidades, selectCidade);
 }
 
 // Dropdown com um resumo de verdade (valores que realmente existem nessa
@@ -398,6 +400,7 @@ function renderCidadeMapa(cidades, onSelect) {
                         <path d="${BRAZIL_OUTLINE_PATH}" class="radar-map-outline"></path>
                         ${estados}
                         ${pins}
+                        <g id="radar-company-pins"></g>
                     </g>
                 </svg>
                 <div class="radar-map-toolbar">
@@ -537,6 +540,51 @@ function renderCidadeMapa(cidades, onSelect) {
     };
     svg.addEventListener('pointerup', endPointer);
     svg.addEventListener('pointercancel', endPointer);
+
+    return {
+        // Chamado de fora (Buscar tab) toda vez que uma cidade é selecionada
+        // — espalha um pin pequeno por empresa ao redor do centro da cidade,
+        // baseado no CEP (sem prometer precisão real de rua, só evita todo
+        // mundo empilhado no mesmo pontinho). Ver cepScatterOffset.
+        updateCompanyPins(cidadeMatch, clientes) {
+            const container = document.getElementById('radar-company-pins');
+            if (!container) return;
+            if (!cidadeMatch || cidadeMatch.lat === null || cidadeMatch.lng === null) { container.innerHTML = ''; return; }
+            const center = projectLatLng(cidadeMatch.lat, cidadeMatch.lng);
+            const raioMax = 9; // espaço interno do SVG (400x400) — fica na vizinhança do pin da cidade
+            // Só decorativo (passar o mouse mostra o nome) — sem clique: com
+            // dezenas/centenas de empresas na mesma cidade é comum dois pins
+            // caírem quase no mesmo lugar (o espalhamento é só visual, não
+            // tem colisão real evitada), e um cobriria o clique do outro. A
+            // lista de cards logo abaixo já é o jeito confiável de abrir o
+            // detalhe de uma empresa específica.
+            container.innerHTML = clientes.map((c) => {
+                const seed = String(c.cep || '').trim() + String(c.numero || '').trim() || c.id;
+                const { dx, dy } = cepScatterOffset(seed, raioMax);
+                const statusClass = (STATUS_CLASSES[c.status] || '').replace('status-pill', '').trim();
+                return `<circle class="radar-company-pin ${statusClass}" cx="${(center.x + dx).toFixed(2)}" cy="${(center.y + dy).toFixed(2)}" r="2.4"><title>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</title></circle>`;
+            }).join('');
+        }
+    };
+}
+
+// Espalha visualmente por CEP (+ número, quando presente) — determinístico
+// (o mesmo CEP sempre cai no mesmo lugar) mas NÃO é geocodificação de
+// verdade: só evita empilhar todos os pins de uma cidade no mesmo ponto.
+// Sem base pública de CEP->coordenada precisa disponível offline (só
+// nível de cidade, ou serviços que dependem de geocodificação externa ao
+// vivo — descartado, ver conversa sobre BrasilAPI/OpenStreetMap).
+function cepScatterOffset(seed, maxRadius) {
+    const digits = String(seed || '').replace(/\D/g, '') || '0';
+    let h1 = 0, h2 = 0;
+    for (let i = 0; i < digits.length; i++) {
+        const d = digits.charCodeAt(i);
+        h1 = (h1 * 31 + d) >>> 0;
+        h2 = (h2 * 17 + d * (i + 1)) >>> 0;
+    }
+    const angle = (h1 % 360) * (Math.PI / 180);
+    const dist = (h2 % 1000) / 1000 * maxRadius;
+    return { dx: dist * Math.cos(angle), dy: dist * Math.sin(angle) };
 }
 
 function renderRadarResults(resultsEl) {
