@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI } from '../api.js';
-import { escapeHtml, parseDisplayDate } from '../utils/format.js';
+import { escapeHtml, parseDisplayDate, formatDateForDisplay } from '../utils/format.js';
 import { initializeSearchableInput, showToast, loadingState, setSaving } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 import { BRAZIL_MAP_SIZE, BRAZIL_OUTLINE_PATH, BRAZIL_STATE_PATHS, projectLatLng } from '../data/brazilOutline.js';
@@ -46,17 +46,36 @@ function cidadeLabel(c) {
     return c.uf ? `${c.cidade} - ${c.uf}` : c.cidade;
 }
 
+// Data mais recente de DataBusca entre as empresas — devolve a própria
+// string já formatada (DD/MM/AAAA, como vem do backend), não precisa
+// reformatar a partir do Date, só usa ele pra achar a maior data.
+function maisRecenteDataBusca(clientes) {
+    let melhorTexto = null, melhorData = null;
+    clientes.forEach((c) => {
+        const d = parseDisplayDate(c.dataBusca);
+        if (d && (!melhorData || d > melhorData)) { melhorData = d; melhorTexto = c.dataBusca; }
+    });
+    return melhorTexto;
+}
+
 // Reserva de 6 meses (ver handleUpdateRadarClienteStatus no backend): quem
-// agendou prospecção primeiro trava a empresa pros outros vendedores.
-// Admin ignora a trava (mesmo padrão do backend); a checagem de data é só
-// pra não mostrar cadeado numa reserva que já expirou.
-function reservaAtivaDeOutro(cliente) {
+// agendou prospecção primeiro trava a empresa pros outros vendedores. Fato
+// puro (não depende de quem está olhando) — usado pra MOSTRAR quem está
+// com a empresa reservada, inclusive pro admin (que ignora a trava, mas
+// ainda quer saber quem está trabalhando o quê).
+function reservaAtiva(cliente) {
     if (!cliente.reservadoPorEmail) return false;
-    const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
-    if (isAdmin || cliente.reservadoPorEmail === state.currentUser?.email) return false;
     const ate = parseDisplayDate(cliente.reservadoAte);
     if (!ate) return false;
     return ate >= new Date(new Date().setHours(0, 0, 0, 0));
+}
+
+// Deve bloquear os botões de ação PRA ESSE usuário — reserva ativa E de
+// outra pessoa (admin ignora a trava, mesmo padrão do backend).
+function reservaAtivaDeOutro(cliente) {
+    if (!reservaAtiva(cliente)) return false;
+    const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
+    return !isAdmin && cliente.reservadoPorEmail !== state.currentUser?.email;
 }
 
 export async function renderRadarPage() {
@@ -102,11 +121,22 @@ export async function renderRadarPage() {
                         <input type="text" id="radar-cidade" placeholder="Escolha uma cidade liberada" autocomplete="off">
                         <div class="searchable-select-menu" id="radar-cidade-menu"></div>
                     </div>
+                    <p class="field-helper-text" id="radar-dados-info" style="display:none"></p>
                 </div>
                 <div class="form-group" id="radar-segmento-group" style="display:none">
                     <label for="radar-segmento">Segmento</label>
                     <select id="radar-segmento">
                         <option value="">Todos os segmentos</option>
+                    </select>
+                </div>
+                <div class="form-group" id="radar-status-filtro-group" style="display:none">
+                    <label for="radar-status-filtro">Status</label>
+                    <select id="radar-status-filtro">
+                        <option value="">Todos os status</option>
+                        <option value="buscado">Nunca contatado</option>
+                        <option value="ja_atendido">Já é cliente</option>
+                        <option value="recusado">Recusou</option>
+                        <option value="prospeccao_agendada">Prospecção agendada</option>
                     </select>
                 </div>
                 <div class="form-group" id="radar-limpar-group" style="display:none">
@@ -322,8 +352,11 @@ async function renderBuscarTab() {
 
     const cidadeInput = document.getElementById('radar-cidade');
     const cidadeMenu = document.getElementById('radar-cidade-menu');
+    const dadosInfoEl = document.getElementById('radar-dados-info');
     const segmentoGroup = document.getElementById('radar-segmento-group');
     const segmentoInput = document.getElementById('radar-segmento');
+    const statusFiltroGroup = document.getElementById('radar-status-filtro-group');
+    const statusFiltroInput = document.getElementById('radar-status-filtro');
     const limparGroup = document.getElementById('radar-limpar-group');
     const limparBtn = document.getElementById('radar-limpar-filtros');
 
@@ -338,7 +371,18 @@ async function renderBuscarTab() {
         currentClientes = result.clientes || [];
         currentCidade = { cidade: match.cidade, uf: match.uf, lat: match.lat, lng: match.lng };
         segmentoGroup.style.display = '';
+        statusFiltroGroup.style.display = '';
         limparGroup.style.display = '';
+        // Data mais recente entre as empresas da cidade — dá pra ter noção
+        // de quão desatualizada a base pode estar (importação é periódica,
+        // não em tempo real).
+        const maisRecente = maisRecenteDataBusca(currentClientes);
+        if (maisRecente) {
+            dadosInfoEl.textContent = `Dados consultados em ${maisRecente}`;
+            dadosInfoEl.style.display = '';
+        } else {
+            dadosInfoEl.style.display = 'none';
+        }
         populateSegmentoOptions(segmentoInput);
         renderRadarResults(resultsEl);
         updateHistoricoScopeLabel();
@@ -356,16 +400,21 @@ async function renderBuscarTab() {
     });
 
     segmentoInput.addEventListener('change', () => renderRadarResults(resultsEl));
+    statusFiltroInput.addEventListener('change', () => renderRadarResults(resultsEl));
 
     // Depois de escolher uma cidade não tinha como voltar a ver todas as
     // cidades liberadas no mapa sem recarregar a aba — "Limpar filtros"
-    // desfaz a seleção de cidade (e o filtro de segmento junto).
+    // desfaz a seleção de cidade (e os filtros de segmento/status junto).
     limparBtn.addEventListener('click', () => {
         currentCidade = null;
         currentClientes = [];
         cidadeInput.value = '';
+        segmentoInput.value = '';
+        statusFiltroInput.value = '';
         segmentoGroup.style.display = 'none';
+        statusFiltroGroup.style.display = 'none';
         limparGroup.style.display = 'none';
+        dadosInfoEl.style.display = 'none';
         resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Escolha uma cidade acima pra ver as empresas.</p></div>`;
         mapApi?.clearFiltro();
     });
@@ -611,17 +660,35 @@ function renderCidadeMapa(cidades, onSelect) {
 
 function renderRadarResults(resultsEl) {
     const segmento = document.getElementById('radar-segmento')?.value.trim().toLowerCase() || '';
-    const filtered = segmento
+    const statusFiltro = document.getElementById('radar-status-filtro')?.value || '';
+
+    const porSegmento = segmento
         ? currentClientes.filter((c) =>
             String(c.cnaeDescricao || '').toLowerCase().includes(segmento) ||
             String(c.segmento || '').toLowerCase().includes(segmento) ||
             String(c.cnaeCodigo || '').toLowerCase().includes(segmento))
         : currentClientes;
+    // O resumo por status usa o total ANTES do filtro de status (senão só
+    // mostraria 100% de um status só) — o filtro de status só afasta a
+    // lista de cards abaixo, sem mudar o resumo.
+    const filtered = statusFiltro ? porSegmento.filter((c) => c.status === statusFiltro) : porSegmento;
 
     renderClienteCards(filtered, resultsEl, {
         emptyMessage: 'Nenhuma empresa encontrada.',
-        onUpdated: () => renderRadarResults(resultsEl)
+        onUpdated: () => renderRadarResults(resultsEl),
+        resumoHtml: buildStatusResumo(porSegmento)
     });
+}
+
+// Contagem por status pra dar noção de oportunidade num olhar só (esse é
+// literalmente o objetivo do Radar — priorizar quem nunca foi contatado).
+function buildStatusResumo(list) {
+    if (!list.length) return '';
+    const counts = { buscado: 0, ja_atendido: 0, recusado: 0, prospeccao_agendada: 0 };
+    list.forEach((c) => { counts[c.status] = (counts[c.status] || 0) + 1; });
+    return `<p class="page-subtitle radar-status-resumo" style="margin-bottom:0.5rem">` +
+        `${list.length} empresa(s) — ${counts.buscado} nunca contatada(s) · ${counts.ja_atendido} já cliente(s) · ` +
+        `${counts.recusado} recusaram · ${counts.prospeccao_agendada} agendada(s)</p>`;
 }
 
 function rerenderRadarList() {
@@ -632,9 +699,9 @@ function rerenderRadarList() {
 // Compartilhado entre a aba Buscar e a aba Histórico — mesmo card
 // (.proposal-card com status-pill), mesma ordenação por prioridade de
 // contato, só muda a lista de entrada e o callback de refresh pós-ação.
-function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated }) {
+function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHtml = '' }) {
     if (list.length === 0) {
-        resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>${escapeHtml(emptyMessage)}</p></div>`;
+        resultsEl.innerHTML = `${resumoHtml}<div class="empty-state"><span class="empty-state-icon">🔍</span><p>${escapeHtml(emptyMessage)}</p></div>`;
         return;
     }
 
@@ -643,7 +710,7 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated }) {
     const sorted = [...list].sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9));
 
     resultsEl.innerHTML = `
-        <p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>
+        ${resumoHtml || `<p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>`}
         <div class="visits-list">${sorted.map((c) => `
             <button type="button" class="radar-cliente-card" data-radar-id="${escapeHtml(c.id)}">
                 <div class="radar-cliente-header">
@@ -658,8 +725,14 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated }) {
                 ${c.status === 'recusado' && c.statusRetornoPrevisto
                     ? `<div class="radar-cliente-meta"><span>Retornar em: ${escapeHtml(c.statusRetornoPrevisto)}</span></div>`
                     : ''}
-                ${reservaAtivaDeOutro(c)
-                    ? `<div class="radar-cliente-meta radar-reserva-tag"><span>🔒 Reservado por ${escapeHtml(c.reservadoPor)}</span></div>`
+                ${c.status === 'recusado' && c.statusPor
+                    ? `<div class="radar-cliente-meta"><span>Recusado por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span></div>`
+                    : ''}
+                ${c.status === 'ja_atendido' && c.statusPor
+                    ? `<div class="radar-cliente-meta"><span>Marcado como cliente por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span></div>`
+                    : ''}
+                ${reservaAtiva(c)
+                    ? `<div class="radar-cliente-meta radar-reserva-tag"><span>🔒 Reservado por ${escapeHtml(c.reservadoPor)} até ${escapeHtml(c.reservadoAte)}</span></div>`
                     : ''}
             </button>
         `).join('')}</div>
@@ -772,6 +845,7 @@ function openRadarDetailCard(cliente, onUpdated) {
     const refresh = onUpdated || rerenderRadarList;
     const endereco = formatEndereco(cliente);
     const bloqueada = reservaAtivaDeOutro(cliente);
+    const temReserva = reservaAtiva(cliente);
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
@@ -785,7 +859,13 @@ function openRadarDetailCard(cliente, onUpdated) {
             ${endereco ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📍 ${escapeHtml(endereco)}</p>` : ''}
             ${cliente.telefone ? `<p class="helper-text" style="text-align:left;margin:0 0 0.85rem">📞 <a href="tel:${escapeHtml(cliente.telefone.replace(/\D/g, ''))}">${escapeHtml(cliente.telefone)}</a></p>` : ''}
             <span class="${STATUS_CLASSES[cliente.status] || 'status-pill'}" style="margin-bottom:1rem;display:inline-block">${escapeHtml(STATUS_LABELS[cliente.status] || cliente.status)}</span>
-            ${bloqueada ? `<p class="radar-reserva-aviso">🔒 Reservado por ${escapeHtml(cliente.reservadoPor)} até ${escapeHtml(cliente.reservadoAte)} — só ${escapeHtml(cliente.reservadoPor)} pode agir nessa empresa até lá.</p>` : ''}
+            ${cliente.status === 'recusado' && cliente.statusPor
+                ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Recusado por ${escapeHtml(cliente.statusPor)}${cliente.statusData ? ' em ' + escapeHtml(cliente.statusData) : ''}</p>` : ''}
+            ${cliente.status === 'ja_atendido' && cliente.statusPor
+                ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Marcado como cliente por ${escapeHtml(cliente.statusPor)}${cliente.statusData ? ' em ' + escapeHtml(cliente.statusData) : ''}</p>` : ''}
+            ${temReserva
+                ? `<p class="radar-reserva-aviso">🔒 Reservado por ${escapeHtml(cliente.reservadoPor)} até ${escapeHtml(cliente.reservadoAte)}${bloqueada ? ` — só ${escapeHtml(cliente.reservadoPor)} pode agir nessa empresa até lá.` : '.'}</p>`
+                : ''}
             <div class="form-actions" style="flex-direction:column;gap:0.5rem;margin-top:0.5rem">
                 <button type="button" class="primary-button${bloqueada ? ' radar-action-disabled' : ''}" id="radar-btn-atendido" ${bloqueada ? 'disabled' : ''}>Já é atendido</button>
                 <button type="button" class="mini-button-danger${bloqueada ? ' radar-action-disabled' : ''}" style="width:100%;padding:0.7rem;border-radius:var(--radius-sm);background:#fef2f2;color:#b91c1c;border:1.5px solid #fecaca" id="radar-btn-recusou" ${bloqueada ? 'disabled' : ''}>Recusou / não quer</button>
@@ -805,6 +885,8 @@ function openRadarDetailCard(cliente, onUpdated) {
         const result = await callAPI('updateRadarClienteStatus', { user: state.currentUser, id: cliente.id, status: 'ja_atendido' });
         if (result.status === 'success') {
             cliente.status = 'ja_atendido';
+            cliente.statusPor = state.currentUser.name;
+            cliente.statusData = formatDateForDisplay(new Date());
             showToast('Marcado como já atendido.');
             close();
             refresh();
@@ -881,6 +963,8 @@ function openRecusarModal(cliente, refresh) {
         });
         if (result.status === 'success') {
             cliente.status = 'recusado';
+            cliente.statusPor = state.currentUser.name;
+            cliente.statusData = formatDateForDisplay(new Date());
             showToast('Marcado como recusado.');
             close();
             refresh();
