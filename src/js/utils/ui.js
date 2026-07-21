@@ -8,7 +8,13 @@ const REFRESHABLE_PAGE_CACHE_KEYS = {
     visits: ['visits', 'visits_all'],
     proposals: ['proposals', 'proposals_all'],
     funil: ['funil', 'funil_all'],
-    admin: ['admin_data', 'admin_email']
+    admin: ['admin_data', 'admin_email'],
+    // Radar não guarda cache em localStorage (o dado vive só em variável de
+    // módulo dentro de radar.js) — não tem chave pra zerar aqui, mas precisa
+    // constar no mapa (mesmo com lista vazia) senão refreshCurrentPage()
+    // simplesmente não faz nada nessa página (retorno antecipado por
+    // REFRESHABLE_PAGE_CACHE_KEYS[page] vir undefined).
+    radar: []
 };
 
 function refreshCurrentPage() {
