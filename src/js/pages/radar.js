@@ -3,7 +3,7 @@ import { callAPI } from '../api.js';
 import { escapeHtml } from '../utils/format.js';
 import { debounce, initializeSearchableInput, showToast, loadingState, setSaving } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
-import { BRAZIL_MAP_SIZE, BRAZIL_OUTLINE_PATH, projectLatLng } from '../data/brazilOutline.js';
+import { BRAZIL_MAP_SIZE, BRAZIL_OUTLINE_PATH, BRAZIL_STATE_PATHS, projectLatLng } from '../data/brazilOutline.js';
 
 const STATUS_LABELS = {
     buscado: 'Nunca contatado',
@@ -237,6 +237,9 @@ async function renderBuscarTab() {
         document.querySelectorAll('.radar-map-pin').forEach((pin) => {
             pin.classList.toggle('active', pin.dataset.cidade === match.cidade && pin.dataset.uf === match.uf);
         });
+        document.querySelectorAll('.radar-map-state').forEach((state) => {
+            state.classList.toggle('active', state.dataset.uf === match.uf);
+        });
     };
 
     initializeSearchableInput({
@@ -273,6 +276,9 @@ function renderCidadeMapa(cidades, onSelect) {
         const { x, y } = projectLatLng(c.lat, c.lng);
         return `<circle class="radar-map-pin" cx="${x}" cy="${y}" r="5" data-cidade="${escapeHtml(c.cidade)}" data-uf="${escapeHtml(c.uf)}"><title>${escapeHtml(cidadeLabel(c))}</title></circle>`;
     }).join('');
+    const estados = BRAZIL_STATE_PATHS.map((s) =>
+        `<path d="${s.d}" class="radar-map-state${currentCidade && currentCidade.uf === s.sigla ? ' active' : ''}" data-uf="${s.sigla}"><title>${s.sigla}</title></path>`
+    ).join('');
 
     wrap.innerHTML = `
         <div class="card radar-map-card">
@@ -280,6 +286,7 @@ function renderCidadeMapa(cidades, onSelect) {
                 <svg viewBox="0 0 ${BRAZIL_MAP_SIZE} ${BRAZIL_MAP_SIZE}" class="radar-map-svg" id="radar-map-svg" role="img" aria-label="Mapa com as cidades liberadas do Radar — arraste pra mover, use scroll ou pinça pra dar zoom">
                     <g id="radar-map-group">
                         <path d="${BRAZIL_OUTLINE_PATH}" class="radar-map-outline"></path>
+                        ${estados}
                         ${pins}
                     </g>
                 </svg>

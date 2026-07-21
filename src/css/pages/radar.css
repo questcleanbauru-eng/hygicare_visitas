@@ -42,6 +42,25 @@
     vector-effect: non-scaling-stroke;
 }
 
+/* Divisas dos estados por cima do contorno do país — só decorativo (dado
+   público simplificado, ver src/js/data/brazilOutline.js), não captura
+   clique/hover (quem seleciona é o pin, os estados só dão contexto visual
+   e destacam o estado da cidade escolhida). */
+.radar-map-state {
+    fill: transparent;
+    stroke: #c3cedb;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+    transition: fill 0.15s ease, stroke 0.15s ease;
+}
+
+.radar-map-state.active {
+    fill: rgba(37, 99, 235, 0.14);
+    stroke: var(--primary);
+    stroke-width: 1.5;
+}
+
 .radar-map-pin {
     fill: var(--primary);
     stroke: #fff;
