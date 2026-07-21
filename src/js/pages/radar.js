@@ -19,6 +19,12 @@ const STATUS_CLASSES = {
     prospeccao_agendada: 'status-pill radar-status-agendada'
 };
 
+// Desativado a pedido do usuário (layout não convenceu mesmo depois de
+// corrigir tamanho de pin e filtrar pra cidade escolhida — ver commits
+// anteriores). Código do mapa continua intacto abaixo, só não é chamado;
+// pra reativar, basta voltar isso pra `true`.
+const RADAR_MAP_ENABLED = false;
+
 let activeRadarTab = 'buscar';
 
 // Lista da cidade atualmente carregada — vive só neste módulo (não em
@@ -88,7 +94,7 @@ export async function renderRadarPage() {
             ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'config' ? ' active' : ''}" data-tab="config">Configurações</button>` : ''}
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'buscar' ? ' active' : ''}" id="radar-tab-buscar">
-            <div id="radar-map-wrap"></div>
+            ${RADAR_MAP_ENABLED ? '<div id="radar-map-wrap"></div>' : ''}
             <div class="card radar-search-card">
                 <div class="form-group">
                     <label for="radar-cidade">Cidade</label>
@@ -364,7 +370,7 @@ async function renderBuscarTab() {
         mapApi?.clearFiltro();
     });
 
-    mapApi = renderCidadeMapa(cidades, selectCidade);
+    mapApi = RADAR_MAP_ENABLED ? renderCidadeMapa(cidades, selectCidade) : null;
 }
 
 // Dropdown com um resumo de verdade (valores que realmente existem nessa
