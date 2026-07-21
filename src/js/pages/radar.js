@@ -751,8 +751,13 @@ function openRadarDetailCard(cliente, onUpdated) {
 
     overlay.querySelector('#radar-btn-agendar').addEventListener('click', () => {
         close();
+        // Razão social identifica a empresa de verdade — Nome Fantasia às
+        // vezes é só o nome do local (ex.: agências de banco cujo "Nome
+        // Fantasia" é literalmente a cidade, tipo "MARILIA (SP)"), o que
+        // deixa o campo Cliente da visita parecendo o nome de uma cidade
+        // em vez de uma empresa.
         navigateTo('visit-new', {
-            prefill: { Cliente: cliente.nomeFantasia || cliente.nome, Cidade: cliente.cidade },
+            prefill: { Cliente: cliente.nome || cliente.nomeFantasia, Cidade: cliente.cidade },
             radarClienteId: cliente.id
         });
     });
