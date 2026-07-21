@@ -167,7 +167,7 @@ function serve() {
         '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml',
         '.map': 'application/json'
     };
-    const port = 5173;
+    const port = 5174;
     http.createServer((req, res) => {
         let reqPath = decodeURIComponent(req.url.split('?')[0]);
         if (reqPath === '/') reqPath = '/index.html';
