@@ -103,6 +103,9 @@ export async function renderRadarPage() {
                         <option value="">Todos os segmentos</option>
                     </select>
                 </div>
+                <div class="form-group" id="radar-limpar-group" style="display:none">
+                    <button type="button" class="mini-button" id="radar-limpar-filtros">Limpar filtros</button>
+                </div>
             </div>
             <div id="radar-results"></div>
         </div>
@@ -315,6 +318,8 @@ async function renderBuscarTab() {
     const cidadeMenu = document.getElementById('radar-cidade-menu');
     const segmentoGroup = document.getElementById('radar-segmento-group');
     const segmentoInput = document.getElementById('radar-segmento');
+    const limparGroup = document.getElementById('radar-limpar-group');
+    const limparBtn = document.getElementById('radar-limpar-filtros');
 
     const selectCidade = async (match) => {
         cidadeInput.value = cidadeLabel(match);
@@ -327,16 +332,11 @@ async function renderBuscarTab() {
         currentClientes = result.clientes || [];
         currentCidade = { cidade: match.cidade, uf: match.uf, lat: match.lat, lng: match.lng };
         segmentoGroup.style.display = '';
+        limparGroup.style.display = '';
         populateSegmentoOptions(segmentoInput);
         renderRadarResults(resultsEl);
         updateHistoricoScopeLabel();
-        document.querySelectorAll('.radar-map-pin').forEach((pin) => {
-            pin.classList.toggle('active', pin.dataset.cidade === match.cidade && pin.dataset.uf === match.uf);
-        });
-        document.querySelectorAll('.radar-map-state').forEach((state) => {
-            state.classList.toggle('active', state.dataset.uf === match.uf);
-        });
-        mapApi?.focusOnCity(match);
+        mapApi?.selectCityOnMap(match);
     };
 
     initializeSearchableInput({
@@ -350,6 +350,19 @@ async function renderBuscarTab() {
     });
 
     segmentoInput.addEventListener('change', () => renderRadarResults(resultsEl));
+
+    // Depois de escolher uma cidade não tinha como voltar a ver todas as
+    // cidades liberadas no mapa sem recarregar a aba — "Limpar filtros"
+    // desfaz a seleção de cidade (e o filtro de segmento junto).
+    limparBtn.addEventListener('click', () => {
+        currentCidade = null;
+        currentClientes = [];
+        cidadeInput.value = '';
+        segmentoGroup.style.display = 'none';
+        limparGroup.style.display = 'none';
+        resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Escolha uma cidade acima pra ver as empresas.</p></div>`;
+        mapApi?.clearFiltro();
+    });
 
     mapApi = renderCidadeMapa(cidades, selectCidade);
 }
@@ -400,7 +413,6 @@ function renderCidadeMapa(cidades, onSelect) {
                         <path d="${BRAZIL_OUTLINE_PATH}" class="radar-map-outline"></path>
                         ${estados}
                         ${pins}
-                        <g id="radar-company-pins"></g>
                     </g>
                 </svg>
                 <div class="radar-map-toolbar">
@@ -430,20 +442,14 @@ function renderCidadeMapa(cidades, onSelect) {
     }
     applyTransform();
 
-    // Raio dos pins fica dentro do <g> transformado, então escala junto com
-    // o zoom (vector-effect="non-scaling-stroke" só protege o contorno, não
-    // o raio) — sem isso, o zoom automático da cidade (7x) deixava os pins
-    // 7x maiores na tela e eles colavam uns nos outros, virando uma bolha
-    // sólida (visto direto em produção). Chamado sempre que `scale` muda por
-    // interação do usuário, pra manter os pins já existentes do mesmo
-    // tamanho na tela; ver também o cálculo de `pinR` em updateCompanyPins,
-    // que cobre os pins recém-criados.
+    // Raio do pin fica dentro do <g> transformado, então escala junto com o
+    // zoom (vector-effect="non-scaling-stroke" só protege o contorno, não o
+    // raio) — sem isso, o zoom automático da cidade (7x) deixava o pin 7x
+    // maior na tela. Chamado sempre que `scale` muda por interação do
+    // usuário, pra manter o pin do mesmo tamanho em qualquer zoom.
     function refreshPinRadii() {
         document.querySelectorAll('.radar-map-pin').forEach((pin) => {
             pin.setAttribute('r', (5 / scale).toFixed(2));
-        });
-        document.querySelectorAll('.radar-company-pin').forEach((pin) => {
-            pin.setAttribute('r', (2.4 / scale).toFixed(2));
         });
     }
 
@@ -561,66 +567,40 @@ function renderCidadeMapa(cidades, onSelect) {
     svg.addEventListener('pointercancel', endPointer);
 
     return {
-        // Chamado de fora (Buscar tab) toda vez que uma cidade é selecionada
-        // — espalha um pin pequeno por empresa ao redor do centro da cidade,
-        // baseado no CEP (sem prometer precisão real de rua, só evita todo
-        // mundo empilhado no mesmo pontinho). Ver cepScatterOffset.
-        updateCompanyPins(cidadeMatch, clientes) {
-            const container = document.getElementById('radar-company-pins');
-            if (!container) return;
-            if (!cidadeMatch || cidadeMatch.lat === null || cidadeMatch.lng === null) { container.innerHTML = ''; return; }
-            const center = projectLatLng(cidadeMatch.lat, cidadeMatch.lng);
-            // Cresce com a quantidade de empresas (área precisa crescer junto
-            // pra manter a mesma densidade) — sem isso, uma cidade com 300
-            // empresas ficava tão amontoada quanto uma com 5. Raiz quadrada
-            // porque a área do círculo é proporcional ao raio ao quadrado.
-            const raioMax = Math.min(20, 6 + 2 * Math.sqrt(clientes.length));
-            // Só decorativo (passar o mouse mostra o nome) — sem clique: com
-            // dezenas/centenas de empresas na mesma cidade é comum dois pins
-            // caírem quase no mesmo lugar (o espalhamento é só visual, não
-            // tem colisão real evitada), e um cobriria o clique do outro. A
-            // lista de cards logo abaixo já é o jeito confiável de abrir o
-            // detalhe de uma empresa específica.
-            const pinR = (2.4 / scale).toFixed(2); // ver refreshPinRadii — mesmo raio na tela em qualquer zoom
-            container.innerHTML = clientes.map((c) => {
-                const seed = String(c.cep || '').trim() + String(c.numero || '').trim() || c.id;
-                const { dx, dy } = cepScatterOffset(seed, raioMax);
-                const statusClass = (STATUS_CLASSES[c.status] || '').replace('status-pill', '').trim();
-                return `<circle class="radar-company-pin ${statusClass}" cx="${(center.x + dx).toFixed(2)}" cy="${(center.y + dy).toFixed(2)}" r="${pinR}"><title>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</title></circle>`;
-            }).join('');
-        },
-
-        // Centraliza e amplia o mapa na cidade escolhida — sem isso, o mapa
-        // ficava no zoom do Brasil inteiro e o aglomerado de pins da cidade
-        // aparecia minúsculo, exigindo zoom manual toda vez.
-        focusOnCity(cidadeMatch) {
-            if (!cidadeMatch || cidadeMatch.lat === null || cidadeMatch.lng === null) return;
+        // Ao selecionar uma cidade: some com os outros pinos (depois de
+        // escolher, as outras cidades liberadas só competem visualmente com
+        // a que importa agora) e centraliza + amplia o mapa nela — sem
+        // isso, todas as cidades ficavam visíveis e o mapa no zoom do
+        // Brasil inteiro, com o pino escolhido minúsculo.
+        selectCityOnMap(cidadeMatch) {
+            document.querySelectorAll('.radar-map-pin').forEach((pin) => {
+                const isMatch = pin.dataset.cidade === cidadeMatch.cidade && pin.dataset.uf === cidadeMatch.uf;
+                pin.classList.toggle('active', isMatch);
+                pin.classList.toggle('radar-map-pin-hidden', !isMatch);
+            });
+            document.querySelectorAll('.radar-map-state').forEach((s) => {
+                s.classList.toggle('active', s.dataset.uf === cidadeMatch.uf);
+            });
+            if (cidadeMatch.lat === null || cidadeMatch.lng === null) return;
             const p = projectLatLng(cidadeMatch.lat, cidadeMatch.lng);
             scale = Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, 7));
             ({ tx, ty } = clampPan(scale, BRAZIL_MAP_SIZE / 2 - p.x * scale, BRAZIL_MAP_SIZE / 2 - p.y * scale));
             applyTransform();
             refreshPinRadii();
+        },
+
+        // "Limpar filtros" (Buscar tab) — desfaz o filtro acima: todos os
+        // pinos de volta, zoom resetado.
+        clearFiltro() {
+            document.querySelectorAll('.radar-map-pin').forEach((pin) => {
+                pin.classList.remove('active', 'radar-map-pin-hidden');
+            });
+            document.querySelectorAll('.radar-map-state').forEach((s) => s.classList.remove('active'));
+            scale = 1; tx = 0; ty = 0;
+            applyTransform();
+            refreshPinRadii();
         }
     };
-}
-
-// Espalha visualmente por CEP (+ número, quando presente) — determinístico
-// (o mesmo CEP sempre cai no mesmo lugar) mas NÃO é geocodificação de
-// verdade: só evita empilhar todos os pins de uma cidade no mesmo ponto.
-// Sem base pública de CEP->coordenada precisa disponível offline (só
-// nível de cidade, ou serviços que dependem de geocodificação externa ao
-// vivo — descartado, ver conversa sobre BrasilAPI/OpenStreetMap).
-function cepScatterOffset(seed, maxRadius) {
-    const digits = String(seed || '').replace(/\D/g, '') || '0';
-    let h1 = 0, h2 = 0;
-    for (let i = 0; i < digits.length; i++) {
-        const d = digits.charCodeAt(i);
-        h1 = (h1 * 31 + d) >>> 0;
-        h2 = (h2 * 17 + d * (i + 1)) >>> 0;
-    }
-    const angle = (h1 % 360) * (Math.PI / 180);
-    const dist = (h2 % 1000) / 1000 * maxRadius;
-    return { dx: dist * Math.cos(angle), dy: dist * Math.sin(angle) };
 }
 
 function renderRadarResults(resultsEl) {
@@ -636,10 +616,6 @@ function renderRadarResults(resultsEl) {
         emptyMessage: 'Nenhuma empresa encontrada.',
         onUpdated: () => renderRadarResults(resultsEl)
     });
-    // Mapa mostra os mesmos pins que a lista abaixo dele — sem isso, filtrar
-    // por segmento escondia empresas na lista mas elas continuavam
-    // aparecendo no mapa, uma inconsistência confusa.
-    mapApi?.updateCompanyPins(currentCidade, filtered);
 }
 
 function rerenderRadarList() {
