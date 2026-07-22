@@ -66,6 +66,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    gap: 0.5rem;
     margin-bottom: 0.38rem;
 }
 
@@ -73,6 +74,15 @@
     font-size: 0.9rem;
     font-weight: 600;
     line-height: 1.3;
+    min-width: 0; /* deixa o nome (não a pill) ser quem quebra linha/encolhe */
+}
+
+/* Sem isso, a pill some espremida junto com o nome (flex-shrink:1 padrão)
+   quando o nome é comprido — "Nunca contatado" quebrava em 2 linhas
+   dentro da própria pill, ficando com uma cara estranha. */
+.radar-cliente-header .status-pill {
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .radar-cliente-meta {
