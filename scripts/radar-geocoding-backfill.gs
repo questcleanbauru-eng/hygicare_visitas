@@ -227,6 +227,19 @@ function processarLote_() {
                 // CNPJá mandou (+ folga) e segue da próxima linha; essa
                 // fica vazia pra ser retentada depois.
                 const espera = (e.ttl || 60) + 3;
+                const restanteMs = BATCH_TIME_LIMIT_MS - (Date.now() - startTime);
+                if (espera * 1000 > restanteMs) {
+                    // Esperar isso inteiro estouraria o orçamento do lote
+                    // (pior ainda, o limite de 6min do Apps Script, que
+                    // MATA a execução no meio — foi o que provavelmente
+                    // causou o "erro desconhecido" visto em produção).
+                    // Para aqui, limpo, e deixa o próximo lote continuar
+                    // dessa mesma linha.
+                    Logger.log('Rate limit na chave ' + chaveAtiva.indice + ' (linha ' + (r + 1) + ') — esperaria ' +
+                        espera + 's mas só sobra ' + Math.round(restanteMs / 1000) + 's nesse lote. Parando aqui.');
+                    cortadoPeloTempo = true;
+                    break;
+                }
                 Logger.log('Rate limit na chave ' + chaveAtiva.indice + ' (linha ' + (r + 1) + ') — esperando ' + espera + 's.');
                 Utilities.sleep(espera * 1000);
                 continue;
@@ -373,42 +386,42 @@ function lerConfigUso_() {
         const chave = String(data[r][0] || '').trim();
         if (chave === CONFIG_KEY_LIMITE) limite = Number(data[r][1]) || CREDITOS_POR_CHAVE;
         if (chave === CONFIG_KEY_USADO) { usado = Number(data[r][1]) || 0; linhaUsado = r; }
-        if (chave === CONFIG_KEY_MES) { mesReferencia = String(data[r][1] || ''); linhaMes = r; }
+        if (chave === CONFIG_KEY_MES) {
+            // "2026-07" escrito sem forçar texto vira uma DATA de verdade
+            // pro Sheets (ele detecta como "01/07/2026") — na leitura,
+            // getValues() devolve um objeto Date, não a string original.
+            // Tolera os dois formatos aqui; a escrita (salvarConfigUso_)
+            // agora força texto com apóstrofo pra isso nem acontecer mais.
+            const raw = data[r][1];
+            mesReferencia = (raw instanceof Date)
+                ? Utilities.formatDate(raw, Session.getScriptTimeZone() || 'America/Sao_Paulo', 'yyyy-MM')
+                : String(raw || '');
+            linhaMes = r;
+        }
     }
-    const usadoAntesDoReset = usado;
     if (mesReferencia !== mesAtual) usado = 0; // virou o mês, zera o contador
-
-    // DIAGNÓSTICO TEMPORÁRIO — remover depois de achar a causa do contador
-    // não persistir entre execuções (visto em produção: lote fechou com
-    // usadoAgora=28 mas a planilha ficou com 0 depois).
-    Logger.log('[diag] lerConfigUso_: linhaUsado=' + linhaUsado + ' valorBruto=' +
-        JSON.stringify(linhaUsado >= 0 ? data[linhaUsado][1] : null) + ' tipo=' +
-        (linhaUsado >= 0 ? typeof data[linhaUsado][1] : 'n/a') + ' usadoAntesDoReset=' + usadoAntesDoReset +
-        ' mesReferencia="' + mesReferencia + '" mesAtual="' + mesAtual + '" usadoFinal=' + usado);
 
     return { sheet: sheet, limite: limite, usado: usado, mesAtual: mesAtual, linhaUsado: linhaUsado, linhaMes: linhaMes };
 }
 
 function salvarConfigUso_(cfg, usadoAgora) {
     if (!cfg.sheet) return;
-    // DIAGNÓSTICO TEMPORÁRIO — ver comentário em lerConfigUso_.
-    Logger.log('[diag] salvarConfigUso_: linhaUsado=' + cfg.linhaUsado + ' escrevendo="' + String(usadoAgora) + '"');
     if (cfg.linhaUsado === -1) {
         cfg.sheet.appendRow([CONFIG_KEY_USADO, String(usadoAgora)]);
     } else {
         cfg.sheet.getRange(cfg.linhaUsado + 1, 2).setValue(String(usadoAgora));
     }
+    // Apóstrofo força a célula a ficar como texto puro — sem isso, o
+    // Sheets detecta "2026-07" como data e reformata pra "01/07/2026"
+    // (um objeto Date de verdade na leitura seguinte), o que quebrava a
+    // comparação de mês e zerava o contador em TODA execução (bug real,
+    // achado via log de diagnóstico — ver git log).
+    const mesTexto = "'" + cfg.mesAtual;
     if (cfg.linhaMes === -1) {
-        cfg.sheet.appendRow([CONFIG_KEY_MES, cfg.mesAtual]);
+        cfg.sheet.appendRow([CONFIG_KEY_MES, mesTexto]);
     } else {
-        cfg.sheet.getRange(cfg.linhaMes + 1, 2).setValue(cfg.mesAtual);
+        cfg.sheet.getRange(cfg.linhaMes + 1, 2).setValue(mesTexto);
     }
-    SpreadsheetApp.flush(); // força gravar agora — sem isso, em execuções longas a escrita pode ficar em buffer até o fim
-    // DIAGNÓSTICO TEMPORÁRIO — relê na hora pra confirmar o que ficou salvo de verdade.
-    const confereUsado = cfg.linhaUsado === -1
-        ? cfg.sheet.getRange(cfg.sheet.getLastRow() - 1, 2).getValue()
-        : cfg.sheet.getRange(cfg.linhaUsado + 1, 2).getValue();
-    Logger.log('[diag] salvarConfigUso_: relido logo depois de salvar = ' + JSON.stringify(confereUsado));
 }
 
 // ===== COLUNAS E TRIGGER =====
