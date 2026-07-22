@@ -900,11 +900,25 @@ function formatEndereco(c) {
     return parts.join(' - ');
 }
 
+// Porte/CapitalSocial vêm da CNPJá (ver scripts/radar-geocoding-backfill.gs)
+// — nem sempre presentes (empresa pode já ter sido geocodificada antes
+// desses 2 campos existirem, ou a CNPJá pode não ter o dado).
+function formatPorteCapital(c) {
+    const parts = [];
+    if (c.porte) parts.push(c.porte);
+    const capital = Number(c.capitalSocial);
+    if (c.capitalSocial && !Number.isNaN(capital)) {
+        parts.push('Capital social: ' + capital.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }));
+    }
+    return parts.join(' · ');
+}
+
 function openRadarDetailCard(cliente, onUpdated) {
     const refresh = onUpdated || rerenderRadarList;
     const endereco = formatEndereco(cliente);
     const bloqueada = reservaAtivaDeOutro(cliente);
     const temReserva = reservaAtiva(cliente);
+    const porteCapital = formatPorteCapital(cliente);
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
@@ -915,8 +929,10 @@ function openRadarDetailCard(cliente, onUpdated) {
             <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cidadeLabel(cliente))}</p>
             <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.cnaeDescricao || '-')}</p>
             ${cliente.segmento ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.segmento)}</p>` : ''}
+            ${porteCapital ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(porteCapital)}</p>` : ''}
             ${endereco ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📍 ${escapeHtml(endereco)}</p>` : ''}
-            ${cliente.telefone ? `<p class="helper-text" style="text-align:left;margin:0 0 0.85rem">📞 <a href="tel:${escapeHtml(cliente.telefone.replace(/\D/g, ''))}">${escapeHtml(cliente.telefone)}</a></p>` : ''}
+            ${cliente.telefone ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📞 <a href="tel:${escapeHtml(cliente.telefone.replace(/\D/g, ''))}">${escapeHtml(cliente.telefone)}</a></p>` : ''}
+            ${cliente.email ? `<p class="helper-text" style="text-align:left;margin:0 0 0.85rem">✉️ <a href="mailto:${escapeHtml(cliente.email)}">${escapeHtml(cliente.email)}</a></p>` : ''}
             <span class="${STATUS_CLASSES[cliente.status] || 'status-pill'}" style="margin-bottom:1rem;display:inline-block">${escapeHtml(STATUS_LABELS[cliente.status] || cliente.status)}</span>
             ${cliente.status === 'recusado' && cliente.statusPor
                 ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Recusado por ${escapeHtml(cliente.statusPor)}${cliente.statusData ? ' em ' + escapeHtml(cliente.statusData) : ''}</p>` : ''}

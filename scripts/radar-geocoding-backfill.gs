@@ -1,5 +1,6 @@
 /**
- * Backfill de geocodificação por empresa (RadarClientes) via CNPJá.
+ * Backfill de geocodificação + enriquecimento por empresa (RadarClientes)
+ * via CNPJá.
  *
  * NÃO faz parte do app (não é Node, não builda, não sobe pro Vercel) — é
  * um script do Google Apps Script, roda direto na planilha. Só está aqui
@@ -8,6 +9,12 @@
  * Suporta até 4 chaves da CNPJá (ex.: 4 contas grátis diferentes, 45
  * créditos cada) — usa a primeira até esgotar a cota dela, passa pra
  * próxima sozinho, sem precisar trocar nada na mão no meio do processo.
+ *
+ * Cada chamada já traz nome/endereço/telefone/CNAE — redundante com o
+ * que o CSV já importa, então só aproveita o que é novo: geocodificação
+ * (Latitude/Longitude), e-mail (Email), porte da empresa (Porte) e
+ * capital social (CapitalSocial). Sócios e atividades secundárias ficam
+ * de fora de propósito (ver discussão no chat sobre o schema completo).
  *
  * COMO INSTALAR
  * 1. Abra a planilha do App de Visitas no navegador.
@@ -33,13 +40,18 @@
  *    olhando.
  *
  * COMO FUNCIONA A RETOMADA (por empresa)
- * Cada linha da planilha guarda seu próprio estado nas colunas
- * Latitude/Longitude (criadas automaticamente se não existirem):
+ * Cada linha da planilha guarda seu próprio estado na coluna Latitude
+ * (Longitude/Email/Porte/CapitalSocial são criadas junto, mas quem
+ * decide se já tentou é só a Latitude — os outros 4 vêm da MESMA
+ * chamada):
  *   - vazio       → ainda não tentou
  *   - número      → geocodificado com sucesso
  *   - "sem_coordenada" → a CNPJá respondeu mas não tinha coordenada pra
  *     esse endereço (não tenta de novo sozinho — evita gastar crédito à
  *     toa numa empresa que provavelmente vai continuar sem coordenada)
+ * Email/Porte/CapitalSocial só são gravados quando vêm preenchidos —
+ * pode ficar vazio numa empresa mesmo já processada, se a CNPJá
+ * simplesmente não tinha esse dado específico.
  * Erro de rede/API NÃO marca a linha — ela fica vazia e entra de novo na
  * próxima passada. Rodar o backfill de novo mais tarde (ex.: depois de
  * importar CSV novo) só processa quem ainda está vazio.
@@ -137,8 +149,8 @@ function processarLote_() {
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
     const idx = mapearColunas_(headers);
-    if (idx.cnpj === -1 || idx.latitude === -1 || idx.longitude === -1) {
-        throw new Error('Colunas Cnpj/Latitude/Longitude não encontradas — rode garantirColunas_ primeiro (iniciarBackfillGeocodificacao já faz isso).');
+    if (idx.cnpj === -1 || idx.latitude === -1 || idx.longitude === -1 || idx.email === -1 || idx.porte === -1 || idx.capitalSocial === -1) {
+        throw new Error('Colunas Cnpj/Latitude/Longitude/Email/Porte/CapitalSocial não encontradas — rode garantirColunas_ primeiro (iniciarBackfillGeocodificacao já faz isso).');
     }
 
     const chaves = obterChaves_();
@@ -179,7 +191,7 @@ function processarLote_() {
         processados++;
         try {
             const resultado = buscarGeocodificacao_(cnpj, chaveAtiva.chave);
-            if (resultado) {
+            if (resultado.lat !== null && resultado.lng !== null) {
                 sheet.getRange(r + 1, idx.latitude + 1).setValue(resultado.lat);
                 sheet.getRange(r + 1, idx.longitude + 1).setValue(resultado.lng);
                 comCoordenada++;
@@ -187,6 +199,12 @@ function processarLote_() {
                 sheet.getRange(r + 1, idx.latitude + 1).setValue('sem_coordenada');
                 semCoordenada++;
             }
+            // Mesma chamada já trazia isso — sem custo extra de crédito.
+            // Só grava o que veio preenchido (deixa em branco o que a
+            // CNPJá não tinha, em vez de sobrescrever com vazio).
+            if (resultado.email) sheet.getRange(r + 1, idx.email + 1).setValue(resultado.email);
+            if (resultado.porte) sheet.getRange(r + 1, idx.porte + 1).setValue(resultado.porte);
+            if (resultado.capitalSocial !== null) sheet.getRange(r + 1, idx.capitalSocial + 1).setValue(resultado.capitalSocial);
             usoChaves.uso[chaveAtiva.indice] = (usoChaves.uso[chaveAtiva.indice] || 0) + 1;
             usadoAgora++; // a chamada foi feita (e respondida) de qualquer jeito, gastou crédito
             errosConsecutivosPorChave[chaveAtiva.indice] = 0;
@@ -235,6 +253,11 @@ function processarLote_() {
     }
 }
 
+// A mesma chamada já traz nome/endereço/telefone/CNAE etc. — a maior
+// parte é redundante com o que o CSV já importa, então só extrai o que é
+// realmente novo: geocodificação, e-mail, porte e capital social. Ver
+// discussão no chat sobre o schema completo — sócios (`members`) e
+// atividades secundárias ficaram de fora de propósito.
 function buscarGeocodificacao_(cnpj, chave) {
     const url = 'https://api.cnpja.com/office/' + cnpj + '?geocoding=true';
     const response = UrlFetchApp.fetch(url, {
@@ -251,10 +274,17 @@ function buscarGeocodificacao_(cnpj, chave) {
     const body = JSON.parse(response.getContentText());
     const lat = body && body.address && body.address.latitude;
     const lng = body && body.address && body.address.longitude;
-    if (typeof lat === 'number' && typeof lng === 'number') {
-        return { lat: lat, lng: lng };
-    }
-    return null; // CNPJá respondeu certo, mas não tinha coordenada pra esse endereço
+    const email = (body && body.emails && body.emails[0] && body.emails[0].address) || '';
+    const porte = (body && body.company && body.company.size && body.company.size.text) || '';
+    const equity = body && body.company && body.company.equity;
+
+    return {
+        lat: (typeof lat === 'number') ? lat : null,
+        lng: (typeof lng === 'number') ? lng : null,
+        email: email,
+        porte: porte,
+        capitalSocial: (typeof equity === 'number') ? equity : null
+    };
 }
 
 // ===== USO POR CHAVE (rotação entre contas — Script Properties, interno) =====
@@ -331,7 +361,7 @@ function garantirColunas_() {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
     if (!sheet) throw new Error('Aba "' + SHEET_NAME + '" não encontrada nesta planilha.');
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const faltando = ['Latitude', 'Longitude'].filter((h) => headers.indexOf(h) === -1);
+    const faltando = ['Latitude', 'Longitude', 'Email', 'Porte', 'CapitalSocial'].filter((h) => headers.indexOf(h) === -1);
     if (faltando.length) {
         sheet.getRange(1, headers.length + 1, 1, faltando.length).setValues([faltando]);
     }
@@ -341,7 +371,10 @@ function mapearColunas_(headers) {
     return {
         cnpj: headers.indexOf('Cnpj'),
         latitude: headers.indexOf('Latitude'),
-        longitude: headers.indexOf('Longitude')
+        longitude: headers.indexOf('Longitude'),
+        email: headers.indexOf('Email'),
+        porte: headers.indexOf('Porte'),
+        capitalSocial: headers.indexOf('CapitalSocial')
     };
 }
 
