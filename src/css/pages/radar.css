@@ -200,6 +200,58 @@
 .status-pill.radar-status-recusado  { background: #fee2e2; color: #991b1b; }
 .status-pill.radar-status-agendada  { background: #fef3c7; color: #b45309; }
 
+/* Mapa por empresa (aba Buscar) — pins com coordenada real vinda do
+   backfill de geocodificação via CNPJá (ver
+   scripts/radar-geocoding-backfill.gs), plotados com projeção local
+   (centralizada e escalada só pro conjunto de empresas da lista atual),
+   sem contorno de país nem pan/zoom — a área de uma cidade cabe inteira
+   no card. Mesmas cores de .status-pill.radar-status-*, aplicadas ao
+   preenchimento em vez de fundo/texto. */
+.radar-empresa-map-card {
+    margin-bottom: 0.85rem;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.radar-empresa-map-svg {
+    width: 100%;
+    max-width: 380px;
+    aspect-ratio: 1 / 1;
+    display: block;
+    background: #f8fafc;
+    border-radius: var(--radius-sm);
+}
+
+.radar-empresa-pin-group { cursor: pointer; }
+
+/* Círculo maior e invisível por baixo do pin visual só pra ampliar a área
+   de toque no mobile (o pin em si, r=2.4 num viewBox de 100, fica pequeno
+   demais pra tocar com precisão) — pointer-events:all porque fill
+   transparent por padrão não recebe clique/toque. */
+.radar-empresa-pin-touch {
+    fill: transparent;
+    pointer-events: all;
+}
+
+.radar-empresa-pin {
+    stroke: #fff;
+    stroke-width: 0.6;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+
+.radar-empresa-pin.radar-status-buscado   { fill: #166534; }
+.radar-empresa-pin.radar-status-atendido  { fill: #1d4ed8; }
+.radar-empresa-pin.radar-status-recusado  { fill: #991b1b; }
+.radar-empresa-pin.radar-status-agendada  { fill: #b45309; }
+
+.radar-empresa-map-caption {
+    margin: 0.5rem 0 0;
+    text-align: center;
+}
+
 /* Filtro de status (aba Buscar) — chips em vez de <select>: é o filtro
    mais usado da tela, então 1 toque em vez de abrir+escolher compensa o
    espaço extra. Neutro até ficar ativo, aí pega a mesma cor da pill de

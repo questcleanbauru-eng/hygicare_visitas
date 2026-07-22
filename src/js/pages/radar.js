@@ -147,6 +147,7 @@ export async function renderRadarPage() {
                     <button type="button" class="mini-button" id="radar-limpar-filtros">Limpar filtros</button>
                 </div>
             </div>
+            <div id="radar-empresa-map-wrap"></div>
             <div id="radar-results"></div>
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'historico' ? ' active' : ''}" id="radar-tab-historico">
@@ -475,6 +476,7 @@ async function renderBuscarTab() {
         limparGroup.style.display = 'none';
         dadosInfoEl.style.display = 'none';
         resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Escolha uma cidade acima pra ver as empresas.</p></div>`;
+        document.getElementById('radar-empresa-map-wrap').innerHTML = '';
         mapApi?.clearFiltro();
     });
 
@@ -732,10 +734,84 @@ function renderRadarResults(resultsEl) {
     // lista de cards abaixo, sem mudar o resumo.
     const filtered = statusFiltro ? porSegmento.filter((c) => c.status === statusFiltro) : porSegmento;
 
+    renderEmpresaMapa(filtered, () => renderRadarResults(resultsEl));
+
     renderClienteCards(filtered, resultsEl, {
         emptyMessage: 'Nenhuma empresa encontrada.',
         onUpdated: () => renderRadarResults(resultsEl),
         resumoHtml: buildStatusResumo(porSegmento)
+    });
+}
+
+// Pins de verdade por empresa (Latitude/Longitude vêm do backfill de
+// geocodificação via CNPJá — ver scripts/radar-geocoding-backfill.gs), não
+// mais o scatter por hash de CEP (removido antes por ficar com precisão
+// falsa). Só entra empresa com coordenada resolvida ("sem_coordenada" e
+// vazio ficam de fora); sem pan/zoom — a área de uma cidade é pequena o
+// bastante pra caber toda no card, projeção local (não usa o contorno do
+// Brasil) centralizada e escalada pro conjunto de pins dessa lista.
+function statusPinClass(status) {
+    return (STATUS_CLASSES[status] || '').replace('status-pill', '').trim();
+}
+
+function renderEmpresaMapa(clientes, onUpdated) {
+    const wrap = document.getElementById('radar-empresa-map-wrap');
+    if (!wrap) return;
+
+    const geocoded = clientes
+        .map((c) => ({ c, lat: parseFloat(c.latitude), lng: parseFloat(c.longitude) }))
+        .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+
+    if (geocoded.length === 0) {
+        wrap.innerHTML = '';
+        return;
+    }
+
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    geocoded.forEach(({ lat, lng }) => {
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+    });
+
+    const size = 100;
+    const usable = size * 0.7; // 15% de respiro de cada lado
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+    // Grau de longitude "encolhe" perto dos polos (não é o caso do Brasil,
+    // mas a correção não custa nada) — sem isso o conjunto de pins ficaria
+    // esticado na horizontal.
+    const lngCorr = Math.max(0.15, Math.cos(centerLat * Math.PI / 180));
+    // Mínimo ~0,002° (~200m) evita achatar a projeção quando sobra só 1
+    // empresa ou várias muito próximas (mesmo endereço/prédio).
+    const span = Math.max(maxLat - minLat, (maxLng - minLng) * lngCorr, 0.002);
+
+    const pins = geocoded.map(({ c, lat, lng }) => ({
+        c,
+        x: size / 2 + ((lng - centerLng) * lngCorr / span) * usable,
+        y: size / 2 - ((lat - centerLat) / span) * usable // lat maior = mais ao norte = y menor
+    }));
+
+    wrap.innerHTML = `
+        <div class="card radar-empresa-map-card">
+            <svg viewBox="0 0 ${size} ${size}" class="radar-empresa-map-svg" role="img" aria-label="Mapa com as empresas geocodificadas desta lista">
+                ${pins.map((p) => `
+                    <g class="radar-empresa-pin-group" data-radar-id="${escapeHtml(p.c.id)}">
+                        <circle class="radar-empresa-pin-touch" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="5"></circle>
+                        <circle class="radar-empresa-pin ${statusPinClass(p.c.status)}" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="2.4"><title>${escapeHtml(p.c.nomeFantasia || p.c.nome || 'Empresa')}</title></circle>
+                    </g>
+                `).join('')}
+            </svg>
+            <p class="field-helper-text radar-empresa-map-caption">${geocoded.length} de ${clientes.length} empresa(s) com localização</p>
+        </div>
+    `;
+
+    wrap.querySelectorAll('.radar-empresa-pin-group').forEach((g) => {
+        g.addEventListener('click', () => {
+            const cliente = clientes.find((c) => String(c.id) === g.dataset.radarId);
+            if (cliente) openRadarDetailCard(cliente, onUpdated);
+        });
     });
 }
 
