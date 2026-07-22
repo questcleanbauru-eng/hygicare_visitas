@@ -316,8 +316,13 @@ function processarLote_() {
         try {
             const resultado = buscarGeocodificacao_(cnpj, chaveAtiva.chave);
             if (resultado.lat !== null && resultado.lng !== null) {
-                sheet.getRange(r + 1, idx.latitude + 1).setValue(resultado.lat);
-                sheet.getRange(r + 1, idx.longitude + 1).setValue(resultado.lng);
+                // Apóstrofo força texto puro — sem isso o Sheets grava como
+                // número e reformata pro locale da planilha (vírgula decimal),
+                // que quebra parseFloat no app (só pega o "-22" e descarta o
+                // resto). Mesma técnica já usada em salvarConfigUso_ pra
+                // mes_referencia, e no app pra Lat/Lng de cidade.
+                sheet.getRange(r + 1, idx.latitude + 1).setValue("'" + resultado.lat);
+                sheet.getRange(r + 1, idx.longitude + 1).setValue("'" + resultado.lng);
                 comCoordenada++;
             } else {
                 sheet.getRange(r + 1, idx.latitude + 1).setValue('sem_coordenada');
