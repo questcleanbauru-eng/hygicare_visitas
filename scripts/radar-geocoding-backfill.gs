@@ -61,9 +61,17 @@
  * controlada aqui dentro (Script Properties, não na planilha — é detalhe
  * interno, a aba Configurações do Radar só mostra o total combinado). Ao
  * escolher qual chave usar pra próxima empresa, pula quem já bateu a
- * cota. Se uma chave der 3 erros seguidos (provável cota real esgotada
- * ou chave inválida), ela é descartada só pro resto desse lote — as
- * outras continuam normalmente.
+ * cota. Se uma chave der 3 erros "de verdade" seguidos (ex.: chave
+ * inválida — rate limit NÃO conta pra isso, ver abaixo), ela é
+ * descartada só pro resto desse lote — as outras continuam normalmente.
+ *
+ * RATE LIMIT (por chave, visto na prática — não documentado pela CNPJá)
+ * ~10 chamadas por 60s antes da CNPJá responder 429. DELAY_BETWEEN_CALLS_MS
+ * (6500ms) já respeita isso por padrão. Se mesmo assim vier um 429, o
+ * script lê o "ttl" que a própria CNPJá manda na resposta (segundos até
+ * liberar de novo), espera esse tempo e continua da próxima linha — não
+ * descarta a chave nem gasta um erro "de verdade" por isso, já que o
+ * problema é só velocidade, não a chave em si.
  *
  * CUSTO
  * 1 crédito por linha nova processada (sucesso ou sem_coordenada — a
@@ -76,7 +84,11 @@
 // ===== CONFIGURAÇÃO =====
 const SHEET_NAME = 'RadarClientes';
 const BATCH_TIME_LIMIT_MS = 5 * 60 * 1000; // folga dentro do limite de 6min do Apps Script
-const DELAY_BETWEEN_CALLS_MS = 300; // ~3,3 chamadas/seg — aumente se a CNPJá devolver erro de rate limit
+// Visto na prática (log de execução real): a CNPJá deixa ~10
+// chamadas/60s por chave antes de responder 429. 6500ms de espaçamento
+// = no máximo ~9,2 chamadas/60s, com folga. Isso é por chave — trocar de
+// chave (ver escolherChave_) não acelera, o delay vale igual pra todas.
+const DELAY_BETWEEN_CALLS_MS = 6500;
 const TRIGGER_HANDLER = 'processarLote_';
 const MAX_CHAVES = 4;
 const CREDITOS_POR_CHAVE = 45; // cota grátis de cada conta CNPJá — ajuste aqui se alguma virar paga
@@ -209,6 +221,16 @@ function processarLote_() {
             usadoAgora++; // a chamada foi feita (e respondida) de qualquer jeito, gastou crédito
             errosConsecutivosPorChave[chaveAtiva.indice] = 0;
         } catch (e) {
+            if (e.rateLimited) {
+                // Não descarta a chave nem conta como erro "de verdade" —
+                // só fomos rápido demais. Espera o tempo que a própria
+                // CNPJá mandou (+ folga) e segue da próxima linha; essa
+                // fica vazia pra ser retentada depois.
+                const espera = (e.ttl || 60) + 3;
+                Logger.log('Rate limit na chave ' + chaveAtiva.indice + ' (linha ' + (r + 1) + ') — esperando ' + espera + 's.');
+                Utilities.sleep(espera * 1000);
+                continue;
+            }
             Logger.log('Erro no CNPJ ' + cnpj + ' (linha ' + (r + 1) + ', chave ' + chaveAtiva.indice + '): ' + e.message);
             erros++;
             errosConsecutivosPorChave[chaveAtiva.indice] = (errosConsecutivosPorChave[chaveAtiva.indice] || 0) + 1;
@@ -267,6 +289,23 @@ function buscarGeocodificacao_(cnpj, chave) {
     });
 
     const code = response.getResponseCode();
+    if (code === 429) {
+        // Rate limit (visto na prática: ~10 chamadas/60s por chave) —
+        // NÃO é a chave que está ruim, somos nós indo rápido demais. A
+        // própria CNPJá manda quanto falta pro limite liberar de novo
+        // (ttl, em segundos) — usa isso em vez de chutar um tempo de
+        // espera. Marcado à parte (erro.rateLimited) pra quem chamou
+        // saber que não deve tratar isso como "chave inválida".
+        let ttl = 60;
+        try {
+            const parsed = JSON.parse(response.getContentText());
+            if (typeof parsed.ttl === 'number') ttl = parsed.ttl;
+        } catch (e) { /* mantém os 60s padrão se o corpo não vier no formato esperado */ }
+        const erro = new Error('HTTP 429 (rate limit): ' + response.getContentText().slice(0, 200));
+        erro.rateLimited = true;
+        erro.ttl = ttl;
+        throw erro;
+    }
     if (code !== 200) {
         throw new Error('HTTP ' + code + ': ' + response.getContentText().slice(0, 200));
     }
