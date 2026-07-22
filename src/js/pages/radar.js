@@ -216,9 +216,21 @@ export async function renderRadarPage() {
                             no resto do app. Admin sempre acessa, sem essa exigência.
                         </p>
                     </div>
+                    <div class="form-group full-width">
+                        <label for="radar-cfg-geo-limite">Limite mensal de geocodificação (créditos)</label>
+                        <input type="number" id="radar-cfg-geo-limite" min="1" max="100000">
+                        <p class="field-helper-text">
+                            Quem geocodifica é o script à parte (fora do app, direto na planilha) — esse
+                            número é só o limite que ele respeita sozinho antes de parar por esse mês.
+                        </p>
+                    </div>
                     <div class="form-actions">
                         <button type="button" class="primary-button" id="radar-cfg-salvar">Salvar</button>
                     </div>
+                </div>
+                <div class="card" id="radar-cfg-geo-status">
+                    <h3 style="margin-top:0">Geocodificação por empresa</h3>
+                    <p class="page-subtitle" id="radar-cfg-geo-resumo">Carregando...</p>
                 </div>
             </div>
         ` : ''}
@@ -302,23 +314,33 @@ function bindImportTab() {
 function bindConfigTab() {
     const reservaInput = document.getElementById('radar-cfg-reserva-meses');
     const visitaInput = document.getElementById('radar-cfg-visita-dias');
+    const limiteInput = document.getElementById('radar-cfg-geo-limite');
+    const geoResumoEl = document.getElementById('radar-cfg-geo-resumo');
     const saveBtn = document.getElementById('radar-cfg-salvar');
 
     callAPI('getEmailConfig', { user: state.currentUser }).then((result) => {
         if (result.status !== 'success') return;
         reservaInput.value = result.data.radar_reserva_meses || '6';
         visitaInput.value = result.data.radar_visita_dias || '7';
+        limiteInput.value = result.data.radar_geocoding_limite_mensal || '45';
+        renderGeoResumo(result.data, geoResumoEl);
     });
 
     saveBtn.addEventListener('click', async () => {
         const reservaMeses = Number(reservaInput.value);
         const visitaDias = Number(visitaInput.value);
+        const limiteMensal = Number(limiteInput.value);
         if (!reservaMeses || reservaMeses < 1) { showToast('Informe uma duração de reserva válida.', true); return; }
         if (!visitaDias || visitaDias < 1) { showToast('Informe um número de dias válido.', true); return; }
+        if (!limiteMensal || limiteMensal < 1) { showToast('Informe um limite de geocodificação válido.', true); return; }
         setSaving(true, saveBtn, 'Salvando...');
         const result = await callAPI('saveEmailConfig', {
             user: state.currentUser,
-            config: { radar_reserva_meses: String(reservaMeses), radar_visita_dias: String(visitaDias) }
+            config: {
+                radar_reserva_meses: String(reservaMeses),
+                radar_visita_dias: String(visitaDias),
+                radar_geocoding_limite_mensal: String(limiteMensal)
+            }
         });
         setSaving(false, saveBtn);
         if (result.status === 'success') {
@@ -327,6 +349,33 @@ function bindConfigTab() {
             showToast(result.message || 'Não foi possível salvar.', true);
         }
     });
+}
+
+// Só leitura — quem escreve radar_geocoding_usado_mes/mes_referencia é o
+// script à parte (scripts/radar-geocoding-backfill.gs), nunca o app. Se a
+// referência de mês salva não bate com o mês atual, o script ainda não
+// rodou desse mês — mostra 0 em vez do número (já zerado) do mês passado.
+async function renderGeoResumo(configData, el) {
+    const mesAtual = new Date().toISOString().slice(0, 7);
+    const usado = configData.radar_geocoding_mes_referencia === mesAtual
+        ? (configData.radar_geocoding_usado_mes || '0') : '0';
+    const limite = configData.radar_geocoding_limite_mensal || '45';
+
+    const result = await callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' });
+    if (result.status !== 'success') {
+        el.textContent = `Créditos usados este mês: ${usado} de ${limite}.`;
+        return;
+    }
+    const clientes = result.clientes || [];
+    let comCoordenada = 0, semCoordenada = 0, pendente = 0;
+    clientes.forEach((c) => {
+        if (c.latitude === 'sem_coordenada') semCoordenada++;
+        else if (c.latitude) comCoordenada++;
+        else pendente++;
+    });
+    el.innerHTML = `Créditos usados este mês: <strong>${escapeHtml(usado)} de ${escapeHtml(limite)}</strong>.<br>` +
+        `${clientes.length} empresa(s) no total — ${comCoordenada} geocodificada(s), ` +
+        `${semCoordenada} sem coordenada disponível, ${pendente} ainda pendente(s).`;
 }
 
 async function renderBuscarTab() {
