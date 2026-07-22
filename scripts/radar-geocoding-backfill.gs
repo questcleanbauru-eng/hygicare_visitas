@@ -375,13 +375,24 @@ function lerConfigUso_() {
         if (chave === CONFIG_KEY_USADO) { usado = Number(data[r][1]) || 0; linhaUsado = r; }
         if (chave === CONFIG_KEY_MES) { mesReferencia = String(data[r][1] || ''); linhaMes = r; }
     }
+    const usadoAntesDoReset = usado;
     if (mesReferencia !== mesAtual) usado = 0; // virou o mês, zera o contador
+
+    // DIAGNÓSTICO TEMPORÁRIO — remover depois de achar a causa do contador
+    // não persistir entre execuções (visto em produção: lote fechou com
+    // usadoAgora=28 mas a planilha ficou com 0 depois).
+    Logger.log('[diag] lerConfigUso_: linhaUsado=' + linhaUsado + ' valorBruto=' +
+        JSON.stringify(linhaUsado >= 0 ? data[linhaUsado][1] : null) + ' tipo=' +
+        (linhaUsado >= 0 ? typeof data[linhaUsado][1] : 'n/a') + ' usadoAntesDoReset=' + usadoAntesDoReset +
+        ' mesReferencia="' + mesReferencia + '" mesAtual="' + mesAtual + '" usadoFinal=' + usado);
 
     return { sheet: sheet, limite: limite, usado: usado, mesAtual: mesAtual, linhaUsado: linhaUsado, linhaMes: linhaMes };
 }
 
 function salvarConfigUso_(cfg, usadoAgora) {
     if (!cfg.sheet) return;
+    // DIAGNÓSTICO TEMPORÁRIO — ver comentário em lerConfigUso_.
+    Logger.log('[diag] salvarConfigUso_: linhaUsado=' + cfg.linhaUsado + ' escrevendo="' + String(usadoAgora) + '"');
     if (cfg.linhaUsado === -1) {
         cfg.sheet.appendRow([CONFIG_KEY_USADO, String(usadoAgora)]);
     } else {
@@ -392,6 +403,12 @@ function salvarConfigUso_(cfg, usadoAgora) {
     } else {
         cfg.sheet.getRange(cfg.linhaMes + 1, 2).setValue(cfg.mesAtual);
     }
+    SpreadsheetApp.flush(); // força gravar agora — sem isso, em execuções longas a escrita pode ficar em buffer até o fim
+    // DIAGNÓSTICO TEMPORÁRIO — relê na hora pra confirmar o que ficou salvo de verdade.
+    const confereUsado = cfg.linhaUsado === -1
+        ? cfg.sheet.getRange(cfg.sheet.getLastRow() - 1, 2).getValue()
+        : cfg.sheet.getRange(cfg.linhaUsado + 1, 2).getValue();
+    Logger.log('[diag] salvarConfigUso_: relido logo depois de salvar = ' + JSON.stringify(confereUsado));
 }
 
 // ===== COLUNAS E TRIGGER =====
