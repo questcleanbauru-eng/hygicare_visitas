@@ -57,6 +57,14 @@ const STATUS_FILTER_CHIPS_HTML = ['<button type="button" class="radar-status-chi
 // pra reativar, basta voltar isso pra `true`.
 const RADAR_MAP_ENABLED = false;
 
+// Desativado de novo (temporário) — achamos CNPJ com zero à esquerda
+// perdido fazendo a geocodificação consultar a empresa ERRADA na CNPJá
+// (endereço/pin de outra empresa qualquer). Corrigido o código (ver
+// corrigirCnpjsComZeroPerdido no .gs), mas os dados JÁ geocodificados
+// errado ainda precisam ser resetados e reprocessados antes do mapa
+// voltar a ser confiável. Reativar assim que os dados estiverem limpos.
+const RADAR_EMPRESA_MAP_ENABLED = false;
+
 let activeRadarTab = 'buscar';
 
 // Lista da cidade atualmente carregada — vive só neste módulo (não em
@@ -170,7 +178,7 @@ export async function renderRadarPage() {
                     <button type="button" class="mini-button" id="radar-limpar-filtros">Limpar filtros</button>
                 </div>
             </div>
-            <div id="radar-empresa-map-wrap"></div>
+            ${RADAR_EMPRESA_MAP_ENABLED ? '<div id="radar-empresa-map-wrap"></div>' : ''}
             <div id="radar-results"></div>
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'historico' ? ' active' : ''}" id="radar-tab-historico">
@@ -758,7 +766,7 @@ function renderRadarResults(resultsEl) {
     // lista de cards abaixo, sem mudar o resumo.
     const filtered = statusFiltro ? porSegmento.filter((c) => c.status === statusFiltro) : porSegmento;
 
-    renderEmpresaMapa(filtered, () => renderRadarResults(resultsEl));
+    if (RADAR_EMPRESA_MAP_ENABLED) renderEmpresaMapa(filtered, () => renderRadarResults(resultsEl));
 
     renderClienteCards(filtered, resultsEl, {
         emptyMessage: 'Nenhuma empresa encontrada.',

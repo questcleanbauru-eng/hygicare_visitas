@@ -43,6 +43,12 @@
  *    do Apps Script é 6min por execução) e se reagenda sozinho via
  *    trigger até acabar; você pode fechar a aba, não precisa ficar
  *    olhando.
+ * 8. SÓ NA PRIMEIRA VEZ com essa versão do script: rode
+ *    `corrigirCnpjsComZeroPerdido` ANTES do passo 7 (uma vez só) — conserta
+ *    CNPJ que perdeu zero à esquerda antes dessa correção existir, e limpa
+ *    a geocodificação de quem já tinha sido processado com o CNPJ errado
+ *    (consultou a empresa errada na CNPJá). Depois disso, roda o passo 7
+ *    normalmente pra reprocessar essas empresas com o CNPJ certo.
  *
  * COMO FUNCIONA A RETOMADA (por empresa)
  * Cada linha da planilha guarda seu próprio estado na coluna Latitude
@@ -228,6 +234,61 @@ function obterChaves_() {
     return chaves;
 }
 
+// ===== CORREÇÃO RETROATIVA (rodar 1 vez) =====
+// Antes da importação de CSV forçar texto no Cnpj (ver commit), uma
+// célula só-de-dígitos podia virar NÚMERO no Sheets e perder zero(s) à
+// esquerda (CNPJ com raiz começando em "00..." é comum). Isso não é só
+// cosmético: esse script manda o Cnpj DIRETO pra CNPJá — com o zero
+// perdido, ela consultou uma empresa ERRADA e devolveu endereço/e-mail/
+// porte de outra empresa qualquer (visto na prática: empresa de Bauru
+// voltou com coordenada a 140km dali). Roda 1 vez: conserta o Cnpj salvo
+// (reconstrói o zero) e, se a linha já tinha sido geocodificada
+// (Latitude preenchida), limpa Latitude/Longitude/Email/Porte/
+// CapitalSocial pra entrar de novo no próximo iniciarBackfillGeocodificacao
+// — agora com o Cnpj certo. Seguro rodar de novo (idempotente): linha já
+// corrigida (14 dígitos) é pulada.
+function corrigirCnpjsComZeroPerdido() {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    if (!sheet) throw new Error('Aba "' + SHEET_NAME + '" não encontrada nesta planilha.');
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idx = mapearColunas_(headers);
+    if (idx.cnpj === -1) throw new Error('Coluna Cnpj não encontrada.');
+
+    const startTime = Date.now();
+    let corrigidos = 0, resetadosPraReprocessar = 0, cortadoPeloTempo = false;
+
+    for (let r = 1; r < data.length; r++) {
+        if (Date.now() - startTime > BATCH_TIME_LIMIT_MS) { cortadoPeloTempo = true; break; }
+
+        const bruto = String(data[r][idx.cnpj] || '').replace(/\D/g, '');
+        if (!bruto || bruto.length === 14) continue; // vazio ou já correto
+
+        const correto = bruto.padStart(14, '0');
+        sheet.getRange(r + 1, idx.cnpj + 1).setValue("'" + correto);
+        corrigidos++;
+
+        const valorLat = data[r][idx.latitude];
+        const jaProcessado = valorLat !== '' && valorLat !== null && valorLat !== undefined;
+        if (jaProcessado) {
+            sheet.getRange(r + 1, idx.latitude + 1).setValue('');
+            sheet.getRange(r + 1, idx.longitude + 1).setValue('');
+            sheet.getRange(r + 1, idx.email + 1).setValue('');
+            sheet.getRange(r + 1, idx.porte + 1).setValue('');
+            sheet.getRange(r + 1, idx.capitalSocial + 1).setValue('');
+            resetadosPraReprocessar++;
+        }
+    }
+
+    Logger.log(corrigidos + ' CNPJ(s) corrigido(s) (zero à esquerda reconstruído). ' +
+        resetadosPraReprocessar + ' já tinham sido geocodificados com o CNPJ errado — limpos ' +
+        'pra reprocessar (rode iniciarBackfillGeocodificacao de novo pra buscar os dados ' +
+        'corretos dessas empresas).' + (cortadoPeloTempo
+            ? ' PARADO por tempo — rode corrigirCnpjsComZeroPerdido de novo pra continuar de onde parou.'
+            : ' Concluído — nenhuma linha pendente.'));
+}
+
 // ===== BACKFILL =====
 
 function iniciarBackfillGeocodificacao() {
@@ -287,7 +348,16 @@ function processarLote_() {
 
     for (let r = 1; r < data.length; r++) {
         const row = data[r];
-        const cnpj = String(row[idx.cnpj] || '').replace(/\D/g, '');
+        // padStart: CNPJ tem sempre 14 dígitos — se sobrar menos, é zero à
+        // esquerda comido pelo Sheets (célula virou número em algum momento
+        // antes dessa proteção existir). Sem isso, a CNPJá recebe um número
+        // diferente e devolve dados de OUTRA empresa (visto na prática: uma
+        // empresa de Bauru voltou com endereço geocodificado a 140km dali).
+        // Só completa quando já sobrou algum dígito — string vazia
+        // continua vazia, senão "sem CNPJ" viraria "00000000000000" e a
+        // checagem de linha sem CNPJ (!cnpj, logo abaixo) pararia de pular.
+        const cnpjDigitos = String(row[idx.cnpj] || '').replace(/\D/g, '');
+        const cnpj = cnpjDigitos ? cnpjDigitos.padStart(14, '0') : '';
         const valorLat = row[idx.latitude];
         const jaProcessado = valorLat !== '' && valorLat !== null;
         if (!cnpj || jaProcessado) continue;
