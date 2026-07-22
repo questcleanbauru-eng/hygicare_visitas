@@ -1140,6 +1140,21 @@ function readEmailConfig(spreadsheet) {
 function defaultEmailConfig() {
   return {
     load_dias: '30',
+    // Este arquivo (server/api.gs) não tem nenhum código que lê os campos
+    // abaixo — não tem rota de Radar, toggle de permissão nem banner de
+    // manutenção aqui. Ficam só pra este objeto não divergir do
+    // defaultEmailConfig() atual (lib/handlers/config.js), que é quem de
+    // fato usa esses valores; sem efeito funcional neste arquivo.
+    permitir_apagar_outros: 'false',
+    permitir_criar_proposta_funil: 'false',
+    permitir_acesso_radar: 'false',
+    radar_reserva_meses: '6',
+    radar_visita_dias: '7',
+    radar_geocoding_limite_mensal: '50',
+    radar_geocoding_usado_mes: '0',
+    radar_geocoding_mes_referencia: '',
+    manutencao_ativa: 'false',
+    manutencao_mensagem: 'Sistema em manutenção. Voltamos em breve.',
     propostas_ativas: 'false',
     propostas_dias: '30',
     propostas_assunto: 'Proposta pendente de atualizacao',
