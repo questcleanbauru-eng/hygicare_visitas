@@ -20,9 +20,12 @@
  * 1. Abra a planilha do App de Visitas no navegador.
  * 2. Extensões → Apps Script.
  * 3. Apague o conteúdo padrão de Code.gs e cole este arquivo inteiro.
- * 4. Rode `configurarChavesApi` uma vez (edite as chaves antes — pode
- *    deixar só a 1ª preenchida se só tiver uma conta por enquanto).
- *    Guarda as chaves fora do corpo visível do script.
+ * 4. SÓ NA PRIMEIRA VEZ: rode `configurarChavesApi` (edite as chaves
+ *    antes — pode deixar só a 1ª preenchida se só tiver uma conta por
+ *    enquanto). As chaves ficam guardadas no PROJETO (Script
+ *    Properties), separado do código — atualizar o script depois (ex.:
+ *    colar uma versão nova que eu mandar) NUNCA apaga isso. Só precisa
+ *    rodar essa função de novo se for trocar ou adicionar uma chave.
  * 5. Rode `testarUmaEmpresa` — confere se a 1ª chave/autenticação estão
  *    certas usando o CNPJ que já apareceu no print que você me mandou
  *    (Banco do Brasil, Manaus — devia devolver lat -3.079897, lng
@@ -114,7 +117,13 @@ function montarHeaderAuth_(chave) {
     return { 'Authorization': chave };
 }
 
-// ===== SETUP (rodar uma vez) =====
+// ===== SETUP (só na 1ª vez, ou pra trocar/adicionar chave) =====
+// As chaves ficam guardadas no PROJETO (Script Properties), separado do
+// código do arquivo — colar uma versão nova do script por cima NUNCA
+// apaga isso. Não precisa rodar essa função de novo só porque atualizou
+// o script; só se for trocar ou adicionar uma chave de verdade.
+
+const PLACEHOLDER_CHAVE_ = 'COLE_A_CHAVE_DA_CONTA_';
 
 function configurarChavesApi() {
     const chaves = [
@@ -124,14 +133,24 @@ function configurarChavesApi() {
         ''  // conta 4
     ];
     const props = PropertiesService.getScriptProperties();
-    let salvas = 0;
+    let salvasNessaChamada = 0;
     chaves.forEach((chave, i) => {
-        if (chave) { props.setProperty('CNPJA_API_KEY_' + (i + 1), chave); salvas++; }
+        // Ignora placeholder esquecido e string vazia — rodar essa função
+        // sem editar o array (ex.: só porque colou uma versão nova do
+        // script) fica um no-op seguro, nunca apaga uma chave já salva.
+        if (chave && chave.indexOf(PLACEHOLDER_CHAVE_) !== 0) {
+            props.setProperty('CNPJA_API_KEY_' + (i + 1), chave);
+            salvasNessaChamada++;
+        }
     });
-    Logger.log(salvas + ' chave(s) salva(s). Pode apagar as chaves em texto puro acima se quiser. ' +
-        'Lembre de ajustar "Limite mensal de geocodificação" na aba Configurações do Radar (dentro do ' +
-        'app) pra ' + (salvas * CREDITOS_POR_CHAVE) + ' (= ' + salvas + ' conta(s) × ' + CREDITOS_POR_CHAVE +
-        ' créditos grátis cada).');
+    let totalSalvo = 0;
+    for (let i = 1; i <= MAX_CHAVES; i++) {
+        if (props.getProperty('CNPJA_API_KEY_' + i)) totalSalvo++;
+    }
+    Logger.log(salvasNessaChamada + ' chave(s) nova(s)/atualizada(s) nessa chamada — total salvo no ' +
+        'projeto agora: ' + totalSalvo + '. Lembre de ajustar "Limite mensal de geocodificação" na aba ' +
+        'Configurações do Radar (dentro do app) pra ' + (totalSalvo * CREDITOS_POR_CHAVE) + ' (= ' +
+        totalSalvo + ' conta(s) × ' + CREDITOS_POR_CHAVE + ' créditos grátis cada).');
 }
 
 function testarUmaEmpresa() {
