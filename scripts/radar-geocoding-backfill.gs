@@ -6,9 +6,11 @@
  * um script do Google Apps Script, roda direto na planilha. Só está aqui
  * no repositório por registro/histórico.
  *
- * Suporta até 4 chaves da CNPJá (ex.: 4 contas grátis diferentes, 50
- * créditos cada) — usa a primeira até esgotar a cota dela, passa pra
- * próxima sozinho, sem precisar trocar nada na mão no meio do processo.
+ * Suporta até 5 chaves da CNPJá (ex.: 5 contas grátis diferentes, 50
+ * créditos cada) — NÃO usa uma até esgotar pra só então passar pra
+ * próxima; gira em rodízio entre todas desde a primeira chamada (ver
+ * RATE LIMIT abaixo), passando pra próxima sozinho só quando uma esgota
+ * a cota do mês ou está temporariamente de fora por rate limit.
  *
  * Cada chamada já traz nome/endereço/telefone/CNAE — redundante com o
  * que o CSV já importa, então só aproveita o que é novo: geocodificação
@@ -34,7 +36,7 @@
  *    errado — confere na "Referência da API" da CNPJá.
  * 6. Na aba Configurações do Radar (dentro do app), ajuste "Limite
  *    mensal de geocodificação" pra 50 × quantas chaves você configurou
- *    (ex.: 200 pra 4 contas grátis) — senão o limite geral para o
+ *    (ex.: 250 pra 5 contas grátis) — senão o limite geral para o
  *    processo antes de usar as contas extras.
  * 7. Só depois de validar os passos 5 e 6, rode
  *    `iniciarBackfillGeocodificacao`. Processa em lotes de ~5min (limite
@@ -71,19 +73,22 @@
  * RATE LIMIT (por chave, visto na prática — não documentado pela CNPJá)
  * ~10 chamadas por 60s antes da CNPJá responder 429. As chamadas giram em
  * rodízio entre as chaves configuradas (não sempre a mesma), e o
- * espaçamento entre elas se ajusta ao número de chaves — com 4 chaves
- * ativas, cada uma recebe só 1 chamada a cada 4, então processa ~4x mais
+ * espaçamento entre elas se ajusta ao número de chaves — com 5 chaves
+ * ativas, cada uma recebe só 1 chamada a cada 5, então processa ~5x mais
  * rápido que com 1 chave só, sem violar o limite de nenhuma. Se mesmo
  * assim vier um 429, só ESSA chave fica de fora pelo tempo que a própria
  * CNPJá mandou (ttl) — não descarta ela nem para o script, as outras
  * continuam normalmente.
  *
  * CUSTO
- * 1 crédito por linha nova processada (sucesso ou sem_coordenada — a
- * chamada já foi feita de qualquer jeito). O total combinado das chaves é
- * comparado com "Limite mensal de geocodificação" (ConfigEmail,
- * configurável na aba Configurações do Radar) — bate o limite, o script
- * para sozinho até o mês virar.
+ * O contador interno (Limite mensal de geocodificação, ConfigEmail) soma 1
+ * por linha nova processada (sucesso ou sem_coordenada), só como
+ * referência pro admin acompanhar — mas o custo REAL por chamada com
+ * geocoding=true, segundo a própria CNPJá, pode ser maior que 1 (visto na
+ * prática: erro "not enough credits" veio com "required":2). Por isso o
+ * script não depende só desse contador pra saber quando uma chave esgotou:
+ * confia no sinal direto da resposta da CNPJá (ver "not enough credits" em
+ * buscarGeocodificacao_), que reflete o saldo real da conta.
  */
 
 // ===== CONFIGURAÇÃO =====
@@ -97,7 +102,7 @@ const BATCH_TIME_LIMIT_MS = 5 * 60 * 1000; // folga dentro do limite de 6min do 
 // rápido no total.
 const DELAY_BASE_MS = 6500;
 const TRIGGER_HANDLER = 'processarLote_';
-const MAX_CHAVES = 4;
+const MAX_CHAVES = 5;
 const CREDITOS_POR_CHAVE = 50; // cota grátis de cada conta CNPJá — ajuste aqui se alguma virar paga
 
 // A aba Configurações do Radar (dentro do app) lê esses 3 valores da
@@ -130,7 +135,8 @@ function configurarChavesApi() {
         'COLE_A_CHAVE_DA_CONTA_1_AQUI',
         '', // conta 2 — deixe '' se não tiver ainda
         '', // conta 3
-        ''  // conta 4
+        '', // conta 4
+        ''  // conta 5
     ];
     const props = PropertiesService.getScriptProperties();
     let salvasNessaChamada = 0;
@@ -157,6 +163,58 @@ function testarUmaEmpresa() {
     const chaves = obterChaves_();
     const resultado = buscarGeocodificacao_('07526557011659', chaves[0].chave); // Banco do Brasil, Manaus — CNPJ do print
     Logger.log(JSON.stringify(resultado));
+}
+
+// Diagnóstico em camadas — roda ISSO primeiro quando o erro for genérico
+// demais pra saber onde travou (ex.: "Ocorreu um erro desconhecido. Tente
+// novamente mais tarde." não diz se o problema é o projeto inteiro, o
+// Script Properties, a rede, ou especificamente a CNPJá). Cada etapa loga
+// OK ou o erro exato antes de tentar a próxima.
+function diagnosticoBasico() {
+    Logger.log('Etapa 1/4: script rodando — OK.');
+
+    try {
+        const props = PropertiesService.getScriptProperties();
+        const chave1 = props.getProperty('CNPJA_API_KEY_1');
+        Logger.log('Etapa 2/4: Script Properties OK — CNPJA_API_KEY_1 ' +
+            (chave1 ? ('presente, ' + chave1.length + ' caractere(s)') : 'AUSENTE') + '.');
+    } catch (e) {
+        Logger.log('Etapa 2/4: ERRO ao ler Script Properties — ' + e.message);
+        return;
+    }
+
+    try {
+        const resp = UrlFetchApp.fetch('https://api.cnpja.com', { muteHttpExceptions: true });
+        Logger.log('Etapa 3/4: rede externa OK — https://api.cnpja.com respondeu HTTP ' + resp.getResponseCode() + '.');
+    } catch (e) {
+        Logger.log('Etapa 3/4: ERRO de rede (UrlFetchApp) — ' + e.message);
+        return;
+    }
+
+    try {
+        const chaves = obterChaves_();
+        Logger.log('Etapa 4/4: ' + chaves.length + ' chave(s) carregada(s) — testando a primeira...');
+        const resultado = buscarGeocodificacao_('07526557011659', chaves[0].chave);
+        Logger.log('Etapa 4/4: chamada à CNPJá OK — ' + JSON.stringify(resultado));
+    } catch (e) {
+        Logger.log('Etapa 4/4: ERRO na chamada à CNPJá — ' + e.message + (e.stack ? ('\n' + e.stack) : ''));
+    }
+}
+
+// Testa as chaves configuradas de uma vez só (1 chamada cada, contra o
+// mesmo CNPJ de teste) e loga OK/ERRO por chave — mostra de cara se
+// alguma já está sem crédito ou com problema, sem precisar rodar o
+// backfill inteiro pra descobrir.
+function testarTodasChaves() {
+    const chaves = obterChaves_();
+    chaves.forEach((c) => {
+        try {
+            const resultado = buscarGeocodificacao_('07526557011659', c.chave);
+            Logger.log('Chave ' + c.indice + ': OK — ' + JSON.stringify(resultado));
+        } catch (e) {
+            Logger.log('Chave ' + c.indice + ': ERRO — ' + e.message);
+        }
+    });
 }
 
 function obterChaves_() {
@@ -287,6 +345,16 @@ function processarLote_() {
                     'de fora por ' + Math.round(espera / 1000) + 's, seguindo com as outras.');
                 continue;
             }
+            if (e.semCredito) {
+                // Sinal direto da CNPJá, mais confiável que nosso contador
+                // interno (que assume 1 crédito/chamada, mas o custo real
+                // pode ser maior) — marca a chave como esgotada pro resto
+                // do mês IMEDIATAMENTE, sem esperar bater CREDITOS_POR_CHAVE.
+                usoChaves.uso[chaveAtiva.indice] = CREDITOS_POR_CHAVE;
+                Logger.log('Chave ' + chaveAtiva.indice + ' sem créditos (linha ' + (r + 1) + ') — marcada como ' +
+                    'esgotada pro resto do mês. ' + e.message);
+                continue;
+            }
             Logger.log('Erro no CNPJ ' + cnpj + ' (linha ' + (r + 1) + ', chave ' + chaveAtiva.indice + '): ' + e.message);
             erros++;
             errosConsecutivosPorChave[chaveAtiva.indice] = (errosConsecutivosPorChave[chaveAtiva.indice] || 0) + 1;
@@ -346,17 +414,33 @@ function buscarGeocodificacao_(cnpj, chave) {
 
     const code = response.getResponseCode();
     if (code === 429) {
-        // Rate limit (visto na prática: ~10 chamadas/60s por chave) —
-        // NÃO é a chave que está ruim, somos nós indo rápido demais. A
-        // própria CNPJá manda quanto falta pro limite liberar de novo
-        // (ttl, em segundos) — usa isso em vez de chutar um tempo de
-        // espera. Marcado à parte (erro.rateLimited) pra quem chamou
-        // saber que não deve tratar isso como "chave inválida".
+        let parsed = null;
+        try { parsed = JSON.parse(response.getContentText()); } catch (e) { /* corpo fora do formato esperado */ }
+
+        // A CNPJá usa 429 pra DOIS problemas diferentes, que precisam de
+        // tratamento oposto. "not enough credits" (visto na prática: uma
+        // chamada com geocoding=true pode custar mais de 1 crédito, ex.
+        // "required":2) é PERMANENTE até o mês virar — a conta zerou o
+        // saldo de verdade, não adianta esperar. Como o custo real por
+        // chamada pode ser >1, nosso contador interno (1 por chamada) pode
+        // ficar defasado do saldo real — por isso confiar nesse sinal
+        // direto da API é mais seguro que só comparar com
+        // CREDITOS_POR_CHAVE. Marcado à parte (erro.semCredito) pra quem
+        // chamou tratar diferente de rate limit (que é só temporário).
+        if (parsed && parsed.message === 'not enough credits') {
+            const erro = new Error('HTTP 429 (sem crédito): ' + response.getContentText().slice(0, 200));
+            erro.semCredito = true;
+            throw erro;
+        }
+
+        // Rate limit "de verdade" (visto na prática: ~10 chamadas/60s por
+        // chave) — NÃO é a chave que está ruim ou sem saldo, somos nós
+        // indo rápido demais. A própria CNPJá manda quanto falta pro
+        // limite liberar de novo (ttl, em segundos) — usa isso em vez de
+        // chutar um tempo de espera. Marcado à parte (erro.rateLimited)
+        // pra quem chamou saber que é só temporário.
         let ttl = 60;
-        try {
-            const parsed = JSON.parse(response.getContentText());
-            if (typeof parsed.ttl === 'number') ttl = parsed.ttl;
-        } catch (e) { /* mantém os 60s padrão se o corpo não vier no formato esperado */ }
+        if (parsed && typeof parsed.ttl === 'number') ttl = parsed.ttl;
         const erro = new Error('HTTP 429 (rate limit): ' + response.getContentText().slice(0, 200));
         erro.rateLimited = true;
         erro.ttl = ttl;
