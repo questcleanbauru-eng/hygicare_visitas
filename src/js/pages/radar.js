@@ -19,6 +19,16 @@ const STATUS_CLASSES = {
     prospeccao_agendada: 'status-pill radar-status-agendada'
 };
 
+// Chips do filtro de status (aba Buscar) — gerados a partir de
+// STATUS_LABELS/STATUS_CLASSES pra não duplicar rótulo/cor em mais um
+// lugar. "Todos" não tem status (data-status vazio limpa o filtro).
+const STATUS_FILTER_CHIPS_HTML = ['<button type="button" class="radar-status-chip active" data-status="">Todos</button>']
+    .concat(Object.entries(STATUS_LABELS).map(([value, label]) => {
+        const cls = (STATUS_CLASSES[value] || '').replace('status-pill', '').trim();
+        return `<button type="button" class="radar-status-chip ${cls}" data-status="${value}">${escapeHtml(label)}</button>`;
+    }))
+    .join('');
+
 // Desativado a pedido do usuário (layout não convenceu mesmo depois de
 // corrigir tamanho de pin e filtrar pra cidade escolhida — ver commits
 // anteriores). Código do mapa continua intacto abaixo, só não é chamado;
@@ -130,14 +140,8 @@ export async function renderRadarPage() {
                     </select>
                 </div>
                 <div class="form-group" id="radar-status-filtro-group" style="display:none">
-                    <label for="radar-status-filtro">Status</label>
-                    <select id="radar-status-filtro">
-                        <option value="">Todos os status</option>
-                        <option value="buscado">Nunca contatado</option>
-                        <option value="ja_atendido">Já é cliente</option>
-                        <option value="recusado">Recusou</option>
-                        <option value="prospeccao_agendada">Prospecção agendada</option>
-                    </select>
+                    <label>Status</label>
+                    <div class="radar-status-chips" id="radar-status-chips" role="group" aria-label="Filtrar por status">${STATUS_FILTER_CHIPS_HTML}</div>
                 </div>
                 <div class="form-group" id="radar-limpar-group" style="display:none">
                     <button type="button" class="mini-button" id="radar-limpar-filtros">Limpar filtros</button>
@@ -356,7 +360,7 @@ async function renderBuscarTab() {
     const segmentoGroup = document.getElementById('radar-segmento-group');
     const segmentoInput = document.getElementById('radar-segmento');
     const statusFiltroGroup = document.getElementById('radar-status-filtro-group');
-    const statusFiltroInput = document.getElementById('radar-status-filtro');
+    const statusChips = document.getElementById('radar-status-chips');
     const limparGroup = document.getElementById('radar-limpar-group');
     const limparBtn = document.getElementById('radar-limpar-filtros');
 
@@ -400,7 +404,13 @@ async function renderBuscarTab() {
     });
 
     segmentoInput.addEventListener('change', () => renderRadarResults(resultsEl));
-    statusFiltroInput.addEventListener('change', () => renderRadarResults(resultsEl));
+
+    statusChips.querySelectorAll('.radar-status-chip').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            statusChips.querySelectorAll('.radar-status-chip').forEach((b) => b.classList.toggle('active', b === btn));
+            renderRadarResults(resultsEl);
+        });
+    });
 
     // Depois de escolher uma cidade não tinha como voltar a ver todas as
     // cidades liberadas no mapa sem recarregar a aba — "Limpar filtros"
@@ -410,7 +420,7 @@ async function renderBuscarTab() {
         currentClientes = [];
         cidadeInput.value = '';
         segmentoInput.value = '';
-        statusFiltroInput.value = '';
+        statusChips.querySelectorAll('.radar-status-chip').forEach((b) => b.classList.toggle('active', b.dataset.status === ''));
         segmentoGroup.style.display = 'none';
         statusFiltroGroup.style.display = 'none';
         limparGroup.style.display = 'none';
@@ -660,7 +670,7 @@ function renderCidadeMapa(cidades, onSelect) {
 
 function renderRadarResults(resultsEl) {
     const segmento = document.getElementById('radar-segmento')?.value.trim().toLowerCase() || '';
-    const statusFiltro = document.getElementById('radar-status-filtro')?.value || '';
+    const statusFiltro = document.querySelector('#radar-status-chips .radar-status-chip.active')?.dataset.status || '';
 
     const porSegmento = segmento
         ? currentClientes.filter((c) =>

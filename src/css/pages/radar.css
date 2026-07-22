@@ -200,6 +200,47 @@
 .status-pill.radar-status-recusado  { background: #fee2e2; color: #991b1b; }
 .status-pill.radar-status-agendada  { background: #fef3c7; color: #b45309; }
 
+/* Filtro de status (aba Buscar) — chips em vez de <select>: é o filtro
+   mais usado da tela, então 1 toque em vez de abrir+escolher compensa o
+   espaço extra. Neutro até ficar ativo, aí pega a mesma cor da pill de
+   status equivalente (liga visualmente o filtro ao que ele filtra). */
+.radar-status-chips {
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 0.15rem;
+}
+
+.radar-status-chips::-webkit-scrollbar { display: none; }
+
+.radar-status-chip {
+    flex: 0 0 auto;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    border-radius: 999px;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.radar-status-chip:hover { border-color: #94a3b8; }
+
+.radar-status-chip.active {
+    background: var(--text);
+    border-color: var(--text);
+    color: #fff;
+}
+
+.radar-status-chip.radar-status-buscado.active   { background: #166534; border-color: #166534; }
+.radar-status-chip.radar-status-atendido.active  { background: #1d4ed8; border-color: #1d4ed8; }
+.radar-status-chip.radar-status-recusado.active  { background: #991b1b; border-color: #991b1b; }
+.radar-status-chip.radar-status-agendada.active  { background: #b45309; border-color: #b45309; }
+
 .radar-tabs-bar {
     display: flex;
     border-bottom: 1.5px solid var(--border);
