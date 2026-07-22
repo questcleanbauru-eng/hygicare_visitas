@@ -6,7 +6,7 @@
  * um script do Google Apps Script, roda direto na planilha. Só está aqui
  * no repositório por registro/histórico.
  *
- * Suporta até 4 chaves da CNPJá (ex.: 4 contas grátis diferentes, 45
+ * Suporta até 4 chaves da CNPJá (ex.: 4 contas grátis diferentes, 50
  * créditos cada) — usa a primeira até esgotar a cota dela, passa pra
  * próxima sozinho, sem precisar trocar nada na mão no meio do processo.
  *
@@ -30,8 +30,8 @@
  *    autenticação abaixo (ver montarHeaderAuth_) provavelmente está
  *    errado — confere na "Referência da API" da CNPJá.
  * 6. Na aba Configurações do Radar (dentro do app), ajuste "Limite
- *    mensal de geocodificação" pra 45 × quantas chaves você configurou
- *    (ex.: 180 pra 4 contas grátis) — senão o limite geral para o
+ *    mensal de geocodificação" pra 50 × quantas chaves você configurou
+ *    (ex.: 200 pra 4 contas grátis) — senão o limite geral para o
  *    processo antes de usar as contas extras.
  * 7. Só depois de validar os passos 5 e 6, rode
  *    `iniciarBackfillGeocodificacao`. Processa em lotes de ~5min (limite
@@ -57,7 +57,7 @@
  * importar CSV novo) só processa quem ainda está vazio.
  *
  * COMO FUNCIONA A ROTAÇÃO DE CHAVES
- * Cada chave tem uma cota mensal própria (CREDITOS_POR_CHAVE, padrão 45)
+ * Cada chave tem uma cota mensal própria (CREDITOS_POR_CHAVE, padrão 50)
  * controlada aqui dentro (Script Properties, não na planilha — é detalhe
  * interno, a aba Configurações do Radar só mostra o total combinado). Ao
  * escolher qual chave usar pra próxima empresa, pula quem já bateu a
@@ -91,7 +91,7 @@ const BATCH_TIME_LIMIT_MS = 5 * 60 * 1000; // folga dentro do limite de 6min do 
 const DELAY_BETWEEN_CALLS_MS = 6500;
 const TRIGGER_HANDLER = 'processarLote_';
 const MAX_CHAVES = 4;
-const CREDITOS_POR_CHAVE = 45; // cota grátis de cada conta CNPJá — ajuste aqui se alguma virar paga
+const CREDITOS_POR_CHAVE = 50; // cota grátis de cada conta CNPJá — ajuste aqui se alguma virar paga
 
 // A aba Configurações do Radar (dentro do app) lê esses 3 valores da
 // ConfigEmail pra mostrar progresso pro admin — o app nunca escreve
@@ -362,16 +362,16 @@ function lerConfigUso_() {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG_SHEET_NAME);
     const mesAtual = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'America/Sao_Paulo', 'yyyy-MM');
     if (!sheet) {
-        Logger.log('Aba "' + CONFIG_SHEET_NAME + '" não encontrada — rodando sem limite mensal configurado (padrão 45).');
-        return { sheet: null, limite: 45, usado: 0, mesAtual: mesAtual, linhaUsado: -1, linhaMes: -1 };
+        Logger.log('Aba "' + CONFIG_SHEET_NAME + '" não encontrada — rodando sem limite mensal configurado (padrão ' + CREDITOS_POR_CHAVE + ').');
+        return { sheet: null, limite: CREDITOS_POR_CHAVE, usado: 0, mesAtual: mesAtual, linhaUsado: -1, linhaMes: -1 };
     }
 
     const data = sheet.getDataRange().getValues();
-    let limite = 45, usado = 0, mesReferencia = '';
+    let limite = CREDITOS_POR_CHAVE, usado = 0, mesReferencia = '';
     let linhaUsado = -1, linhaMes = -1;
     for (let r = 1; r < data.length; r++) {
         const chave = String(data[r][0] || '').trim();
-        if (chave === CONFIG_KEY_LIMITE) limite = Number(data[r][1]) || 45;
+        if (chave === CONFIG_KEY_LIMITE) limite = Number(data[r][1]) || CREDITOS_POR_CHAVE;
         if (chave === CONFIG_KEY_USADO) { usado = Number(data[r][1]) || 0; linhaUsado = r; }
         if (chave === CONFIG_KEY_MES) { mesReferencia = String(data[r][1] || ''); linhaMes = r; }
     }

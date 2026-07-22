@@ -322,7 +322,7 @@ function bindConfigTab() {
         if (result.status !== 'success') return;
         reservaInput.value = result.data.radar_reserva_meses || '6';
         visitaInput.value = result.data.radar_visita_dias || '7';
-        limiteInput.value = result.data.radar_geocoding_limite_mensal || '45';
+        limiteInput.value = result.data.radar_geocoding_limite_mensal || '50';
         renderGeoResumo(result.data, geoResumoEl);
     });
 
@@ -359,7 +359,7 @@ async function renderGeoResumo(configData, el) {
     const mesAtual = new Date().toISOString().slice(0, 7);
     const usado = configData.radar_geocoding_mes_referencia === mesAtual
         ? (configData.radar_geocoding_usado_mes || '0') : '0';
-    const limite = configData.radar_geocoding_limite_mensal || '45';
+    const limite = configData.radar_geocoding_limite_mensal || '50';
 
     const result = await callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' });
     if (result.status !== 'success') {
