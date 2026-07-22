@@ -19,6 +19,12 @@ const STATUS_CLASSES = {
     prospeccao_agendada: 'status-pill radar-status-agendada'
 };
 
+// Prioriza quem nunca foi contatado — é literalmente o objetivo do Radar.
+// Usado pra ordenar a lista (renderClienteCards) e pra escolher a cor de
+// um cluster de pins no mapa por empresa (status "mais prioritário" entre
+// os que estão no mesmo ponto).
+const STATUS_PRIORITY = { buscado: 0, prospeccao_agendada: 1, recusado: 2, ja_atendido: 3 };
+
 // Chips do filtro de status (aba Buscar) — gerados a partir de
 // STATUS_LABELS/STATUS_CLASSES pra não duplicar rótulo/cor em mais um
 // lugar. "Todos" não tem status (data-status vazio limpa o filtro).
@@ -793,13 +799,40 @@ function renderEmpresaMapa(clientes, onUpdated) {
         y: size / 2 - ((lat - centerLat) / span) * usable // lat maior = mais ao norte = y menor
     }));
 
+    // Endereço da CNPJá costuma resolver várias empresas do mesmo prédio/
+    // quarteirão pro mesmo ponto (ou bem perto) — sem agrupar, isso vira um
+    // monte de pin sobrepondo o de cima e escondendo os outros (visto na
+    // prática: só ~10 pins visíveis pra 230 empresas geocodificadas numa
+    // cidade). Agrupamento simples de 1 passada (não é k-means/DBSCAN de
+    // verdade, só o suficiente pro efeito visual): qualquer pin a menos de
+    // CLUSTER_DIST de um cluster já existente entra nele, recentralizando
+    // a bolha na média do grupo.
+    const CLUSTER_DIST = 4;
+    const clusters = [];
+    pins.forEach((p) => {
+        const near = clusters.find((cl) => Math.hypot(cl.x - p.x, cl.y - p.y) < CLUSTER_DIST);
+        if (near) {
+            near.items.push(p);
+            near.x = near.items.reduce((sum, it) => sum + it.x, 0) / near.items.length;
+            near.y = near.items.reduce((sum, it) => sum + it.y, 0) / near.items.length;
+        } else {
+            clusters.push({ x: p.x, y: p.y, items: [p] });
+        }
+    });
+
     wrap.innerHTML = `
         <div class="card radar-empresa-map-card">
             <svg viewBox="0 0 ${size} ${size}" class="radar-empresa-map-svg" role="img" aria-label="Mapa com as empresas geocodificadas desta lista">
-                ${pins.map((p) => `
-                    <g class="radar-empresa-pin-group" data-radar-id="${escapeHtml(p.c.id)}">
-                        <circle class="radar-empresa-pin-touch" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="5"></circle>
-                        <circle class="radar-empresa-pin ${statusPinClass(p.c.status)}" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="2.4"><title>${escapeHtml(p.c.nomeFantasia || p.c.nome || 'Empresa')}</title></circle>
+                ${clusters.map((cl, i) => cl.items.length === 1 ? `
+                    <g class="radar-empresa-pin-group" data-cluster="${i}">
+                        <circle class="radar-empresa-pin-touch" cx="${cl.x.toFixed(2)}" cy="${cl.y.toFixed(2)}" r="5"></circle>
+                        <circle class="radar-empresa-pin ${statusPinClass(cl.items[0].c.status)}" cx="${cl.x.toFixed(2)}" cy="${cl.y.toFixed(2)}" r="2.4"><title>${escapeHtml(cl.items[0].c.nomeFantasia || cl.items[0].c.nome || 'Empresa')}</title></circle>
+                    </g>
+                ` : `
+                    <g class="radar-empresa-pin-group radar-empresa-cluster" data-cluster="${i}">
+                        <circle class="radar-empresa-pin-touch" cx="${cl.x.toFixed(2)}" cy="${cl.y.toFixed(2)}" r="6.5"></circle>
+                        <circle class="radar-empresa-pin radar-empresa-pin-cluster ${statusPinClass(clusterStatus(cl.items))}" cx="${cl.x.toFixed(2)}" cy="${cl.y.toFixed(2)}" r="4.2"><title>${cl.items.length} empresas neste ponto</title></circle>
+                        <text class="radar-empresa-cluster-label" x="${cl.x.toFixed(2)}" y="${cl.y.toFixed(2)}">${cl.items.length}</text>
                     </g>
                 `).join('')}
             </svg>
@@ -809,7 +842,62 @@ function renderEmpresaMapa(clientes, onUpdated) {
 
     wrap.querySelectorAll('.radar-empresa-pin-group').forEach((g) => {
         g.addEventListener('click', () => {
-            const cliente = clientes.find((c) => String(c.id) === g.dataset.radarId);
+            const cluster = clusters[Number(g.dataset.cluster)];
+            if (!cluster) return;
+            if (cluster.items.length === 1) {
+                openRadarDetailCard(cluster.items[0].c, onUpdated);
+            } else {
+                openClusterListModal(cluster.items.map((it) => it.c), onUpdated);
+            }
+        });
+    });
+}
+
+// Status "mais prioritário" (não é maioria estatística) entre as empresas
+// de um cluster — um cluster com 1 buscado + 4 já_atendido continua
+// pintado de verde, porque o que importa pro vendedor é "tem oportunidade
+// aqui?", não qual status é mais comum no ponto.
+function clusterStatus(items) {
+    let best = items[0].c.status;
+    let bestPriority = STATUS_PRIORITY[best] ?? 9;
+    items.forEach((it) => {
+        const pr = STATUS_PRIORITY[it.c.status] ?? 9;
+        if (pr < bestPriority) { bestPriority = pr; best = it.c.status; }
+    });
+    return best;
+}
+
+// Lista curta (mesmo visual de .radar-cliente-card) das empresas dentro de
+// um cluster do mapa — abre o card de detalhe de verdade (openRadarDetailCard)
+// ao clicar numa delas, igual clicar direto num pin sem cluster.
+function openClusterListModal(companies, onUpdated) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card" style="text-align:left">
+            <h3 style="margin-top:0">${companies.length} empresas neste ponto do mapa</h3>
+            <div class="radar-cluster-modal-list">
+                ${companies.map((c) => `
+                    <button type="button" class="radar-cliente-card" data-radar-id="${escapeHtml(c.id)}" style="padding:0.5rem 0.75rem">
+                        <div class="radar-cliente-header">
+                            <strong>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</strong>
+                            <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
+                        </div>
+                    </button>
+                `).join('')}
+            </div>
+            <div class="form-actions" style="margin-top:0.85rem">
+                <button type="button" class="secondary-button" id="radar-cluster-fechar">Fechar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.querySelector('#radar-cluster-fechar').addEventListener('click', close);
+    overlay.querySelectorAll('[data-radar-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const cliente = companies.find((c) => String(c.id) === btn.dataset.radarId);
+            close();
             if (cliente) openRadarDetailCard(cliente, onUpdated);
         });
     });
@@ -840,9 +928,7 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHt
         return;
     }
 
-    // Prioriza quem nunca foi contatado — é literalmente o objetivo do Radar.
-    const priority = { buscado: 0, prospeccao_agendada: 1, recusado: 2, ja_atendido: 3 };
-    const sorted = [...list].sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9));
+    const sorted = [...list].sort((a, b) => (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9));
 
     resultsEl.innerHTML = `
         ${resumoHtml || `<p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>`}
@@ -989,6 +1075,29 @@ function formatPorteCapital(c) {
     return parts.join(' · ');
 }
 
+// XX.XXX.XXX/XXXX-XX — só formatação visual pro card; o valor salvo
+// continua só dígitos (é a chave de dedup da importação de CSV).
+function formatCnpj(cnpj) {
+    const d = String(cnpj || '').replace(/\D/g, '');
+    if (d.length !== 14) return cnpj || '';
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`;
+}
+
+// Link direto pro Google Maps a partir do endereço já formatado — esquema
+// de URL público do Google (não precisa de chave de API), abre o app no
+// celular (se instalado) ou maps.google.com no navegador.
+function googleMapsUrl(endereco) {
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(endereco);
+}
+
+// CNPJ "ATIVA" é o normal, sem destaque — qualquer outra coisa (BAIXADA,
+// INAPTA, SUSPENSA, NULA) é sinal de alerta pro vendedor não perder tempo
+// prospectando uma empresa que talvez nem exista mais.
+function situacaoAlerta(situacao) {
+    const s = String(situacao || '').trim().toUpperCase();
+    return s !== '' && s !== 'ATIVA';
+}
+
 function openRadarDetailCard(cliente, onUpdated) {
     const refresh = onUpdated || rerenderRadarList;
     const endereco = formatEndereco(cliente);
@@ -1002,11 +1111,13 @@ function openRadarDetailCard(cliente, onUpdated) {
             <h3 style="margin-top:0">${escapeHtml(cliente.nomeFantasia || cliente.nome || 'Empresa')}</h3>
             ${cliente.nomeFantasia && cliente.nome && cliente.nomeFantasia !== cliente.nome
                 ? `<p class="helper-text" style="margin:0 0 0.5rem;text-align:left">${escapeHtml(cliente.nome)}</p>` : ''}
+            ${cliente.cnpj ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(formatCnpj(cliente.cnpj))}</p>` : ''}
+            ${cliente.situacaoCadastral ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem${situacaoAlerta(cliente.situacaoCadastral) ? ';color:#b91c1c;font-weight:600' : ''}">${escapeHtml(cliente.situacaoCadastral)}</p>` : ''}
             <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cidadeLabel(cliente))}</p>
             <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.cnaeDescricao || '-')}</p>
             ${cliente.segmento ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.segmento)}</p>` : ''}
             ${porteCapital ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(porteCapital)}</p>` : ''}
-            ${endereco ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📍 ${escapeHtml(endereco)}</p>` : ''}
+            ${endereco ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📍 <a href="${googleMapsUrl(endereco)}" target="_blank" rel="noopener">${escapeHtml(endereco)}</a></p>` : ''}
             ${cliente.telefone ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📞 <a href="tel:${escapeHtml(cliente.telefone.replace(/\D/g, ''))}">${escapeHtml(cliente.telefone)}</a></p>` : ''}
             ${cliente.email ? `<p class="helper-text" style="text-align:left;margin:0 0 0.85rem">✉️ <a href="mailto:${escapeHtml(cliente.email)}">${escapeHtml(cliente.email)}</a></p>` : ''}
             <span class="${STATUS_CLASSES[cliente.status] || 'status-pill'}" style="margin-bottom:1rem;display:inline-block">${escapeHtml(STATUS_LABELS[cliente.status] || cliente.status)}</span>

@@ -247,9 +247,41 @@
 .radar-empresa-pin.radar-status-recusado  { fill: #991b1b; }
 .radar-empresa-pin.radar-status-agendada  { fill: #b45309; }
 
+/* Cluster (2+ empresas resolvidas pro mesmo ponto, ou perto o bastante —
+   ver CLUSTER_DIST em renderEmpresaMapa) — bolha maior com o total dentro,
+   mesma cor do status mais prioritário do grupo. */
+.radar-empresa-pin.radar-empresa-pin-cluster {
+    stroke-width: 1;
+}
+
+.radar-empresa-cluster-label {
+    fill: #fff;
+    font-size: 3.6px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+    user-select: none;
+}
+
 .radar-empresa-map-caption {
     margin: 0.5rem 0 0;
     text-align: center;
+}
+
+/* Lista de empresas dentro do modal de cluster — cópia deliberada da regra
+   base de .visits-list (components.css), NÃO um reaproveitamento direto:
+   dashboard.css redefine .visits-list como grid de 2 colunas a partir de
+   certas larguras, o que colidia com o modal (max-width: 340px) e deixava
+   os cards praticamente invisíveis, espremidos numa grade estreita
+   demais. Classe própria = sempre 1 coluna aqui, sem depender de qual
+   outra página carregou CSS antes. */
+.radar-cluster-modal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    text-align: left;
+    margin-bottom: 0.5rem;
 }
 
 /* Filtro de status (aba Buscar) — chips em vez de <select>: é o filtro
