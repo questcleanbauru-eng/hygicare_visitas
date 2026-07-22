@@ -66,12 +66,14 @@
  * descartada só pro resto desse lote — as outras continuam normalmente.
  *
  * RATE LIMIT (por chave, visto na prática — não documentado pela CNPJá)
- * ~10 chamadas por 60s antes da CNPJá responder 429. DELAY_BETWEEN_CALLS_MS
- * (6500ms) já respeita isso por padrão. Se mesmo assim vier um 429, o
- * script lê o "ttl" que a própria CNPJá manda na resposta (segundos até
- * liberar de novo), espera esse tempo e continua da próxima linha — não
- * descarta a chave nem gasta um erro "de verdade" por isso, já que o
- * problema é só velocidade, não a chave em si.
+ * ~10 chamadas por 60s antes da CNPJá responder 429. As chamadas giram em
+ * rodízio entre as chaves configuradas (não sempre a mesma), e o
+ * espaçamento entre elas se ajusta ao número de chaves — com 4 chaves
+ * ativas, cada uma recebe só 1 chamada a cada 4, então processa ~4x mais
+ * rápido que com 1 chave só, sem violar o limite de nenhuma. Se mesmo
+ * assim vier um 429, só ESSA chave fica de fora pelo tempo que a própria
+ * CNPJá mandou (ttl) — não descarta ela nem para o script, as outras
+ * continuam normalmente.
  *
  * CUSTO
  * 1 crédito por linha nova processada (sucesso ou sem_coordenada — a
@@ -84,11 +86,13 @@
 // ===== CONFIGURAÇÃO =====
 const SHEET_NAME = 'RadarClientes';
 const BATCH_TIME_LIMIT_MS = 5 * 60 * 1000; // folga dentro do limite de 6min do Apps Script
-// Visto na prática (log de execução real): a CNPJá deixa ~10
-// chamadas/60s por chave antes de responder 429. 6500ms de espaçamento
-// = no máximo ~9,2 chamadas/60s, com folga. Isso é por chave — trocar de
-// chave (ver escolherChave_) não acelera, o delay vale igual pra todas.
-const DELAY_BETWEEN_CALLS_MS = 6500;
+// Base do espaçamento entre chamadas (visto na prática: a CNPJá deixa
+// ~10/60s por chave antes de responder 429; 6500ms = ~9,2/60s, com
+// folga). O delay REAL usado em processarLote_ divide isso pelo número
+// de chaves ativas — com rodízio entre elas, cada chave individual
+// continua recebendo uma chamada só a cada ~6500ms, mesmo rodando mais
+// rápido no total.
+const DELAY_BASE_MS = 6500;
 const TRIGGER_HANDLER = 'processarLote_';
 const MAX_CHAVES = 4;
 const CREDITOS_POR_CHAVE = 50; // cota grátis de cada conta CNPJá — ajuste aqui se alguma virar paga
@@ -171,11 +175,28 @@ function processarLote_() {
     let usadoAgora = cfg.usado; // total combinado — é o que a aba Configurações do Radar mostra
     const errosConsecutivosPorChave = {};
     const chavesDescartadasNesteLote = {};
+    const chaveIndisponivelAte = {}; // indice -> timestamp (ms) até quando pular essa chave por rate limit
 
+    // Espaçamento entre chamadas divide o "custo" (6500ms, o que já
+    // mantém uma chave sozinha com folga dentro de ~10/60s) pelo número
+    // de chaves — com rodízio, cada chave individual só recebe 1 a cada
+    // N chamadas, então N chaves ativas processam ~N vezes mais rápido
+    // sem violar o limite de nenhuma delas.
+    const delayEntreChamadasMs = Math.max(800, Math.round(DELAY_BASE_MS / chaves.length));
+
+    let cursorChave = 0;
+    // Rodízio, não "sempre a primeira disponível" — antes disso, uma
+    // chave em rate limit deixava as outras 3 completamente paradas
+    // (visto em produção: só a chave 1 tinha uso, as outras 3 seguiam
+    // com os 50 créditos intactos). Pula quem está descartada, esgotada
+    // no mês, ou temporariamente de fora por rate limit.
     function escolherChave_() {
-        for (const c of chaves) {
+        for (let tentativas = 0; tentativas < chaves.length; tentativas++) {
+            const c = chaves[cursorChave % chaves.length];
+            cursorChave++;
             if (chavesDescartadasNesteLote[c.indice]) continue;
             if ((usoChaves.uso[c.indice] || 0) >= CREDITOS_POR_CHAVE) continue;
+            if (chaveIndisponivelAte[c.indice] && chaveIndisponivelAte[c.indice] > Date.now()) continue;
             return c;
         }
         return null;
@@ -198,7 +219,21 @@ function processarLote_() {
         if (Date.now() - startTime > BATCH_TIME_LIMIT_MS) { cortadoPeloTempo = true; break; }
 
         const chaveAtiva = escolherChave_();
-        if (!chaveAtiva) { semChaveDisponivel = true; break; }
+        if (!chaveAtiva) {
+            // Sem nenhuma chave disponível AGORA — mas por dois motivos
+            // bem diferentes: esgotadas/descartadas de verdade (permanente
+            // até o mês virar) ou só esfriando de rate limit (temporário,
+            // libera sozinho em menos de 1 min). Só para o trigger no
+            // primeiro caso.
+            const semSaidaPermanente = chaves.every((c) =>
+                chavesDescartadasNesteLote[c.indice] || (usoChaves.uso[c.indice] || 0) >= CREDITOS_POR_CHAVE);
+            if (semSaidaPermanente) {
+                semChaveDisponivel = true;
+            } else {
+                cortadoPeloTempo = true; // deixa o próximo lote (5min) tentar de novo
+            }
+            break;
+        }
 
         processados++;
         try {
@@ -222,26 +257,15 @@ function processarLote_() {
             errosConsecutivosPorChave[chaveAtiva.indice] = 0;
         } catch (e) {
             if (e.rateLimited) {
-                // Não descarta a chave nem conta como erro "de verdade" —
-                // só fomos rápido demais. Espera o tempo que a própria
-                // CNPJá mandou (+ folga) e segue da próxima linha; essa
-                // fica vazia pra ser retentada depois.
-                const espera = (e.ttl || 60) + 3;
-                const restanteMs = BATCH_TIME_LIMIT_MS - (Date.now() - startTime);
-                if (espera * 1000 > restanteMs) {
-                    // Esperar isso inteiro estouraria o orçamento do lote
-                    // (pior ainda, o limite de 6min do Apps Script, que
-                    // MATA a execução no meio — foi o que provavelmente
-                    // causou o "erro desconhecido" visto em produção).
-                    // Para aqui, limpo, e deixa o próximo lote continuar
-                    // dessa mesma linha.
-                    Logger.log('Rate limit na chave ' + chaveAtiva.indice + ' (linha ' + (r + 1) + ') — esperaria ' +
-                        espera + 's mas só sobra ' + Math.round(restanteMs / 1000) + 's nesse lote. Parando aqui.');
-                    cortadoPeloTempo = true;
-                    break;
-                }
-                Logger.log('Rate limit na chave ' + chaveAtiva.indice + ' (linha ' + (r + 1) + ') — esperando ' + espera + 's.');
-                Utilities.sleep(espera * 1000);
+                // Não descarta a chave nem dorme o script inteiro — só
+                // marca ESSA chave como indisponível pelo tempo que a
+                // CNPJá mandou (+ folga) e segue pra próxima linha, que
+                // escolherChave_ vai preencher com outra chave (rodízio).
+                // Essa linha fica vazia, retentada depois.
+                const espera = ((e.ttl || 60) + 3) * 1000;
+                chaveIndisponivelAte[chaveAtiva.indice] = Date.now() + espera;
+                Logger.log('Rate limit na chave ' + chaveAtiva.indice + ' (linha ' + (r + 1) + ') — só ela fica ' +
+                    'de fora por ' + Math.round(espera / 1000) + 's, seguindo com as outras.');
                 continue;
             }
             Logger.log('Erro no CNPJ ' + cnpj + ' (linha ' + (r + 1) + ', chave ' + chaveAtiva.indice + '): ' + e.message);
@@ -256,7 +280,7 @@ function processarLote_() {
                 Logger.log('Chave ' + chaveAtiva.indice + ' descartada por esse lote (3 erros seguidos).');
             }
         }
-        Utilities.sleep(DELAY_BETWEEN_CALLS_MS);
+        Utilities.sleep(delayEntreChamadasMs);
     }
 
     salvarUsoPorChave_(usoChaves);
@@ -276,8 +300,8 @@ function processarLote_() {
     } else if (semChaveDisponivel) {
         removerTrigger_();
         Logger.log('PARADO: todas as ' + chaves.length + ' chave(s) configurada(s) esgotaram a cota (' +
-            CREDITOS_POR_CHAVE + ' cada) ou deram erro nesse lote. Volta a valer mais no mês que vem, ou ' +
-            'rode iniciarBackfillGeocodificacao manualmente se resolver algo (chave nova, etc.) antes disso.');
+            CREDITOS_POR_CHAVE + ' cada) ou foram descartadas por erro nesse lote. Volta a valer mais no ' +
+            'mês que vem, ou rode iniciarBackfillGeocodificacao manualmente se resolver algo antes disso.');
     } else if (cortadoPeloTempo) {
         garantirTrigger_();
     } else {
