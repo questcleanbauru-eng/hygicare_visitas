@@ -90,6 +90,8 @@ function processarLote_() {
 
     const startTime = Date.now();
     let cortadoPeloTempo = false;
+    let cotaProvavelEsgotada = false;
+    let errosConsecutivos = 0;
     let processados = 0, comCoordenada = 0, semCoordenada = 0, erros = 0;
 
     for (let r = 1; r < data.length; r++) {
@@ -112,17 +114,30 @@ function processarLote_() {
                 sheet.getRange(r + 1, idx.latitude + 1).setValue('sem_coordenada');
                 semCoordenada++;
             }
+            errosConsecutivos = 0;
         } catch (e) {
             Logger.log('Erro no CNPJ ' + cnpj + ' (linha ' + (r + 1) + '): ' + e.message);
             erros++;
+            errosConsecutivos++;
+            // 3 erros seguidos não é ruído de rede, é sinal de algo sistêmico
+            // (cota esgotada, chave errada, API fora do ar) — continuar
+            // batendo nas próximas linhas só gastaria tempo à toa (a
+            // chamada já falha antes de custar crédito, mas não tem por
+            // que insistir cegamente).
+            if (errosConsecutivos >= 3) { cotaProvavelEsgotada = true; break; }
         }
         Utilities.sleep(DELAY_BETWEEN_CALLS_MS);
     }
 
     Logger.log('Lote: ' + processados + ' processados — ' + comCoordenada + ' com coordenada, ' +
-        semCoordenada + ' sem coordenada, ' + erros + ' erro(s) (serão retentados no próximo lote).');
+        semCoordenada + ' sem coordenada, ' + erros + ' erro(s).');
 
-    if (cortadoPeloTempo) {
+    if (cotaProvavelEsgotada) {
+        removerTrigger_();
+        Logger.log('PARADO: 3 erros seguidos — provavelmente cota esgotada ou chave inválida. ' +
+            'Confira o último erro acima, resolva, e rode iniciarBackfillGeocodificacao de novo manualmente ' +
+            '(o trigger automático foi removido de propósito pra não ficar tentando sozinho no vazio).');
+    } else if (cortadoPeloTempo) {
         garantirTrigger_();
     } else {
         // Passou pela planilha inteira nessa passada sem precisar cortar
