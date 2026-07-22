@@ -783,19 +783,38 @@ function renderEmpresaMapa(clientes, onUpdated) {
         empresaMapInstance = null;
     }
 
-    const geocoded = clientes
-        .map((c) => ({ c, lat: parseFloat(c.latitude), lng: parseFloat(c.longitude) }))
-        .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+    // Empresa sem coordenada própria ainda (backfill não chegou nela, ou a
+    // CNPJá não tinha o dado) cai na coordenada da CIDADE escolhida em vez
+    // de sumir do mapa — aproximado (todo mundo nessa situação cai no
+    // mesmo pino, o cluster já resolve isso visualmente), mas melhor que
+    // não aparecer. Só funciona se a cidade em si tiver Lat/Lng resolvida
+    // (RadarCidadesDisponiveis); senão essas empresas continuam de fora,
+    // igual antes.
+    const cidadeLat = parseFloat(currentCidade?.lat);
+    const cidadeLng = parseFloat(currentCidade?.lng);
+    const temCidadeCoord = Number.isFinite(cidadeLat) && Number.isFinite(cidadeLng);
 
-    if (geocoded.length === 0) {
+    const pontos = clientes.map((c) => {
+        const lat = parseFloat(c.latitude), lng = parseFloat(c.longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return { c, lat, lng, aproximado: false };
+        if (temCidadeCoord) return { c, lat: cidadeLat, lng: cidadeLng, aproximado: true };
+        return null;
+    }).filter(Boolean);
+
+    if (pontos.length === 0) {
         wrap.innerHTML = '';
         return;
     }
 
+    const comCoordenada = pontos.filter((p) => !p.aproximado).length;
+    const porCidade = pontos.length - comCoordenada;
+    const caption = `${comCoordenada} empresa(s) com localização exata` +
+        (porCidade ? ` · ${porCidade} aproximada(s) pela cidade` : '');
+
     wrap.innerHTML = `
         <div class="card radar-empresa-map-card">
             <div class="radar-empresa-map-leaflet" id="radar-empresa-map-leaflet"></div>
-            <p class="field-helper-text radar-empresa-map-caption">${geocoded.length} de ${clientes.length} empresa(s) com localização</p>
+            <p class="field-helper-text radar-empresa-map-caption">${caption}</p>
         </div>
     `;
 
@@ -831,16 +850,22 @@ function renderEmpresaMapa(clientes, onUpdated) {
         }
     });
 
-    geocoded.forEach(({ c, lat, lng }) => {
+    pontos.forEach(({ c, lat, lng, aproximado }) => {
+        // Pin aproximado (coordenada da cidade, não da empresa) fica mais
+        // translúscido e com borda tracejada — sinal visual de "não confia
+        // nesse ponto pra achar o endereço exato", sem precisar de um
+        // segundo texto explicando (o tooltip completa isso no hover).
         const marker = L.circleMarker([lat, lng], {
-            radius: 8,
+            radius: aproximado ? 7 : 8,
             fillColor: STATUS_HEX[c.status] || STATUS_HEX.buscado,
-            color: '#fff',
+            color: aproximado ? 'rgba(255,255,255,0.65)' : '#fff',
             weight: 2,
-            fillOpacity: 1,
+            fillOpacity: aproximado ? 0.55 : 1,
+            dashArray: aproximado ? '2,2' : null,
             radarStatus: c.status
         });
-        marker.bindTooltip(escapeHtml(c.nomeFantasia || c.nome || 'Empresa'));
+        const nome = escapeHtml(c.nomeFantasia || c.nome || 'Empresa');
+        marker.bindTooltip(aproximado ? `${nome} (localização aproximada da cidade)` : nome);
         marker.on('click', () => openRadarDetailCard(c, onUpdated));
         clusterGroup.addLayer(marker);
     });
@@ -1031,7 +1056,10 @@ function formatPorteCapital(c) {
 // de manter texto); reconstrói o zero antes de formatar.
 function formatCnpj(cnpj) {
     let d = String(cnpj || '').replace(/\D/g, '');
-    if (d.length === 13) d = '0' + d;
+    // Sheets pode ter comido mais de 1 zero à esquerda (visto na prática:
+    // um CNPJ apareceu com só 12 dígitos, não 13) — completa com zero até
+    // 14 em vez de tratar só o caso de faltar exatamente 1.
+    if (d.length > 0 && d.length < 14) d = d.padStart(14, '0');
     if (d.length !== 14) return cnpj || '';
     return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`;
 }
