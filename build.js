@@ -82,7 +82,12 @@ async function runBuild() {
         sourcemap: true,
         target: ['es2020'],
         metafile: true,
-        logLevel: 'info'
+        logLevel: 'info',
+        // leaflet.css referencia .png (ícones padrão de marker/layers) via
+        // url() — não usamos esses ícones (pins são L.circleMarker, sem
+        // imagem), mas o esbuild ainda precisa saber empacotar o arquivo CSS
+        // de origem. 'file' copia como asset com hash, igual o resto.
+        loader: { '.png': 'file' }
     });
 
     // Map each declared entry ("app", "base", "css/visits", ...) to its hashed output URL.

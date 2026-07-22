@@ -4,6 +4,22 @@ import { escapeHtml, parseDisplayDate, formatDateForDisplay } from '../utils/for
 import { initializeSearchableInput, showToast, loadingState, setSaving } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 import { BRAZIL_MAP_SIZE, BRAZIL_OUTLINE_PATH, BRAZIL_STATE_PATHS, projectLatLng } from '../data/brazilOutline.js';
+import L from 'leaflet';
+import 'leaflet.markercluster';
+
+// Chave client-side da MapTiler (conta gratuita do usuário, sem cartão —
+// 100k carregamentos/mês grátis). Não é segredo de servidor: chave de mapa
+// como essa é sempre exposta no bundle do navegador (mesmo padrão de
+// Google Maps/Mapbox) — a proteção de verdade é restringir por domínio no
+// painel da MapTiler, não esconder a chave.
+const MAPTILER_KEY = 'VtkcETe0JVg8xihIDpTt';
+
+const STATUS_HEX = {
+    buscado: '#166534',
+    ja_atendido: '#1d4ed8',
+    recusado: '#991b1b',
+    prospeccao_agendada: '#b45309'
+};
 
 const STATUS_LABELS = {
     buscado: 'Nunca contatado',
@@ -50,6 +66,7 @@ let activeRadarTab = 'buscar';
 let currentClientes = [];
 let currentCidade = null; // { cidade, uf, lat, lng } selecionado na aba Buscar
 let mapApi = null; // API do mapa (ver renderCidadeMapa) — atualiza pins/zoom a partir daqui e de renderRadarResults
+let empresaMapInstance = null; // instância Leaflet do mapa por empresa (ver renderEmpresaMapa) — precisa de .remove() explícito antes de recriar
 
 // Aba Histórico: por padrão mostra a mesma cidade selecionada na aba
 // Buscar (mesma trava de segurança de escala da seção 4 do plano) — só
@@ -482,6 +499,7 @@ async function renderBuscarTab() {
         limparGroup.style.display = 'none';
         dadosInfoEl.style.display = 'none';
         resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Escolha uma cidade acima pra ver as empresas.</p></div>`;
+        if (empresaMapInstance) { empresaMapInstance.remove(); empresaMapInstance = null; }
         document.getElementById('radar-empresa-map-wrap').innerHTML = '';
         mapApi?.clearFiltro();
     });
@@ -749,20 +767,21 @@ function renderRadarResults(resultsEl) {
     });
 }
 
-// Pins de verdade por empresa (Latitude/Longitude vêm do backfill de
-// geocodificação via CNPJá — ver scripts/radar-geocoding-backfill.gs), não
-// mais o scatter por hash de CEP (removido antes por ficar com precisão
-// falsa). Só entra empresa com coordenada resolvida ("sem_coordenada" e
-// vazio ficam de fora); sem pan/zoom — a área de uma cidade é pequena o
-// bastante pra caber toda no card, projeção local (não usa o contorno do
-// Brasil) centralizada e escalada pro conjunto de pins dessa lista.
-function statusPinClass(status) {
-    return (STATUS_CLASSES[status] || '').replace('status-pill', '').trim();
-}
-
+// Mapa de verdade (Leaflet + tiles da MapTiler) com pins reais por empresa
+// — Latitude/Longitude vêm do backfill de geocodificação via CNPJá (ver
+// scripts/radar-geocoding-backfill.gs). Só entra empresa com coordenada
+// resolvida ("sem_coordenada" e vazio ficam de fora). Cria/destrói a
+// instância inteira a cada chamada (troca de cidade, filtro de
+// status/segmento) — é simples e evita estado preso de uma instância
+// Leaflet presa a um container recriado.
 function renderEmpresaMapa(clientes, onUpdated) {
     const wrap = document.getElementById('radar-empresa-map-wrap');
     if (!wrap) return;
+
+    if (empresaMapInstance) {
+        empresaMapInstance.remove();
+        empresaMapInstance = null;
+    }
 
     const geocoded = clientes
         .map((c) => ({ c, lat: parseFloat(c.latitude), lng: parseFloat(c.longitude) }))
@@ -773,134 +792,64 @@ function renderEmpresaMapa(clientes, onUpdated) {
         return;
     }
 
-    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
-    geocoded.forEach(({ lat, lng }) => {
-        if (lat < minLat) minLat = lat;
-        if (lat > maxLat) maxLat = lat;
-        if (lng < minLng) minLng = lng;
-        if (lng > maxLng) maxLng = lng;
-    });
-
-    const size = 100;
-    const usable = size * 0.7; // 15% de respiro de cada lado
-    const centerLat = (minLat + maxLat) / 2;
-    const centerLng = (minLng + maxLng) / 2;
-    // Grau de longitude "encolhe" perto dos polos (não é o caso do Brasil,
-    // mas a correção não custa nada) — sem isso o conjunto de pins ficaria
-    // esticado na horizontal.
-    const lngCorr = Math.max(0.15, Math.cos(centerLat * Math.PI / 180));
-    // Mínimo ~0,002° (~200m) evita achatar a projeção quando sobra só 1
-    // empresa ou várias muito próximas (mesmo endereço/prédio).
-    const span = Math.max(maxLat - minLat, (maxLng - minLng) * lngCorr, 0.002);
-
-    const pins = geocoded.map(({ c, lat, lng }) => ({
-        c,
-        x: size / 2 + ((lng - centerLng) * lngCorr / span) * usable,
-        y: size / 2 - ((lat - centerLat) / span) * usable // lat maior = mais ao norte = y menor
-    }));
-
-    // Endereço da CNPJá costuma resolver várias empresas do mesmo prédio/
-    // quarteirão pro mesmo ponto (ou bem perto) — sem agrupar, isso vira um
-    // monte de pin sobrepondo o de cima e escondendo os outros (visto na
-    // prática: só ~10 pins visíveis pra 230 empresas geocodificadas numa
-    // cidade). Agrupamento simples de 1 passada (não é k-means/DBSCAN de
-    // verdade, só o suficiente pro efeito visual): qualquer pin a menos de
-    // CLUSTER_DIST de um cluster já existente entra nele, recentralizando
-    // a bolha na média do grupo.
-    const CLUSTER_DIST = 4;
-    const clusters = [];
-    pins.forEach((p) => {
-        const near = clusters.find((cl) => Math.hypot(cl.x - p.x, cl.y - p.y) < CLUSTER_DIST);
-        if (near) {
-            near.items.push(p);
-            near.x = near.items.reduce((sum, it) => sum + it.x, 0) / near.items.length;
-            near.y = near.items.reduce((sum, it) => sum + it.y, 0) / near.items.length;
-        } else {
-            clusters.push({ x: p.x, y: p.y, items: [p] });
-        }
-    });
-
     wrap.innerHTML = `
         <div class="card radar-empresa-map-card">
-            <svg viewBox="0 0 ${size} ${size}" class="radar-empresa-map-svg" role="img" aria-label="Mapa com as empresas geocodificadas desta lista">
-                ${clusters.map((cl, i) => cl.items.length === 1 ? `
-                    <g class="radar-empresa-pin-group" data-cluster="${i}">
-                        <circle class="radar-empresa-pin-touch" cx="${cl.x.toFixed(2)}" cy="${cl.y.toFixed(2)}" r="5"></circle>
-                        <circle class="radar-empresa-pin ${statusPinClass(cl.items[0].c.status)}" cx="${cl.x.toFixed(2)}" cy="${cl.y.toFixed(2)}" r="2.4"><title>${escapeHtml(cl.items[0].c.nomeFantasia || cl.items[0].c.nome || 'Empresa')}</title></circle>
-                    </g>
-                ` : `
-                    <g class="radar-empresa-pin-group radar-empresa-cluster" data-cluster="${i}">
-                        <circle class="radar-empresa-pin-touch" cx="${cl.x.toFixed(2)}" cy="${cl.y.toFixed(2)}" r="6.5"></circle>
-                        <circle class="radar-empresa-pin radar-empresa-pin-cluster ${statusPinClass(clusterStatus(cl.items))}" cx="${cl.x.toFixed(2)}" cy="${cl.y.toFixed(2)}" r="4.2"><title>${cl.items.length} empresas neste ponto</title></circle>
-                        <text class="radar-empresa-cluster-label" x="${cl.x.toFixed(2)}" y="${cl.y.toFixed(2)}">${cl.items.length}</text>
-                    </g>
-                `).join('')}
-            </svg>
+            <div class="radar-empresa-map-leaflet" id="radar-empresa-map-leaflet"></div>
             <p class="field-helper-text radar-empresa-map-caption">${geocoded.length} de ${clientes.length} empresa(s) com localização</p>
         </div>
     `;
 
-    wrap.querySelectorAll('.radar-empresa-pin-group').forEach((g) => {
-        g.addEventListener('click', () => {
-            const cluster = clusters[Number(g.dataset.cluster)];
-            if (!cluster) return;
-            if (cluster.items.length === 1) {
-                openRadarDetailCard(cluster.items[0].c, onUpdated);
-            } else {
-                openClusterListModal(cluster.items.map((it) => it.c), onUpdated);
-            }
-        });
-    });
-}
+    const map = L.map('radar-empresa-map-leaflet', { attributionControl: true });
+    empresaMapInstance = map;
 
-// Status "mais prioritário" (não é maioria estatística) entre as empresas
-// de um cluster — um cluster com 1 buscado + 4 já_atendido continua
-// pintado de verde, porque o que importa pro vendedor é "tem oportunidade
-// aqui?", não qual status é mais comum no ponto.
-function clusterStatus(items) {
-    let best = items[0].c.status;
-    let bestPriority = STATUS_PRIORITY[best] ?? 9;
-    items.forEach((it) => {
-        const pr = STATUS_PRIORITY[it.c.status] ?? 9;
-        if (pr < bestPriority) { bestPriority = pr; best = it.c.status; }
-    });
-    return best;
-}
+    L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`, {
+        tileSize: 512,
+        zoomOffset: -1,
+        maxZoom: 19,
+        attribution: '© <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a>'
+    }).addTo(map);
 
-// Lista curta (mesmo visual de .radar-cliente-card) das empresas dentro de
-// um cluster do mapa — abre o card de detalhe de verdade (openRadarDetailCard)
-// ao clicar numa delas, igual clicar direto num pin sem cluster.
-function openClusterListModal(companies, onUpdated) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left">
-            <h3 style="margin-top:0">${companies.length} empresas neste ponto do mapa</h3>
-            <div class="radar-cluster-modal-list">
-                ${companies.map((c) => `
-                    <button type="button" class="radar-cliente-card" data-radar-id="${escapeHtml(c.id)}" style="padding:0.5rem 0.75rem">
-                        <div class="radar-cliente-header">
-                            <strong>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</strong>
-                            <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
-                        </div>
-                    </button>
-                `).join('')}
-            </div>
-            <div class="form-actions" style="margin-top:0.85rem">
-                <button type="button" class="secondary-button" id="radar-cluster-fechar">Fechar</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    const close = () => overlay.remove();
-    overlay.querySelector('#radar-cluster-fechar').addEventListener('click', close);
-    overlay.querySelectorAll('[data-radar-id]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const cliente = companies.find((c) => String(c.id) === btn.dataset.radarId);
-            close();
-            if (cliente) openRadarDetailCard(cliente, onUpdated);
-        });
+    const clusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 50,
+        iconCreateFunction: (cluster) => {
+            const markers = cluster.getAllChildMarkers();
+            // Cor "mais prioritária" entre as empresas do cluster (não é
+            // maioria estatística) — 1 buscado + 4 já_atendido continua
+            // verde, porque o que importa pro vendedor é "tem oportunidade
+            // aqui?", não qual status é mais comum no ponto.
+            let best = markers[0].options.radarStatus;
+            let bestPriority = STATUS_PRIORITY[best] ?? 9;
+            markers.forEach((m) => {
+                const pr = STATUS_PRIORITY[m.options.radarStatus] ?? 9;
+                if (pr < bestPriority) { bestPriority = pr; best = m.options.radarStatus; }
+            });
+            return L.divIcon({
+                html: `<div class="radar-leaflet-cluster" style="background:${STATUS_HEX[best] || STATUS_HEX.buscado}">${cluster.getChildCount()}</div>`,
+                className: '',
+                iconSize: L.point(34, 34)
+            });
+        }
     });
+
+    geocoded.forEach(({ c, lat, lng }) => {
+        const marker = L.circleMarker([lat, lng], {
+            radius: 8,
+            fillColor: STATUS_HEX[c.status] || STATUS_HEX.buscado,
+            color: '#fff',
+            weight: 2,
+            fillOpacity: 1,
+            radarStatus: c.status
+        });
+        marker.bindTooltip(escapeHtml(c.nomeFantasia || c.nome || 'Empresa'));
+        marker.on('click', () => openRadarDetailCard(c, onUpdated));
+        clusterGroup.addLayer(marker);
+    });
+
+    map.addLayer(clusterGroup);
+    // maxZoom evita esticar demais quando sobra 1 empresa só (fitBounds num
+    // ponto único zoom pra rua/quintal, bem mais perto do que faz sentido).
+    map.fitBounds(clusterGroup.getBounds(), { padding: [24, 24], maxZoom: 16 });
+    map.invalidateSize();
 }
 
 // Contagem por status pra dar noção de oportunidade num olhar só (esse é
