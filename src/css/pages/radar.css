@@ -2,6 +2,29 @@
     margin-bottom: 0.85rem;
 }
 
+/* × no canto do card de detalhe — substitui um botão "Fechar" de largura
+   cheia (linha inteira só pra isso era desperdício de espaço, card já
+   ficou longo com todos os campos). */
+.radar-modal-close {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.radar-modal-close:hover { background: var(--border); color: var(--text); }
+
 /* Reserva de 6 meses (quem agendou prospecção primeiro trava a empresa
    pros outros vendedores) — só avisa, não é um estado de erro. */
 .radar-reserva-tag span { color: #b45309; font-weight: 500; }

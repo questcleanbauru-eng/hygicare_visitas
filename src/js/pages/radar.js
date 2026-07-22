@@ -1076,9 +1076,13 @@ function formatPorteCapital(c) {
 }
 
 // XX.XXX.XXX/XXXX-XX — só formatação visual pro card; o valor salvo
-// continua só dígitos (é a chave de dedup da importação de CSV).
+// continua só dígitos (é a chave de dedup da importação de CSV). 13
+// dígitos (em vez de 14) é sinal de zero à esquerda comido — mesmo tipo de
+// bug já visto nessa sessão (Sheets convertendo a célula pra número em vez
+// de manter texto); reconstrói o zero antes de formatar.
 function formatCnpj(cnpj) {
-    const d = String(cnpj || '').replace(/\D/g, '');
+    let d = String(cnpj || '').replace(/\D/g, '');
+    if (d.length === 13) d = '0' + d;
     if (d.length !== 14) return cnpj || '';
     return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`;
 }
@@ -1107,32 +1111,39 @@ function openRadarDetailCard(cliente, onUpdated) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left">
-            <h3 style="margin-top:0">${escapeHtml(cliente.nomeFantasia || cliente.nome || 'Empresa')}</h3>
+        <div class="modal-card" style="text-align:left;position:relative">
+            <button type="button" class="radar-modal-close" id="radar-btn-fechar" aria-label="Fechar">×</button>
+            <h3 style="margin-top:0;padding-right:1.5rem">${escapeHtml(cliente.nomeFantasia || cliente.nome || 'Empresa')}</h3>
             ${cliente.nomeFantasia && cliente.nome && cliente.nomeFantasia !== cliente.nome
                 ? `<p class="helper-text" style="margin:0 0 0.5rem;text-align:left">${escapeHtml(cliente.nome)}</p>` : ''}
             ${cliente.cnpj ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(formatCnpj(cliente.cnpj))}</p>` : ''}
             ${cliente.situacaoCadastral ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem${situacaoAlerta(cliente.situacaoCadastral) ? ';color:#b91c1c;font-weight:600' : ''}">${escapeHtml(cliente.situacaoCadastral)}</p>` : ''}
             <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cidadeLabel(cliente))}</p>
-            <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.cnaeDescricao || '-')}</p>
+            <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.cnaeDescricao || '-')}${cliente.cnaeCodigo ? ` (${escapeHtml(cliente.cnaeCodigo)})` : ''}</p>
             ${cliente.segmento ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.segmento)}</p>` : ''}
             ${porteCapital ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(porteCapital)}</p>` : ''}
             ${endereco ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📍 <a href="${googleMapsUrl(endereco)}" target="_blank" rel="noopener">${escapeHtml(endereco)}</a></p>` : ''}
             ${cliente.telefone ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📞 <a href="tel:${escapeHtml(cliente.telefone.replace(/\D/g, ''))}">${escapeHtml(cliente.telefone)}</a></p>` : ''}
-            ${cliente.email ? `<p class="helper-text" style="text-align:left;margin:0 0 0.85rem">✉️ <a href="mailto:${escapeHtml(cliente.email)}">${escapeHtml(cliente.email)}</a></p>` : ''}
+            ${cliente.email ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">✉️ <a href="mailto:${escapeHtml(cliente.email)}">${escapeHtml(cliente.email)}</a></p>` : ''}
+            ${cliente.dataBusca ? `<p class="helper-text" style="text-align:left;margin:0 0 0.85rem;font-size:0.78rem;opacity:0.8">Dados consultados em ${escapeHtml(cliente.dataBusca)}</p>` : ''}
             <span class="${STATUS_CLASSES[cliente.status] || 'status-pill'}" style="margin-bottom:1rem;display:inline-block">${escapeHtml(STATUS_LABELS[cliente.status] || cliente.status)}</span>
             ${cliente.status === 'recusado' && cliente.statusPor
                 ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Recusado por ${escapeHtml(cliente.statusPor)}${cliente.statusData ? ' em ' + escapeHtml(cliente.statusData) : ''}</p>` : ''}
+            ${cliente.status === 'recusado' && cliente.statusMotivo
+                ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Motivo: ${escapeHtml(cliente.statusMotivo)}</p>` : ''}
+            ${cliente.status === 'recusado' && cliente.statusRetornoPrevisto
+                ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Retornar em: ${escapeHtml(cliente.statusRetornoPrevisto)}</p>` : ''}
             ${cliente.status === 'ja_atendido' && cliente.statusPor
                 ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Marcado como cliente por ${escapeHtml(cliente.statusPor)}${cliente.statusData ? ' em ' + escapeHtml(cliente.statusData) : ''}</p>` : ''}
             ${temReserva
                 ? `<p class="radar-reserva-aviso">🔒 Reservado por ${escapeHtml(cliente.reservadoPor)} até ${escapeHtml(cliente.reservadoAte)}${bloqueada ? ` — só ${escapeHtml(cliente.reservadoPor)} pode agir nessa empresa até lá.` : '.'}</p>`
                 : ''}
+            <div class="form-actions" style="flex-direction:row;gap:0.5rem;margin-top:0.5rem">
+                <button type="button" class="primary-button${bloqueada ? ' radar-action-disabled' : ''}" style="width:auto;flex:1;margin-top:0" id="radar-btn-atendido" ${bloqueada ? 'disabled' : ''}>Já é atendido</button>
+                <button type="button" class="mini-button-danger${bloqueada ? ' radar-action-disabled' : ''}" style="width:auto;flex:1;margin-top:0;padding:0.7rem;border-radius:var(--radius-sm);background:#fef2f2;color:#b91c1c;border:1.5px solid #fecaca" id="radar-btn-recusou" ${bloqueada ? 'disabled' : ''}>Recusou</button>
+            </div>
             <div class="form-actions" style="flex-direction:column;gap:0.5rem;margin-top:0.5rem">
-                <button type="button" class="primary-button${bloqueada ? ' radar-action-disabled' : ''}" id="radar-btn-atendido" ${bloqueada ? 'disabled' : ''}>Já é atendido</button>
-                <button type="button" class="mini-button-danger${bloqueada ? ' radar-action-disabled' : ''}" style="width:100%;padding:0.7rem;border-radius:var(--radius-sm);background:#fef2f2;color:#b91c1c;border:1.5px solid #fecaca" id="radar-btn-recusou" ${bloqueada ? 'disabled' : ''}>Recusou / não quer</button>
                 <button type="button" class="secondary-button${bloqueada ? ' radar-action-disabled' : ''}" id="radar-btn-agendar" ${bloqueada ? 'disabled' : ''}>Agendar prospecção</button>
-                <button type="button" class="secondary-button" id="radar-btn-fechar">Fechar</button>
             </div>
         </div>
     `;
