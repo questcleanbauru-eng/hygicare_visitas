@@ -1445,6 +1445,10 @@ function openRadarDetailCard(cliente, onUpdated) {
                 ${!bloqueada && reservaMinha ? `<button type="button" class="secondary-button" id="radar-btn-renovar">🔄 Renovar reserva</button>` : ''}
                 <button type="button" class="secondary-button${bloqueada ? ' radar-action-disabled' : ''}" id="radar-btn-agendar" ${bloqueada ? 'disabled' : ''}>Agendar prospecção</button>
             </div>
+            ${!bloqueada && (cliente.status === 'ja_atendido' || cliente.status === 'recusado') ? `
+            <div class="form-actions" style="margin-top:0.5rem">
+                <button type="button" class="mini-button" id="radar-btn-desfazer">↩️ Desfazer (voltar pra "nunca contatado")</button>
+            </div>` : ''}
         </div>
     `;
     document.body.appendChild(overlay);
@@ -1526,6 +1530,24 @@ function openRadarDetailCard(cliente, onUpdated) {
             prefill: { Cliente: cliente.nome || cliente.nomeFantasia, Cidade: cliente.cidade },
             radarClienteId: cliente.id
         });
+    });
+
+    overlay.querySelector('#radar-btn-desfazer')?.addEventListener('click', async () => {
+        if (!confirm('Voltar essa empresa pra "nunca contatado"? Isso apaga o status atual e a indicação registrada.')) return;
+        const btn = overlay.querySelector('#radar-btn-desfazer');
+        setSaving(true, btn, 'Desfazendo...');
+        const result = await callAPI('updateRadarClienteStatus', { user: state.currentUser, id: cliente.id, status: 'buscado' });
+        if (result.status === 'success') {
+            cliente.status = 'buscado';
+            cliente.indicadoPor = '';
+            cliente.indicadoPorEmail = '';
+            showToast('Status desfeito.');
+            close();
+            refresh();
+        } else {
+            showToast(result.message || 'Não foi possível desfazer.', true);
+            setSaving(false, btn);
+        }
     });
 }
 
