@@ -592,3 +592,26 @@ main {
         padding-right: max(0px, var(--safe-right));
     }
 }
+
+/* Esconder nav/header/banners na impressão (window.print → "Salvar como
+   PDF") — movido de report.css (era a única página com um botão de
+   exportar) pra cá porque é genérico, não específico do Relatório: CSS de
+   página é lazy (ensureStyles), então uma página como o Radar nunca teria
+   carregado report.css e a impressão sairia com o menu inteiro junto.
+   Classe .no-print é o escape hatch pra qualquer página esconder algo
+   próprio (ex.: botão "Baixar PDF" em si) sem precisar de uma classe nova
+   por página. */
+@media print {
+    #bottom-nav, header, #page-fab, #page-scroll-top, #offline-banner, #update-banner, #pending-sync-banner, .no-print {
+        display: none !important;
+    }
+    #app, #main-content {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    body { background: #fff; }
+    .breadcrumb { display: none; }
+}

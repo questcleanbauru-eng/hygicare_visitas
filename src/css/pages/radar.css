@@ -381,3 +381,15 @@
 .radar-tab-panel { display: none; }
 
 .radar-tab-panel.active { display: block; }
+
+/* "Baixar PDF" (window.print — o resto do escondido-na-impressão é
+   genérico, ver base.css) — as abas em si não fazem sentido impressas
+   (você já escolheu qual aba quer, .radar-tab-panel.active já garante que
+   só o conteúdo dela aparece). Cidade/segmento/status são filtros de
+   busca, não fazem parte do relatório em si. */
+@media print {
+    .radar-tabs-bar, .radar-search-card, #radar-reservas-expirando-wrap {
+        display: none !important;
+    }
+    .card { box-shadow: none; border: 1px solid #ccc; }
+}
