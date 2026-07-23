@@ -453,7 +453,18 @@ async function renderGeoResumo(configData, el) {
 async function renderReservasExpirando() {
     const wrap = document.getElementById('radar-reservas-expirando-wrap');
     if (!wrap) return;
-    const result = await callAPI('getRadarReservasExpirando', { user: state.currentUser });
+    // Sem try/catch, uma falha de rede/timeout (não "erro de negócio", que
+    // já vem como {status:'error'} normal) derrubava a função sem nunca
+    // atualizar o wrap — nesse caso específico ficava só vazio (sem
+    // mensagem), mas o mesmo problema deixava outras telas do Radar presas
+    // em "Carregando..." pra sempre (ver loadAcessos/loadPanorama).
+    let result;
+    try {
+        result = await callAPI('getRadarReservasExpirando', { user: state.currentUser });
+    } catch (e) {
+        wrap.innerHTML = '';
+        return;
+    }
     const clientes = result.status === 'success' ? (result.clientes || []) : [];
     if (!clientes.length) {
         wrap.innerHTML = '';
@@ -1119,7 +1130,16 @@ async function loadSolicitacoes() {
 async function loadAcessos() {
     const el = document.getElementById('radar-acessos-results');
     if (!el) return;
-    const result = await callAPI('getRadarAcessos', { user: state.currentUser });
+    // Sem try/catch, uma falha de rede/timeout deixava a tela presa em
+    // "Carregando..." pra sempre — o erro nunca chegava a substituir o
+    // placeholder inicial do template.
+    let result;
+    try {
+        result = await callAPI('getRadarAcessos', { user: state.currentUser });
+    } catch (e) {
+        el.innerHTML = `<p class="error-message">Erro ao carregar acessos: ${escapeHtml(e.message || 'falha de conexão')}.</p>`;
+        return;
+    }
     if (result.status !== 'success') {
         el.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar acessos.')}</p>`;
         return;
@@ -1152,7 +1172,13 @@ async function loadAcessos() {
 async function loadPanorama() {
     const el = document.getElementById('radar-panorama-results');
     if (!el) return;
-    const result = await callAPI('getRadarPanorama', { user: state.currentUser });
+    let result;
+    try {
+        result = await callAPI('getRadarPanorama', { user: state.currentUser });
+    } catch (e) {
+        el.innerHTML = `<p class="error-message">Erro ao carregar o panorama: ${escapeHtml(e.message || 'falha de conexão')}.</p>`;
+        return;
+    }
     if (result.status !== 'success') {
         el.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar o panorama.')}</p>`;
         return;

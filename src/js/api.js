@@ -93,12 +93,31 @@ export async function callAPI(action, payload = {}) {
 }
 
 
+// Sem isso, uma requisição travada (backend/rede) nunca resolvia nem
+// rejeitava — fetch não tem timeout próprio, então ficava pendurada
+// indefinidamente. Uma tela sem try/catch em volta do callAPI (visto na
+// prática: abas de relatório do Radar) ficava presa em "Carregando..."
+// pra sempre, sem nunca chegar no erro. 30s dá folga pra operação legítima
+// mais pesada do app (import de CSV grande) sem deixar travar pra sempre.
+const API_TIMEOUT_MS = 30000;
+
 export async function _callAPIRaw(action, payload = {}) {
-    const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action, payload })
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    let response;
+    try {
+        response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, payload }),
+            signal: controller.signal
+        });
+    } catch (e) {
+        if (e.name === 'AbortError') throw new Error('A operação demorou demais e foi cancelada. Tente novamente.');
+        throw e;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 
     const data = await response.json();
     if (!response.ok) {
