@@ -118,6 +118,29 @@
     background-color: #fafaf9;
 }
 
+/* Checklist de vendedores (aba Cidades, admin) — vira alto rápido com
+   muitos vendedores, então rola dentro da própria caixa em vez de esticar
+   a lista de cidades inteira. */
+.radar-cidade-vendedores-list {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.7rem;
+    background: var(--bg);
+}
+
+.radar-cidade-vendedor-check-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.radar-cidade-vendedor-check-item input { margin: 0; }
+
 .radar-cliente-header {
     display: flex;
     justify-content: space-between;

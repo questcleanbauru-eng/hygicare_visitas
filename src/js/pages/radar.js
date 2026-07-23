@@ -1219,9 +1219,11 @@ function renderCidadesAdminList() {
         <div class="visits-list">${cidades.map((c) => {
             const restritaVendedor = c.restritaVendedorEmail;
             const restritaGerencia = c.restritaGerencia;
-            const currentValue = restritaVendedor ? `vendedor:${restritaVendedor}` : restritaGerencia ? `gerencia:${restritaGerencia}` : '';
+            const currentValue = restritaGerencia ? `gerencia:${restritaGerencia}` : restritaVendedor ? 'vendedores' : '';
+            const nomesVendedores = (c.restritaVendedorNome || '').split(',').map((n) => n.trim()).filter(Boolean);
+            const emailsVendedoresAtuais = (restritaVendedor || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
             const badge = restritaVendedor
-                ? `Vendedor: ${c.restritaVendedorNome || restritaVendedor}`
+                ? `Vendedor(es): ${nomesVendedores.join(', ') || restritaVendedor}`
                 : restritaGerencia
                     ? `Equipe: ${restritaGerencia}`
                     : 'Todos';
@@ -1232,15 +1234,22 @@ function renderCidadesAdminList() {
                         <span class="status-pill">${escapeHtml(badge)}</span>
                     </div>
                     <select class="radar-cidade-restricao-select" data-cidade="${escapeHtml(c.cidade)}" data-uf="${escapeHtml(c.uf)}" style="margin-top:0.5rem">
-                        <option value="">Todos (sem restrição)</option>
+                        <option value="" ${currentValue === '' ? 'selected' : ''}>Todos (sem restrição)</option>
                         ${gerencias.length ? `<optgroup label="Equipe">${gerencias.map((g) => `<option value="gerencia:${escapeHtml(g)}" ${currentValue === `gerencia:${g}` ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}</optgroup>` : ''}
-                        <optgroup label="Vendedor">${vendedoresAdminCache.map((u) => {
-                            const email = u.EmailLogin || u.emailLogin || '';
-                            const nome = u.NomeVendedor || u.nomeVendedor || email;
-                            if (!email) return '';
-                            return `<option value="vendedor:${escapeHtml(email)}" ${currentValue === `vendedor:${email}` ? 'selected' : ''}>${escapeHtml(nome)}</option>`;
-                        }).join('')}</optgroup>
+                        <option value="vendedores" ${currentValue === 'vendedores' ? 'selected' : ''}>Vendedores específicos...</option>
                     </select>
+                    <div class="radar-cidade-vendedores-check" data-cidade="${escapeHtml(c.cidade)}" data-uf="${escapeHtml(c.uf)}" style="margin-top:0.6rem${restritaVendedor ? '' : ';display:none'}">
+                        <div class="radar-cidade-vendedores-list">
+                            ${vendedoresAdminCache.map((u) => {
+                                const email = u.EmailLogin || u.emailLogin || '';
+                                const nome = u.NomeVendedor || u.nomeVendedor || email;
+                                if (!email) return '';
+                                const checked = emailsVendedoresAtuais.includes(email.trim().toLowerCase());
+                                return `<label class="radar-cidade-vendedor-check-item"><input type="checkbox" value="${escapeHtml(email)}" data-nome="${escapeHtml(nome)}" ${checked ? 'checked' : ''}> ${escapeHtml(nome)}</label>`;
+                            }).join('')}
+                        </div>
+                        <button type="button" class="mini-button radar-cidade-vendedores-salvar" style="margin-top:0.5rem">Salvar vendedores</button>
+                    </div>
                 </div>
             `;
         }).join('')}</div>
@@ -1248,16 +1257,20 @@ function renderCidadesAdminList() {
 
     el.querySelectorAll('.radar-cidade-restricao-select').forEach((select) => {
         select.addEventListener('change', async () => {
+            const card = select.closest('.proposal-card');
+            const checklistEl = card.querySelector('.radar-cidade-vendedores-check');
+            if (select.value === 'vendedores') {
+                // Só revela a lista de caixinhas — salva quando clicar em
+                // "Salvar vendedores" (dá pra marcar vários antes de salvar).
+                checklistEl.style.display = '';
+                return;
+            }
+            checklistEl.style.display = 'none';
             const cidade = select.dataset.cidade;
             const uf = select.dataset.uf;
-            const [tipo, valor] = select.value.split(':');
+            const [tipo, valor] = select.value ? select.value.split(':') : ['todos', ''];
             const payload = { user: state.currentUser, cidade, uf, tipo: tipo || 'todos' };
             if (tipo === 'gerencia') payload.gerencia = valor;
-            if (tipo === 'vendedor') {
-                payload.vendedorEmail = valor;
-                const u = vendedoresAdminCache.find((v) => (v.EmailLogin || v.emailLogin) === valor);
-                payload.vendedorNome = u ? (u.NomeVendedor || u.nomeVendedor || valor) : valor;
-            }
             select.disabled = true;
             const result = await callAPI('setCidadeRestricao', payload);
             select.disabled = false;
@@ -1265,8 +1278,40 @@ function renderCidadesAdminList() {
                 const c = cidadesAdminCache.find((x) => x.cidade === cidade && x.uf === uf);
                 if (c) {
                     c.restritaGerencia = tipo === 'gerencia' ? valor : '';
-                    c.restritaVendedorEmail = tipo === 'vendedor' ? valor : '';
-                    c.restritaVendedorNome = tipo === 'vendedor' ? payload.vendedorNome : '';
+                    c.restritaVendedorEmail = '';
+                    c.restritaVendedorNome = '';
+                }
+                showToast('Cidade atualizada.');
+                renderCidadesAdminList();
+            } else {
+                showToast(result.message || 'Não foi possível salvar.', true);
+            }
+        });
+    });
+
+    el.querySelectorAll('.radar-cidade-vendedores-salvar').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const checklistEl = btn.closest('.radar-cidade-vendedores-check');
+            const cidade = checklistEl.dataset.cidade;
+            const uf = checklistEl.dataset.uf;
+            const checked = Array.from(checklistEl.querySelectorAll('input[type="checkbox"]:checked'));
+            if (checked.length === 0) {
+                showToast('Marque pelo menos um vendedor, ou escolha "Todos" no seletor acima.', true);
+                return;
+            }
+            const vendedorEmails = checked.map((cb) => cb.value);
+            const vendedorNomes = checked.map((cb) => cb.dataset.nome);
+            setSaving(true, btn, 'Salvando...');
+            const result = await callAPI('setCidadeRestricao', {
+                user: state.currentUser, cidade, uf, tipo: 'vendedor', vendedorEmails, vendedorNomes
+            });
+            setSaving(false, btn);
+            if (result.status === 'success') {
+                const c = cidadesAdminCache.find((x) => x.cidade === cidade && x.uf === uf);
+                if (c) {
+                    c.restritaGerencia = '';
+                    c.restritaVendedorEmail = vendedorEmails.join(',');
+                    c.restritaVendedorNome = vendedorNomes.join(',');
                 }
                 showToast('Cidade atualizada.');
                 renderCidadesAdminList();
