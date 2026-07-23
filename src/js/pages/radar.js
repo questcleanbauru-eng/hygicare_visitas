@@ -83,10 +83,11 @@ let historicoClientes = [];
 let historicoScopeAll = false;
 let historicoLoaded = false;
 
-// Abas Acessos/Panorama (relatórios) — mesmo padrão de carregar 1 vez só,
-// na primeira vez que a aba é aberta.
+// Abas Acessos/Panorama/Meus Clientes (relatórios) — mesmo padrão de
+// carregar 1 vez só, na primeira vez que a aba é aberta.
 let acessosLoaded = false;
 let panoramaLoaded = false;
+let meusClientesLoaded = false;
 
 function cidadeLabel(c) {
     return c.uf ? `${c.cidade} - ${c.uf}` : c.cidade;
@@ -124,9 +125,12 @@ function reservaAtivaDeOutro(cliente) {
     return !isAdmin && cliente.reservadoPorEmail !== state.currentUser?.email;
 }
 
-export async function renderRadarPage() {
+export async function renderRadarPage(options) {
     ensureStyles('radar');
     const mainContent = document.getElementById('main-content');
+    // Permite abrir direto numa aba específica (ex.: KPI "Meus clientes" na
+    // Home leva direto pra cá, em vez de sempre cair em Buscar).
+    if (options && options.tab) activeRadarTab = options.tab;
 
     // O item de nav aparece pra qualquer um com o toggle do admin ligado —
     // a exigência de visita recente (ensureCanAccessRadar, backend) só é
@@ -161,6 +165,7 @@ export async function renderRadarPage() {
         <div class="radar-tabs-bar">
             <button type="button" class="radar-tab${activeRadarTab === 'buscar' ? ' active' : ''}" data-tab="buscar">Buscar</button>
             <button type="button" class="radar-tab${activeRadarTab === 'historico' ? ' active' : ''}" data-tab="historico">Histórico</button>
+            <button type="button" class="radar-tab${activeRadarTab === 'meus-clientes' ? ' active' : ''}" data-tab="meus-clientes">Meus Clientes</button>
             <button type="button" class="radar-tab${activeRadarTab === 'acessos' ? ' active' : ''}" data-tab="acessos">Acessos</button>
             <button type="button" class="radar-tab${activeRadarTab === 'panorama' ? ' active' : ''}" data-tab="panorama">Panorama</button>
             ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'importar' ? ' active' : ''}" data-tab="importar">Importar CSV</button>` : ''}
@@ -217,6 +222,9 @@ export async function renderRadarPage() {
                     <div id="radar-solicitacoes-list"><p class="page-subtitle">Carregando...</p></div>
                 </div>
             ` : ''}
+        </div>
+        <div class="radar-tab-panel${activeRadarTab === 'meus-clientes' ? ' active' : ''}" id="radar-tab-meus-clientes">
+            <div id="radar-meus-clientes-results"><p class="page-subtitle">Carregando...</p></div>
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'acessos' ? ' active' : ''}" id="radar-tab-acessos">
             <div id="radar-acessos-results"><p class="page-subtitle">Carregando...</p></div>
@@ -302,6 +310,10 @@ export async function renderRadarPage() {
                 loadHistorico();
                 if (isAdmin) { loadSolicitacoes(); }
             }
+            if (tab.dataset.tab === 'meus-clientes' && !meusClientesLoaded) {
+                meusClientesLoaded = true;
+                loadMeusClientes();
+            }
             if (tab.dataset.tab === 'acessos' && !acessosLoaded) {
                 acessosLoaded = true;
                 loadAcessos();
@@ -321,6 +333,9 @@ export async function renderRadarPage() {
         historicoLoaded = true;
         await loadHistorico();
         if (isAdmin) { await loadSolicitacoes(); }
+    } else if (activeRadarTab === 'meus-clientes') {
+        meusClientesLoaded = true;
+        await loadMeusClientes();
     } else if (activeRadarTab === 'acessos') {
         acessosLoaded = true;
         await loadAcessos();
@@ -1024,6 +1039,9 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHt
                 ${c.status === 'ja_atendido' && c.statusPor
                     ? `<div class="radar-cliente-meta"><span>Marcado como cliente por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span></div>`
                     : ''}
+                ${c.status === 'ja_atendido' && c.indicadoPor
+                    ? `<div class="radar-cliente-meta"><span>Indicado por ${escapeHtml(c.indicadoPor)}</span></div>`
+                    : ''}
                 ${reservaAtiva(c)
                     ? `<div class="radar-cliente-meta radar-reserva-tag"><span>🔒 Reservado por ${escapeHtml(c.reservadoPor)} até ${escapeHtml(c.reservadoAte)}</span></div>`
                     : ''}
@@ -1120,6 +1138,66 @@ async function loadSolicitacoes() {
                 </div>
             </div>
         `).join('')}</div>
+    `;
+}
+
+// Aba "Meus Clientes" — sempre pessoal (o próprio email), mesmo pra gerente/
+// admin, ver handleGetRadarMeusClientes. Mesmos 2 números do KPI da Home
+// (carteira fechada + em prospecção agora), com a lista por trás de cada um.
+async function loadMeusClientes() {
+    const el = document.getElementById('radar-meus-clientes-results');
+    if (!el) return;
+    let result;
+    try {
+        result = await callAPI('getRadarMeusClientes', { user: state.currentUser });
+    } catch (e) {
+        el.innerHTML = `<p class="error-message">Erro ao carregar seus clientes: ${escapeHtml(e.message || 'falha de conexão')}.</p>`;
+        return;
+    }
+    if (result.status !== 'success') {
+        el.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar seus clientes.')}</p>`;
+        return;
+    }
+    const emProspeccao = result.emProspeccao || [];
+    const carteira = result.carteira || [];
+
+    const clientRow = (c, subtitle) => `
+        <div class="proposal-card" style="cursor:default">
+            <div class="visit-card-header">
+                <strong>${escapeHtml(c.nome || 'Empresa')}</strong>
+                <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
+            </div>
+            <div class="proposal-meta">
+                <span>${escapeHtml(cidadeLabel(c))}</span>
+                <span>${escapeHtml(subtitle)}</span>
+            </div>
+        </div>
+    `;
+
+    el.innerHTML = `
+        <div class="radar-print-header">
+            <h2>Meus Clientes — Radar de Clientes</h2>
+            <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
+        <div class="report-section">
+            <h3>📌 Resumo</h3>
+            <div class="report-kpi-row">
+                <div class="report-kpi${emProspeccao.length ? ' report-kpi-alert' : ''}"><strong>${emProspeccao.length}</strong><span>Em prospecção agora</span></div>
+                <div class="report-kpi"><strong>${carteira.length}</strong><span>Carteira (já é cliente)</span></div>
+            </div>
+        </div>
+        <div class="report-section">
+            <h3>🔒 Em prospecção agora</h3>
+            ${emProspeccao.length
+                ? `<div class="visits-list">${emProspeccao.map((c) => clientRow(c, `Reservado até ${c.reservadoAte || '-'}`)).join('')}</div>`
+                : `<p class="page-subtitle">Nenhuma empresa reservada no momento.</p>`}
+        </div>
+        <div class="report-section">
+            <h3>💼 Minha carteira</h3>
+            ${carteira.length
+                ? `<div class="visits-list">${carteira.map((c) => clientRow(c, c.statusData ? `Cliente desde ${c.statusData}` : 'Já é cliente')).join('')}</div>`
+                : `<p class="page-subtitle">Nenhum cliente fechado registrado ainda.</p>`}
+        </div>
     `;
 }
 
@@ -1321,6 +1399,8 @@ function openRadarDetailCard(cliente, onUpdated) {
     const endereco = formatEndereco(cliente);
     const bloqueada = reservaAtivaDeOutro(cliente);
     const temReserva = reservaAtiva(cliente);
+    const reservaMinha = temReserva && cliente.reservadoPorEmail === state.currentUser?.email;
+    const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
     const porteCapital = formatPorteCapital(cliente);
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -1350,6 +1430,9 @@ function openRadarDetailCard(cliente, onUpdated) {
                 ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Retornar em: ${escapeHtml(cliente.statusRetornoPrevisto)}</p>` : ''}
             ${cliente.status === 'ja_atendido' && cliente.statusPor
                 ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Marcado como cliente por ${escapeHtml(cliente.statusPor)}${cliente.statusData ? ' em ' + escapeHtml(cliente.statusData) : ''}</p>` : ''}
+            ${cliente.status === 'ja_atendido'
+                ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">${cliente.indicadoPor ? `Indicado por ${escapeHtml(cliente.indicadoPor)}` : 'Sem indicação registrada'}${isAdmin ? ` · <button type="button" class="section-link-button" id="radar-btn-editar-indicacao">Alterar</button>` : ''}</p>`
+                : ''}
             ${temReserva
                 ? `<p class="radar-reserva-aviso">🔒 Reservado por ${escapeHtml(cliente.reservadoPor)} até ${escapeHtml(cliente.reservadoAte)}${bloqueada ? ` — só ${escapeHtml(cliente.reservadoPor)} pode agir nessa empresa até lá.` : '.'}</p>`
                 : ''}
@@ -1358,6 +1441,8 @@ function openRadarDetailCard(cliente, onUpdated) {
                 <button type="button" class="mini-button-danger${bloqueada ? ' radar-action-disabled' : ''}" style="width:auto;flex:1;margin-top:0;padding:0.7rem;border-radius:var(--radius-sm);background:#fef2f2;color:#b91c1c;border:1.5px solid #fecaca" id="radar-btn-recusou" ${bloqueada ? 'disabled' : ''}>Recusou</button>
             </div>
             <div class="form-actions" style="flex-direction:column;gap:0.5rem;margin-top:0.5rem">
+                ${!bloqueada && !temReserva ? `<button type="button" class="secondary-button" id="radar-btn-reservar">🔒 Reservar pra mim</button>` : ''}
+                ${!bloqueada && reservaMinha ? `<button type="button" class="secondary-button" id="radar-btn-renovar">🔄 Renovar reserva</button>` : ''}
                 <button type="button" class="secondary-button${bloqueada ? ' radar-action-disabled' : ''}" id="radar-btn-agendar" ${bloqueada ? 'disabled' : ''}>Agendar prospecção</button>
             </div>
         </div>
@@ -1375,6 +1460,10 @@ function openRadarDetailCard(cliente, onUpdated) {
             cliente.status = 'ja_atendido';
             cliente.statusPor = state.currentUser.name;
             cliente.statusData = formatDateForDisplay(new Date());
+            // Mesma regra do backend: quem tinha a reserva ativa leva o
+            // crédito de "indicou", não necessariamente quem clicou agora.
+            cliente.indicadoPor = cliente.reservadoPorEmail ? cliente.reservadoPor : state.currentUser.name;
+            cliente.indicadoPorEmail = cliente.reservadoPorEmail || state.currentUser.email;
             showToast('Marcado como já atendido.');
             close();
             refresh();
@@ -1387,6 +1476,43 @@ function openRadarDetailCard(cliente, onUpdated) {
     overlay.querySelector('#radar-btn-recusou').addEventListener('click', () => {
         close();
         openRecusarModal(cliente, refresh);
+    });
+
+    overlay.querySelector('#radar-btn-reservar')?.addEventListener('click', async () => {
+        const btn = overlay.querySelector('#radar-btn-reservar');
+        setSaving(true, btn, 'Reservando...');
+        const result = await callAPI('reservarRadarCliente', { user: state.currentUser, id: cliente.id });
+        if (result.status === 'success') {
+            cliente.reservadoPor = state.currentUser.name;
+            cliente.reservadoPorEmail = state.currentUser.email;
+            cliente.reservadoAte = result.reservadoAte;
+            showToast('Empresa reservada pra você.');
+            close();
+            refresh();
+        } else {
+            showToast(result.message || 'Não foi possível reservar.', true);
+            setSaving(false, btn);
+        }
+    });
+
+    overlay.querySelector('#radar-btn-renovar')?.addEventListener('click', async () => {
+        const btn = overlay.querySelector('#radar-btn-renovar');
+        setSaving(true, btn, 'Renovando...');
+        const result = await callAPI('renovarReservaRadarCliente', { user: state.currentUser, id: cliente.id });
+        if (result.status === 'success') {
+            cliente.reservadoAte = result.reservadoAte;
+            showToast('Reserva renovada.');
+            close();
+            refresh();
+        } else {
+            showToast(result.message || 'Não foi possível renovar.', true);
+            setSaving(false, btn);
+        }
+    });
+
+    overlay.querySelector('#radar-btn-editar-indicacao')?.addEventListener('click', () => {
+        close();
+        openEditarIndicacaoModal(cliente, refresh);
     });
 
     overlay.querySelector('#radar-btn-agendar').addEventListener('click', () => {
@@ -1458,6 +1584,63 @@ function openRecusarModal(cliente, refresh) {
             refresh();
         } else {
             showToast(result.message || 'Não foi possível atualizar.', true);
+            setSaving(false, btn);
+        }
+    });
+}
+
+// Admin-only — corrige quem fica com o crédito de "indicou" um cliente já
+// fechado (a captura automática, ver handleUpdateRadarClienteStatus, credita
+// quem tinha a reserva ativa na hora; isso aqui é só pra corrigir um engano
+// ou registrar manualmente quando não havia reserva nenhuma).
+function openEditarIndicacaoModal(cliente, refresh) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card" style="text-align:left">
+            <h3 style="margin-top:0">Quem indicou</h3>
+            <p class="helper-text" style="text-align:left">${escapeHtml(cliente.nomeFantasia || cliente.nome || '')}</p>
+            <div class="form-group full-width">
+                <label for="radar-indicacao-select">Vendedor</label>
+                <select id="radar-indicacao-select"><option value="">Carregando...</option></select>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="secondary-button" id="radar-indicacao-cancelar">Cancelar</button>
+                <button type="button" class="primary-button" id="radar-indicacao-salvar">Salvar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('#radar-indicacao-cancelar').addEventListener('click', close);
+
+    const select = overlay.querySelector('#radar-indicacao-select');
+    callAPI('getAdminData', { user: state.currentUser }).then((result) => {
+        const users = result.status === 'success' ? (result.data.users || []) : [];
+        select.innerHTML = `
+            <option value="">Sem indicação</option>
+            ${users.map((u) => `<option value="${escapeHtml(u.EmailLogin)}" ${u.EmailLogin === cliente.indicadoPorEmail ? 'selected' : ''}>${escapeHtml(u.NomeVendedor)}</option>`).join('')}
+        `;
+    });
+
+    overlay.querySelector('#radar-indicacao-salvar').addEventListener('click', async () => {
+        const btn = overlay.querySelector('#radar-indicacao-salvar');
+        setSaving(true, btn, 'Salvando...');
+        const option = select.selectedOptions[0];
+        const indicadoPorEmail = select.value;
+        const indicadoPor = indicadoPorEmail ? (option ? option.textContent : '') : '';
+        const result = await callAPI('setRadarClienteIndicacao', {
+            user: state.currentUser, id: cliente.id, indicadoPor, indicadoPorEmail
+        });
+        if (result.status === 'success') {
+            cliente.indicadoPor = indicadoPor;
+            cliente.indicadoPorEmail = indicadoPorEmail;
+            showToast('Indicação atualizada.');
+            close();
+            refresh();
+        } else {
+            showToast(result.message || 'Não foi possível salvar.', true);
             setSaving(false, btn);
         }
     });

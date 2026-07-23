@@ -15,7 +15,8 @@ import {
     handleGetRadarCidadesDisponiveis, handleGetRadarClientes, handleUpdateRadarClienteStatus,
     handleCreateRadarSolicitacaoCidade, handleGetRadarSolicitacoesCidade, handleImportRadarClientesCsv,
     handleGetRadarReservasExpirando, handleRenovarReservaRadarCliente,
-    handleRegistrarAcessoRadar, handleGetRadarAcessos, handleGetRadarPanorama
+    handleRegistrarAcessoRadar, handleGetRadarAcessos, handleGetRadarPanorama,
+    handleReservarRadarCliente, handleSetRadarClienteIndicacao, handleGetRadarMeusClientes
 } from '../lib/handlers/radar.js';
 import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList } from '../lib/handlers/admin.js';
@@ -69,6 +70,9 @@ const HANDLERS = {
     registrarAcessoRadar: handleRegistrarAcessoRadar,
     getRadarAcessos: handleGetRadarAcessos,
     getRadarPanorama: handleGetRadarPanorama,
+    reservarRadarCliente: handleReservarRadarCliente,
+    setRadarClienteIndicacao: handleSetRadarClienteIndicacao,
+    getRadarMeusClientes: handleGetRadarMeusClientes,
     getDashboardData: handleGetDashboardData,
     getAdminData: handleGetAdminData,
     saveUser: handleSaveUser,

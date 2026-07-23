@@ -111,6 +111,17 @@ export function fillDashboard(mainContent, data, user) {
                 <strong class="metric-value">${data.teamWeeklyVisits || data.weeklyVisits || 0}</strong>
                 <span class="metric-link">Ver equipe →</span>
             </button>` : ''}
+            ${data.canAccessRadar ? `
+            <button class="metric-card metric-card-orange" id="radar-prospeccao-card" type="button">
+                <span class="metric-label">Radar — em prospecção</span>
+                <strong class="metric-value">${data.radarClientesProspeccao || 0}</strong>
+                <span class="metric-link">Meus clientes →</span>
+            </button>
+            <button class="metric-card metric-card-blue" id="radar-carteira-card" type="button">
+                <span class="metric-label">Radar — minha carteira</span>
+                <strong class="metric-value">${data.radarClientesCarteira || 0}</strong>
+                <span class="metric-link">Meus clientes →</span>
+            </button>` : ''}
         </div>
 
         <!-- Gráfico de visitas + meta (relatorio gerencial — so admin/gerente) -->
@@ -189,6 +200,8 @@ export function fillDashboard(mainContent, data, user) {
             navigateTo(nav);
         });
     });
+    document.getElementById('radar-prospeccao-card')?.addEventListener('click', () => navigateTo('radar', { tab: 'meus-clientes' }));
+    document.getElementById('radar-carteira-card')?.addEventListener('click', () => navigateTo('radar', { tab: 'meus-clientes' }));
 
     // Refresh header notification dot after data loads
     updateHeaderUI(user);
