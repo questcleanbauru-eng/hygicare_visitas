@@ -88,6 +88,7 @@ let historicoLoaded = false;
 let acessosLoaded = false;
 let panoramaLoaded = false;
 let meusClientesLoaded = false;
+let cidadesAdminLoaded = false;
 
 function cidadeLabel(c) {
     return c.uf ? `${c.cidade} - ${c.uf}` : c.cidade;
@@ -169,6 +170,7 @@ export async function renderRadarPage(options) {
             <button type="button" class="radar-tab${activeRadarTab === 'acessos' ? ' active' : ''}" data-tab="acessos">Acessos</button>
             <button type="button" class="radar-tab${activeRadarTab === 'panorama' ? ' active' : ''}" data-tab="panorama">Panorama</button>
             ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'importar' ? ' active' : ''}" data-tab="importar">Importar CSV</button>` : ''}
+            ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'cidades' ? ' active' : ''}" data-tab="cidades">Cidades</button>` : ''}
             ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'config' ? ' active' : ''}" data-tab="config">Configurações</button>` : ''}
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'buscar' ? ' active' : ''}" id="radar-tab-buscar">
@@ -254,6 +256,23 @@ export async function renderRadarPage(options) {
             </div>
         ` : ''}
         ${isAdmin ? `
+            <div class="radar-tab-panel${activeRadarTab === 'cidades' ? ' active' : ''}" id="radar-tab-cidades">
+                <div class="card">
+                    <h3 style="margin-top:0">Gerenciar acesso por cidade</h3>
+                    <p class="helper-text" style="text-align:left">
+                        Por padrão, cidade liberada fica visível pra todo mundo com acesso ao Radar.
+                        Pra restringir uma cidade a uma equipe ou a um vendedor específico, escolha
+                        abaixo — a mudança já vale pra próxima vez que alguém abrir o Radar.
+                    </p>
+                    <div class="form-group full-width">
+                        <label for="radar-cidades-filtro">Buscar cidade</label>
+                        <input type="text" id="radar-cidades-filtro" placeholder="Filtrar por nome...">
+                    </div>
+                </div>
+                <div id="radar-cidades-admin-results"><p class="page-subtitle">Carregando...</p></div>
+            </div>
+        ` : ''}
+        ${isAdmin ? `
             <div class="radar-tab-panel${activeRadarTab === 'config' ? ' active' : ''}" id="radar-tab-config">
                 <div class="card">
                     <h3 style="margin-top:0">Regras do Radar</h3>
@@ -322,6 +341,10 @@ export async function renderRadarPage(options) {
                 panoramaLoaded = true;
                 loadPanorama();
             }
+            if (tab.dataset.tab === 'cidades' && !cidadesAdminLoaded) {
+                cidadesAdminLoaded = true;
+                loadCidadesAdmin();
+            }
         });
     });
 
@@ -342,6 +365,9 @@ export async function renderRadarPage(options) {
     } else if (activeRadarTab === 'panorama') {
         panoramaLoaded = true;
         await loadPanorama();
+    } else if (activeRadarTab === 'cidades' && isAdmin) {
+        cidadesAdminLoaded = true;
+        await loadCidadesAdmin();
     }
 }
 
@@ -1139,6 +1165,116 @@ async function loadSolicitacoes() {
             </div>
         `).join('')}</div>
     `;
+}
+
+// Aba "Cidades" (admin) — atribui cada cidade liberada a uma equipe
+// inteira, um vendedor específico, ou deixa sem restrição (visível pra todo
+// mundo, comportamento de sempre — ver cidadeAcessivel no backend, que
+// revalida tudo de novo, não confia só nesse filtro de tela).
+let cidadesAdminCache = []; // último resultado — reaplica o filtro de texto sem recarregar
+let vendedoresAdminCache = [];
+
+async function loadCidadesAdmin() {
+    const el = document.getElementById('radar-cidades-admin-results');
+    if (!el) return;
+    let cidadesResult, adminResult;
+    try {
+        [cidadesResult, adminResult] = await Promise.all([
+            callAPI('getRadarCidadesAdmin', { user: state.currentUser }),
+            callAPI('getAdminData', { user: state.currentUser })
+        ]);
+    } catch (e) {
+        el.innerHTML = `<p class="error-message">Erro ao carregar cidades: ${escapeHtml(e.message || 'falha de conexão')}.</p>`;
+        return;
+    }
+    if (cidadesResult.status !== 'success') {
+        el.innerHTML = `<p class="error-message">${escapeHtml(cidadesResult.message || 'Erro ao carregar cidades.')}</p>`;
+        return;
+    }
+    cidadesAdminCache = cidadesResult.cidades || [];
+    vendedoresAdminCache = adminResult.status === 'success' ? (adminResult.data.users || []) : [];
+
+    document.getElementById('radar-cidades-filtro')?.addEventListener('input', () => renderCidadesAdminList());
+    renderCidadesAdminList();
+}
+
+function renderCidadesAdminList() {
+    const el = document.getElementById('radar-cidades-admin-results');
+    if (!el) return;
+    const filtro = (document.getElementById('radar-cidades-filtro')?.value || '').trim().toLowerCase();
+    const cidades = cidadesAdminCache
+        .filter((c) => !filtro || cidadeLabel(c).toLowerCase().includes(filtro))
+        .sort((a, b) => cidadeLabel(a).localeCompare(cidadeLabel(b)));
+
+    if (cidades.length === 0) {
+        el.innerHTML = `<div class="empty-state"><span class="empty-state-icon">📍</span><p>Nenhuma cidade encontrada.</p></div>`;
+        return;
+    }
+
+    const gerencias = Array.from(new Set(
+        vendedoresAdminCache.map((u) => String(u.Gerencia || u.gerencia || '').trim()).filter(Boolean)
+    )).sort();
+
+    el.innerHTML = `
+        <div class="visits-list">${cidades.map((c) => {
+            const restritaVendedor = c.restritaVendedorEmail;
+            const restritaGerencia = c.restritaGerencia;
+            const currentValue = restritaVendedor ? `vendedor:${restritaVendedor}` : restritaGerencia ? `gerencia:${restritaGerencia}` : '';
+            const badge = restritaVendedor
+                ? `Vendedor: ${c.restritaVendedorNome || restritaVendedor}`
+                : restritaGerencia
+                    ? `Equipe: ${restritaGerencia}`
+                    : 'Todos';
+            return `
+                <div class="proposal-card" style="cursor:default;text-align:left">
+                    <div class="visit-card-header">
+                        <strong>${escapeHtml(cidadeLabel(c))}</strong>
+                        <span class="status-pill">${escapeHtml(badge)}</span>
+                    </div>
+                    <select class="radar-cidade-restricao-select" data-cidade="${escapeHtml(c.cidade)}" data-uf="${escapeHtml(c.uf)}" style="margin-top:0.5rem">
+                        <option value="">Todos (sem restrição)</option>
+                        ${gerencias.length ? `<optgroup label="Equipe">${gerencias.map((g) => `<option value="gerencia:${escapeHtml(g)}" ${currentValue === `gerencia:${g}` ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}</optgroup>` : ''}
+                        <optgroup label="Vendedor">${vendedoresAdminCache.map((u) => {
+                            const email = u.EmailLogin || u.emailLogin || '';
+                            const nome = u.NomeVendedor || u.nomeVendedor || email;
+                            if (!email) return '';
+                            return `<option value="vendedor:${escapeHtml(email)}" ${currentValue === `vendedor:${email}` ? 'selected' : ''}>${escapeHtml(nome)}</option>`;
+                        }).join('')}</optgroup>
+                    </select>
+                </div>
+            `;
+        }).join('')}</div>
+    `;
+
+    el.querySelectorAll('.radar-cidade-restricao-select').forEach((select) => {
+        select.addEventListener('change', async () => {
+            const cidade = select.dataset.cidade;
+            const uf = select.dataset.uf;
+            const [tipo, valor] = select.value.split(':');
+            const payload = { user: state.currentUser, cidade, uf, tipo: tipo || 'todos' };
+            if (tipo === 'gerencia') payload.gerencia = valor;
+            if (tipo === 'vendedor') {
+                payload.vendedorEmail = valor;
+                const u = vendedoresAdminCache.find((v) => (v.EmailLogin || v.emailLogin) === valor);
+                payload.vendedorNome = u ? (u.NomeVendedor || u.nomeVendedor || valor) : valor;
+            }
+            select.disabled = true;
+            const result = await callAPI('setCidadeRestricao', payload);
+            select.disabled = false;
+            if (result.status === 'success') {
+                const c = cidadesAdminCache.find((x) => x.cidade === cidade && x.uf === uf);
+                if (c) {
+                    c.restritaGerencia = tipo === 'gerencia' ? valor : '';
+                    c.restritaVendedorEmail = tipo === 'vendedor' ? valor : '';
+                    c.restritaVendedorNome = tipo === 'vendedor' ? payload.vendedorNome : '';
+                }
+                showToast('Cidade atualizada.');
+                renderCidadesAdminList();
+            } else {
+                showToast(result.message || 'Não foi possível salvar.', true);
+            }
+        });
+    });
 }
 
 // Aba "Meus Clientes" — sempre pessoal (o próprio email), mesmo pra gerente/
