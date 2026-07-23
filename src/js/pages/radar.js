@@ -83,6 +83,11 @@ let historicoClientes = [];
 let historicoScopeAll = false;
 let historicoLoaded = false;
 
+// Abas Acessos/Panorama (relatórios) — mesmo padrão de carregar 1 vez só,
+// na primeira vez que a aba é aberta.
+let acessosLoaded = false;
+let panoramaLoaded = false;
+
 function cidadeLabel(c) {
     return c.uf ? `${c.cidade} - ${c.uf}` : c.cidade;
 }
@@ -129,6 +134,11 @@ export async function renderRadarPage() {
     // via "Radar" sumir do menu sem nenhuma explicação; agora ele entra e
     // a própria tela informa o motivo (ex.: falta registrar visita).
     const acessoCheck = await callAPI('getRadarCidadesDisponiveis', { user: state.currentUser });
+    if (acessoCheck.status === 'success') {
+        // Fire-and-forget — não atrasa a tela, e uma falha aqui (rede, etc.)
+        // não deveria impedir o vendedor de usar o Radar.
+        callAPI('registrarAcessoRadar', { user: state.currentUser });
+    }
     if (acessoCheck.status !== 'success') {
         mainContent.innerHTML = `
             <div class="page-header">
@@ -150,6 +160,8 @@ export async function renderRadarPage() {
         <div class="radar-tabs-bar">
             <button type="button" class="radar-tab${activeRadarTab === 'buscar' ? ' active' : ''}" data-tab="buscar">Buscar</button>
             <button type="button" class="radar-tab${activeRadarTab === 'historico' ? ' active' : ''}" data-tab="historico">Histórico</button>
+            <button type="button" class="radar-tab${activeRadarTab === 'acessos' ? ' active' : ''}" data-tab="acessos">Acessos</button>
+            <button type="button" class="radar-tab${activeRadarTab === 'panorama' ? ' active' : ''}" data-tab="panorama">Panorama</button>
             ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'importar' ? ' active' : ''}" data-tab="importar">Importar CSV</button>` : ''}
             ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'config' ? ' active' : ''}" data-tab="config">Configurações</button>` : ''}
         </div>
@@ -204,6 +216,12 @@ export async function renderRadarPage() {
                     <div id="radar-solicitacoes-list"><p class="page-subtitle">Carregando...</p></div>
                 </div>
             ` : ''}
+        </div>
+        <div class="radar-tab-panel${activeRadarTab === 'acessos' ? ' active' : ''}" id="radar-tab-acessos">
+            <div id="radar-acessos-results"><p class="page-subtitle">Carregando...</p></div>
+        </div>
+        <div class="radar-tab-panel${activeRadarTab === 'panorama' ? ' active' : ''}" id="radar-tab-panorama">
+            <div id="radar-panorama-results"><p class="page-subtitle">Carregando...</p></div>
         </div>
         ${isAdmin ? `
             <div class="radar-tab-panel${activeRadarTab === 'importar' ? ' active' : ''}" id="radar-tab-importar">
@@ -281,6 +299,14 @@ export async function renderRadarPage() {
                 loadHistorico();
                 if (isAdmin) { loadSolicitacoes(); }
             }
+            if (tab.dataset.tab === 'acessos' && !acessosLoaded) {
+                acessosLoaded = true;
+                loadAcessos();
+            }
+            if (tab.dataset.tab === 'panorama' && !panoramaLoaded) {
+                panoramaLoaded = true;
+                loadPanorama();
+            }
         });
     });
 
@@ -292,6 +318,12 @@ export async function renderRadarPage() {
         historicoLoaded = true;
         await loadHistorico();
         if (isAdmin) { await loadSolicitacoes(); }
+    } else if (activeRadarTab === 'acessos') {
+        acessosLoaded = true;
+        await loadAcessos();
+    } else if (activeRadarTab === 'panorama') {
+        panoramaLoaded = true;
+        await loadPanorama();
     }
 }
 
@@ -1074,6 +1106,100 @@ async function loadSolicitacoes() {
                 </div>
             </div>
         `).join('')}</div>
+    `;
+}
+
+// Bloco D1 — quem está usando o Radar (1 linha por usuário, ver
+// handleRegistrarAcessoRadar/handleGetRadarAcessos). Filtrado por perfil
+// já vem pronto do backend (vendedor só a própria linha, gerente a
+// equipe, admin tudo).
+async function loadAcessos() {
+    const el = document.getElementById('radar-acessos-results');
+    if (!el) return;
+    const result = await callAPI('getRadarAcessos', { user: state.currentUser });
+    if (result.status !== 'success') {
+        el.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar acessos.')}</p>`;
+        return;
+    }
+    const acessos = result.acessos || [];
+    if (acessos.length === 0) {
+        el.innerHTML = `<div class="empty-state"><span class="empty-state-icon">📋</span><p>Nenhum acesso registrado ainda.</p></div>`;
+        return;
+    }
+    el.innerHTML = `
+        <p class="page-subtitle" style="margin-bottom:0.5rem">${acessos.length} usuário(s)</p>
+        <div class="visits-list">${acessos.map((a) => `
+            <div class="proposal-card" style="cursor:default">
+                <div class="visit-card-header">
+                    <strong>${escapeHtml(a.nome || a.email)}</strong>
+                    <span class="status-pill">${a.totalAcessos} acesso(s)</span>
+                </div>
+                <div class="proposal-meta">
+                    <span>${escapeHtml(a.gerencia || '-')}</span>
+                    <span>Último: ${escapeHtml(a.ultimoAcesso || '-')}</span>
+                </div>
+            </div>
+        `).join('')}</div>
+    `;
+}
+
+// Bloco D2 — retrato da base (total, quebra por status/segmento — igual
+// pra todo mundo) + quem está reservado com o quê agora (filtrado por
+// perfil, ver handleGetRadarPanorama).
+async function loadPanorama() {
+    const el = document.getElementById('radar-panorama-results');
+    if (!el) return;
+    const result = await callAPI('getRadarPanorama', { user: state.currentUser });
+    if (result.status !== 'success') {
+        el.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar o panorama.')}</p>`;
+        return;
+    }
+    const totalEmpresas = result.totalEmpresas || 0;
+    const porStatus = result.porStatus || {};
+    const segmentos = result.segmentos || [];
+    const totalTrabalhando = result.totalTrabalhando || 0;
+    const reservas = result.reservas || [];
+
+    el.innerHTML = `
+        <div class="card">
+            <h3 style="margin-top:0">Base de empresas</h3>
+            <p class="page-subtitle">${totalEmpresas} empresa(s) no total — ${totalTrabalhando} com prospecção em andamento agora.</p>
+            <div class="radar-status-chips" style="margin-top:0.5rem">
+                ${Object.entries(STATUS_LABELS).map(([value, label]) =>
+                    `<span class="${STATUS_CLASSES[value] || 'status-pill'}">${escapeHtml(label)}: ${porStatus[value] || 0}</span>`
+                ).join('')}
+            </div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+            <h3 style="margin-top:0">Segmentos${segmentos.length ? ` (top ${segmentos.length})` : ''}</h3>
+            ${segmentos.length ? `
+                <div class="visits-list">${segmentos.map((s) => `
+                    <div class="proposal-card" style="cursor:default">
+                        <div class="visit-card-header">
+                            <strong>${escapeHtml(s.segmento)}</strong>
+                            <span class="status-pill">${s.total}</span>
+                        </div>
+                    </div>
+                `).join('')}</div>
+            ` : `<p class="page-subtitle">Sem dados de segmento ainda.</p>`}
+        </div>
+        <div class="card" style="margin-top:1rem">
+            <h3 style="margin-top:0">Quem está trabalhando agora${reservas.length ? ` (${reservas.length})` : ''}</h3>
+            ${reservas.length ? `
+                <div class="visits-list">${reservas.map((r) => `
+                    <div class="proposal-card" style="cursor:default">
+                        <div class="visit-card-header">
+                            <strong>${escapeHtml(r.nome || 'Empresa')}</strong>
+                            <span class="${STATUS_CLASSES[r.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[r.status] || r.status)}</span>
+                        </div>
+                        <div class="proposal-meta">
+                            <span>${escapeHtml(r.reservadoPor || '-')}</span>
+                            <span>${escapeHtml(cidadeLabel(r))} · até ${escapeHtml(r.reservadoAte || '-')}</span>
+                        </div>
+                    </div>
+                `).join('')}</div>
+            ` : `<p class="page-subtitle">Nenhuma reserva ativa no momento.</p>`}
+        </div>
     `;
 }
 
