@@ -1535,7 +1535,7 @@ input[type="date"] {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1rem;
+    padding: calc(1rem + var(--safe-top)) calc(1rem + var(--safe-right)) calc(1rem + var(--safe-bottom)) calc(1rem + var(--safe-left));
 }
 
 .modal-card {
@@ -1544,6 +1544,12 @@ input[type="date"] {
     padding: 1.5rem 1.25rem;
     max-width: 340px;
     width: 100%;
+    /* Cards de detalhe (ex.: Radar) podem ter mais conteúdo que cabe numa
+       tela de celular — sem isso, o card só transbordava por cima/baixo do
+       viewport (ficava atrás da barra de status, ou colado no toast) em vez
+       de rolar dentro de si mesmo. */
+    max-height: 100%;
+    overflow-y: auto;
     box-shadow: 0 8px 32px rgba(0,0,0,0.22);
     text-align: center;
 }
