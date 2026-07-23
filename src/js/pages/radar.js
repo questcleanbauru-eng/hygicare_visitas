@@ -154,6 +154,7 @@ export async function renderRadarPage() {
             ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'config' ? ' active' : ''}" data-tab="config">Configurações</button>` : ''}
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'buscar' ? ' active' : ''}" id="radar-tab-buscar">
+            <div id="radar-reservas-expirando-wrap"></div>
             ${RADAR_MAP_ENABLED ? '<div id="radar-map-wrap"></div>' : ''}
             <div class="card radar-search-card">
                 <div class="form-group">
@@ -410,7 +411,50 @@ async function renderGeoResumo(configData, el) {
         `${semCoordenada} sem coordenada disponível, ${pendente} ainda pendente(s).`;
 }
 
+// Aviso de renovação — reservas do PRÓPRIO usuário vencendo em até 7 dias
+// (ver handleGetRadarReservasExpirando). Roda em paralelo com o resto da
+// aba Buscar (não bloqueia o carregamento das cidades), sem culpa: é 1
+// chamada leve, o backend já filtra pra só as poucas linhas que interessam.
+async function renderReservasExpirando() {
+    const wrap = document.getElementById('radar-reservas-expirando-wrap');
+    if (!wrap) return;
+    const result = await callAPI('getRadarReservasExpirando', { user: state.currentUser });
+    const clientes = result.status === 'success' ? (result.clientes || []) : [];
+    if (!clientes.length) {
+        wrap.innerHTML = '';
+        return;
+    }
+    wrap.innerHTML = `
+        <div class="radar-reserva-aviso">
+            <strong>${clientes.length === 1 ? 'Uma reserva sua vence' : `${clientes.length} reservas suas vencem`} em até 7 dias:</strong>
+            <div class="radar-reservas-expirando-list">
+                ${clientes.map((c) => `
+                    <div class="radar-reserva-expirando-item">
+                        <span>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')} — vence em ${escapeHtml(c.reservadoAte)}</span>
+                        <button type="button" class="mini-button" data-renovar-id="${escapeHtml(c.id)}">Renovar</button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    wrap.querySelectorAll('[data-renovar-id]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            setSaving(true, btn, 'Renovando...');
+            const renovarResult = await callAPI('renovarReservaRadarCliente', { user: state.currentUser, id: btn.dataset.renovarId });
+            if (renovarResult.status === 'success') {
+                showToast('Reserva renovada.');
+                renderReservasExpirando();
+                rerenderRadarList();
+            } else {
+                showToast(renovarResult.message || 'Não foi possível renovar.', true);
+                setSaving(false, btn);
+            }
+        });
+    });
+}
+
 async function renderBuscarTab() {
+    renderReservasExpirando();
     const resultsEl = document.getElementById('radar-results');
     resultsEl.innerHTML = loadingState('📡', 'Carregando cidades liberadas...');
 
@@ -915,7 +959,7 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHt
     resultsEl.innerHTML = `
         ${resumoHtml || `<p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>`}
         <div class="visits-list">${sorted.map((c) => `
-            <button type="button" class="radar-cliente-card" data-radar-id="${escapeHtml(c.id)}">
+            <button type="button" class="radar-cliente-card${reservaAtiva(c) ? ' radar-cliente-card-reservado' : ''}" data-radar-id="${escapeHtml(c.id)}">
                 <div class="radar-cliente-header">
                     <strong>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</strong>
                     <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
@@ -1107,6 +1151,7 @@ function openRadarDetailCard(cliente, onUpdated) {
             <p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.cnaeDescricao || '-')}${cliente.cnaeCodigo ? ` (${escapeHtml(cliente.cnaeCodigo)})` : ''}</p>
             ${cliente.segmento ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(cliente.segmento)}</p>` : ''}
             ${porteCapital ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">${escapeHtml(porteCapital)}</p>` : ''}
+            ${cliente.dataAbertura ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">Aberta em ${escapeHtml(cliente.dataAbertura)}</p>` : ''}
             ${endereco ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📍 <a href="${googleMapsUrl(endereco)}" target="_blank" rel="noopener">${escapeHtml(endereco)}</a></p>` : ''}
             ${cliente.telefone ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📞 <a href="tel:${escapeHtml(cliente.telefone.replace(/\D/g, ''))}">${escapeHtml(cliente.telefone)}</a></p>` : ''}
             ${cliente.email ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">✉️ <a href="mailto:${escapeHtml(cliente.email)}">${escapeHtml(cliente.email)}</a></p>` : ''}

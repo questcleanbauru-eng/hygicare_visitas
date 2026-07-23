@@ -44,6 +44,26 @@
     margin: 0 0 0.85rem;
 }
 
+.radar-reservas-expirando-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+
+.radar-reserva-expirando-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.radar-reserva-expirando-item .mini-button {
+    flex-shrink: 0;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.78rem;
+}
+
 .radar-action-disabled {
     opacity: 0.45;
     cursor: not-allowed;
@@ -87,6 +107,15 @@
 .radar-cliente-card:active {
     transform: scale(0.985);
     background-color: #f8fafc;
+}
+
+/* Reserva ativa — opaco pra bater o olho na lista sem precisar ler o
+   texto da tag. Continua clicável (abre o detalhe pra ver quem reservou
+   e até quando); só os botões de ação ficam desabilitados lá dentro, pra
+   quem não é o dono da reserva (nem admin). */
+.radar-cliente-card-reservado {
+    opacity: 0.6;
+    background-color: #fafaf9;
 }
 
 .radar-cliente-header {
