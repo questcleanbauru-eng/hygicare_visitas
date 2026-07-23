@@ -1150,6 +1150,10 @@ async function loadAcessos() {
         return;
     }
     el.innerHTML = `
+        <div class="radar-print-header">
+            <h2>Acessos — Radar de Clientes</h2>
+            <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
         <p class="page-subtitle" style="margin-bottom:0.5rem">${acessos.length} usuário(s)</p>
         <div class="visits-list">${acessos.map((a) => `
             <div class="proposal-card" style="cursor:default">
@@ -1190,6 +1194,10 @@ async function loadPanorama() {
     const reservas = result.reservas || [];
 
     el.innerHTML = `
+        <div class="radar-print-header">
+            <h2>Panorama — Radar de Clientes</h2>
+            <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
         <div class="card">
             <h3 style="margin-top:0">Base de empresas</h3>
             <p class="page-subtitle">${totalEmpresas} empresa(s) no total — ${totalTrabalhando} com prospecção em andamento agora.</p>
@@ -1202,12 +1210,10 @@ async function loadPanorama() {
         <div class="card" style="margin-top:1rem">
             <h3 style="margin-top:0">Segmentos${segmentos.length ? ` (top ${segmentos.length})` : ''}</h3>
             ${segmentos.length ? `
-                <div class="visits-list">${segmentos.map((s) => `
-                    <div class="proposal-card" style="cursor:default">
-                        <div class="visit-card-header">
-                            <strong>${escapeHtml(s.segmento)}</strong>
-                            <span class="status-pill">${s.total}</span>
-                        </div>
+                <div class="radar-panorama-segmentos-grid">${segmentos.map((s) => `
+                    <div class="radar-panorama-segmento-item">
+                        <span>${escapeHtml(s.segmento)}</span>
+                        <span class="status-pill">${s.total}</span>
                     </div>
                 `).join('')}</div>
             ` : `<p class="page-subtitle">Sem dados de segmento ainda.</p>`}

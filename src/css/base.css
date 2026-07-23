@@ -602,7 +602,7 @@ main {
    próprio (ex.: botão "Baixar PDF" em si) sem precisar de uma classe nova
    por página. */
 @media print {
-    #bottom-nav, header, #page-fab, #page-scroll-top, #offline-banner, #update-banner, #pending-sync-banner, .no-print {
+    #bottom-nav, header, #page-fab, #page-scroll-top, #offline-banner, #update-banner, #pending-sync-banner, #sidebar-tooltip, .no-print {
         display: none !important;
     }
     #app, #main-content {
