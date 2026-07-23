@@ -388,31 +388,6 @@
    foi tirado. */
 .radar-print-header { display: none; }
 
-/* Segmentos em grade (2 colunas) em vez de lista vertical — cada linha é
-   só "nome + número", uma lista de até 15 itens ficava comprida à toa
-   numa coluna só (tanto na tela quanto impresso). */
-.radar-panorama-segmentos-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-}
-
-.radar-panorama-segmento-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.65rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-@media (max-width: 480px) {
-    .radar-panorama-segmentos-grid { grid-template-columns: 1fr; }
-}
-
 /* "Baixar PDF" (window.print — o resto do escondido-na-impressão é
    genérico, ver base.css) — as abas em si não fazem sentido impressas
    (você já escolheu qual aba quer, .radar-tab-panel.active já garante que

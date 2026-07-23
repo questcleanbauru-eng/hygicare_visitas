@@ -1750,3 +1750,60 @@ input[type="date"] {
 @media (display-mode: standalone) {
     #update-banner { top: calc(var(--header-height) + var(--safe-top)); }
 }
+
+/* ── KPI tiles e barras proporcionais ("visual de relatório") ──────────────
+   Nasceu na página de Relatório (report.js/.report-section), movido pra cá
+   porque o Panorama do Radar passou a usar o mesmo visual — número grande
+   em destaque + barra proporcional lê muito melhor que uma lista de chips
+   simples num relatório pra imprimir/compartilhar. Nomes mantidos
+   (.report-*) pra não quebrar o que já referenciava essas classes. */
+.report-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.7rem;
+    margin-bottom: 0.9rem;
+}
+
+.report-kpi {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 0.6rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.report-kpi strong { font-size: 1.3rem; font-weight: 800; color: var(--primary-dark); }
+.report-kpi span { font-size: 0.72rem; color: var(--text-muted-strong); }
+
+.report-kpi-alert strong { color: #b45309; }
+
+.report-subtitle {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted-strong);
+    margin: 0.6rem 0 0.4rem;
+}
+
+.report-bar-list { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.report-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+}
+
+.report-bar-label { flex: 0 0 150px; color: var(--text-muted-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report-bar-track { flex: 1; height: 8px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+.report-bar-fill { height: 100%; background: var(--primary); border-radius: 999px; }
+.report-bar-value { flex: 0 0 26px; text-align: right; font-weight: 700; }
+
+/* Sem break-inside:avoid na lista inteira — como o número de barras varia
+   com os dados, isso empurraria a lista inteira pra página seguinte mesmo
+   quando ela não coubesse em nenhuma página inteira. Aplica só na linha
+   individual (KPI ou barra), que aí sim nunca deveria partir ao meio. */
+@media print {
+    .report-kpi-row, .report-bar-row { break-inside: avoid; }
+}

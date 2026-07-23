@@ -1149,12 +1149,19 @@ async function loadAcessos() {
         el.innerHTML = `<div class="empty-state"><span class="empty-state-icon">📋</span><p>Nenhum acesso registrado ainda.</p></div>`;
         return;
     }
+    const totalAcessosSoma = acessos.reduce((sum, a) => sum + (a.totalAcessos || 0), 0);
     el.innerHTML = `
         <div class="radar-print-header">
             <h2>Acessos — Radar de Clientes</h2>
             <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>
-        <p class="page-subtitle" style="margin-bottom:0.5rem">${acessos.length} usuário(s)</p>
+        <div class="report-section">
+            <h3>👥 Quem usa o Radar</h3>
+            <div class="report-kpi-row">
+                <div class="report-kpi"><strong>${acessos.length}</strong><span>Usuário(s)</span></div>
+                <div class="report-kpi"><strong>${totalAcessosSoma}</strong><span>Acessos no total</span></div>
+            </div>
+        </div>
         <div class="visits-list">${acessos.map((a) => `
             <div class="proposal-card" style="cursor:default">
                 <div class="visit-card-header">
@@ -1198,28 +1205,30 @@ async function loadPanorama() {
             <h2>Panorama — Radar de Clientes</h2>
             <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>
-        <div class="card">
-            <h3 style="margin-top:0">Base de empresas</h3>
-            <p class="page-subtitle">${totalEmpresas} empresa(s) no total — ${totalTrabalhando} com prospecção em andamento agora.</p>
-            <div class="radar-status-chips" style="margin-top:0.5rem">
+        <div class="report-section">
+            <h3>📊 Base de empresas</h3>
+            <div class="report-kpi-row">
+                <div class="report-kpi"><strong>${totalEmpresas}</strong><span>Empresas na base</span></div>
+                <div class="report-kpi${totalTrabalhando ? ' report-kpi-alert' : ''}"><strong>${totalTrabalhando}</strong><span>Em prospecção agora</span></div>
+            </div>
+            <p class="report-subtitle">Por status</p>
+            <div class="report-bar-list">
                 ${Object.entries(STATUS_LABELS).map(([value, label]) =>
-                    `<span class="${STATUS_CLASSES[value] || 'status-pill'}">${escapeHtml(label)}: ${porStatus[value] || 0}</span>`
+                    reportBar(label, porStatus[value] || 0, totalEmpresas, STATUS_HEX[value])
                 ).join('')}
             </div>
         </div>
-        <div class="card" style="margin-top:1rem">
-            <h3 style="margin-top:0">Segmentos${segmentos.length ? ` (top ${segmentos.length})` : ''}</h3>
+        <div class="report-section">
+            <h3>🏷️ Segmentos${segmentos.length ? ` (top ${segmentos.length})` : ''}</h3>
             ${segmentos.length ? `
-                <div class="radar-panorama-segmentos-grid">${segmentos.map((s) => `
-                    <div class="radar-panorama-segmento-item">
-                        <span>${escapeHtml(s.segmento)}</span>
-                        <span class="status-pill">${s.total}</span>
-                    </div>
-                `).join('')}</div>
+                <div class="report-bar-list">${segmentos.map((s) => reportBar(s.segmento, s.total, totalEmpresas)).join('')}</div>
             ` : `<p class="page-subtitle">Sem dados de segmento ainda.</p>`}
         </div>
-        <div class="card" style="margin-top:1rem">
-            <h3 style="margin-top:0">Quem está trabalhando agora${reservas.length ? ` (${reservas.length})` : ''}</h3>
+        <div class="report-section">
+            <h3>🔒 Quem está trabalhando agora</h3>
+            <div class="report-kpi-row">
+                <div class="report-kpi"><strong>${reservas.length}</strong><span>Reserva(s) ativa(s)</span></div>
+            </div>
             ${reservas.length ? `
                 <div class="visits-list">${reservas.map((r) => `
                     <div class="proposal-card" style="cursor:default">
@@ -1234,6 +1243,21 @@ async function loadPanorama() {
                     </div>
                 `).join('')}</div>
             ` : `<p class="page-subtitle">Nenhuma reserva ativa no momento.</p>`}
+        </div>
+    `;
+}
+
+// Mesma fórmula/estrutura de reportBar (report.js) — duplicada de
+// propósito em vez de importada: são páginas sem relação nenhuma, uma
+// dependência cruzada só pra uma função de 3 linhas não compensa. Cor
+// opcional (sem ela, cai no azul padrão de --primary via .report-bar-fill).
+function reportBar(label, value, total, color) {
+    const pct = total ? Math.round((value / total) * 100) : 0;
+    return `
+        <div class="report-bar-row">
+            <span class="report-bar-label">${escapeHtml(label)}</span>
+            <div class="report-bar-track"><div class="report-bar-fill" style="width:${pct}%${color ? ';background:' + color : ''}"></div></div>
+            <span class="report-bar-value">${value}</span>
         </div>
     `;
 }
