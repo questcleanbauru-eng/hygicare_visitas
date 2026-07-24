@@ -79,8 +79,38 @@ let activeRadarTab = 'buscar';
 // empresa, sem precisar recarregar nada. null até a primeira carga
 // terminar; nunca mais recarregado sozinho depois disso — só se o usuário
 // sair da tela do Radar e voltar (reabre a tela = nova carga).
+//
+// A busca em si roda em SEGUNDO PLANO (ver carregarTodasEmpresas) — a tela
+// (cabeçalho, abas, seletor de cidade) aparece na hora, igual as outras
+// páginas do app; só quem realmente precisa da lista de empresas (escolher
+// uma cidade, abrir Histórico/Meus Clientes) espera essa promise resolver,
+// e só na primeira vez (chamadas seguintes reaproveitam a mesma promise já
+// resolvida, sem esperar de novo). Antes disso existir, a tela inteira
+// ficava presa atrás de "Carregando tela do Radar..." até a base inteira
+// (milhares de linhas) voltar do servidor — bem mais lento que abrir
+// qualquer outra página do app.
 let todasEmpresas = null;
+let todasEmpresasPromise = null;
 let cidadesDisponiveis = []; // idem — carregada 1x, reaproveitada pela aba Buscar
+
+function carregarTodasEmpresas() {
+    if (!todasEmpresasPromise) {
+        todasEmpresasPromise = callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' })
+            .then((result) => {
+                if (result.status !== 'success') {
+                    showToast(result.message || 'Erro ao carregar empresas do Radar.', true);
+                }
+                todasEmpresas = result.status === 'success' ? (result.clientes || []) : [];
+                return todasEmpresas;
+            })
+            .catch((e) => {
+                showToast('Erro ao carregar empresas do Radar: ' + (e.message || 'falha de conexão'), true);
+                todasEmpresas = [];
+                return todasEmpresas;
+            });
+    }
+    return todasEmpresasPromise;
+}
 
 // Cidade atualmente selecionada na aba Buscar + lista filtrada resultante
 // (derivada de todasEmpresas, ver selectCidade).
@@ -171,32 +201,12 @@ export async function renderRadarPage(options) {
     }
     cidadesDisponiveis = acessoCheck.cidades || [];
 
-    // Carrega a base inteira de empresas 1x, nesta abertura da tela —
-    // Buscar/Histórico/Meus Clientes usam essa mesma cópia depois, sem
-    // chamada nova ao servidor a cada troca de aba/cidade/filtro. Só
-    // recarrega se o usuário sair do Radar e voltar (chama renderRadarPage
-    // de novo do zero); dentro da mesma visita, as próprias ações do
-    // usuário (reservar, marcar status) já atualizam essa cópia na hora.
-    mainContent.innerHTML = `
-        <div class="page-header">
-            <div><h2>Radar de Clientes</h2><p class="page-subtitle">Encontre empresas por cidade pra prospectar</p></div>
-        </div>
-        ${loadingState('📡', 'Carregando tela do Radar...')}
-    `;
-    const clientesResult = await callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' });
-    if (clientesResult.status !== 'success') {
-        mainContent.innerHTML = `
-            <div class="page-header">
-                <div><h2>Radar de Clientes</h2><p class="page-subtitle">Encontre empresas por cidade pra prospectar</p></div>
-            </div>
-            <div class="empty-state">
-                <span class="empty-state-icon">⚠️</span>
-                <p>${escapeHtml(clientesResult.message || 'Não foi possível carregar os dados do Radar.')}</p>
-            </div>
-        `;
-        return;
-    }
-    todasEmpresas = clientesResult.clientes || [];
+    // Dispara em segundo plano — NÃO espera aqui. A tela (cabeçalho, abas,
+    // seletor de cidade) já aparece com o que já temos (cidades, rápido);
+    // só quem realmente precisa da lista de empresas (selectCidade,
+    // Histórico, Meus Clientes) espera essa promise, cada um na hora que
+    // precisar dela, não a tela inteira de saída.
+    carregarTodasEmpresas();
 
     const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
     mainContent.innerHTML = `
@@ -505,16 +515,14 @@ function bindConfigTab() {
 // script à parte (scripts/radar-geocoding-backfill.gs), nunca o app. Se a
 // referência de mês salva não bate com o mês atual, o script ainda não
 // rodou desse mês — mostra 0 em vez do número (já zerado) do mês passado.
-function renderGeoResumo(configData, el) {
+async function renderGeoResumo(configData, el) {
     const mesAtual = new Date().toISOString().slice(0, 7);
     const usado = configData.radar_geocoding_mes_referencia === mesAtual
         ? (configData.radar_geocoding_usado_mes || '0') : '0';
     const limite = configData.radar_geocoding_limite_mensal || '50';
 
-    if (!todasEmpresas) {
-        el.textContent = `Créditos usados este mês: ${usado} de ${limite}.`;
-        return;
-    }
+    if (!todasEmpresas) await carregarTodasEmpresas();
+    if (!document.body.contains(el)) return;
     const clientes = todasEmpresas;
     let comCoordenada = 0, semCoordenada = 0, pendente = 0;
     clientes.forEach((c) => {
@@ -533,9 +541,12 @@ function renderGeoResumo(configData, el) {
 // vez que a aba Buscar abria.
 const DIAS_AVISO_RENOVACAO_RESERVA = 7;
 
-function renderReservasExpirando() {
+async function renderReservasExpirando() {
     const wrap = document.getElementById('radar-reservas-expirando-wrap');
-    if (!wrap || !todasEmpresas) return;
+    if (!wrap) return;
+    if (!todasEmpresas) await carregarTodasEmpresas();
+    // A tela pode ter mudado de aba enquanto essa promise resolvia.
+    if (!document.getElementById('radar-reservas-expirando-wrap')) return;
     const email = String(state.currentUser?.email || '').trim().toLowerCase();
     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
     const limite = new Date(hoje);
@@ -607,8 +618,12 @@ async function renderBuscarTab() {
     const limparGroup = document.getElementById('radar-limpar-group');
     const limparBtn = document.getElementById('radar-limpar-filtros');
 
-    const selectCidade = (match) => {
+    const selectCidade = async (match) => {
         cidadeInput.value = cidadeLabel(match);
+        if (!todasEmpresas) {
+            resultsEl.innerHTML = loadingState('📡', 'Carregando empresas...');
+            await carregarTodasEmpresas();
+        }
         const cidadeLower = match.cidade.trim().toLowerCase();
         const ufLower = String(match.uf || '').trim().toLowerCase();
         currentClientes = todasEmpresas.filter((c) =>
@@ -1145,9 +1160,16 @@ function loadHistorico() {
     renderHistoricoResults();
 }
 
-function renderHistoricoResults() {
+async function renderHistoricoResults() {
     const resultsEl = document.getElementById('radar-historico-results');
     if (!resultsEl) return;
+
+    if (historicoScopeAll && !todasEmpresas) {
+        resultsEl.innerHTML = loadingState('📡', 'Carregando todas as cidades...');
+        await carregarTodasEmpresas();
+        // A tela pode ter mudado de aba enquanto essa promise resolvia.
+        if (!document.getElementById('radar-historico-results')) return;
+    }
     const source = historicoScopeAll ? todasEmpresas : currentClientes;
 
     if (!historicoScopeAll && !currentCidade) {
@@ -1334,9 +1356,14 @@ function renderCidadesAdminList() {
 // como a visão consolidada de toda a equipe. Calculado em cima de
 // todasEmpresas (já carregado na abertura da tela), sem chamada ao servidor
 // — reflete na hora qualquer ação que o próprio usuário acabou de tomar.
-function loadMeusClientes() {
+async function loadMeusClientes() {
     const el = document.getElementById('radar-meus-clientes-results');
-    if (!el || !todasEmpresas) return;
+    if (!el) return;
+    if (!todasEmpresas) {
+        el.innerHTML = loadingState('📡', 'Carregando...');
+        await carregarTodasEmpresas();
+        if (!document.getElementById('radar-meus-clientes-results')) return;
+    }
 
     const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
     const email = String(state.currentUser?.email || '').trim().toLowerCase();
