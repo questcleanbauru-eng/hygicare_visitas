@@ -236,6 +236,10 @@ export async function renderRadarPage(options) {
                     </div>
                     <p class="field-helper-text" id="radar-dados-info" style="display:none"></p>
                 </div>
+                <div class="form-group" id="radar-busca-nome-group" style="display:none">
+                    <label for="radar-busca-nome">Buscar por nome ou CNPJ</label>
+                    <input type="text" id="radar-busca-nome" placeholder="Digite pra filtrar a lista..." autocomplete="off">
+                </div>
                 <div class="form-group" id="radar-segmento-group" style="display:none">
                     <label for="radar-segmento">Segmento</label>
                     <select id="radar-segmento">
@@ -255,6 +259,10 @@ export async function renderRadarPage(options) {
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'historico' ? ' active' : ''}" id="radar-tab-historico">
             <div class="card radar-search-card">
+                <div class="form-group">
+                    <label for="radar-historico-busca-nome">Buscar por nome ou CNPJ</label>
+                    <input type="text" id="radar-historico-busca-nome" placeholder="Digite pra filtrar a lista..." autocomplete="off">
+                </div>
                 <div class="form-group">
                     <label for="radar-historico-status">Status</label>
                     <select id="radar-historico-status">
@@ -611,6 +619,8 @@ async function renderBuscarTab() {
     const cidadeInput = document.getElementById('radar-cidade');
     const cidadeMenu = document.getElementById('radar-cidade-menu');
     const dadosInfoEl = document.getElementById('radar-dados-info');
+    const buscaNomeGroup = document.getElementById('radar-busca-nome-group');
+    const buscaNomeInput = document.getElementById('radar-busca-nome');
     const segmentoGroup = document.getElementById('radar-segmento-group');
     const segmentoInput = document.getElementById('radar-segmento');
     const statusFiltroGroup = document.getElementById('radar-status-filtro-group');
@@ -629,6 +639,7 @@ async function renderBuscarTab() {
         currentClientes = todasEmpresas.filter((c) =>
             c.cidade.trim().toLowerCase() === cidadeLower && (!ufLower || c.uf.trim().toLowerCase() === ufLower));
         currentCidade = { cidade: match.cidade, uf: match.uf, lat: match.lat, lng: match.lng };
+        buscaNomeGroup.style.display = '';
         segmentoGroup.style.display = '';
         statusFiltroGroup.style.display = '';
         limparGroup.style.display = '';
@@ -658,6 +669,8 @@ async function renderBuscarTab() {
         }
     });
 
+    buscaNomeInput.addEventListener('input', () => renderRadarResults(resultsEl));
+
     segmentoInput.addEventListener('change', () => renderRadarResults(resultsEl));
 
     statusChips.querySelectorAll('.radar-status-chip').forEach((btn) => {
@@ -674,8 +687,10 @@ async function renderBuscarTab() {
         currentCidade = null;
         currentClientes = [];
         cidadeInput.value = '';
+        buscaNomeInput.value = '';
         segmentoInput.value = '';
         statusChips.querySelectorAll('.radar-status-chip').forEach((b) => b.classList.toggle('active', b.dataset.status === ''));
+        buscaNomeGroup.style.display = 'none';
         segmentoGroup.style.display = 'none';
         statusFiltroGroup.style.display = 'none';
         limparGroup.style.display = 'none';
@@ -930,15 +945,25 @@ function renderCidadeMapa(cidades, onSelect) {
 }
 
 function renderRadarResults(resultsEl) {
+    const buscaNome = (document.getElementById('radar-busca-nome')?.value || '').trim().toLowerCase();
+    // Só considera dígito pra bater com CNPJ — buscar "123" não deveria
+    // achar toda empresa cujo nome tenha um "1", um "2" e um "3" soltos.
+    const buscaNomeDigitos = buscaNome.replace(/\D/g, '');
     const segmento = document.getElementById('radar-segmento')?.value.trim().toLowerCase() || '';
     const statusFiltro = document.querySelector('#radar-status-chips .radar-status-chip.active')?.dataset.status || '';
 
-    const porSegmento = segmento
+    const porNome = buscaNome
         ? currentClientes.filter((c) =>
+            String(c.nome || '').toLowerCase().includes(buscaNome) ||
+            String(c.nomeFantasia || '').toLowerCase().includes(buscaNome) ||
+            (buscaNomeDigitos && String(c.cnpj || '').includes(buscaNomeDigitos)))
+        : currentClientes;
+    const porSegmento = segmento
+        ? porNome.filter((c) =>
             String(c.cnaeDescricao || '').toLowerCase().includes(segmento) ||
             String(c.segmento || '').toLowerCase().includes(segmento) ||
             String(c.cnaeCodigo || '').toLowerCase().includes(segmento))
-        : currentClientes;
+        : porNome;
     // O resumo por status usa o total ANTES do filtro de status (senão só
     // mostraria 100% de um status só) — o filtro de status só afasta a
     // lista de cards abaixo, sem mudar o resumo.
@@ -1148,6 +1173,7 @@ function updateHistoricoScopeLabel() {
 
 function loadHistorico() {
     updateHistoricoScopeLabel();
+    document.getElementById('radar-historico-busca-nome')?.addEventListener('input', () => renderHistoricoResults());
     const statusSelect = document.getElementById('radar-historico-status');
     statusSelect?.addEventListener('change', () => renderHistoricoResults());
     document.getElementById('radar-historico-scope-btn')?.addEventListener('click', () => {
@@ -1177,8 +1203,16 @@ async function renderHistoricoResults() {
         return;
     }
 
+    const buscaNome = (document.getElementById('radar-historico-busca-nome')?.value || '').trim().toLowerCase();
+    const buscaNomeDigitos = buscaNome.replace(/\D/g, '');
+    const porNome = buscaNome
+        ? source.filter((c) =>
+            String(c.nome || '').toLowerCase().includes(buscaNome) ||
+            String(c.nomeFantasia || '').toLowerCase().includes(buscaNome) ||
+            (buscaNomeDigitos && String(c.cnpj || '').includes(buscaNomeDigitos)))
+        : source;
     const status = document.getElementById('radar-historico-status')?.value || 'todos';
-    const filtered = status === 'todos' ? source : source.filter((c) => c.status === status);
+    const filtered = status === 'todos' ? porNome : porNome.filter((c) => c.status === status);
 
     renderClienteCards(filtered, resultsEl, {
         emptyMessage: 'Nenhuma empresa encontrada.',
