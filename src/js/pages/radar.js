@@ -1211,8 +1211,14 @@ function renderCidadesAdminList() {
         return;
     }
 
+    // Admin fica de fora das opções — já enxerga tudo sempre (ver
+    // cidadeAcessivel), restringir uma cidade "pra ele" não faz sentido, e
+    // a Gerencia de conta admin costuma ser só um valor de preenchimento
+    // (ex.: "Admin"), não uma equipe de vendas de verdade.
+    const vendedoresSelecionaveis = vendedoresAdminCache.filter((u) =>
+        String(u.Perfil || u.perfil || '').trim().toLowerCase() !== 'admin');
     const gerencias = Array.from(new Set(
-        vendedoresAdminCache.map((u) => String(u.Gerencia || u.gerencia || '').trim()).filter(Boolean)
+        vendedoresSelecionaveis.map((u) => String(u.Gerencia || u.gerencia || '').trim()).filter(Boolean)
     )).sort();
 
     el.innerHTML = `
@@ -1240,13 +1246,16 @@ function renderCidadesAdminList() {
                     </select>
                     <div class="radar-cidade-vendedores-check" data-cidade="${escapeHtml(c.cidade)}" data-uf="${escapeHtml(c.uf)}" style="margin-top:0.6rem${restritaVendedor ? '' : ';display:none'}">
                         <div class="radar-cidade-vendedores-list">
-                            ${vendedoresAdminCache.map((u) => {
-                                const email = u.EmailLogin || u.emailLogin || '';
-                                const nome = u.NomeVendedor || u.nomeVendedor || email;
-                                if (!email) return '';
-                                const checked = emailsVendedoresAtuais.includes(email.trim().toLowerCase());
-                                return `<label class="radar-cidade-vendedor-check-item"><input type="checkbox" style="width:auto;min-height:0;accent-color:var(--primary)" value="${escapeHtml(email)}" data-nome="${escapeHtml(nome)}" ${checked ? 'checked' : ''}> ${escapeHtml(nome)}</label>`;
-                            }).join('')}
+                            ${vendedoresSelecionaveis
+                                .map((u) => ({ email: u.EmailLogin || u.emailLogin || '', nome: u.NomeVendedor || u.nomeVendedor || (u.EmailLogin || u.emailLogin || '') }))
+                                .filter((u) => u.email)
+                                .map((u) => ({ ...u, checked: emailsVendedoresAtuais.includes(u.email.trim().toLowerCase()) }))
+                                // Quem já está marcado sobe pro topo — sem isso, achar quem
+                                // está atribuído numa cidade com muitos vendedores exigia
+                                // rolar a caixinha inteira procurando (ver print do usuário).
+                                .sort((a, b) => (b.checked - a.checked) || a.nome.localeCompare(b.nome))
+                                .map((u) => `<label class="radar-cidade-vendedor-check-item"><input type="checkbox" style="width:auto;min-height:0;accent-color:var(--primary)" value="${escapeHtml(u.email)}" data-nome="${escapeHtml(u.nome)}" ${u.checked ? 'checked' : ''}> ${escapeHtml(u.nome)}</label>`)
+                                .join('')}
                         </div>
                         <button type="button" class="mini-button radar-cidade-vendedores-salvar" style="margin-top:0.5rem">Salvar vendedores</button>
                     </div>
