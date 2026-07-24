@@ -1245,7 +1245,7 @@ function renderCidadesAdminList() {
                                 const nome = u.NomeVendedor || u.nomeVendedor || email;
                                 if (!email) return '';
                                 const checked = emailsVendedoresAtuais.includes(email.trim().toLowerCase());
-                                return `<label class="radar-cidade-vendedor-check-item"><input type="checkbox" value="${escapeHtml(email)}" data-nome="${escapeHtml(nome)}" ${checked ? 'checked' : ''}> ${escapeHtml(nome)}</label>`;
+                                return `<label class="radar-cidade-vendedor-check-item"><input type="checkbox" style="width:auto;min-height:0;accent-color:var(--primary)" value="${escapeHtml(email)}" data-nome="${escapeHtml(nome)}" ${checked ? 'checked' : ''}> ${escapeHtml(nome)}</label>`;
                             }).join('')}
                         </div>
                         <button type="button" class="mini-button radar-cidade-vendedores-salvar" style="margin-top:0.5rem">Salvar vendedores</button>
