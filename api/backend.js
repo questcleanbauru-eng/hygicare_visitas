@@ -13,10 +13,10 @@ import {
 } from '../lib/handlers/agendamentos.js';
 import {
     handleGetRadarCidadesDisponiveis, handleGetRadarClientes, handleUpdateRadarClienteStatus,
-    handleCreateRadarSolicitacaoCidade, handleGetRadarSolicitacoesCidade, handleImportRadarClientesCsv,
-    handleGetRadarReservasExpirando, handleRenovarReservaRadarCliente,
+    handleImportRadarClientesCsv,
+    handleRenovarReservaRadarCliente,
     handleRegistrarAcessoRadar, handleGetRadarAcessos, handleGetRadarPanorama,
-    handleReservarRadarCliente, handleSetRadarClienteIndicacao, handleGetRadarMeusClientes,
+    handleReservarRadarCliente, handleSetRadarClienteIndicacao,
     handleGetRadarCidadesAdmin, handleSetCidadeRestricao
 } from '../lib/handlers/radar.js';
 import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
@@ -63,17 +63,13 @@ const HANDLERS = {
     getRadarCidadesDisponiveis: handleGetRadarCidadesDisponiveis,
     getRadarClientes: handleGetRadarClientes,
     updateRadarClienteStatus: handleUpdateRadarClienteStatus,
-    createRadarSolicitacaoCidade: handleCreateRadarSolicitacaoCidade,
-    getRadarSolicitacoesCidade: handleGetRadarSolicitacoesCidade,
     importRadarClientesCsv: handleImportRadarClientesCsv,
-    getRadarReservasExpirando: handleGetRadarReservasExpirando,
     renovarReservaRadarCliente: handleRenovarReservaRadarCliente,
     registrarAcessoRadar: handleRegistrarAcessoRadar,
     getRadarAcessos: handleGetRadarAcessos,
     getRadarPanorama: handleGetRadarPanorama,
     reservarRadarCliente: handleReservarRadarCliente,
     setRadarClienteIndicacao: handleSetRadarClienteIndicacao,
-    getRadarMeusClientes: handleGetRadarMeusClientes,
     getRadarCidadesAdmin: handleGetRadarCidadesAdmin,
     setCidadeRestricao: handleSetCidadeRestricao,
     getDashboardData: handleGetDashboardData,

@@ -67,27 +67,40 @@ const RADAR_EMPRESA_MAP_ENABLED = false;
 
 let activeRadarTab = 'buscar';
 
-// Lista da cidade atualmente carregada — vive só neste módulo (não em
-// `state`), já que o Radar não segue o padrão "carrega tudo" do resto do
-// app (é filtrado por cidade no servidor), então não faz sentido tratar
-// como uma lista global igual state.visits/state.proposals.
+// Base inteira de empresas (todas as cidades acessíveis, já filtradas por
+// acesso no servidor) — carregada 1x só, na abertura da tela (ver
+// renderRadarPage), não a cada troca de aba/cidade/filtro como antes.
+// Buscar/Histórico/Meus Clientes e o resumo de geocodificação da aba
+// Configurações agora só filtram esse array em memória, sem chamada nova
+// ao servidor. Ações do próprio usuário (reservar, marcar status, etc.)
+// mutam os objetos aqui dentro na hora — como Buscar/Histórico derivam
+// desse mesmo array via .filter() (que preserva a referência dos objetos,
+// não copia), a mudança aparece em qualquer lugar que já mostrava aquela
+// empresa, sem precisar recarregar nada. null até a primeira carga
+// terminar; nunca mais recarregado sozinho depois disso — só se o usuário
+// sair da tela do Radar e voltar (reabre a tela = nova carga).
+let todasEmpresas = null;
+let cidadesDisponiveis = []; // idem — carregada 1x, reaproveitada pela aba Buscar
+
+// Cidade atualmente selecionada na aba Buscar + lista filtrada resultante
+// (derivada de todasEmpresas, ver selectCidade).
 let currentClientes = [];
 let currentCidade = null; // { cidade, uf, lat, lng } selecionado na aba Buscar
 let mapApi = null; // API do mapa (ver renderCidadeMapa) — atualiza pins/zoom a partir daqui e de renderRadarResults
 let empresaMapInstance = null; // instância Leaflet do mapa por empresa (ver renderEmpresaMapa) — precisa de .remove() explícito antes de recriar
 
 // Aba Histórico: por padrão mostra a mesma cidade selecionada na aba
-// Buscar (mesma trava de segurança de escala da seção 4 do plano) — só
-// busca todas as cidades sob um clique explícito.
-let historicoClientes = [];
+// Buscar — não é mais por causa de custo de rede (todasEmpresas já tem
+// tudo), é só pra não desenhar milhares de cards de uma vez no celular;
+// "Ver todas as cidades" ainda existe por esse motivo de renderização.
 let historicoScopeAll = false;
 let historicoLoaded = false;
 
-// Abas Acessos/Panorama/Meus Clientes (relatórios) — mesmo padrão de
-// carregar 1 vez só, na primeira vez que a aba é aberta.
+// Abas Acessos/Panorama (relatórios que cruzam com outras abas — Vendedores,
+// RadarAcessos — não dá pra montar só com todasEmpresas) continuam
+// carregando do servidor 1x na primeira vez que a aba é aberta.
 let acessosLoaded = false;
 let panoramaLoaded = false;
-let meusClientesLoaded = false;
 let cidadesAdminLoaded = false;
 
 function cidadeLabel(c) {
@@ -156,6 +169,34 @@ export async function renderRadarPage(options) {
         `;
         return;
     }
+    cidadesDisponiveis = acessoCheck.cidades || [];
+
+    // Carrega a base inteira de empresas 1x, nesta abertura da tela —
+    // Buscar/Histórico/Meus Clientes usam essa mesma cópia depois, sem
+    // chamada nova ao servidor a cada troca de aba/cidade/filtro. Só
+    // recarrega se o usuário sair do Radar e voltar (chama renderRadarPage
+    // de novo do zero); dentro da mesma visita, as próprias ações do
+    // usuário (reservar, marcar status) já atualizam essa cópia na hora.
+    mainContent.innerHTML = `
+        <div class="page-header">
+            <div><h2>Radar de Clientes</h2><p class="page-subtitle">Encontre empresas por cidade pra prospectar</p></div>
+        </div>
+        ${loadingState('📡', 'Carregando tela do Radar...')}
+    `;
+    const clientesResult = await callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' });
+    if (clientesResult.status !== 'success') {
+        mainContent.innerHTML = `
+            <div class="page-header">
+                <div><h2>Radar de Clientes</h2><p class="page-subtitle">Encontre empresas por cidade pra prospectar</p></div>
+            </div>
+            <div class="empty-state">
+                <span class="empty-state-icon">⚠️</span>
+                <p>${escapeHtml(clientesResult.message || 'Não foi possível carregar os dados do Radar.')}</p>
+            </div>
+        `;
+        return;
+    }
+    todasEmpresas = clientesResult.clientes || [];
 
     const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
     mainContent.innerHTML = `
@@ -218,12 +259,6 @@ export async function renderRadarPage(options) {
                 <button type="button" class="mini-button" id="radar-historico-scope-btn" style="display:none">Ver todas as cidades</button>
             </div>
             <div id="radar-historico-results"></div>
-            ${isAdmin ? `
-                <div class="card" style="margin-top:1rem">
-                    <h3 style="margin-top:0">Solicitações de cidade pendentes</h3>
-                    <div id="radar-solicitacoes-list"><p class="page-subtitle">Carregando...</p></div>
-                </div>
-            ` : ''}
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'meus-clientes' ? ' active' : ''}" id="radar-tab-meus-clientes">
             <div id="radar-meus-clientes-results"><p class="page-subtitle">Carregando...</p></div>
@@ -327,10 +362,11 @@ export async function renderRadarPage(options) {
             if (tab.dataset.tab === 'historico' && !historicoLoaded) {
                 historicoLoaded = true;
                 loadHistorico();
-                if (isAdmin) { loadSolicitacoes(); }
             }
-            if (tab.dataset.tab === 'meus-clientes' && !meusClientesLoaded) {
-                meusClientesLoaded = true;
+            // Meus Clientes é só um filtro em memória (todasEmpresas já
+            // carregado) — recalcula toda vez que a aba é aberta, sem custo
+            // de rede, pra sempre refletir a ação mais recente do usuário.
+            if (tab.dataset.tab === 'meus-clientes') {
                 loadMeusClientes();
             }
             if (tab.dataset.tab === 'acessos' && !acessosLoaded) {
@@ -354,11 +390,9 @@ export async function renderRadarPage(options) {
 
     if (activeRadarTab === 'historico') {
         historicoLoaded = true;
-        await loadHistorico();
-        if (isAdmin) { await loadSolicitacoes(); }
+        loadHistorico();
     } else if (activeRadarTab === 'meus-clientes') {
-        meusClientesLoaded = true;
-        await loadMeusClientes();
+        loadMeusClientes();
     } else if (activeRadarTab === 'acessos') {
         acessosLoaded = true;
         await loadAcessos();
@@ -401,7 +435,6 @@ function bindImportTab() {
                     <p style="margin:0 0 0.4rem"><strong>${result.novas}</strong> empresa(s) nova(s)</p>
                     <p style="margin:0 0 0.4rem"><strong>${result.atualizadas}</strong> empresa(s) atualizada(s)</p>
                     ${result.cidadesAdicionadas ? `<p style="margin:0 0 0.4rem"><strong>${result.cidadesAdicionadas}</strong> cidade(s) nova(s) liberada(s)</p>` : ''}
-                    ${result.solicitacoesAtendidas ? `<p style="margin:0 0 0.4rem"><strong>${result.solicitacoesAtendidas}</strong> solicitação(ões) de cidade atendida(s)</p>` : ''}
                     ${result.ignoradas ? `<p style="margin:0 0 0.4rem">${result.ignoradas} linha(s) ignorada(s) (sem CNPJ, Cliente ou Cidade)</p>` : ''}
                     ${result.duplicadasNoArquivo ? `<p style="margin:0">${result.duplicadasNoArquivo} linha(s) duplicada(s) dentro do próprio arquivo</p>` : ''}
                 </div>
@@ -410,7 +443,15 @@ function bindImportTab() {
             fileInput.value = '';
             selectedFile = null;
             importBtn.disabled = true;
-            historicoLoaded = false;
+            // A importação pode ter trazido empresas/cidades novas —
+            // recarrega a cópia local pra Buscar/Histórico/Meus Clientes já
+            // refletirem sem precisar sair e voltar pro Radar.
+            const [novasCidadesResult, novosClientesResult] = await Promise.all([
+                callAPI('getRadarCidadesDisponiveis', { user: state.currentUser }),
+                callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' })
+            ]);
+            if (novasCidadesResult.status === 'success') cidadesDisponiveis = novasCidadesResult.cidades || [];
+            if (novosClientesResult.status === 'success') todasEmpresas = novosClientesResult.clientes || [];
         };
         reader.onerror = () => {
             setSaving(false, importBtn);
@@ -464,18 +505,17 @@ function bindConfigTab() {
 // script à parte (scripts/radar-geocoding-backfill.gs), nunca o app. Se a
 // referência de mês salva não bate com o mês atual, o script ainda não
 // rodou desse mês — mostra 0 em vez do número (já zerado) do mês passado.
-async function renderGeoResumo(configData, el) {
+function renderGeoResumo(configData, el) {
     const mesAtual = new Date().toISOString().slice(0, 7);
     const usado = configData.radar_geocoding_mes_referencia === mesAtual
         ? (configData.radar_geocoding_usado_mes || '0') : '0';
     const limite = configData.radar_geocoding_limite_mensal || '50';
 
-    const result = await callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' });
-    if (result.status !== 'success') {
+    if (!todasEmpresas) {
         el.textContent = `Créditos usados este mês: ${usado} de ${limite}.`;
         return;
     }
-    const clientes = result.clientes || [];
+    const clientes = todasEmpresas;
     let comCoordenada = 0, semCoordenada = 0, pendente = 0;
     clientes.forEach((c) => {
         if (c.latitude === 'sem_coordenada') semCoordenada++;
@@ -487,26 +527,24 @@ async function renderGeoResumo(configData, el) {
         `${semCoordenada} sem coordenada disponível, ${pendente} ainda pendente(s).`;
 }
 
-// Aviso de renovação — reservas do PRÓPRIO usuário vencendo em até 7 dias
-// (ver handleGetRadarReservasExpirando). Roda em paralelo com o resto da
-// aba Buscar (não bloqueia o carregamento das cidades), sem culpa: é 1
-// chamada leve, o backend já filtra pra só as poucas linhas que interessam.
-async function renderReservasExpirando() {
+// Aviso de renovação — reservas do PRÓPRIO usuário vencendo em até 7 dias.
+// Calculado em cima de todasEmpresas (já carregado), sem chamada ao
+// servidor — antes era 1 chamada dedicada (getRadarReservasExpirando) toda
+// vez que a aba Buscar abria.
+const DIAS_AVISO_RENOVACAO_RESERVA = 7;
+
+function renderReservasExpirando() {
     const wrap = document.getElementById('radar-reservas-expirando-wrap');
-    if (!wrap) return;
-    // Sem try/catch, uma falha de rede/timeout (não "erro de negócio", que
-    // já vem como {status:'error'} normal) derrubava a função sem nunca
-    // atualizar o wrap — nesse caso específico ficava só vazio (sem
-    // mensagem), mas o mesmo problema deixava outras telas do Radar presas
-    // em "Carregando..." pra sempre (ver loadAcessos/loadPanorama).
-    let result;
-    try {
-        result = await callAPI('getRadarReservasExpirando', { user: state.currentUser });
-    } catch (e) {
-        wrap.innerHTML = '';
-        return;
-    }
-    const clientes = result.status === 'success' ? (result.clientes || []) : [];
+    if (!wrap || !todasEmpresas) return;
+    const email = String(state.currentUser?.email || '').trim().toLowerCase();
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const limite = new Date(hoje);
+    limite.setDate(limite.getDate() + DIAS_AVISO_RENOVACAO_RESERVA);
+    const clientes = todasEmpresas.filter((c) => {
+        if (String(c.reservadoPorEmail || '').trim().toLowerCase() !== email) return false;
+        const ate = parseDisplayDate(c.reservadoAte);
+        return !!ate && ate >= hoje && ate <= limite;
+    });
     if (!clientes.length) {
         wrap.innerHTML = '';
         return;
@@ -529,6 +567,8 @@ async function renderReservasExpirando() {
             setSaving(true, btn, 'Renovando...');
             const renovarResult = await callAPI('renovarReservaRadarCliente', { user: state.currentUser, id: btn.dataset.renovarId });
             if (renovarResult.status === 'success') {
+                const c = todasEmpresas.find((x) => String(x.id) === String(btn.dataset.renovarId));
+                if (c) c.reservadoAte = renovarResult.reservadoAte;
                 showToast('Reserva renovada.');
                 renderReservasExpirando();
                 rerenderRadarList();
@@ -543,24 +583,15 @@ async function renderReservasExpirando() {
 async function renderBuscarTab() {
     renderReservasExpirando();
     const resultsEl = document.getElementById('radar-results');
-    resultsEl.innerHTML = loadingState('📡', 'Carregando cidades liberadas...');
-
-    const cidadesResult = await callAPI('getRadarCidadesDisponiveis', { user: state.currentUser });
-    if (cidadesResult.status !== 'success') {
-        resultsEl.innerHTML = `<p class="error-message">${escapeHtml(cidadesResult.message || 'Não foi possível carregar as cidades.')}</p>`;
-        return;
-    }
-    const cidades = cidadesResult.cidades || [];
+    const cidades = cidadesDisponiveis;
 
     if (cidades.length === 0) {
         resultsEl.innerHTML = `
             <div class="empty-state">
                 <span class="empty-state-icon">📍</span>
                 <p>Nenhuma cidade liberada ainda.</p>
-                <button type="button" class="btn-add" id="radar-solicitar-cidade-btn">Solicitar cidade</button>
             </div>
         `;
-        document.getElementById('radar-solicitar-cidade-btn')?.addEventListener('click', () => openSolicitarCidadeModal());
         return;
     }
 
@@ -576,15 +607,12 @@ async function renderBuscarTab() {
     const limparGroup = document.getElementById('radar-limpar-group');
     const limparBtn = document.getElementById('radar-limpar-filtros');
 
-    const selectCidade = async (match) => {
+    const selectCidade = (match) => {
         cidadeInput.value = cidadeLabel(match);
-        resultsEl.innerHTML = loadingState('📡', 'Buscando empresas...');
-        const result = await callAPI('getRadarClientes', { user: state.currentUser, cidade: match.cidade, uf: match.uf });
-        if (result.status !== 'success') {
-            resultsEl.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao buscar empresas.')}</p>`;
-            return;
-        }
-        currentClientes = result.clientes || [];
+        const cidadeLower = match.cidade.trim().toLowerCase();
+        const ufLower = String(match.uf || '').trim().toLowerCase();
+        currentClientes = todasEmpresas.filter((c) =>
+            c.cidade.trim().toLowerCase() === cidadeLower && (!ufLower || c.uf.trim().toLowerCase() === ufLower));
         currentCidade = { cidade: match.cidade, uf: match.uf, lat: match.lat, lng: match.lng };
         segmentoGroup.style.display = '';
         statusFiltroGroup.style.display = '';
@@ -639,7 +667,11 @@ async function renderBuscarTab() {
         dadosInfoEl.style.display = 'none';
         resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Escolha uma cidade acima pra ver as empresas.</p></div>`;
         if (empresaMapInstance) { empresaMapInstance.remove(); empresaMapInstance = null; }
-        document.getElementById('radar-empresa-map-wrap').innerHTML = '';
+        // Elemento só existe com RADAR_EMPRESA_MAP_ENABLED=true (mapa por
+        // empresa está desligado no momento) — sem essa checagem, "Limpar
+        // filtros" quebrava com "Cannot set properties of null" toda vez.
+        const empresaMapWrapEl = document.getElementById('radar-empresa-map-wrap');
+        if (empresaMapWrapEl) empresaMapWrapEl.innerHTML = '';
         mapApi?.clearFiltro();
     });
 
@@ -1099,21 +1131,15 @@ function updateHistoricoScopeLabel() {
     }
 }
 
-async function loadHistorico() {
+function loadHistorico() {
     updateHistoricoScopeLabel();
     const statusSelect = document.getElementById('radar-historico-status');
     statusSelect?.addEventListener('change', () => renderHistoricoResults());
-    document.getElementById('radar-historico-scope-btn')?.addEventListener('click', async () => {
+    document.getElementById('radar-historico-scope-btn')?.addEventListener('click', () => {
+        // Já está tudo em todasEmpresas — só troca o escopo e re-renderiza,
+        // sem chamada nenhuma ao servidor (antes buscava de novo aqui).
         historicoScopeAll = true;
         updateHistoricoScopeLabel();
-        const resultsEl = document.getElementById('radar-historico-results');
-        resultsEl.innerHTML = loadingState('📡', 'Carregando todas as cidades...');
-        const result = await callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' });
-        if (result.status !== 'success') {
-            resultsEl.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao buscar empresas.')}</p>`;
-            return;
-        }
-        historicoClientes = result.clientes || [];
         renderHistoricoResults();
     });
     renderHistoricoResults();
@@ -1122,7 +1148,7 @@ async function loadHistorico() {
 function renderHistoricoResults() {
     const resultsEl = document.getElementById('radar-historico-results');
     if (!resultsEl) return;
-    const source = historicoScopeAll ? historicoClientes : currentClientes;
+    const source = historicoScopeAll ? todasEmpresas : currentClientes;
 
     if (!historicoScopeAll && !currentCidade) {
         resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🕘</span><p>Nenhuma cidade selecionada ainda.</p></div>`;
@@ -1136,35 +1162,6 @@ function renderHistoricoResults() {
         emptyMessage: 'Nenhuma empresa encontrada.',
         onUpdated: () => renderHistoricoResults()
     });
-}
-
-async function loadSolicitacoes() {
-    const listEl = document.getElementById('radar-solicitacoes-list');
-    if (!listEl) return;
-    const result = await callAPI('getRadarSolicitacoesCidade', { user: state.currentUser });
-    if (result.status !== 'success') {
-        listEl.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar solicitações.')}</p>`;
-        return;
-    }
-    const solicitacoes = result.solicitacoes || [];
-    if (solicitacoes.length === 0) {
-        listEl.innerHTML = `<p class="page-subtitle">Nenhuma solicitação pendente.</p>`;
-        return;
-    }
-    listEl.innerHTML = `
-        <div class="visits-list">${solicitacoes.map((s) => `
-            <div class="proposal-card" style="cursor:default">
-                <div class="visit-card-header">
-                    <strong>${escapeHtml(s.uf ? `${s.cidadeSolicitada} - ${s.uf}` : s.cidadeSolicitada)}</strong>
-                    ${s.urgente ? '<span class="status-pill radar-status-recusado">Urgente</span>' : ''}
-                </div>
-                <div class="proposal-meta">
-                    <span>Solicitado por ${escapeHtml(s.solicitadoPor || '-')}</span>
-                    <span>${escapeHtml(s.dataSolicitacao || '-')}</span>
-                </div>
-            </div>
-        `).join('')}</div>
-    `;
 }
 
 // Aba "Cidades" (admin) — atribui cada cidade liberada a uma equipe
@@ -1331,30 +1328,31 @@ function renderCidadesAdminList() {
     });
 }
 
-// Aba "Meus Clientes" — sempre pessoal (o próprio email), mesmo pra gerente/
-// admin, ver handleGetRadarMeusClientes. Mesmos 2 números do KPI da Home
-// (carteira fechada + em prospecção agora), com a lista por trás de cada um.
-async function loadMeusClientes() {
+// Aba "Meus Clientes" — pessoal pro vendedor/gerente (só o próprio email);
+// admin vê a base inteira (quem tem o quê agora) — o email dele nunca tem
+// reserva/carteira própria, então "meus clientes" pra ele só faz sentido
+// como a visão consolidada de toda a equipe. Calculado em cima de
+// todasEmpresas (já carregado na abertura da tela), sem chamada ao servidor
+// — reflete na hora qualquer ação que o próprio usuário acabou de tomar.
+function loadMeusClientes() {
     const el = document.getElementById('radar-meus-clientes-results');
-    if (!el) return;
-    let result;
-    try {
-        result = await callAPI('getRadarMeusClientes', { user: state.currentUser });
-    } catch (e) {
-        el.innerHTML = `<p class="error-message">Erro ao carregar seus clientes: ${escapeHtml(e.message || 'falha de conexão')}.</p>`;
-        return;
-    }
-    if (result.status !== 'success') {
-        el.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar seus clientes.')}</p>`;
-        return;
-    }
-    const emProspeccao = result.emProspeccao || [];
-    const carteira = result.carteira || [];
+    if (!el || !todasEmpresas) return;
+
+    const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
+    const email = String(state.currentUser?.email || '').trim().toLowerCase();
+
+    const emProspeccaoTodos = todasEmpresas.filter((c) => reservaAtiva(c));
+    const carteiraTodos = todasEmpresas.filter((c) => c.status === 'ja_atendido');
+
+    const emProspeccao = isAdmin ? emProspeccaoTodos
+        : emProspeccaoTodos.filter((c) => String(c.reservadoPorEmail || '').trim().toLowerCase() === email);
+    const carteira = isAdmin ? carteiraTodos
+        : carteiraTodos.filter((c) => String(c.indicadoPorEmail || '').trim().toLowerCase() === email);
 
     const clientRow = (c, subtitle) => `
         <div class="proposal-card" style="cursor:default">
             <div class="visit-card-header">
-                <strong>${escapeHtml(c.nome || 'Empresa')}</strong>
+                <strong>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</strong>
                 <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
             </div>
             <div class="proposal-meta">
@@ -1370,7 +1368,7 @@ async function loadMeusClientes() {
             <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>
         <div class="report-section">
-            <h3>📌 Resumo</h3>
+            <h3>📌 Resumo${isAdmin ? ' — toda a equipe' : ''}</h3>
             <div class="report-kpi-row">
                 <div class="report-kpi${emProspeccao.length ? ' report-kpi-alert' : ''}"><strong>${emProspeccao.length}</strong><span>Em prospecção agora</span></div>
                 <div class="report-kpi"><strong>${carteira.length}</strong><span>Carteira (já é cliente)</span></div>
@@ -1379,13 +1377,18 @@ async function loadMeusClientes() {
         <div class="report-section">
             <h3>🔒 Em prospecção agora</h3>
             ${emProspeccao.length
-                ? `<div class="visits-list">${emProspeccao.map((c) => clientRow(c, `Reservado até ${c.reservadoAte || '-'}`)).join('')}</div>`
+                ? `<div class="visits-list">${emProspeccao.map((c) => clientRow(c,
+                    isAdmin ? `${c.reservadoPor || '-'} · até ${c.reservadoAte || '-'}` : `Reservado até ${c.reservadoAte || '-'}`
+                )).join('')}</div>`
                 : `<p class="page-subtitle">Nenhuma empresa reservada no momento.</p>`}
         </div>
         <div class="report-section">
-            <h3>💼 Minha carteira</h3>
+            <h3>💼 ${isAdmin ? 'Carteira da equipe' : 'Minha carteira'}</h3>
             ${carteira.length
-                ? `<div class="visits-list">${carteira.map((c) => clientRow(c, c.statusData ? `Cliente desde ${c.statusData}` : 'Já é cliente')).join('')}</div>`
+                ? `<div class="visits-list">${carteira.map((c) => clientRow(c,
+                    isAdmin ? `${c.indicadoPor || c.statusPor || '-'}${c.statusData ? ' · desde ' + c.statusData : ''}`
+                        : (c.statusData ? `Cliente desde ${c.statusData}` : 'Já é cliente')
+                )).join('')}</div>`
                 : `<p class="page-subtitle">Nenhum cliente fechado registrado ainda.</p>`}
         </div>
     `;
@@ -1655,9 +1658,13 @@ function openRadarDetailCard(cliente, onUpdated) {
             cliente.statusPor = state.currentUser.name;
             cliente.statusData = formatDateForDisplay(new Date());
             // Mesma regra do backend: quem tinha a reserva ativa leva o
-            // crédito de "indicou", não necessariamente quem clicou agora.
+            // crédito de "indicou", não necessariamente quem clicou agora —
+            // e a reserva em si é limpa (calculado ANTES de zerar embaixo).
             cliente.indicadoPor = cliente.reservadoPorEmail ? cliente.reservadoPor : state.currentUser.name;
             cliente.indicadoPorEmail = cliente.reservadoPorEmail || state.currentUser.email;
+            cliente.reservadoPor = '';
+            cliente.reservadoPorEmail = '';
+            cliente.reservadoAte = '';
             showToast('Marcado como já atendido.');
             close();
             refresh();
@@ -1791,6 +1798,13 @@ function openRecusarModal(cliente, refresh) {
             cliente.status = 'recusado';
             cliente.statusPor = state.currentUser.name;
             cliente.statusData = formatDateForDisplay(new Date());
+            cliente.statusMotivo = motivo;
+            // input type=date vem em ISO (AAAA-MM-DD) — reformata sem passar
+            // por Date() pra não arriscar virar 1 dia pra trás por fuso.
+            cliente.statusRetornoPrevisto = retorno ? retorno.split('-').reverse().join('/') : '';
+            cliente.reservadoPor = '';
+            cliente.reservadoPorEmail = '';
+            cliente.reservadoAte = '';
             showToast('Marcado como recusado.');
             close();
             refresh();
@@ -1858,48 +1872,3 @@ function openEditarIndicacaoModal(cliente, refresh) {
     });
 }
 
-function openSolicitarCidadeModal() {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left">
-            <h3 style="margin-top:0">Solicitar cidade</h3>
-            <div class="form-group full-width">
-                <label for="radar-sol-cidade">Cidade *</label>
-                <input type="text" id="radar-sol-cidade" placeholder="Nome da cidade">
-            </div>
-            <div class="form-group full-width">
-                <label for="radar-sol-uf">UF</label>
-                <input type="text" id="radar-sol-uf" placeholder="Ex: SP" maxlength="2" style="text-transform:uppercase">
-            </div>
-            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.87rem;cursor:pointer;margin-bottom:0.5rem">
-                <input type="checkbox" id="radar-sol-urgente" style="width:auto">
-                Urgente
-            </label>
-            <div class="form-actions">
-                <button type="button" class="secondary-button" id="radar-sol-cancelar">Cancelar</button>
-                <button type="button" class="primary-button" id="radar-sol-salvar">Enviar</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const close = () => overlay.remove();
-    overlay.querySelector('#radar-sol-cancelar').addEventListener('click', close);
-    overlay.querySelector('#radar-sol-salvar').addEventListener('click', async () => {
-        const btn = overlay.querySelector('#radar-sol-salvar');
-        const cidade = document.getElementById('radar-sol-cidade').value.trim();
-        if (!cidade) { showToast('Informe a cidade.', true); return; }
-        setSaving(true, btn, 'Enviando...');
-        const uf = document.getElementById('radar-sol-uf').value.trim();
-        const urgente = document.getElementById('radar-sol-urgente').checked;
-        const result = await callAPI('createRadarSolicitacaoCidade', { user: state.currentUser, cidade, uf, urgente });
-        if (result.status === 'success') {
-            showToast('Solicitação enviada.');
-            close();
-        } else {
-            showToast(result.message || 'Não foi possível enviar a solicitação.', true);
-            setSaving(false, btn);
-        }
-    });
-}
