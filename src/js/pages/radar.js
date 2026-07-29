@@ -4,8 +4,13 @@ import { escapeHtml, parseDisplayDate, formatDateForDisplay } from '../utils/for
 import { initializeSearchableInput, showToast, loadingState, setSaving } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 import { BRAZIL_MAP_SIZE, BRAZIL_OUTLINE_PATH, BRAZIL_STATE_PATHS, projectLatLng } from '../data/brazilOutline.js';
-import L from 'leaflet';
-import 'leaflet.markercluster';
+// Leaflet + leaflet.markercluster (~200kb+ dos ~270kb desse chunk) só são
+// usados dentro de renderEmpresaMapa, que só roda com
+// RADAR_EMPRESA_MAP_ENABLED=true (desligado no momento) — importar direto
+// aqui em cima fazia esse peso todo baixar/rodar em TODA abertura do Radar,
+// mesmo sem o mapa nunca aparecer. Import dinâmico (ver renderEmpresaMapa)
+// joga isso pra um chunk separado, que só é buscado se/quando o mapa for
+// religado.
 
 // Chave client-side da MapTiler (conta gratuita do usuário, sem cartão —
 // 100k carregamentos/mês grátis). Não é segredo de servidor: chave de mapa
@@ -985,9 +990,14 @@ function renderRadarResults(resultsEl) {
 // instância inteira a cada chamada (troca de cidade, filtro de
 // status/segmento) — é simples e evita estado preso de uma instância
 // Leaflet presa a um container recriado.
-function renderEmpresaMapa(clientes, onUpdated) {
+async function renderEmpresaMapa(clientes, onUpdated) {
     const wrap = document.getElementById('radar-empresa-map-wrap');
     if (!wrap) return;
+
+    // Import dinâmico — só baixa/roda o peso do Leaflet quando o mapa por
+    // empresa realmente vai renderizar (ver comentário no topo do arquivo).
+    const [{ default: L }] = await Promise.all([import('leaflet'), import('leaflet.markercluster')]);
+    if (!document.getElementById('radar-empresa-map-wrap')) return;
 
     if (empresaMapInstance) {
         empresaMapInstance.remove();
