@@ -259,7 +259,7 @@ export function fillFunilContent(mainContent, funil) {
                                 <span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
                             </strong>
-                            ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())}">${escapeHtml(f.status || '-')}</span>`}
+                            ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(f.status || '-')}" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(f.status || '')}">${escapeHtml(f.status || '-')}</span>`}
                         </div>
                         <div class="proposal-meta">
                             <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}</span>
@@ -280,6 +280,12 @@ export function fillFunilContent(mainContent, funil) {
                 e.stopPropagation();
                 const item = funilData.find((f) => String(f.id) === el.dataset.funilQuick);
                 if (item) openFunilQuickUpdateModal(item, renderFiltered);
+            });
+        });
+        container.querySelectorAll('[data-inline-funil-status]').forEach((pill) => {
+            pill.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openFunilInlineStatusEditor(pill, pill.dataset.inlineFunilStatus, pill.dataset.currentStatus);
             });
         });
     };
@@ -429,6 +435,63 @@ function openFunilQuickUpdateModal(f, onUpdated) {
                 if (onUpdated) onUpdated();
             });
     });
+}
+
+
+// Dropdown de status direto no pill do card (mesmo padrão de
+// openInlineStatusEditor em proposals.js) — mais rápido que abrir o modal
+// de atualização rápida quando só o status precisa mudar.
+function openFunilInlineStatusEditor(pill, funilId, currentStatus) {
+    document.querySelector('.inline-status-editor')?.remove();
+    const statuses = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
+    const editor = document.createElement('div');
+    editor.className = 'inline-status-editor';
+    editor.innerHTML = statuses.map((s) =>
+        `<button type="button" class="inline-status-opt${s === currentStatus ? ' active' : ''}" data-s="${escapeHtml(s)}">${escapeHtml(s)}</button>`
+    ).join('');
+    const rect = pill.getBoundingClientRect();
+    editor.style.cssText = `position:fixed;top:${Math.round(rect.bottom + 4)}px;left:${Math.round(rect.left)}px;z-index:1000`;
+    document.body.appendChild(editor);
+    const close = () => editor.remove();
+    editor.addEventListener('click', (e) => e.stopPropagation());
+    editor.querySelectorAll('[data-s]').forEach((opt) => {
+        opt.addEventListener('click', () => {
+            const newStatus = opt.dataset.s;
+            close();
+            if (newStatus === currentStatus) return;
+            const idx = state.funil.findIndex((item) => String(item.id) === String(funilId));
+            const original = idx >= 0 ? { ...state.funil[idx] } : null;
+            const nowDisplay = formatDateForDisplay(new Date());
+            if (idx >= 0) {
+                state.funil[idx] = { ...state.funil[idx], status: newStatus, atualizacao: nowDisplay };
+                saveCache('funil', state.funil);
+            }
+            pill.textContent = newStatus;
+            pill.className = `status-pill funil-status-${newStatus.toLowerCase()} status-pill-editable`;
+            pill.dataset.currentStatus = newStatus;
+            showToast('Status atualizado.');
+            attemptOrQueue('updateFunil', { id: funilId, status: newStatus, user: state.currentUser },
+                { entity: 'funil', tempId: String(funilId) })
+                .then((result) => {
+                    const clienteNome = original ? (original.cliente || '') : '';
+                    if (result && result.status === 'queued') {
+                        if (idx >= 0) { state.funil[idx] = { ...state.funil[idx], _pending: true }; saveCache('funil', state.funil); }
+                        showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                        trackUpdate('funil', { id: funilId, cliente: clienteNome, status: newStatus });
+                    } else if (!result || result.status !== 'success') {
+                        if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
+                        showToast((result && result.message) || 'Erro ao atualizar status.', true);
+                    } else {
+                        trackUpdate('funil', { id: funilId, cliente: clienteNome, status: newStatus });
+                    }
+                })
+                .catch(() => {
+                    if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
+                    showToast('Erro ao atualizar status.', true);
+                });
+        });
+    });
+    setTimeout(() => document.addEventListener('click', close, { once: true }), 0);
 }
 
 
