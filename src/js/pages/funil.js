@@ -241,7 +241,10 @@ export function fillFunilContent(mainContent, funil) {
             return `
             <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}" data-funil-id="${escapeHtml(f.id)}">
                 <div class="visit-card-header">
-                    <strong><span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}</strong>
+                    <strong>
+                        <span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
+                        <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">✏️</span>
+                    </strong>
                     ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())}">${escapeHtml(f.status || '-')}</span>`}
                 </div>
                 <div class="proposal-meta">
@@ -255,6 +258,13 @@ export function fillFunilContent(mainContent, funil) {
 
         container.querySelectorAll('[data-funil-id]').forEach((btn) => {
             btn.addEventListener('click', () => navigateTo('funil-detail', { id: btn.dataset.funilId }));
+        });
+        container.querySelectorAll('[data-funil-quick]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = funilData.find((f) => String(f.id) === el.dataset.funilQuick);
+                if (item) openFunilQuickUpdateModal(item, renderFiltered);
+            });
         });
     };
 
@@ -328,6 +338,80 @@ export function fillFunilContent(mainContent, funil) {
     });
 
     renderFiltered();
+}
+
+
+// Atualização rápida (status + comentários) direto da lista, sem navegar
+// pra tela de edição completa — mesmo conceito do quick-update de
+// Propostas (proposals.js), com "Comentários" no lugar de "Obs" (o campo
+// que já cumpre esse papel no Funil, com o texto de apoio "Observações e
+// próximos passos").
+function openFunilQuickUpdateModal(f, onUpdated) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card" style="text-align:left">
+            <h3 style="margin-top:0">Atualizar — ${escapeHtml(f.cliente || 'Cliente')}</h3>
+            <div class="form-group full-width">
+                <label for="fq-status">Status</label>
+                <select id="fq-status">${renderSimpleOptions(['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'], f.status)}</select>
+            </div>
+            <div class="form-group full-width">
+                <label for="fq-comentarios">Comentários</label>
+                <textarea id="fq-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(f.comentarios || '')}</textarea>
+            </div>
+            <div class="form-actions full-width" style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                <button type="button" class="secondary-button" id="fq-cancel">Cancelar</button>
+                <button type="button" class="primary-button" id="fq-save">Salvar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#fq-cancel').addEventListener('click', close);
+    overlay.querySelector('#fq-save').addEventListener('click', async () => {
+        const btn = overlay.querySelector('#fq-save');
+        const newStatus = overlay.querySelector('#fq-status').value;
+        const newComentarios = overlay.querySelector('#fq-comentarios').value.trim();
+        setSaving(true, btn, 'Salvando...');
+
+        const idx = state.funil.findIndex((item) => String(item.id) === String(f.id));
+        const original = idx >= 0 ? { ...state.funil[idx] } : null;
+        const nowDisplay = formatDateForDisplay(new Date());
+        if (idx >= 0) {
+            state.funil[idx] = { ...state.funil[idx], status: newStatus, comentarios: newComentarios, atualizacao: nowDisplay };
+            saveCache('funil', state.funil);
+        }
+        close();
+        showToast('Funil atualizado com sucesso.');
+        if (onUpdated) onUpdated();
+
+        attemptOrQueue('updateFunil', { id: f.id, status: newStatus, comentarios: newComentarios, user: state.currentUser },
+            { entity: 'funil', tempId: f.id })
+            .then((result) => {
+                if (result && result.status === 'success') {
+                    state.funil = state.funil.map((item) => String(item.id) === String(f.id) ? result.funil : item);
+                    saveCache('funil', state.funil);
+                    trackUpdate('funil', { id: f.id, cliente: f.cliente, status: newStatus });
+                    if (onUpdated) onUpdated();
+                } else if (result && result.status === 'queued') {
+                    if (idx >= 0) { state.funil[idx] = { ...state.funil[idx], _pending: true }; saveCache('funil', state.funil); }
+                    showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                    trackUpdate('funil', { id: f.id, cliente: f.cliente, status: newStatus });
+                    if (onUpdated) onUpdated();
+                } else {
+                    if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
+                    showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
+                    if (onUpdated) onUpdated();
+                }
+            })
+            .catch(() => {
+                if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
+                showToast('Erro ao salvar. Tente novamente.', true);
+                if (onUpdated) onUpdated();
+            });
+    });
 }
 
 

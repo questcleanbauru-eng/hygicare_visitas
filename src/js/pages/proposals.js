@@ -237,7 +237,10 @@ export function fillProposalsContent(mainContent, proposals) {
                 <div class="visits-list">${byMonth[key].map((p) => `
                     <button type="button" class="proposal-card ${p.atrasada ? 'proposal-card-alert' : ''}" data-proposal-id="${escapeHtml(p.id)}">
                         <div class="visit-card-header">
-                            <strong><span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}</strong>
+                            <strong>
+                                <span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
+                                <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-proposal-quick="${escapeHtml(p.id)}">✏️</span>
+                            </strong>
                             ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
                         </div>
                         <div class="proposal-meta">
@@ -257,6 +260,13 @@ export function fillProposalsContent(mainContent, proposals) {
             pill.addEventListener('click', (e) => {
                 e.stopPropagation();
                 openInlineStatusEditor(pill, pill.dataset.inlineStatus, pill.dataset.currentStatus);
+            });
+        });
+        container.querySelectorAll('[data-proposal-quick]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = normalized.find((p) => String(p.id) === el.dataset.proposalQuick);
+                if (item) openProposalQuickUpdateModal(item, renderFiltered);
             });
         });
     };
@@ -866,6 +876,89 @@ export async function getProposalById(id) {
     } catch (error) {
         return { status: 'error', message: error.message };
     }
+}
+
+
+// Atualização rápida (status + obs) direto da lista, sem navegar pra tela
+// de edição completa — reaproveita o mesmo .modal-overlay/.modal-card já
+// usado em outras telas (ex.: showScheduleReturnModal em visits.js).
+function openProposalQuickUpdateModal(p, onUpdated) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card" style="text-align:left">
+            <h3 style="margin-top:0">Atualizar — ${escapeHtml(p.cliente || 'Cliente')}</h3>
+            <div class="form-group full-width">
+                <label for="pq-status">Status</label>
+                <select id="pq-status">${renderSimpleOptions(['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'], p.status)}</select>
+            </div>
+            <div class="form-group full-width">
+                <label for="pq-obs">Atualizar / OBS</label>
+                <textarea id="pq-obs" rows="4">${escapeHtml(p.obs || '')}</textarea>
+            </div>
+            <div class="form-actions full-width" style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                <button type="button" class="secondary-button" id="pq-cancel">Cancelar</button>
+                <button type="button" class="primary-button" id="pq-save">Salvar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#pq-cancel').addEventListener('click', close);
+    overlay.querySelector('#pq-save').addEventListener('click', async () => {
+        const btn = overlay.querySelector('#pq-save');
+        const newStatus = overlay.querySelector('#pq-status').value;
+        const newObs = overlay.querySelector('#pq-obs').value.trim();
+        setSaving(true, btn, 'Salvando...');
+
+        const idx = state.proposals.findIndex((item) => String(item.Id || item.id) === String(p.id));
+        const original = idx >= 0 ? { ...state.proposals[idx] } : null;
+        const nowDisplay = formatDateForDisplay(new Date());
+        if (idx >= 0) {
+            state.proposals[idx] = {
+                ...state.proposals[idx],
+                status: newStatus, Status: newStatus,
+                obs: newObs, Obs: newObs,
+                atualizacao: nowDisplay, Atualizacao: nowDisplay
+            };
+            saveCache('proposals', state.proposals);
+        }
+        // `p` é o objeto normalizado usado pela lista (normalized.find(...)
+        // em quem chamou este modal) — uma referência separada da que fica
+        // em state.proposals (normalizeProposal cria cópias novas via map).
+        // Sem mutar `p` também, onUpdated() (renderFiltered) redesenharia a
+        // partir da cópia antiga e o card não mudaria.
+        p.status = newStatus;
+        p.obs = newObs;
+        p.atualizacao = nowDisplay;
+        p.atrasada = false;
+        close();
+        showToast('Proposta atualizada.');
+        if (onUpdated) onUpdated();
+
+        attemptOrQueue('updateProposal', { id: p.id, status: newStatus, obs: newObs, user: state.currentUser },
+            { entity: 'proposals', tempId: p.id })
+            .then((result) => {
+                if (result && result.status === 'success') {
+                    trackUpdate('proposals', { id: p.id, cliente: p.cliente, status: newStatus });
+                } else if (result && result.status === 'queued') {
+                    if (idx >= 0) { state.proposals[idx] = { ...state.proposals[idx], _pending: true }; saveCache('proposals', state.proposals); }
+                    showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                    trackUpdate('proposals', { id: p.id, cliente: p.cliente, status: newStatus });
+                    if (onUpdated) onUpdated();
+                } else {
+                    if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
+                    showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
+                    if (onUpdated) onUpdated();
+                }
+            })
+            .catch(() => {
+                if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
+                showToast('Erro ao salvar. Tente novamente.', true);
+                if (onUpdated) onUpdated();
+            });
+    });
 }
 
 

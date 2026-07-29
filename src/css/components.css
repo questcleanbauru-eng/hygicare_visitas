@@ -1704,6 +1704,26 @@ input[type="date"] {
 
 .status-pill-editable:hover { opacity: 0.82; }
 
+/* Botão de atualização rápida (status+obs) nos cards de Proposta/Funil —
+   fica dentro do <strong> do cabeçalho do card, que por sua vez já vive
+   dentro de um <button class="proposal-card">; um <button> real aqui
+   quebraria HTML (botão dentro de botão), daí role="button" num <span>,
+   mesmo padrão já usado em .status-pill-editable. */
+.card-quick-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-left: 0.2rem;
+    border-radius: 50%;
+    font-size: 0.78rem;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.card-quick-edit-btn:hover, .card-quick-edit-btn:active { background: var(--bg); }
+
 .inline-status-editor {
     background: var(--surface);
     border: 1px solid var(--border);
