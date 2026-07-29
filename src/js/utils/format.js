@@ -331,7 +331,18 @@ export function formatDateFieldValue(value) {
 
 
 export function normalizeDisplayDateValue(value) {
-    const formatted = formatDateFieldValue(value);
+    // Data que já vem com barra (ex.: "29/7/2026", comum quando a planilha
+    // não completa dia/mês com zero à esquerda) — usa os grupos capturados
+    // direto, sem passar pelo reformatador de digitação (formatDateFieldValue
+    // abaixo, feito pra ir montando a data enquanto o usuário digita only
+    // dígitos crus). Esse reformatador assume sempre 2+2+4 dígitos; numa
+    // data como "29/7/2026" (7 dígitos, não 8) ele fatiava errado e a data
+    // virava inválida — o registro caía em "Sem data" mesmo tendo data.
+    const raw = String(value || '').trim();
+    const flexMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    const formatted = flexMatch
+        ? `${flexMatch[1].padStart(2, '0')}/${flexMatch[2].padStart(2, '0')}/${flexMatch[3]}`
+        : formatDateFieldValue(value);
     const match = formatted.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (!match) {
         return '';
