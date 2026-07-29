@@ -626,12 +626,16 @@ main {
            na borda "segura" (topo da área do indicador de início), não na
            borda física da tela — sobra uma faixa reservada pelo sistema
            que nenhum fundo (nem o do #app) alcançava. Empurra a caixa pra
-           baixo pela mesma distância do indicador (bottom negativo), e o
-           padding-bottom (inalterado) garante que ÍCONE/TEXTO continuam
-           acima da área seguro — só o FUNDO/BORDA da barra é que passa a
-           cobrir até a borda física de verdade. */
-        bottom: calc(-1 * var(--safe-bottom));
-        padding-bottom: var(--safe-bottom);
+           baixo (bottom negativo) e o padding-bottom (inalterado) garante
+           que ÍCONE/TEXTO continuam acima da área segura — só o
+           FUNDO/BORDA da barra é que passa a cobrir até a borda física.
+           +12px de folga: testado num iPhone real, só -1*safe-bottom
+           ainda deixava uma faixinha (env() parece reportar um valor um
+           pouco menor que a área reservada de verdade nesse aparelho) —
+           passar um pouco da conta aqui não tem custo (só estende o fundo
+           branco por uma área já não-interativa mesmo). */
+        bottom: calc(-1 * var(--safe-bottom) - 12px);
+        padding-bottom: calc(var(--safe-bottom) + 12px);
         padding-left: max(0px, var(--safe-left));
         padding-right: max(0px, var(--safe-right));
     }
