@@ -5,7 +5,8 @@ import {
     groupVisitsByMonth, formatMonthKey, normalizeVisit, compareVisitsByDateDesc, visitTypeClass,
     formatDateForDisplay, formatDateForInput, formatTimeForInput, formatInputDateFromDisplay,
     formatDateFieldValue, normalizeDisplayDateValue, formatTimeFieldValue, normalizeTimeValue,
-    normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml
+    normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
+    calculateDaysFromDisplayDate
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, initializeSearchableInput, renderDetailRow,
@@ -446,6 +447,158 @@ export async function renderCalendarPage(options) {
     const FUNIL_COLOR    = '#22c55e';
     const AGENDAMENTO_COLOR = '#a855f7';
 
+    // Reaproveitado tanto pelo painel do dia clicado quanto pela lista
+    // "todos os agendamentos" sempre visível abaixo do calendário — só a
+    // fonte da lista (dia vs. tudo) muda entre os dois usos.
+    const agendamentoCardHtml = (a, { showDate = false } = {}) => {
+        const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
+        const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
+        return `
+        <div class="visit-card" data-agendamento-id="${escapeHtml(a.id)}" style="border-left:4px solid ${AGENDAMENTO_COLOR};cursor:default">
+            <div class="visit-card-header">
+                <strong><span aria-hidden="true">📌</span> ${escapeHtml(a.cliente || '-')}</strong>
+                ${showDate
+                    ? `<span class="dias-atraso-badge" style="background:${AGENDAMENTO_COLOR}20;color:${AGENDAMENTO_COLOR}">${diasLabel}</span>`
+                    : `<span class="tag" style="background:${AGENDAMENTO_COLOR}20;color:${AGENDAMENTO_COLOR}">Retorno agendado</span>`}
+            </div>
+            <div class="visit-card-body">
+                <span>${escapeHtml(a.cidade || '-')}</span>
+                ${showDate && a.dataAgendada ? `<span>${escapeHtml(a.dataAgendada)}</span>` : ''}
+                ${a.observacao ? `<span>${escapeHtml(a.observacao)}</span>` : ''}
+            </div>
+            <div class="ag-actions-row" style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
+                <button type="button" class="mini-button" data-ag-done="${escapeHtml(a.id)}">Concluído</button>
+                <button type="button" class="mini-button" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
+                <button type="button" class="mini-button" data-ag-edit-date="${escapeHtml(a.id)}">Mudar data</button>
+                <button type="button" class="mini-button" data-ag-ics="${escapeHtml(a.id)}">.ics</button>
+            </div>
+            <div class="ag-edit-date-row" style="display:none;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
+                <input type="date" class="ag-edit-date-input" value="${escapeHtml(formatInputDateFromDisplay(a.dataAgendada) || '')}">
+                <button type="button" class="mini-button" data-ag-save-date="${escapeHtml(a.id)}">Salvar</button>
+                <button type="button" class="mini-button" data-ag-cancel-date="${escapeHtml(a.id)}">Cancelar</button>
+            </div>
+        </div>`;
+    };
+
+    // Escopado por elemento (closest/querySelector), nunca por id global —
+    // o painel do dia e a lista "todos os agendamentos" podem exibir o
+    // mesmo agendamento ao mesmo tempo, e ids duplicados no documento
+    // quebrariam document.getElementById (pega sempre o primeiro).
+    const bindAgendamentoRowActions = (container, sourceList, opts = {}) => {
+        const onMutated = opts.onMutated || (() => {});
+        container.querySelectorAll('[data-ag-done]').forEach((b) => {
+            b.addEventListener('click', async () => {
+                setSaving(true, b, '');
+                const id = b.dataset.agDone;
+                const r = await callAPI('updateAgendamento', { id, status: 'Concluido', user: state.currentUser });
+                if (r && r.status === 'success') {
+                    const found = state.agendamentos.find((item) => String(item.id) === id);
+                    if (found) found.status = 'Concluido';
+                    const agData = sourceList.find((item) => String(item.id) === id);
+                    b.closest('[data-agendamento-id]')?.remove();
+                    showToast('Retorno concluído. Registre a visita.');
+                    onMutated();
+                    navigateTo('visit-new', { prefill: { Cliente: agData?.cliente || '', Cidade: agData?.cidade || '' } });
+                } else {
+                    showToast((r && r.message) || 'Erro ao atualizar agendamento.', true);
+                    setSaving(false, b);
+                }
+            });
+        });
+        container.querySelectorAll('[data-ag-cancel]').forEach((b) => {
+            b.addEventListener('click', async () => {
+                if (!confirm('Cancelar este agendamento?')) return;
+                setSaving(true, b, '');
+                const id = b.dataset.agCancel;
+                const r = await callAPI('updateAgendamento', { id, status: 'Cancelado', user: state.currentUser });
+                if (r && r.status === 'success') {
+                    const found = state.agendamentos.find((item) => String(item.id) === id);
+                    if (found) found.status = 'Cancelado';
+                    showToast('Agendamento cancelado.');
+                    b.closest('[data-agendamento-id]')?.remove();
+                    onMutated();
+                } else {
+                    showToast((r && r.message) || 'Erro ao cancelar agendamento.', true);
+                    setSaving(false, b);
+                }
+            });
+        });
+        container.querySelectorAll('[data-ag-ics]').forEach((b) => {
+            b.addEventListener('click', () => {
+                const a = sourceList.find((item) => String(item.id) === b.dataset.agIcs);
+                if (!a) return;
+                const dt = parseDisplayDate(a.dataAgendada);
+                const dateStr = dt ? dt.toISOString().slice(0, 10) : '';
+                const ics = buildIcsContent({
+                    title: `Retorno: ${a.cliente || ''}`,
+                    description: a.observacao || 'Visita de retorno agendada pelo App de Visitas.',
+                    dateStr
+                });
+                downloadIcs(`retorno-${String(a.cliente || 'cliente').replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
+            });
+        });
+        container.querySelectorAll('[data-ag-edit-date]').forEach((b) => {
+            b.addEventListener('click', () => {
+                const row = b.closest('[data-agendamento-id]');
+                row.querySelector('.ag-actions-row').style.display = 'none';
+                row.querySelector('.ag-edit-date-row').style.display = 'flex';
+            });
+        });
+        container.querySelectorAll('[data-ag-cancel-date]').forEach((b) => {
+            b.addEventListener('click', () => {
+                const row = b.closest('[data-agendamento-id]');
+                row.querySelector('.ag-edit-date-row').style.display = 'none';
+                row.querySelector('.ag-actions-row').style.display = 'flex';
+            });
+        });
+        container.querySelectorAll('[data-ag-save-date]').forEach((b) => {
+            b.addEventListener('click', async () => {
+                const row = b.closest('[data-agendamento-id]');
+                const newDate = row.querySelector('.ag-edit-date-input')?.value;
+                if (!newDate) { showToast('Informe a nova data.', true); return; }
+                setSaving(true, b, 'Salvando...');
+                const id = b.dataset.agSaveDate;
+                const r = await callAPI('updateAgendamento', { id, dataAgendada: newDate, user: state.currentUser });
+                if (r && r.status === 'success') {
+                    const found = state.agendamentos.find((item) => String(item.id) === id);
+                    if (found) found.dataAgendada = r.agendamento?.dataAgendada || found.dataAgendada;
+                    showToast('Data do retorno atualizada.');
+                    // A data pode ter mudado pra outro dia — some do painel
+                    // do dia (o grid não recalcula os pontos sem recarregar
+                    // a Agenda); onMutated já atualiza a lista completa.
+                    row.remove();
+                    onMutated();
+                } else {
+                    showToast((r && r.message) || 'Erro ao atualizar a data.', true);
+                    setSaving(false, b);
+                }
+            });
+        });
+    };
+
+    const renderAgendamentosSection = () => {
+        const sectionEl = document.getElementById('cal-agendamentos-section');
+        if (!sectionEl) return;
+        const pending = (state.agendamentos || [])
+            .filter((a) => a.status === 'Pendente')
+            .sort((a, b) => {
+                const da = parseDisplayDate(a.dataAgendada);
+                const db = parseDisplayDate(b.dataAgendada);
+                return (da ? da.getTime() : 0) - (db ? db.getTime() : 0);
+            });
+        sectionEl.innerHTML = pending.length === 0 ? `
+            <div class="visit-month-header"><h3>📌 Retornos agendados</h3></div>
+            <p class="helper-text" style="text-align:center;padding:0.5rem 0">Nenhum retorno pendente.</p>
+        ` : `
+            <div class="visit-month-header">
+                <h3>📌 Retornos agendados</h3>
+                <span>${pending.length} pendente(s)</span>
+            </div>
+            <div class="visits-list">${pending.map((a) => agendamentoCardHtml(a, { showDate: true })).join('')}</div>
+        `;
+        bindAgendamentoRowActions(sectionEl, pending, { onMutated: renderAgendamentosSection });
+    };
+
     let viewYear  = new Date().getFullYear();
     let viewMonth = new Date().getMonth();
     // 'todos' | 'visitas' | 'propostas' | 'funil' | 'retornos' — "Próximos
@@ -575,7 +728,10 @@ export async function renderCalendarPage(options) {
                 <div class="cal-legend">${legendHtml}</div>
             </div>
             <div id="cal-day-panel"></div>
+            <div class="card" id="cal-agendamentos-section" style="margin-top:0.75rem"></div>
         `;
+
+        renderAgendamentosSection();
 
         document.getElementById('cal-prev').addEventListener('click', () => {
             viewMonth--;
@@ -618,28 +774,7 @@ export async function renderCalendarPage(options) {
                         <span>${total} registro(s)</span>
                     </div>
                     <div class="visits-list">
-                        ${dayAgendamentos.map((a) => `
-                        <div class="visit-card" data-agendamento-id="${escapeHtml(a.id)}" style="border-left:4px solid ${AGENDAMENTO_COLOR};cursor:default">
-                            <div class="visit-card-header">
-                                <strong><span aria-hidden="true">📌</span> ${escapeHtml(a.cliente || '-')}</strong>
-                                <span class="tag" style="background:${AGENDAMENTO_COLOR}20;color:${AGENDAMENTO_COLOR}">Retorno agendado</span>
-                            </div>
-                            <div class="visit-card-body">
-                                <span>${escapeHtml(a.cidade || '-')}</span>
-                                ${a.observacao ? `<span>${escapeHtml(a.observacao)}</span>` : ''}
-                            </div>
-                            <div class="ag-actions-row" id="ag-actions-${escapeHtml(a.id)}" style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
-                                <button type="button" class="mini-button" data-ag-done="${escapeHtml(a.id)}">Concluído</button>
-                                <button type="button" class="mini-button" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
-                                <button type="button" class="mini-button" data-ag-edit-date="${escapeHtml(a.id)}">Mudar data</button>
-                                <button type="button" class="mini-button" data-ag-ics="${escapeHtml(a.id)}">.ics</button>
-                            </div>
-                            <div class="ag-edit-date-row" id="ag-edit-row-${escapeHtml(a.id)}" style="display:none;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
-                                <input type="date" class="ag-edit-date-input" id="ag-edit-date-${escapeHtml(a.id)}" value="${escapeHtml(formatInputDateFromDisplay(a.dataAgendada) || '')}">
-                                <button type="button" class="mini-button" data-ag-save-date="${escapeHtml(a.id)}">Salvar</button>
-                                <button type="button" class="mini-button" data-ag-cancel-date="${escapeHtml(a.id)}">Cancelar</button>
-                            </div>
-                        </div>`).join('')}
+                        ${dayAgendamentos.map((a) => agendamentoCardHtml(a)).join('')}
                         ${dayVisits.map((v) => `
                         <button type="button" class="visit-card" data-visit-id="${escapeHtml(v.id)}" style="border-left:4px solid ${typeColorMap[v.tipoVisita] || '#3b82f6'}">
                             <div class="visit-card-header">
@@ -686,95 +821,7 @@ export async function renderCalendarPage(options) {
                 panel.querySelectorAll('[data-funil-id]').forEach((b) => {
                     b.addEventListener('click', () => navigateTo('funil-detail', { id: b.dataset.funilId }));
                 });
-                panel.querySelectorAll('[data-ag-done]').forEach((b) => {
-                    b.addEventListener('click', async () => {
-                        setSaving(true, b, '');
-                        const id = b.dataset.agDone;
-                        const r = await callAPI('updateAgendamento', { id, status: 'Concluido', user: state.currentUser });
-                        if (r && r.status === 'success') {
-                            const found = state.agendamentos.find((item) => String(item.id) === id);
-                            if (found) found.status = 'Concluido';
-                            b.closest('[data-agendamento-id]')?.remove();
-                            // Fecha o ciclo: concluir o retorno já leva pro
-                            // formulário de Nova Visita com Cliente/Cidade
-                            // preenchidos, em vez de só marcar o status.
-                            const agData = dayAgendamentos.find((item) => String(item.id) === id);
-                            showToast('Retorno concluído. Registre a visita.');
-                            navigateTo('visit-new', { prefill: { Cliente: agData?.cliente || '', Cidade: agData?.cidade || '' } });
-                        } else {
-                            showToast((r && r.message) || 'Erro ao atualizar agendamento.', true);
-                            setSaving(false, b);
-                        }
-                    });
-                });
-                panel.querySelectorAll('[data-ag-cancel]').forEach((b) => {
-                    b.addEventListener('click', async () => {
-                        if (!confirm('Cancelar este agendamento?')) return;
-                        setSaving(true, b, '');
-                        const id = b.dataset.agCancel;
-                        const r = await callAPI('updateAgendamento', { id, status: 'Cancelado', user: state.currentUser });
-                        if (r && r.status === 'success') {
-                            const found = state.agendamentos.find((item) => String(item.id) === id);
-                            if (found) found.status = 'Cancelado';
-                            showToast('Agendamento cancelado.');
-                            b.closest('[data-agendamento-id]')?.remove();
-                        } else {
-                            showToast((r && r.message) || 'Erro ao cancelar agendamento.', true);
-                            setSaving(false, b);
-                        }
-                    });
-                });
-                panel.querySelectorAll('[data-ag-ics]').forEach((b) => {
-                    b.addEventListener('click', () => {
-                        const a = dayAgendamentos.find((item) => String(item.id) === b.dataset.agIcs);
-                        if (!a) return;
-                        const dt = parseDisplayDate(a.dataAgendada);
-                        const dateStr = dt ? dt.toISOString().slice(0, 10) : '';
-                        const ics = buildIcsContent({
-                            title: `Retorno: ${a.cliente || ''}`,
-                            description: a.observacao || 'Visita de retorno agendada pelo App de Visitas.',
-                            dateStr
-                        });
-                        downloadIcs(`retorno-${String(a.cliente || 'cliente').replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
-                    });
-                });
-                panel.querySelectorAll('[data-ag-edit-date]').forEach((b) => {
-                    b.addEventListener('click', () => {
-                        const id = b.dataset.agEditDate;
-                        document.getElementById(`ag-actions-${id}`).style.display = 'none';
-                        document.getElementById(`ag-edit-row-${id}`).style.display = 'flex';
-                    });
-                });
-                panel.querySelectorAll('[data-ag-cancel-date]').forEach((b) => {
-                    b.addEventListener('click', () => {
-                        const id = b.dataset.agCancelDate;
-                        document.getElementById(`ag-edit-row-${id}`).style.display = 'none';
-                        document.getElementById(`ag-actions-${id}`).style.display = 'flex';
-                    });
-                });
-                panel.querySelectorAll('[data-ag-save-date]').forEach((b) => {
-                    b.addEventListener('click', async () => {
-                        const id = b.dataset.agSaveDate;
-                        const dateInput = document.getElementById(`ag-edit-date-${id}`);
-                        const newDate = dateInput?.value;
-                        if (!newDate) { showToast('Informe a nova data.', true); return; }
-                        setSaving(true, b, 'Salvando...');
-                        const r = await callAPI('updateAgendamento', { id, dataAgendada: newDate, user: state.currentUser });
-                        if (r && r.status === 'success') {
-                            const found = state.agendamentos.find((item) => String(item.id) === id);
-                            if (found) found.dataAgendada = r.agendamento?.dataAgendada || found.dataAgendada;
-                            showToast('Data do retorno atualizada.');
-                            // A data pode ter mudado pra outro dia — some do
-                            // painel de hoje; o card certo aparece quando o
-                            // usuário abrir o novo dia (o grid não recalcula
-                            // os pontos sem recarregar a Agenda).
-                            document.getElementById(`ag-actions-${id}`)?.closest('[data-agendamento-id]')?.remove();
-                        } else {
-                            showToast((r && r.message) || 'Erro ao atualizar a data.', true);
-                            setSaving(false, b);
-                        }
-                    });
-                });
+                bindAgendamentoRowActions(panel, dayAgendamentos, { onMutated: renderAgendamentosSection });
             });
         });
 
