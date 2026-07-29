@@ -1,3 +1,14 @@
+/* ═══ DIAGNÓSTICO TEMPORÁRIO — remover antes de qualquer outro commit ═══
+   3 cores diferentes pra descobrir de uma vez qual camada aparece atrás
+   da barra fixa: se o vão ficar MAGENTA é o <html>, LARANJA é o <body>,
+   VERMELHO é o #app. Se continuar cinza/sem cor nenhuma, não é nenhuma
+   dessas três — provavelmente chrome do próprio sistema (fora do meu
+   controle via CSS). */
+html { background-color: #ff00ff !important; }
+body { background-color: #ff8800 !important; }
+#app { background-color: #ff0000 !important; }
+/* ═══ FIM DO DIAGNÓSTICO TEMPORÁRIO ═══ */
+
 html {
     height: 100%;
     /* iOS Safari: sem isso, a página pode ficar "auto"-alta e sobrar fundo
