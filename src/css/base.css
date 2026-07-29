@@ -4,6 +4,13 @@ html {
        da própria html abaixo do #app quando a barra de ferramentas do
        Safari expande/recolhe (viewport dinâmico). */
     background-color: var(--bg);
+    /* "Puxar pra baixo pra atualizar" do Chrome/Android é um gesto do
+       elemento raiz — o overscroll-behavion:none já existia no body, mas
+       sozinho não bloqueia esse gesto específico em alguns navegadores;
+       precisa estar no html também. O app já tem seu próprio fluxo de
+       atualização (botão de refresh no cabeçalho), esse gesto nativo só
+       atrapalha (às vezes recarrega a página inteira sem querer). */
+    overscroll-behavior-y: none;
 }
 
 body {

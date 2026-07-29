@@ -183,7 +183,7 @@ export function fillDashboard(mainContent, data, user) {
     `;
 
     document.getElementById('go-agenda').addEventListener('click',    () => navigateTo('calendar'));
-    document.getElementById('go-agenda-retornos')?.addEventListener('click', () => navigateTo('calendar'));
+    document.getElementById('go-agenda-retornos')?.addEventListener('click', () => navigateTo('calendar', { filter: 'retornos' }));
     document.getElementById('go-visits').addEventListener('click',    () => navigateTo('visits'));
     document.getElementById('go-proposals').addEventListener('click', () => navigateTo('proposals'));
     document.getElementById('go-funil').addEventListener('click',     () => navigateTo('funil'));

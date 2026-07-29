@@ -405,7 +405,7 @@ export async function renderVisitsPage() {
 }
 
 
-export async function renderCalendarPage() {
+export async function renderCalendarPage(options) {
     ensureStyles('visits');
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = skeletonList(5);
@@ -448,8 +448,10 @@ export async function renderCalendarPage() {
 
     let viewYear  = new Date().getFullYear();
     let viewMonth = new Date().getMonth();
-    // 'todos' | 'visitas' | 'propostas' | 'funil' | 'retornos'
-    let activeFilter = 'todos';
+    // 'todos' | 'visitas' | 'propostas' | 'funil' | 'retornos' — "Próximos
+    // retornos" na Home já abre aqui filtrado, em vez de cair sempre em
+    // "Todos" e o usuário precisar clicar no chip de novo.
+    let activeFilter = (options && options.filter) || 'todos';
 
     const render = () => {
         const firstDay  = new Date(viewYear, viewMonth, 1);
@@ -523,8 +525,15 @@ export async function renderCalendarPage() {
                 </button>`);
         }
 
+        // Legenda só com o que existe NESSE mês — types/typeColorMap
+        // continuam globais (cor de cada tipo tem que ser sempre a mesma,
+        // mês a mês), só a lista exibida é filtrada. Ordena pela ordem
+        // global (não alfabética), pra não pular de posição mês a mês.
+        const typesThisMonth = types.filter((t) =>
+            Object.values(visitsByDay).some((dayVisits) => dayVisits.some((v) => v.tipoVisita === t)));
+
         const legendHtml = [
-            ...(showVisitas ? types.map((t) => `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${typeColorMap[t]}"></span>${escapeHtml(t)}</span>`) : []),
+            ...(showVisitas ? typesThisMonth.map((t) => `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${typeColorMap[t]}"></span>${escapeHtml(t)}</span>`) : []),
             ...(showPropostas ? [`<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${PROPOSAL_COLOR}"></span>Proposta</span>`] : []),
             ...(showFunil ? [`<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${FUNIL_COLOR}"></span>Funil</span>`] : []),
             ...(showRetornos ? [`<span class="cal-legend-item"><span class="cal-legend-dot-agendamento" style="color:${AGENDAMENTO_COLOR}" aria-hidden="true">📌</span>Retorno agendado</span>`] : [])
