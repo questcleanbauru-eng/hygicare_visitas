@@ -277,6 +277,10 @@
 @media (min-width: 1024px) {
     :root {
         --content-pad:   1.5rem;
+        /* Sidebar usa position:static (grid), não sobrepõe o rodapé do
+           conteúdo — sem isso, main ganharia um padding-bottom de 64px à
+           toa (a variável existe só pra compensar a barra fixa do mobile). */
+        --nav-height:    0px;
     }
 
     /* App grid: sidebar | content (header spans both) */

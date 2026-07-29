@@ -181,11 +181,15 @@ input, textarea, select,
 
 /* Safe area em modo PWA standalone */
 
-/* A barra de baixo só existe mais como sidebar do desktop (ver
-   @media min-width:1024px em dashboard.css, que reativa o display) — no
-   mobile a navegação é toda pela gaveta do botão ☰. */
+/* Barra fixa no mobile com os itens principais; o resto (Contratos,
+   Relatório, Radar) fica na gaveta do botão ☰ — ver renderNavigation()
+   em ui.js. No desktop (≥1024px) vira sidebar (dashboard.css reativa o
+   display com outro layout). Ficou desligada no mobile por um tempo (um
+   <style> inline em toda navegação sempre vencia a media query que devia
+   escondê-la fora do mobile, fazendo a barra "vazar" com espaçamento
+   quebrado — corrigido faz tempo em app.js, ver comentário lá). */
 #bottom-nav {
-    display: none;
+    display: flex;
     background: var(--surface);
     border-top: 1px solid var(--border);
     justify-content: space-around;
@@ -255,6 +259,15 @@ input, textarea, select,
 .mobile-extra-menu .nav-btn.active { background: var(--primary-light); color: var(--primary); }
 
 .mobile-extra-menu .nav-btn .nav-btn-label { font-size: inherit; margin: 0; }
+
+.mobile-extra-menu-heading {
+    margin: 0 0 0.3rem 0.85rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
 
 @media (min-width: 1024px) {
     .mobile-extra-menu, .mobile-extra-overlay { display: none !important; }
@@ -330,9 +343,10 @@ input, textarea, select,
     --text-base: 0.92rem;
     --text-lg:   1.1rem;
     --header-height:  56px;
-    /* Barra de baixo saiu do mobile (virou gaveta pelo ☰) e no desktop já
-       é sidebar — 0 pra ninguém mais reservar espaço embaixo pra ela. */
-    --nav-height:     0px;
+    /* Reserva espaço embaixo pra barra fixa no mobile (ver #bottom-nav
+       abaixo); desktop (≥1024px) zera de novo em dashboard.css, já que lá
+       a barra vira sidebar com position:static, sem sobrepor conteúdo. */
+    --nav-height:     64px;
     --radius-sm:      8px;
     --radius:         12px;
     --radius-lg:      18px;

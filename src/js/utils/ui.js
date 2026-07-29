@@ -107,10 +107,14 @@ export function renderNavigation() {
         allNavItems.push({ id: 'admin', label: 'Admin', icon: NAV_ICON_SVG.admin });
     }
 
-    // Desktop: sidebar com tudo. Mobile: barra de baixo nem existe mais —
-    // a navegação inteira vive na gaveta do botão ☰ (drawerItems).
-    const navItems = isDesktop ? allNavItems : [];
-    const drawerItems = allNavItems;
+    // Desktop: sidebar com tudo. Mobile: barra de baixo só com os itens
+    // mais usados no dia a dia (senão fica apertado demais numa tela de
+    // celular) — o resto (Contratos, Relatório, Radar) fica na gaveta do
+    // botão ☰, mesmo conjunto que já era assim quando a barra existia.
+    const MOBILE_BAR_IDS = ['dashboard', 'visits', 'calendar', 'proposals', 'funil', 'admin'];
+    const mobileItems = allNavItems.filter((item) => MOBILE_BAR_IDS.includes(item.id));
+    const navItems = isDesktop ? allNavItems : mobileItems;
+    const drawerItems = isDesktop ? allNavItems : allNavItems.filter((item) => !MOBILE_BAR_IDS.includes(item.id));
 
     const user = state.currentUser;
     const userInitial = user ? (user.name || user.nomeVendedor || 'U')[0].toUpperCase() : 'U';
@@ -153,11 +157,12 @@ export function renderNavigation() {
         if (expanded) { bottomNav.classList.add('sidebar-expanded'); }
     }
 
-    // Menu do mobile — a navegação inteira vive aqui agora (não tem mais
-    // barra de baixo). Aberto pelo ☰ do cabeçalho (ver initSidebarToggle).
+    // Menu do mobile — itens que não cabem na barra de baixo (Contratos,
+    // Relatório, Radar). Aberto pelo ☰ do cabeçalho (ver initSidebarToggle).
     const extraMenu = document.getElementById('mobile-extra-menu');
     if (extraMenu && drawerItems.length) {
-        extraMenu.innerHTML = drawerItems.map(navBtnHtml).join('');
+        const heading = isDesktop ? '' : '<p class="mobile-extra-menu-heading">Mais opções</p>';
+        extraMenu.innerHTML = heading + drawerItems.map(navBtnHtml).join('');
         extraMenu.querySelectorAll('[data-page]').forEach((button) => {
             button.addEventListener('click', () => {
                 navigateTo(button.dataset.page);
