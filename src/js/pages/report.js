@@ -91,6 +91,12 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     const visitsByType = countBy(visits, (v) => v.tipoVisita);
     const visitsByVendor = countBy(visits, (v) => titleCase(v.vendedorGerente));
 
+    const topClientesVisitas = countBy(visits, (v) => titleCase(v.cliente)).slice(0, 5);
+    const topTiposComCliente = visitsByType.slice(0, 5).map(([tipo, total]) => {
+        const clientesDoTipo = countBy(visits.filter((v) => (v.tipoVisita || '-') === tipo), (v) => titleCase(v.cliente));
+        return { tipo, total, cliente: clientesDoTipo[0] ? clientesDoTipo[0][0] : null };
+    });
+
     const proposalsByStatus = countBy(proposals, (p) => p.status);
     const proposalsGanhas = proposals.filter((p) => (p.status || '').toLowerCase() === 'ganhamos').length;
     const conversao = proposals.length ? Math.round((proposalsGanhas / proposals.length) * 100) : 0;
@@ -137,6 +143,8 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             </div>
             ${visitsByType.length ? `<p class="report-subtitle">Por tipo</p><div class="report-bar-list">${visitsByType.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
             ${isAdmGer && visitsByVendor.length ? `<p class="report-subtitle">Por vendedor</p><div class="report-bar-list">${visitsByVendor.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
+            ${topClientesVisitas.length ? `<p class="report-subtitle">Top 5 clientes com mais visitas</p><div class="report-top-list">${topClientesVisitas.map(([cliente, total], i) => reportTopRow(i, cliente, total)).join('')}</div>` : ''}
+            ${topTiposComCliente.length ? `<p class="report-subtitle">Top 5 tipos de visita — cliente mais frequente</p><div class="report-top-list">${topTiposComCliente.map((t, i) => reportTopRow(i, titleCase(t.tipo) + (t.cliente ? ` — ${t.cliente}` : ''), t.total)).join('')}</div>` : ''}
         </div>
 
         <div class="report-section">
@@ -174,6 +182,16 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         state.reportCustomTo = e.target.value;
         renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
     });
+}
+
+function reportTopRow(index, label, value) {
+    return `
+        <div class="report-top-row">
+            <span class="report-top-rank">${index + 1}</span>
+            <span class="report-top-label">${escapeHtml(label)}</span>
+            <span class="report-top-value">${value}</span>
+        </div>
+    `;
 }
 
 function reportBar(label, value, total) {
