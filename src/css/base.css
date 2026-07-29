@@ -1,14 +1,3 @@
-/* ═══ DIAGNÓSTICO TEMPORÁRIO — remover antes de qualquer outro commit ═══
-   3 cores diferentes pra descobrir de uma vez qual camada aparece atrás
-   da barra fixa: se o vão ficar MAGENTA é o <html>, LARANJA é o <body>,
-   VERMELHO é o #app. Se continuar cinza/sem cor nenhuma, não é nenhuma
-   dessas três — provavelmente chrome do próprio sistema (fora do meu
-   controle via CSS). */
-html { background-color: #ff00ff !important; }
-body { background-color: #ff8800 !important; }
-#app { background-color: #ff0000 !important; }
-/* ═══ FIM DO DIAGNÓSTICO TEMPORÁRIO ═══ */
-
 html {
     height: 100%;
     /* iOS Safari: sem isso, a página pode ficar "auto"-alta e sobrar fundo
@@ -60,14 +49,16 @@ input, textarea, select,
 #app {
     display: flex;
     flex-direction: column;
-    /* 100% (não 100vh/100dvh) — herda de html/body, que já estão travados em
-       100% (ver comentário no topo do arquivo). Em PWA instalado no iPhone,
-       alguns WebKit relatam 100dvh maior que a área visível de verdade
-       (bug conhecido do modo standalone, sem barra de navegador pra
-       "dinâmico" fazer sentido), sobrando um vão em branco embaixo da
-       barra fixa — 100% não depende dessa unidade, só do que já é
-       garantido acima. */
-    height: 100%;
+    /* position:fixed + inset:0 em vez de height:100% — confirmado por
+       teste de cor num iPhone real que o #app (herdando por porcentagem
+       de body/html) parava mais cedo que o body de verdade, sobrando uma
+       faixa onde o body aparecia atrás da barra fixa (que também vive
+       dentro do #app e parava junto, no mesmo lugar errado). Prender
+       direto nas bordas da tela usa a MESMA referência que #bottom-nav
+       já usa pra se posicionar (position:fixed), eliminando essa
+       divergência em vez de tentar acertar por herança de porcentagem. */
+    position: fixed;
+    inset: 0;
 }
 
 /* ── Header / Topbar ── */
