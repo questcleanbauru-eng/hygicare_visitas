@@ -49,8 +49,14 @@ input, textarea, select,
 #app {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    height: 100dvh;
+    /* 100% (não 100vh/100dvh) — herda de html/body, que já estão travados em
+       100% (ver comentário no topo do arquivo). Em PWA instalado no iPhone,
+       alguns WebKit relatam 100dvh maior que a área visível de verdade
+       (bug conhecido do modo standalone, sem barra de navegador pra
+       "dinâmico" fazer sentido), sobrando um vão em branco embaixo da
+       barra fixa — 100% não depende dessa unidade, só do que já é
+       garantido acima. */
+    height: 100%;
 }
 
 /* ── Header / Topbar ── */
