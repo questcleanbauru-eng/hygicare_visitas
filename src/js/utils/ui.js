@@ -40,7 +40,7 @@ export function resetNavCache() {
 
 const _loadedStyles = new Set();
 
-export function ensureStyles(name) {
+export function ensureStyles(name, _isRetry) {
     if (_loadedStyles.has(name)) return;
     _loadedStyles.add(name);
     const manifest = (typeof window !== 'undefined' && window.__ASSET_MANIFEST__) || {};
@@ -48,6 +48,17 @@ export function ensureStyles(name) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = href;
+    link.onerror = () => {
+        // Sem isso, uma falha de rede passageira (ou o service worker ainda
+        // sem essa rota em cache) marcava _loadedStyles como "carregado" pra
+        // sempre, e a página ficava sem esse CSS até um F5 — exatamente o
+        // "às vezes o Funil perde o CSS" relatado. Tenta uma vez de novo
+        // depois de um instante; se falhar de novo, libera pra próxima
+        // navegação tentar sozinha (sem loop infinito aqui).
+        link.remove();
+        _loadedStyles.delete(name);
+        if (!_isRetry) { setTimeout(() => ensureStyles(name, true), 800); }
+    };
     document.head.appendChild(link);
 }
 
