@@ -621,14 +621,16 @@ main {
         padding-right: max(var(--content-pad), var(--safe-right));
     }
     #bottom-nav {
-        /* SEM height explícita aqui de propósito — o cálculo com env() era
-           a única diferença real do modo standalone (o resto é igual ao
-           navegador comum, que já funciona certinho), e ficou sobrando uma
-           faixa cinza abaixo da barra num iPhone real (fundo do body
-           aparecendo, não o fundo branco da própria barra). Deixa a altura
-           natural (ícone+texto+padding) resolver sozinha, só ajustando o
-           padding-bottom pra empurrar o conteúdo pra cima do indicador de
-           início — mesma receita que já funciona fora do modo standalone. */
+        /* SEM height explícita aqui de propósito (só altura natural de
+           ícone+texto+padding). bottom:0 num PWA instalado no iPhone fica
+           na borda "segura" (topo da área do indicador de início), não na
+           borda física da tela — sobra uma faixa reservada pelo sistema
+           que nenhum fundo (nem o do #app) alcançava. Empurra a caixa pra
+           baixo pela mesma distância do indicador (bottom negativo), e o
+           padding-bottom (inalterado) garante que ÍCONE/TEXTO continuam
+           acima da área seguro — só o FUNDO/BORDA da barra é que passa a
+           cobrir até a borda física de verdade. */
+        bottom: calc(-1 * var(--safe-bottom));
         padding-bottom: var(--safe-bottom);
         padding-left: max(0px, var(--safe-left));
         padding-right: max(0px, var(--safe-right));
