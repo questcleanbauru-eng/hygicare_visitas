@@ -226,6 +226,11 @@ export async function renderContratosPage() {
 export async function renderContratoDetailPage(id) {
     ensureStyles('proposals');
     const mainContent = document.getElementById('main-content');
+    // A lista deixa um FAB "+" pra trás (só o próprio addFabAndScrollTop
+    // remove o anterior, e essa página não chama de novo) — sem isso, o
+    // botão fica flutuando por cima do detalhe.
+    document.getElementById('page-fab')?.remove();
+    document.getElementById('page-scroll-top')?.remove();
     if (!(state.contratos || []).find((c) => String(c.Id || c.id) === String(id))) {
         mainContent.innerHTML = skeletonDetail(9);
     }

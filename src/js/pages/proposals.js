@@ -413,6 +413,11 @@ export async function renderProposalsPage() {
 export async function renderProposalDetailPage(id) {
     ensureStyles('proposals');
     const mainContent = document.getElementById('main-content');
+    // A lista deixa um FAB "+" pra trás (só o próprio addFabAndScrollTop
+    // remove o anterior, e essa página não chama de novo) — sem isso, o
+    // botão fica flutuando por cima do detalhe.
+    document.getElementById('page-fab')?.remove();
+    document.getElementById('page-scroll-top')?.remove();
     if (!state.proposals.find(p => String(p.Id || p.id) === String(id))) {
         mainContent.innerHTML = skeletonDetail(10);
     }

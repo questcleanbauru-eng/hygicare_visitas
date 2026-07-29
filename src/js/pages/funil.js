@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
-    escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate,
+    escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay,
     funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR
 } from '../utils/format.js';
@@ -234,27 +234,43 @@ export function fillFunilContent(mainContent, funil) {
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
 
-        container.innerHTML = `<div class="visits-list">${sorted.map((f) => {
-            const overdue = String(f.ativo || '').toLowerCase() === 'sim'
-                && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
-                && calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30;
-            return `
-            <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}" data-funil-id="${escapeHtml(f.id)}">
-                <div class="visit-card-header">
-                    <strong>
-                        <span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
-                        <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
-                    </strong>
-                    ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())}">${escapeHtml(f.status || '-')}</span>`}
+        const byMonth = sorted.reduce((groups, f) => {
+            const d = parseDisplayDate(f.data) || parseDisplayDate(f.atualizacao);
+            const key = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'Sem data';
+            if (!groups[key]) { groups[key] = []; }
+            groups[key].push(f);
+            return groups;
+        }, {});
+
+        container.innerHTML = Object.keys(byMonth).sort((a, b) => b.localeCompare(a)).map((key) => `
+            <section class="visit-month-group">
+                <div class="visit-month-header">
+                    <h3>${escapeHtml(formatMonthKey(key))}</h3>
+                    <span>${byMonth[key].length} oportunidade(s)</span>
                 </div>
-                <div class="proposal-meta">
-                    <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}</span>
-                    <span>${isAdmGer && f.vendedor ? escapeHtml(f.vendedor) + ' · ' : ''}${escapeHtml(f.atualizacao || f.data || '-')}${f.vlMensal ? ` · <span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}</span>
-                </div>
-                ${overdue ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
-            </button>
-        `;
-        }).join('')}</div>`;
+                <div class="visits-list">${byMonth[key].map((f) => {
+                    const overdue = String(f.ativo || '').toLowerCase() === 'sim'
+                        && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
+                        && calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30;
+                    return `
+                    <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}" data-funil-id="${escapeHtml(f.id)}">
+                        <div class="visit-card-header">
+                            <strong>
+                                <span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
+                                <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
+                            </strong>
+                            ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())}">${escapeHtml(f.status || '-')}</span>`}
+                        </div>
+                        <div class="proposal-meta">
+                            <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}</span>
+                            <span>${isAdmGer && f.vendedor ? escapeHtml(f.vendedor) + ' · ' : ''}${escapeHtml(f.atualizacao || f.data || '-')}${f.vlMensal ? ` · <span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}</span>
+                        </div>
+                        ${overdue ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
+                    </button>
+                `;
+                }).join('')}</div>
+            </section>
+        `).join('');
 
         container.querySelectorAll('[data-funil-id]').forEach((btn) => {
             btn.addEventListener('click', () => navigateTo('funil-detail', { id: btn.dataset.funilId }));
@@ -682,6 +698,11 @@ export async function renderFunilCreatePage() {
 export async function renderFunilDetailPage(id) {
     ensureStyles('funil');
     const mainContent = document.getElementById('main-content');
+    // A lista deixa um FAB "+" pra trás (só o próprio addFabAndScrollTop
+    // remove o anterior, e essa página não chama de novo) — sem isso, o
+    // botão fica flutuando por cima do detalhe.
+    document.getElementById('page-fab')?.remove();
+    document.getElementById('page-scroll-top')?.remove();
     const existing = state.funil.find((f) => String(f.id) === String(id));
     if (!existing) {
         mainContent.innerHTML = skeletonDetail(12);
