@@ -613,7 +613,14 @@ main {
         padding-right: max(var(--content-pad), var(--safe-right));
     }
     #bottom-nav {
-        height: calc(var(--nav-height) + var(--safe-bottom));
+        /* SEM height explícita aqui de propósito — o cálculo com env() era
+           a única diferença real do modo standalone (o resto é igual ao
+           navegador comum, que já funciona certinho), e ficou sobrando uma
+           faixa cinza abaixo da barra num iPhone real (fundo do body
+           aparecendo, não o fundo branco da própria barra). Deixa a altura
+           natural (ícone+texto+padding) resolver sozinha, só ajustando o
+           padding-bottom pra empurrar o conteúdo pra cima do indicador de
+           início — mesma receita que já funciona fora do modo standalone. */
         padding-bottom: var(--safe-bottom);
         padding-left: max(0px, var(--safe-left));
         padding-right: max(0px, var(--safe-right));
