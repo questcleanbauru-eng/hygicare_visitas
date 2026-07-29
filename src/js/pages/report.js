@@ -92,9 +92,12 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     const visitsByVendor = countBy(visits, (v) => titleCase(v.vendedorGerente));
 
     const topClientesVisitas = countBy(visits, (v) => titleCase(v.cliente)).slice(0, 5);
-    const topTiposComCliente = visitsByType.slice(0, 5).map(([tipo, total]) => {
+    const topTiposComCliente = visitsByType.slice(0, 5).map(([tipo]) => {
         const clientesDoTipo = countBy(visits.filter((v) => (v.tipoVisita || '-') === tipo), (v) => titleCase(v.cliente));
-        return { tipo, total, cliente: clientesDoTipo[0] ? clientesDoTipo[0][0] : null };
+        // clienteCount é quantas visitas DESSE tipo foram pra esse cliente
+        // específico — não o total do tipo somando todos os clientes, que
+        // dava a entender (errado) que o cliente sozinho tinha aquele total.
+        return { tipo, cliente: clientesDoTipo[0] ? clientesDoTipo[0][0] : null, clienteCount: clientesDoTipo[0] ? clientesDoTipo[0][1] : 0 };
     });
 
     const proposalsByStatus = countBy(proposals, (p) => p.status);
@@ -144,7 +147,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             ${visitsByType.length ? `<p class="report-subtitle">Por tipo</p><div class="report-bar-list">${visitsByType.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
             ${isAdmGer && visitsByVendor.length ? `<p class="report-subtitle">Por vendedor</p><div class="report-bar-list">${visitsByVendor.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
             ${topClientesVisitas.length ? `<p class="report-subtitle">Top 5 clientes com mais visitas</p><div class="report-top-list">${topClientesVisitas.map(([cliente, total], i) => reportTopRow(i, cliente, total)).join('')}</div>` : ''}
-            ${topTiposComCliente.length ? `<p class="report-subtitle">Top 5 tipos de visita — cliente mais frequente</p><div class="report-top-list">${topTiposComCliente.map((t, i) => reportTopRow(i, titleCase(t.tipo) + (t.cliente ? ` — ${t.cliente}` : ''), t.total)).join('')}</div>` : ''}
+            ${topTiposComCliente.length ? `<p class="report-subtitle">Top 5 tipos de visita — cliente mais frequente</p><div class="report-top-list">${topTiposComCliente.map((t, i) => reportTopRow(i, titleCase(t.tipo) + (t.cliente ? ` — ${t.cliente}` : ''), t.clienteCount)).join('')}</div>` : ''}
         </div>
 
         <div class="report-section">
