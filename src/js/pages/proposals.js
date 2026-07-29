@@ -240,11 +240,9 @@ export function fillProposalsContent(mainContent, proposals) {
                             <strong><span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}</strong>
                             ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
                         </div>
-                        ${p.foco ? `<div style="font-size:0.78rem;color:var(--text-muted-strong);margin:0.12rem 0">${escapeHtml(p.foco)}</div>` : ''}
                         <div class="proposal-meta">
-                            <span>${escapeHtml(p.vendedor || '-')}</span>
-                            <span>${escapeHtml(p.cidade || '-')}</span>
-                            <span>${escapeHtml(p.atualizacao || '-')}</span>
+                            <span>${escapeHtml([p.cidade, p.foco].filter(Boolean).join(' · ') || '-')}</span>
+                            <span>${isAdmGer && p.vendedor ? escapeHtml(p.vendedor) + ' · ' : ''}${escapeHtml(p.atualizacao || '-')}</span>
                         </div>
                         ${p.atrasada ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
                     </button>

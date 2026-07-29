@@ -245,14 +245,9 @@ export function fillFunilContent(mainContent, funil) {
                     ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())}">${escapeHtml(f.status || '-')}</span>`}
                 </div>
                 <div class="proposal-meta">
-                    <span>${escapeHtml(f.foco || '-')}</span>
-                    <span>${escapeHtml(f.cidade || '-')}</span>
+                    <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}</span>
+                    <span>${isAdmGer && f.vendedor ? escapeHtml(f.vendedor) + ' · ' : ''}${escapeHtml(f.atualizacao || f.data || '-')}${f.vlMensal ? ` · <span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}</span>
                 </div>
-                <div class="proposal-meta">
-                    <span>${escapeHtml(f.vendedor || '-')}</span>
-                    <span>${escapeHtml(f.atualizacao || f.data || '-')}</span>
-                </div>
-                ${f.vlMensal ? `<div class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</div>` : ''}
                 ${overdue ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
             </button>
         `;
