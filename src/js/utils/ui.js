@@ -211,15 +211,27 @@ function handleNotifBellClick() {
 }
 
 
+// Número no ícone do app (Badging API) — só funciona com o app aberto/logado
+// (sem push/backend nenhum, é só espelhar o que já está em `state`); não
+// suportado em todo navegador, daí o "in navigator" antes de chamar.
+function updateAppBadge(count) {
+    if (!('setAppBadge' in navigator)) return;
+    if (count > 0) { navigator.setAppBadge(count).catch(() => {}); }
+    else { navigator.clearAppBadge?.().catch(() => {}); }
+}
+
+
 export function updateHeaderUI(user) {
     const area = document.getElementById('header-user-area');
     if (!area) { return; }
-    if (!user) { area.innerHTML = ''; _headerBuilt = false; return; }
+    if (!user) { area.innerHTML = ''; _headerBuilt = false; updateAppBadge(0); return; }
+
+    const pendingCount = (state.overdueProposals || 0) + (state.overdueFunil || 0);
+    updateAppBadge(pendingCount);
 
     if (_headerBuilt) {
-        const hasPending = (state.overdueProposals || 0) > 0 || (state.overdueFunil || 0) > 0;
         const notifBtn = document.getElementById('header-notif');
-        if (notifBtn) notifBtn.innerHTML = `🔔${hasPending ? '<span class="header-notif-dot"></span>' : ''}`;
+        if (notifBtn) notifBtn.innerHTML = `🔔${pendingCount > 0 ? '<span class="header-notif-dot"></span>' : ''}`;
         return;
     }
     _headerBuilt = true;
@@ -227,7 +239,7 @@ export function updateHeaderUI(user) {
     const initial = (user.name || user.nomeVendedor || 'U')[0].toUpperCase();
     const name    = escapeHtml(user.name || user.nomeVendedor || '');
     const role    = escapeHtml(user.profile || '');
-    const hasPending = (state.overdueProposals || 0) > 0 || (state.overdueFunil || 0) > 0;
+    const hasPending = pendingCount > 0;
     area.innerHTML = `
         <button class="header-notif-btn" id="header-install-btn" type="button" aria-label="Instalar App" style="display:none" title="Instalar App">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v13M8 11l4 4 4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
