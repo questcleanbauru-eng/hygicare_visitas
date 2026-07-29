@@ -46,19 +46,36 @@ input, textarea, select,
     user-select: text;
 }
 
+/* ═══ DIAGNÓSTICO 2 TEMPORÁRIO — remover antes de qualquer outro commit ═══
+   O 1º diagnóstico mostrou que o vão sumiu de mostrar o body (ficou
+   cinza sem as cores) depois do #app virar position:fixed — ou seja,
+   o #app agora cobre a tela certinho. Esse cinza deve ser o PRÓPRIO
+   #app aparecendo atrás de main/#bottom-nav, que não cobrem 100% dele.
+   LIMA = #app, CIANO = main. Se o vão virar lima, o #bottom-nav não
+   está cobrindo até a borda mesmo com #app correto. Se virar ciano, é
+   o main que não desce até onde o #bottom-nav começa. */
+#app { background-color: #00ff00 !important; }
+main { background-color: #00ffff !important; }
+/* ═══ FIM DO DIAGNÓSTICO 2 ═══ */
+
 #app {
     display: flex;
     flex-direction: column;
-    /* position:fixed + inset:0 em vez de height:100% — confirmado por
-       teste de cor num iPhone real que o #app (herdando por porcentagem
-       de body/html) parava mais cedo que o body de verdade, sobrando uma
-       faixa onde o body aparecia atrás da barra fixa (que também vive
-       dentro do #app e parava junto, no mesmo lugar errado). Prender
-       direto nas bordas da tela usa a MESMA referência que #bottom-nav
-       já usa pra se posicionar (position:fixed), eliminando essa
-       divergência em vez de tentar acertar por herança de porcentagem. */
+    /* position:fixed + top/right/bottom/left (não o atalho "inset", por
+       segurança de suporte em Safari mais antigo) em vez de height:100%
+       — confirmado por teste de cor num iPhone real que o #app (herdando
+       por porcentagem de body/html) parava mais cedo que o body de
+       verdade, sobrando uma faixa onde o body aparecia atrás da barra
+       fixa (que também vive dentro do #app e parava junto, no mesmo
+       lugar errado). Prender direto nas bordas da tela usa a MESMA
+       referência que #bottom-nav já usa pra se posicionar
+       (position:fixed), eliminando essa divergência em vez de tentar
+       acertar por herança de porcentagem. */
     position: fixed;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
 }
 
 /* ── Header / Topbar ── */
