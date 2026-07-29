@@ -74,6 +74,22 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     const body = document.getElementById('report-body');
     if (!body) return;
 
+    const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+    const gerencia = state.reportGerencia || '';
+    const area = state.reportArea || '';
+
+    // Opções vêm do conjunto INTEIRO (sem filtro de período), pra não ficar
+    // reordenando/sumindo do dropdown conforme o usuário troca o período.
+    const gerenciasDisponiveis = Array.from(new Set([
+        ...allVisits.map((v) => v.gerencia), ...allProposals.map((p) => p.gerencia), ...allFunil.map((f) => f.gerencia)
+    ].map((g) => titleCase(g)).filter(Boolean))).sort();
+    // "Área de Atuação" só existe em Visitas (areaAtuacao) e Funil (atuacao)
+    // — Propostas nunca teve esse campo, então o filtro não afeta a seção
+    // de Propostas do relatório.
+    const areasDisponiveis = Array.from(new Set([
+        ...allVisits.map((v) => v.areaAtuacao), ...allFunil.map((f) => f.atuacao)
+    ].map((a) => titleCase(a)).filter(Boolean))).sort();
+
     const period = state.reportPeriod;
     let start = null, end = null;
     if (period === 'personalizado') {
@@ -84,12 +100,16 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         start = range.start; end = range.end;
     }
 
-    const visits = allVisits.filter((v) => inRange(parseDisplayDate(v.dataVisita), start, end));
-    const proposals = allProposals.filter((p) => inRange(parseDisplayDate(p.data), start, end));
-    const funil = allFunil.filter((f) => inRange(parseDisplayDate(f.data), start, end));
+    const visits = allVisits.filter((v) => inRange(parseDisplayDate(v.dataVisita), start, end)
+        && (!gerencia || titleCase(v.gerencia) === gerencia) && (!area || titleCase(v.areaAtuacao) === area));
+    const proposals = allProposals.filter((p) => inRange(parseDisplayDate(p.data), start, end)
+        && (!gerencia || titleCase(p.gerencia) === gerencia));
+    const funil = allFunil.filter((f) => inRange(parseDisplayDate(f.data), start, end)
+        && (!gerencia || titleCase(f.gerencia) === gerencia) && (!area || titleCase(f.atuacao) === area));
 
     const visitsByType = countBy(visits, (v) => v.tipoVisita);
     const visitsByVendor = countBy(visits, (v) => titleCase(v.vendedorGerente));
+    const visitsByCidade = countBy(visits, (v) => titleCase(v.cidade));
 
     const topClientesVisitas = countBy(visits, (v) => titleCase(v.cliente)).slice(0, 5);
     const topTiposComCliente = visitsByType.slice(0, 5).map(([tipo]) => {
@@ -101,11 +121,13 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     });
 
     const proposalsByStatus = countBy(proposals, (p) => p.status);
+    const proposalsByCidade = countBy(proposals, (p) => titleCase(p.cidade));
     const proposalsGanhas = proposals.filter((p) => (p.status || '').toLowerCase() === 'ganhamos').length;
     const conversao = proposals.length ? Math.round((proposalsGanhas / proposals.length) * 100) : 0;
     const proposalsAtrasadas = proposals.filter((p) => p.atrasada).length;
 
     const funilByStatus = countBy(funil, (f) => f.status);
+    const funilByCidade = countBy(funil, (f) => titleCase(f.cidade));
     const funilAtivo = funil.filter((f) => String(f.ativo || '').toLowerCase() === 'sim');
     const funilValorTotal = funilAtivo.reduce((sum, f) => sum + parseCurrencyBR(f.vlMensal), 0);
     const funilAtrasado = funil.filter((f) => {
@@ -137,6 +159,23 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 <div class="form-group"><label for="report-date-from">De</label><input type="date" id="report-date-from" value="${escapeHtml(state.reportCustomFrom)}"></div>
                 <div class="form-group"><label for="report-date-to">Até</label><input type="date" id="report-date-to" value="${escapeHtml(state.reportCustomTo)}"></div>
             </div>` : ''}
+            ${isAdmin ? `
+            <div class="report-custom-range">
+                <div class="form-group">
+                    <label for="report-gerencia">Gerência</label>
+                    <select id="report-gerencia">
+                        <option value="">Todas</option>
+                        ${gerenciasDisponiveis.map((g) => `<option value="${escapeHtml(g)}" ${gerencia === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="report-area">Área de Atuação</label>
+                    <select id="report-area">
+                        <option value="">Todas</option>
+                        ${areasDisponiveis.map((a) => `<option value="${escapeHtml(a)}" ${area === a ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}
+                    </select>
+                </div>
+            </div>` : ''}
         </div>
 
         <div class="report-section">
@@ -146,6 +185,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             </div>
             ${visitsByType.length ? `<p class="report-subtitle">Por tipo</p><div class="report-bar-list">${visitsByType.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
             ${isAdmGer && visitsByVendor.length ? `<p class="report-subtitle">Por vendedor</p><div class="report-bar-list">${visitsByVendor.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
+            ${visitsByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${visitsByCidade.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
             ${topClientesVisitas.length ? `<p class="report-subtitle">Top 5 clientes com mais visitas</p><div class="report-top-list">${topClientesVisitas.map(([cliente, total], i) => reportTopRow(i, cliente, total)).join('')}</div>` : ''}
             ${topTiposComCliente.length ? `<p class="report-subtitle">Top 5 tipos de visita — cliente mais frequente</p><div class="report-top-list">${topTiposComCliente.map((t, i) => reportTopRow(i, titleCase(t.tipo) + (t.cliente ? ` — ${t.cliente}` : ''), t.clienteCount)).join('')}</div>` : ''}
         </div>
@@ -158,6 +198,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 <div class="report-kpi report-kpi-alert"><strong>${proposalsAtrasadas}</strong><span>Atrasadas</span></div>
             </div>
             ${proposalsByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${proposalsByStatus.map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
+            ${proposalsByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${proposalsByCidade.map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
         </div>
 
         <div class="report-section">
@@ -168,6 +209,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 <div class="report-kpi report-kpi-alert"><strong>${funilAtrasado}</strong><span>Sem atualização &gt;30d</span></div>
             </div>
             ${funilByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${funilByStatus.map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+            ${funilByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${funilByCidade.map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
         </div>
     `;
 
@@ -183,6 +225,14 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     });
     document.getElementById('report-date-to')?.addEventListener('change', (e) => {
         state.reportCustomTo = e.target.value;
+        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+    });
+    document.getElementById('report-gerencia')?.addEventListener('change', (e) => {
+        state.reportGerencia = e.target.value;
+        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+    });
+    document.getElementById('report-area')?.addEventListener('change', (e) => {
+        state.reportArea = e.target.value;
         renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
     });
 }
