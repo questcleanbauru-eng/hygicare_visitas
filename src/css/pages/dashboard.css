@@ -10,11 +10,15 @@
     gap: 0.8rem;
 }
 
+/* Grid em vez de flex+wrap: com 3 botões de largura diferente (texto
+   diferente), quebrar linha num flex deixava o 3º botão com uma largura
+   solta, sem alinhar com nenhum dos dois de cima. auto-fit faz cada linha
+   (3 numa tela larga, 2+1 no mobile) dividir o espaço em colunas iguais,
+   então o 3º botão sempre alinha com a borda do 1º. */
 .dash-actions-bar {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 0.6rem;
-    align-items: center;
-    flex-wrap: wrap;
     margin-bottom: 1.25rem;
 }
 
