@@ -215,13 +215,13 @@ export function fillProposalsContent(mainContent, proposals) {
         }
 
         const sorted = [...filtered].sort((a, b) => {
-            const da = parseDisplayDate(a.atualizacao) || parseDisplayDate(a.data);
-            const db = parseDisplayDate(b.atualizacao) || parseDisplayDate(b.data);
+            const da = parseDisplayDate(a.data) || parseDisplayDate(a.atualizacao);
+            const db = parseDisplayDate(b.data) || parseDisplayDate(b.atualizacao);
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
 
         const byMonth = sorted.reduce((groups, p) => {
-            const d = parseDisplayDate(p.atualizacao) || parseDisplayDate(p.data);
+            const d = parseDisplayDate(p.data) || parseDisplayDate(p.atualizacao);
             const key = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'Sem data';
             if (!groups[key]) { groups[key] = []; }
             groups[key].push(p);

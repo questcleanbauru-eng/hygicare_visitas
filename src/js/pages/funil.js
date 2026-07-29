@@ -229,8 +229,8 @@ export function fillFunilContent(mainContent, funil) {
         }
 
         const sorted = [...filtered].sort((a, b) => {
-            const da = parseDisplayDate(a.atualizacao) || parseDisplayDate(a.data);
-            const db = parseDisplayDate(b.atualizacao) || parseDisplayDate(b.data);
+            const da = parseDisplayDate(a.data) || parseDisplayDate(a.atualizacao);
+            const db = parseDisplayDate(b.data) || parseDisplayDate(b.atualizacao);
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
 
