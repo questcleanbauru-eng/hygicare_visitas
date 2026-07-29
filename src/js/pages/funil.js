@@ -243,7 +243,7 @@ export function fillFunilContent(mainContent, funil) {
                 <div class="visit-card-header">
                     <strong>
                         <span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
-                        <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">✏️</span>
+                        <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
                     </strong>
                     ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())}">${escapeHtml(f.status || '-')}</span>`}
                 </div>
@@ -352,6 +352,7 @@ function openFunilQuickUpdateModal(f, onUpdated) {
     overlay.innerHTML = `
         <div class="modal-card" style="text-align:left">
             <h3 style="margin-top:0">Atualizar — ${escapeHtml(f.cliente || 'Cliente')}</h3>
+            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Data da atualização: <strong>${escapeHtml(formatDateForDisplay(new Date()))}</strong></p>
             <div class="form-group full-width">
                 <label for="fq-status">Status</label>
                 <select id="fq-status">${renderSimpleOptions(['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'], f.status)}</select>

@@ -239,7 +239,7 @@ export function fillProposalsContent(mainContent, proposals) {
                         <div class="visit-card-header">
                             <strong>
                                 <span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
-                                <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-proposal-quick="${escapeHtml(p.id)}">✏️</span>
+                                <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-proposal-quick="${escapeHtml(p.id)}">⚡</span>
                             </strong>
                             ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
                         </div>
@@ -888,6 +888,7 @@ function openProposalQuickUpdateModal(p, onUpdated) {
     overlay.innerHTML = `
         <div class="modal-card" style="text-align:left">
             <h3 style="margin-top:0">Atualizar — ${escapeHtml(p.cliente || 'Cliente')}</h3>
+            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Data da atualização: <strong>${escapeHtml(formatDateForDisplay(new Date()))}</strong></p>
             <div class="form-group full-width">
                 <label for="pq-status">Status</label>
                 <select id="pq-status">${renderSimpleOptions(['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'], p.status)}</select>
