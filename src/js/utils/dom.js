@@ -357,19 +357,8 @@ export function showToast(message, isError = false, undoFn = null) {
 }
 
 
-export function addFabAndScrollTop(fabLabel, fabAction) {
-    // Remove previous FAB/scroll if any
-    document.getElementById('page-fab')?.remove();
+export function addScrollTop() {
     document.getElementById('page-scroll-top')?.remove();
-
-    const fab = document.createElement('button');
-    fab.id = 'page-fab';
-    fab.className = 'fab';
-    fab.setAttribute('type', 'button');
-    fab.setAttribute('aria-label', fabLabel);
-    fab.textContent = '+';
-    fab.addEventListener('click', fabAction);
-    document.getElementById('app').appendChild(fab);
 
     const scrollBtn = document.createElement('button');
     scrollBtn.id = 'page-scroll-top';

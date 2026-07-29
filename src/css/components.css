@@ -622,32 +622,6 @@ textarea { resize: vertical; }
     line-height: 1.4;
 }
 
-/* ── Floating action button (FAB) ── */
-
-.fab {
-    position: fixed;
-    bottom: calc(var(--nav-height) + 1rem);
-    right: 1rem;
-    width: 54px;
-    height: 54px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
-    color: #fff;
-    border: none;
-    font-size: 1.5rem;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 18px rgba(37,99,235,0.42);
-    z-index: var(--z-fab);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.fab:active { transform: scale(0.92); box-shadow: 0 2px 8px rgba(37,99,235,0.3); }
-
-.fab:hover  { transform: scale(1.06); box-shadow: 0 6px 22px rgba(37,99,235,0.5); }
-
 /* ── Scroll to top button ── */
 
 .scroll-top-btn {
@@ -1260,7 +1234,7 @@ input[type="date"] {
 
 /* ── Button tactile feedback ── */
 
-.btn-add, .secondary-button, .mini-button, .fab {
+.btn-add, .secondary-button, .mini-button {
     transition: transform 0.1s ease-out;
 }
 
@@ -1268,9 +1242,7 @@ input[type="date"] {
 
 .secondary-button:active:not(:disabled),
 
-.mini-button:active:not(:disabled),
-
-.fab:active:not(:disabled) {
+.mini-button:active:not(:disabled) {
     transform: scale(0.96);
 }
 
@@ -1748,10 +1720,6 @@ input[type="date"] {
 @media (min-width: 360px)  { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
 
 @media (min-width: 1024px) { .metrics-grid { grid-template-columns: repeat(3, 1fr); } }
-
-@media (display-mode: standalone) {
-    .fab { bottom: calc(var(--nav-height) + var(--safe-bottom) + 1rem); }
-}
 
 @media (display-mode: standalone) {
     .scroll-top-btn { bottom: calc(var(--nav-height) + var(--safe-bottom) + 1rem); }

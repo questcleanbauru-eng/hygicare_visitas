@@ -418,7 +418,7 @@ export function initNavHoverPrefetch() {
 
     // Prefetch formData ao hover em botões de nova visita/proposta/funil (desktop)
     const _FORM_BTN_IDS = new Set(['qa-new-visit','qa-new-proposal','qa-new-funil',
-        'btn-new-visit','btn-new-proposal','btn-new-funil','empty-new-visit','page-fab']);
+        'btn-new-visit','btn-new-proposal','btn-new-funil','empty-new-visit']);
     document.addEventListener('mouseover', (e) => {
         if (!state.currentUser || state.formData) return;
         const btn = e.target.closest('button, a');

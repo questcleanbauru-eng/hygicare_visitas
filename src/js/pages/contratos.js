@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '.
 import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, contratoSituacaoIcon, filterLabelHtml } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, showToast,
-    loadingState, skeletonDetail, addFabAndScrollTop, openExternal, setSaving
+    loadingState, skeletonDetail, addScrollTop, openExternal, setSaving
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 
@@ -180,10 +180,7 @@ export async function renderContratosPage() {
     if (cached) {
         state.contratos = cached;
         fillContratosContent(mainContent, state.contratos);
-        addFabAndScrollTop('Novo Contrato', () => {
-            if (state.canCreateProposalFunil) { navigateTo('contrato-new'); }
-            else { showToast('Peça ao administrador para liberar a criação de contratos.', true); }
-        });
+        addScrollTop();
         initPullToRefresh(async () => {
             const r = await getContratos();
             if (r.status === 'success' && state.currentPage === 'contratos') {
@@ -208,10 +205,7 @@ export async function renderContratosPage() {
     }
     state.contratos = result.contratos || [];
     fillContratosContent(mainContent, state.contratos);
-    addFabAndScrollTop('Novo Contrato', () => {
-        if (state.canCreateProposalFunil) { navigateTo('contrato-new'); }
-        else { showToast('Peça ao administrador para liberar a criação de contratos.', true); }
-    });
+    addScrollTop();
     initPullToRefresh(async () => {
             const r = await getContratos();
             if (r.status === 'success' && state.currentPage === 'contratos') {
@@ -226,10 +220,8 @@ export async function renderContratosPage() {
 export async function renderContratoDetailPage(id) {
     ensureStyles('proposals');
     const mainContent = document.getElementById('main-content');
-    // A lista deixa um FAB "+" pra trás (só o próprio addFabAndScrollTop
-    // remove o anterior, e essa página não chama de novo) — sem isso, o
-    // botão fica flutuando por cima do detalhe.
-    document.getElementById('page-fab')?.remove();
+    // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
+    // addScrollTop remove o anterior, e essa página não chama de novo).
     document.getElementById('page-scroll-top')?.remove();
     if (!(state.contratos || []).find((c) => String(c.Id || c.id) === String(id))) {
         mainContent.innerHTML = skeletonDetail(9);

@@ -11,7 +11,7 @@ import {
 import {
     debounce, downloadCSV, initializeSearchableInput, renderDetailRow,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
-    loadingState, showRefreshIndicator, hideRefreshIndicator, addFabAndScrollTop, renderYearChips, setSaving,
+    loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
     buildIcsContent, downloadIcs
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
@@ -371,7 +371,7 @@ export async function renderVisitsPage() {
         state.visits = cachedVisits;
         const visitsContent = document.getElementById('visits-content');
         if (visitsContent) { fillVisitsContent(visitsContent, state.visits); }
-        addFabAndScrollTop('Nova Visita', () => navigateTo('visit-new'));
+        addScrollTop();
         initPullToRefresh(async () => {
             const r = await getVisits(state.visitsScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'visits') {
@@ -394,7 +394,7 @@ export async function renderVisitsPage() {
     }
     state.visits = result.visits || [];
     fillVisitsContent(visitsContent, state.visits);
-    addFabAndScrollTop('Nova Visita', () => navigateTo('visit-new'));
+    addScrollTop();
     initPullToRefresh(async () => {
             const r = await getVisits(state.visitsScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'visits') {
@@ -410,9 +410,8 @@ export async function renderCalendarPage(options) {
     ensureStyles('visits');
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = skeletonList(5);
-    // A Agenda não tem FAB próprio — remove um eventual FAB deixado pela
-    // página anterior (ex.: "+ Nova Visita" da lista de Visitas).
-    document.getElementById('page-fab')?.remove();
+    // A Agenda não tem botão de "voltar ao topo" próprio — remove um
+    // eventual leftover deixado pela página anterior.
     document.getElementById('page-scroll-top')?.remove();
 
     if (!state.visits || state.visits.length === 0) {
@@ -1419,10 +1418,8 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
 export async function renderVisitDetailPage(id) {
     ensureStyles('visits');
     const mainContent = document.getElementById('main-content');
-    // A lista deixa um FAB "+" pra trás (só o próprio addFabAndScrollTop
-    // remove o anterior, e essa página não chama de novo) — sem isso, o
-    // botão fica flutuando por cima do detalhe.
-    document.getElementById('page-fab')?.remove();
+    // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
+    // addScrollTop remove o anterior, e essa página não chama de novo).
     document.getElementById('page-scroll-top')?.remove();
     if (!state.visits.find(v => String(v.ID || v.id) === String(id))) {
         mainContent.innerHTML = skeletonDetail(10);

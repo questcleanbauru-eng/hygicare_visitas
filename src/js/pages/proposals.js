@@ -8,7 +8,7 @@ import {
 import {
     debounce, downloadCSV, renderDetailRow, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
-    loadingState, addFabAndScrollTop, openExternal, renderYearChips, setSaving
+    loadingState, addScrollTop, openExternal, renderYearChips, setSaving
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
@@ -371,10 +371,7 @@ export async function renderProposalsPage() {
         state.proposalsScope = cachedAll ? 'all' : '3m';
         state.proposals = cachedProposals;
         fillProposalsContent(mainContent, state.proposals);
-        addFabAndScrollTop('Nova Proposta', () => {
-            if (state.canCreateProposalFunil) { navigateTo('proposal-new'); }
-            else { showToast('Peça ao administrador para liberar a criação de propostas.', true); }
-        });
+        addScrollTop();
         initPullToRefresh(async () => {
             const r = await getProposals(state.proposalsScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'proposals') {
@@ -395,10 +392,7 @@ export async function renderProposalsPage() {
     }
     state.proposals = result.proposals || [];
     fillProposalsContent(mainContent, state.proposals);
-    addFabAndScrollTop('Nova Proposta', () => {
-        if (state.canCreateProposalFunil) { navigateTo('proposal-new'); }
-        else { showToast('Peça ao administrador para liberar a criação de propostas.', true); }
-    });
+    addScrollTop();
     initPullToRefresh(async () => {
             const r = await getProposals(state.proposalsScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'proposals') {
@@ -413,10 +407,8 @@ export async function renderProposalsPage() {
 export async function renderProposalDetailPage(id) {
     ensureStyles('proposals');
     const mainContent = document.getElementById('main-content');
-    // A lista deixa um FAB "+" pra trás (só o próprio addFabAndScrollTop
-    // remove o anterior, e essa página não chama de novo) — sem isso, o
-    // botão fica flutuando por cima do detalhe.
-    document.getElementById('page-fab')?.remove();
+    // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
+    // addScrollTop remove o anterior, e essa página não chama de novo).
     document.getElementById('page-scroll-top')?.remove();
     if (!state.proposals.find(p => String(p.Id || p.id) === String(id))) {
         mainContent.innerHTML = skeletonDetail(10);

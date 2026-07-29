@@ -7,7 +7,7 @@ import {
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, showToast, renderSimpleOptions,
-    showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addFabAndScrollTop,
+    showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addScrollTop,
     openExternal, initializeSearchableInput, renderYearChips, setSaving
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles } from '../utils/ui.js';
@@ -509,10 +509,7 @@ export async function renderFunilPage() {
         fillFunilContent(mainContent, state.funil);
         const overdueCountCached = state.funil.filter((f) => calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30).length;
         updateFunilBadge(overdueCountCached);
-        addFabAndScrollTop('Nova Oportunidade', () => {
-            if (state.canCreateProposalFunil) { navigateTo('funil-new'); }
-            else { showToast('Peça ao administrador para liberar a criação de oportunidades.', true); }
-        });
+        addScrollTop();
         initPullToRefresh(async () => {
             const r = await getFunil(state.funilScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'funil') {
@@ -550,10 +547,7 @@ export async function renderFunilPage() {
         return days > 30;
     }).length;
     updateFunilBadge(overdueCount);
-    addFabAndScrollTop('Nova Oportunidade', () => {
-        if (state.canCreateProposalFunil) { navigateTo('funil-new'); }
-        else { showToast('Peça ao administrador para liberar a criação de oportunidades.', true); }
-    });
+    addScrollTop();
     initPullToRefresh(async () => {
             const r = await getFunil(state.funilScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'funil') {
@@ -761,10 +755,8 @@ export async function renderFunilCreatePage() {
 export async function renderFunilDetailPage(id) {
     ensureStyles('funil');
     const mainContent = document.getElementById('main-content');
-    // A lista deixa um FAB "+" pra trás (só o próprio addFabAndScrollTop
-    // remove o anterior, e essa página não chama de novo) — sem isso, o
-    // botão fica flutuando por cima do detalhe.
-    document.getElementById('page-fab')?.remove();
+    // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
+    // addScrollTop remove o anterior, e essa página não chama de novo).
     document.getElementById('page-scroll-top')?.remove();
     const existing = state.funil.find((f) => String(f.id) === String(id));
     if (!existing) {

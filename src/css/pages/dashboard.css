@@ -490,7 +490,6 @@
     .stat-card { min-height: 100px; }
 
     /* Offset for no bottom nav */
-    .fab            { bottom: 1.5rem; }
     .scroll-top-btn { bottom: 1.5rem; }
     .toast          { bottom: 1.5rem; }
 }
