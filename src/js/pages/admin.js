@@ -120,15 +120,6 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 </div>
             </div>
             <div class="admin-stat">
-                <div class="admin-stat-icon ast-green">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                </div>
-                <div class="admin-stat-body">
-                    <strong class="admin-stat-num">${data.notifications.length}</strong>
-                    <span class="admin-stat-lbl">WhatsApp</span>
-                </div>
-            </div>
-            <div class="admin-stat">
                 <div class="admin-stat-icon ast-purple">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                 </div>
@@ -143,10 +134,6 @@ function fillAdminContent(mainContent, data, emailConfig) {
             <button type="button" class="admin-tab${activeAdminTab === 'users' ? ' active' : ''}" data-tab="users">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 Usuários
-            </button>
-            <button type="button" class="admin-tab${activeAdminTab === 'whatsapp' ? ' active' : ''}" data-tab="whatsapp">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                WhatsApp
             </button>
             <button type="button" class="admin-tab${activeAdminTab === 'listas' ? ' active' : ''}" data-tab="listas">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -205,34 +192,6 @@ function fillAdminContent(mainContent, data, emailConfig) {
                                 </td>
                             </tr>`;
                         }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Tab: WhatsApp -->
-        <div class="admin-tab-panel${activeAdminTab === 'whatsapp' ? ' active' : ''} card" id="admin-tab-whatsapp" style="padding:1rem">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
-                <span style="font-size:0.82rem;color:var(--text-muted-strong)">${data.notifications.length} fluxo(s)</span>
-                <button type="button" class="btn-add" id="btn-new-notif" style="padding:0.4rem 0.85rem;font-size:0.82rem">+ Novo Fluxo</button>
-            </div>
-            <div class="admin-notif-table-wrap">
-                <table class="admin-notif-table">
-                    <thead><tr>
-                        <th>Nome do Fluxo</th>
-                        <th>Obrigatório</th>
-                    </tr></thead>
-                    <tbody>
-                        ${data.notifications.map((item, index) => `
-                        <tr class="admin-notif-row" data-notification-index="${index}">
-                            <td>${escapeHtml(titleCase(item.tipo || '-'))}</td>
-                            <td>
-                                <label class="toggle-switch" onclick="event.stopPropagation()">
-                                    <input type="checkbox" ${item.obrigatorio ? 'checked' : ''} data-notif-toggle="${index}">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </td>
-                        </tr>`).join('')}
                     </tbody>
                 </table>
             </div>
@@ -484,87 +443,6 @@ export function bindAdminEvents(data) {
         });
     });
 
-    // Edição de fluxo do WhatsApp em linha (mesmo padrão do editar/novo Usuário
-    // acima) — evita o drawer flutuante, que em algumas telas de celular ficava
-    // sem um jeito visível de fechar/voltar.
-    const notifRowFormHtml = (item) => `
-        <div class="uif-header">
-            <span class="uif-title">${item ? 'Editar — ' + escapeHtml(titleCase(item.tipo || '')) : 'Novo Fluxo'}</span>
-        </div>
-        <input type="hidden" class="ntf-original-tipo" value="${escapeHtml(item ? (item.tipo || '') : '')}">
-        <div class="form-group">
-            <label>Tipo da Visita</label>
-            <input type="text" class="ntf-tipo" value="${escapeHtml(item ? (item.tipo || '') : '')}" placeholder="Ex: Preventiva">
-        </div>
-        <div class="form-group">
-            <label>Mensagem padrão</label>
-            <p class="helper-text" style="margin:0.2rem 0 0.4rem;font-size:0.78rem">Variáveis: {{cliente}}, {{tipoVisita}}, {{observacao}}, {{vendedor}}, {{cidade}}, {{data}}</p>
-            <textarea class="ntf-msg" rows="4">${escapeHtml(item ? (item.mensagemPadrao || '') : '')}</textarea>
-        </div>
-        <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer;margin-bottom:0.75rem">
-            <input type="checkbox" class="ntf-obrigatorio" style="width:auto;accent-color:var(--primary)" ${item && item.obrigatorio ? 'checked' : ''}>
-            Compartilhamento obrigatório
-        </label>
-        <div class="uif-actions">
-            <button type="button" class="uif-cancel">Cancelar</button>
-            <button type="button" class="uif-save">Salvar</button>
-        </div>
-    `;
-
-    const bindNotifRowForm = (cell) => {
-        cell.querySelector('.uif-cancel').addEventListener('click', () => renderAdminPage());
-        cell.querySelector('.uif-save').addEventListener('click', async () => {
-            const saveBtn = cell.querySelector('.uif-save');
-            setSaving(true, saveBtn, 'Salvando...');
-            const result = await saveNotificationConfig({
-                originalTipo: cell.querySelector('.ntf-original-tipo').value.trim(),
-                tipo: cell.querySelector('.ntf-tipo').value.trim(),
-                mensagemPadrao: cell.querySelector('.ntf-msg').value.trim(),
-                obrigatorio: cell.querySelector('.ntf-obrigatorio').checked
-            });
-            if (result.status === 'success') { showToast('Configuração salva.'); renderAdminPage(); }
-            else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, saveBtn); }
-        });
-    };
-
-    document.getElementById('btn-new-notif').addEventListener('click', () => {
-        if (document.getElementById('ntf-new-row')) {
-            document.getElementById('ntf-new-row').querySelector('.ntf-tipo').focus();
-            return;
-        }
-        const tbody = document.querySelector('.admin-notif-table tbody');
-        const tr = document.createElement('tr');
-        tr.id = 'ntf-new-row';
-        tr.innerHTML = `<td colspan="2" class="uif-cell uif-cell-new">${notifRowFormHtml(null)}</td>`;
-        tbody.prepend(tr);
-        tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        tr.querySelector('.ntf-tipo').focus();
-        bindNotifRowForm(tr);
-    });
-
-    document.querySelectorAll('.admin-notif-row').forEach((row) => {
-        row.addEventListener('click', (e) => {
-            if (e.target.closest('[data-notif-toggle]') || e.target.type === 'checkbox') { return; }
-            const item = state.adminData.notifications[Number(row.dataset.notificationIndex)];
-            row.innerHTML = `<td colspan="2" class="uif-cell">${notifRowFormHtml(item)}</td>`;
-            bindNotifRowForm(row);
-        });
-    });
-
-    // Notif toggle (obrigatorio quick-toggle)
-    document.querySelectorAll('[data-notif-toggle]').forEach((chk) => {
-        chk.addEventListener('change', async () => {
-            const index = Number(chk.dataset.notifToggle);
-            const item = state.adminData.notifications[index];
-            await saveNotificationConfig({
-                originalTipo: item.tipo || '',
-                tipo: item.tipo || '',
-                mensagemPadrao: item.mensagemPadrao || '',
-                obrigatorio: chk.checked
-            });
-        });
-    });
-
     // Email toggle — enable/disable fields
     document.querySelectorAll('[data-email-toggle]').forEach((toggle) => {
         const prefix = toggle.dataset.emailToggle;
@@ -660,22 +538,6 @@ export async function getAdminData() {
 export async function saveUser(payload) {
     try {
         return await callAPI('saveUser', { ...payload, user: state.currentUser });
-    } catch (error) {
-        return { status: 'error', message: error.message };
-    }
-}
-
-
-export async function saveNotificationConfig(payload) {
-    try {
-        const result = await callAPI('saveNotificationConfig', { ...payload, user: state.currentUser });
-        if (result && result.status === 'success') {
-            state.formData = null;
-            const _email = (state.currentUser && state.currentUser.email) || '';
-            try { localStorage.removeItem('apv_fd3_' + _email); } catch(e) {}
-            try { localStorage.removeItem('apv_fdv_' + _email); } catch(e) {}
-        }
-        return result;
     } catch (error) {
         return { status: 'error', message: error.message };
     }
