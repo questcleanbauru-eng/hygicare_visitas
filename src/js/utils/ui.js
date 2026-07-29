@@ -174,6 +174,38 @@ export function closeMobileExtraMenu() {
 }
 
 
+// O sino sempre abria Propostas, mesmo quando só o Funil estava atrasado —
+// agora vai direto pra quem tem pendência; com os dois pendentes, mostra um
+// menuzinho pra escolher (mesmo padrão visual do editor de status inline
+// das Propostas, só que ancorado no sino em vez de num status pill).
+function handleNotifBellClick() {
+    const overdueProposals = state.overdueProposals || 0;
+    const overdueFunil = state.overdueFunil || 0;
+    if (overdueFunil > 0 && overdueProposals === 0) { navigateTo('funil'); return; }
+    if (overdueProposals > 0 && overdueFunil === 0) { navigateTo('proposals'); return; }
+    if (overdueProposals > 0 && overdueFunil > 0) {
+        document.querySelector('.inline-status-editor')?.remove();
+        const btn = document.getElementById('header-notif');
+        const editor = document.createElement('div');
+        editor.className = 'inline-status-editor';
+        editor.innerHTML = `
+            <button type="button" class="inline-status-opt" data-notif-go="proposals">Propostas atrasadas (${overdueProposals})</button>
+            <button type="button" class="inline-status-opt" data-notif-go="funil">Funil sem atualização (${overdueFunil})</button>
+        `;
+        const rect = btn.getBoundingClientRect();
+        editor.style.cssText = `position:fixed;top:${Math.round(rect.bottom + 4)}px;right:${Math.round(window.innerWidth - rect.right)}px;z-index:1000`;
+        document.body.appendChild(editor);
+        editor.addEventListener('click', (e) => e.stopPropagation());
+        editor.querySelectorAll('[data-notif-go]').forEach((opt) => {
+            opt.addEventListener('click', () => { editor.remove(); navigateTo(opt.dataset.notifGo); });
+        });
+        setTimeout(() => document.addEventListener('click', () => editor.remove(), { once: true }), 0);
+        return;
+    }
+    navigateTo('proposals');
+}
+
+
 export function updateHeaderUI(user) {
     const area = document.getElementById('header-user-area');
     if (!area) { return; }
@@ -211,7 +243,7 @@ export function updateHeaderUI(user) {
         <div class="header-avatar" id="header-avatar-btn" title="${name}">${initial}</div>
     `;
     document.getElementById('header-refresh-btn').addEventListener('click', refreshCurrentPage);
-    document.getElementById('header-notif').addEventListener('click', () => navigateTo('proposals'));
+    document.getElementById('header-notif').addEventListener('click', handleNotifBellClick);
     document.getElementById('header-avatar-btn').addEventListener('click', () => navigateTo('dashboard'));
     document.getElementById('header-search-btn').addEventListener('click', openGlobalSearch);
     const _installBtn = document.getElementById('header-install-btn');
