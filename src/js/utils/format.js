@@ -86,6 +86,35 @@ export function normalizeContrato(contrato) {
 }
 
 
+export function normalizeManutencao(item) {
+    const m = item || {};
+    return {
+        id: String(m.Id || m.ID || m.id || ''),
+        data: m.Data || m.data || '',
+        tecnico: m.Tecnico || m.tecnico || '',
+        gerencia: m.Gerencia || m.gerencia || '',
+        cliente: m.Cliente || m.cliente || '',
+        cidade: m.Cidade || m.cidade || '',
+        tipoRelatorio: m.TipoRelatorio || m.tipoRelatorio || '',
+        tipoVisita: m.TipoVisita || m.tipoVisita || '',
+        tipoEquipamento: m.TipoEquipamento || m.tipoEquipamento || '',
+        itensTabela: m.ItensTabela || m.itensTabela || '[]',
+        pecasDiluidor: m.PecasDiluidor || m.pecasDiluidor || '[]',
+        observacao: m.Observacao || m.observacao || '',
+        assinaturaTecnico: m.AssinaturaTecnico || m.assinaturaTecnico || '',
+        assinaturaCliente: m.AssinaturaCliente || m.assinaturaCliente || '',
+        pendenteAprovacao: m.PendenteAprovacao || m.pendenteAprovacao || '',
+        _pending: !!m._pending
+    };
+}
+
+
+export const TIPOS_RELATORIO_MANUTENCAO = {
+    afericao_vazao: 'Aferição de Vazão',
+    calibracao_manutencao: 'Calibração/Manutenção'
+};
+
+
 export function formatDateForInput(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');

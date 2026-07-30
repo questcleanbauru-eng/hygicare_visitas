@@ -241,7 +241,11 @@ function fillAdminContent(mainContent, data, emailConfig) {
                         <input type="checkbox" id="config-permitir-radar" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.permitir_acesso_radar) ? 'checked' : ''}>
                         Permitir que Gerentes e Vendedores acessem o Radar de Clientes
                     </label>
-                    <p class="helper-text" style="text-align:left;margin:0">Admin sempre pode criar/apagar/acessar o Radar. Nova Visita continua liberada pra todos. As outras opções afetam Proposta, Funil e o Radar de Clientes.</p>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-permitir-editar-manutencao" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.permitir_editar_manutencao_assinada) ? 'checked' : ''}>
+                        Permitir editar Relatório de Manutenção depois de assinado (fica pendente de aprovação)
+                    </label>
+                    <p class="helper-text" style="text-align:left;margin:0">Admin sempre pode criar/apagar/acessar o Radar e editar qualquer Relatório de Manutenção, mesmo assinado. Nova Visita continua liberada pra todos. As outras opções afetam Proposta, Funil, Radar de Clientes e Relatório de Manutenção.</p>
                     <button type="button" id="save-permissoes" class="primary-button" style="align-self:flex-start">Salvar</button>
                 </div>
             </div>
@@ -479,15 +483,17 @@ export function bindAdminEvents(data) {
         }
     });
 
-    // Permissões (Gerente/Vendedor): apagar registros, criar Proposta/Funil, acessar Radar
+    // Permissões (Gerente/Vendedor): apagar registros, criar Proposta/Funil, acessar Radar, editar Manutenção assinada
     document.getElementById('save-permissoes')?.addEventListener('click', async () => {
         const permitirApagar = document.getElementById('config-permitir-apagar').checked;
         const permitirCriar = document.getElementById('config-permitir-criar').checked;
         const permitirRadar = document.getElementById('config-permitir-radar').checked;
+        const permitirEditarManutencao = document.getElementById('config-permitir-editar-manutencao').checked;
         const result = await saveEmailConfig({
             permitir_apagar_outros: permitirApagar ? 'true' : 'false',
             permitir_criar_proposta_funil: permitirCriar ? 'true' : 'false',
-            permitir_acesso_radar: permitirRadar ? 'true' : 'false'
+            permitir_acesso_radar: permitirRadar ? 'true' : 'false',
+            permitir_editar_manutencao_assinada: permitirEditarManutencao ? 'true' : 'false'
         });
         if (result.status === 'success') {
             showToast('Configuração salva.');

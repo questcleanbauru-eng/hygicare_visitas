@@ -21,6 +21,8 @@ export const state = {
     currentFunil: null,
     contratos: [],
     currentContrato: null,
+    manutencoes: [],
+    currentManutencao: null,
     agendamentos: [],
     toastTimer: null,
     overdueProposals: 0,
@@ -147,7 +149,7 @@ export function initTabVisibilitySync() {
 }
 
 
-export const _FORM_PAGES = new Set(['visit-new','visit-edit','proposal-new','proposal-edit','funil-new','funil-edit','contrato-new','contrato-edit']);
+export const _FORM_PAGES = new Set(['visit-new','visit-edit','proposal-new','proposal-edit','funil-new','funil-edit','contrato-new','contrato-edit','manutencao-new','manutencao-edit']);
 
 
 export async function navigateTo(page, options = {}, _fromPop = false) {
@@ -264,6 +266,18 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'contrato-edit':
             await (await import('./pages/contratos.js')).renderContratoFormPage(options.contrato || state.currentContrato);
             break;
+        case 'manutencao':
+            await (await import('./pages/manutencao.js')).renderManutencaoPage();
+            break;
+        case 'manutencao-detail':
+            await (await import('./pages/manutencao.js')).renderManutencaoDetailPage(options.id);
+            break;
+        case 'manutencao-new':
+            await (await import('./pages/manutencao.js')).renderManutencaoCreatePage();
+            break;
+        case 'manutencao-edit':
+            await (await import('./pages/manutencao.js')).renderManutencaoFormPage(options.manutencao || state.currentManutencao);
+            break;
         case 'radar':
             await (await import('./pages/radar.js')).renderRadarPage(options);
             break;
@@ -283,6 +297,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         'proposals': ['proposal-detail', 'proposal-edit'],
         'funil':     ['funil-detail', 'funil-edit'],
         'contratos': ['contrato-detail', 'contrato-edit'],
+        'manutencao': ['manutencao-detail', 'manutencao-edit'],
     };
     if (_scrollParentMap[page] && _scrollParentMap[page].includes(_prevPage) && state.scrollPositions[page] > 0) {
         const savedY = state.scrollPositions[page];

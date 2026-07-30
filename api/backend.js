@@ -12,6 +12,10 @@ import {
     handleGetAgendamentos, handleCreateAgendamento, handleUpdateAgendamento, handleDeleteAgendamento
 } from '../lib/handlers/agendamentos.js';
 import {
+    handleGetManutencoes, handleGetManutencaoById, handleCreateManutencao, handleUpdateManutencao,
+    handleDeleteManutencao, handleApproveManutencao
+} from '../lib/handlers/manutencao.js';
+import {
     handleGetRadarCidadesDisponiveis, handleGetRadarClientes, handleUpdateRadarClienteStatus,
     handleImportRadarClientesCsv,
     handleRenovarReservaRadarCliente,
@@ -60,6 +64,12 @@ const HANDLERS = {
     createAgendamento: handleCreateAgendamento,
     updateAgendamento: handleUpdateAgendamento,
     deleteAgendamento: handleDeleteAgendamento,
+    getManutencoes: handleGetManutencoes,
+    getManutencaoById: handleGetManutencaoById,
+    createManutencao: handleCreateManutencao,
+    updateManutencao: handleUpdateManutencao,
+    deleteManutencao: handleDeleteManutencao,
+    approveManutencao: handleApproveManutencao,
     getRadarCidadesDisponiveis: handleGetRadarCidadesDisponiveis,
     getRadarClientes: handleGetRadarClientes,
     updateRadarClienteStatus: handleUpdateRadarClienteStatus,
