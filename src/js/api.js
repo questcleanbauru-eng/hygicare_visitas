@@ -390,7 +390,9 @@ export function normalizeFormData(data) {
         equipamentos: data.equipamentos || [],
         tiposVisita,
         clientes,
-        veiculos: data.veiculos || ['Particular', 'Empresa']
+        veiculos: data.veiculos || ['Particular', 'Empresa'],
+        manutencaoListas: data.manutencaoListas || {},
+        manutencaoLabels: data.manutencaoLabels || {}
     };
 }
 

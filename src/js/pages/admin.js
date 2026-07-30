@@ -206,6 +206,29 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 ${renderLookupEditor('Aplicacoes', 'aplicacoes', data.lookups.aplicacoes || [])}
                 ${renderLookupEditor('Equipamentos', 'equipamentos', data.lookups.equipamentos || [])}
             </div>
+            <h3 class="section-title" style="margin:1.25rem 0 0.85rem">Relatório de Manutenção</h3>
+            <div class="form-group full-width" style="margin-bottom:0.85rem">
+                <label>Nomes dos relatórios (como aparecem pro usuário)</label>
+                <div style="display:flex;flex-direction:column;gap:0.5rem">
+                    <input type="text" id="mnt-label-afericao-vazao" value="${escapeHtml(emailConfig.manutencao_label_afericao_vazao || 'Aferição de Vazão')}" placeholder="Aferição de Vazão">
+                    <input type="text" id="mnt-label-calibracao-manutencao" value="${escapeHtml(emailConfig.manutencao_label_calibracao_manutencao || 'Calibração/Manutenção')}" placeholder="Calibração/Manutenção">
+                    <input type="text" id="mnt-label-atendimento-lavanderia" value="${escapeHtml(emailConfig.manutencao_label_atendimento_lavanderia || 'Atendimento ao Cliente — Lavanderia')}" placeholder="Atendimento ao Cliente — Lavanderia">
+                    <button type="button" id="save-manutencao-labels" class="primary-button" style="align-self:flex-start">Salvar nomes</button>
+                </div>
+            </div>
+            <div class="lookup-grid">
+                ${renderLookupEditor('Tipo de Equipamento (Calibração)', 'mntTipoEquipamento', data.lookups.mntTipoEquipamento || [])}
+                ${renderLookupEditor('Tipo de Visita (Calibração)', 'mntTipoVisitaCalibracao', data.lookups.mntTipoVisitaCalibracao || [])}
+                ${renderLookupEditor('Peças do Diluidor', 'mntPecasDiluidor', data.lookups.mntPecasDiluidor || [])}
+                ${renderLookupEditor('Tipo de Máquina (Lavanderia)', 'mntTipoMaquinaLavanderia', data.lookups.mntTipoMaquinaLavanderia || [])}
+                ${renderLookupEditor('Tipo de Visita (Lavanderia)', 'mntTipoVisitaLavanderia', data.lookups.mntTipoVisitaLavanderia || [])}
+                ${renderLookupEditor('Checklist Dosador — Grupo 1', 'mntDosadorGrupo1', data.lookups.mntDosadorGrupo1 || [])}
+                ${renderLookupEditor('Checklist Dosador — Grupo 2', 'mntDosadorGrupo2', data.lookups.mntDosadorGrupo2 || [])}
+                ${renderLookupEditor('Checklist Máquina — Grupo 1', 'mntMaquinaGrupo1', data.lookups.mntMaquinaGrupo1 || [])}
+                ${renderLookupEditor('Checklist Máquina — Grupo 2', 'mntMaquinaGrupo2', data.lookups.mntMaquinaGrupo2 || [])}
+                ${renderLookupEditor('Checklist Estocagem — Grupo 1', 'mntEstocagemGrupo1', data.lookups.mntEstocagemGrupo1 || [])}
+                ${renderLookupEditor('Checklist Estocagem — Grupo 2', 'mntEstocagemGrupo2', data.lookups.mntEstocagemGrupo2 || [])}
+            </div>
         </div>
 
         <!-- Tab: Configurações -->
@@ -498,6 +521,20 @@ export function bindAdminEvents(data) {
         if (result.status === 'success') {
             showToast('Configuração salva.');
             saveCache('dashboard', null);
+        } else {
+            showToast(result.message || 'Não foi possível salvar.', true);
+        }
+    });
+
+    // Nomes dos relatórios de Manutenção (como aparecem pro usuário no seletor de tipo)
+    document.getElementById('save-manutencao-labels')?.addEventListener('click', async () => {
+        const result = await saveEmailConfig({
+            manutencao_label_afericao_vazao: document.getElementById('mnt-label-afericao-vazao').value.trim(),
+            manutencao_label_calibracao_manutencao: document.getElementById('mnt-label-calibracao-manutencao').value.trim(),
+            manutencao_label_atendimento_lavanderia: document.getElementById('mnt-label-atendimento-lavanderia').value.trim()
+        });
+        if (result.status === 'success') {
+            showToast('Nomes salvos.');
         } else {
             showToast(result.message || 'Não foi possível salvar.', true);
         }

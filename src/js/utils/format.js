@@ -86,9 +86,25 @@ export function normalizeContrato(contrato) {
 }
 
 
+// [coluna PascalCase, campo camelCase] — campos específicos do relatório
+// "Atendimento ao Cliente — Lavanderia", extraídos numa lista pra não
+// repetir os mesmos 22 pares 2x (objeto normalizado + mapeamento reverso
+// nunca precisado aqui, só o objeto mesmo).
+const MANUTENCAO_LAVANDERIA_FIELDS = [
+    ['Codigo', 'codigo'], ['RE', 're'], ['Vendedor', 'vendedor'], ['SC', 'sc'],
+    ['EquipamentoNome', 'equipamentoNome'], ['Serie', 'serie'], ['Supervisor', 'supervisor'],
+    ['LeituraTecnica', 'leituraTecnica'], ['TipoMaquina', 'tipoMaquina'],
+    ['HoraChegada', 'horaChegada'], ['HoraSaida', 'horaSaida'], ['Refeicao', 'refeicao'],
+    ['KmInicial', 'kmInicial'], ['KmFinal', 'kmFinal'],
+    ['ChecklistDosador1', 'checklistDosador1'], ['ChecklistDosador2', 'checklistDosador2'],
+    ['ChecklistMaquina1', 'checklistMaquina1'], ['ChecklistMaquina2', 'checklistMaquina2'],
+    ['ChecklistEstocagem1', 'checklistEstocagem1'], ['ChecklistEstocagem2', 'checklistEstocagem2'],
+    ['VazoesBombas', 'vazoesBombas'], ['ProblemasMaquina', 'problemasMaquina'], ['ProblemasEstocagem', 'problemasEstocagem']
+];
+
 export function normalizeManutencao(item) {
     const m = item || {};
-    return {
+    const base = {
         id: String(m.Id || m.ID || m.id || ''),
         data: m.Data || m.data || '',
         tecnico: m.Tecnico || m.tecnico || '',
@@ -106,12 +122,20 @@ export function normalizeManutencao(item) {
         pendenteAprovacao: m.PendenteAprovacao || m.pendenteAprovacao || '',
         _pending: !!m._pending
     };
+    MANUTENCAO_LAVANDERIA_FIELDS.forEach(([col, key]) => {
+        base[key] = m[col] || m[key] || (key === 'vazoesBombas' ? '{}' : '');
+    });
+    return base;
 }
 
 
+// Fallback usado só antes do formData (com os nomes editáveis no Admin)
+// carregar pela primeira vez — depois disso manutencaoLabels do formData
+// manda.
 export const TIPOS_RELATORIO_MANUTENCAO = {
     afericao_vazao: 'Aferição de Vazão',
-    calibracao_manutencao: 'Calibração/Manutenção'
+    calibracao_manutencao: 'Calibração/Manutenção',
+    atendimento_lavanderia: 'Atendimento ao Cliente — Lavanderia'
 };
 
 
