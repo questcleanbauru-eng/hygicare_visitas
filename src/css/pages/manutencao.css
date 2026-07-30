@@ -21,7 +21,7 @@
     margin-bottom: 0.5rem;
 }
 
-.mnt-item-row input {
+.mnt-item-row input, .mnt-item-row select {
     min-height: 40px;
 }
 
@@ -76,3 +76,43 @@
 }
 
 .mnt-vazoes-table td, .mnt-vazoes-table th { white-space: normal; }
+
+.signature-pad {
+    display: block;
+    width: 100%;
+    height: 160px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    touch-action: none;
+    cursor: crosshair;
+}
+
+.signature-pad-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.4rem;
+}
+
+.mnt-signatures-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.mnt-signature-caption {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted-strong);
+    margin: 0 0 0.4rem;
+}
+
+.signature-preview-img {
+    display: block;
+    max-width: 100%;
+    height: 160px;
+    object-fit: contain;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #fff;
+}

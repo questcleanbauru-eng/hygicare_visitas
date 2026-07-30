@@ -341,8 +341,17 @@ export async function renderManutencaoDetailPage(id) {
             ${renderDetailRow('Observação', m.observacao || '-')}
         </div>
         <div class="card detail-card">
-            <p class="report-subtitle" style="margin-top:0">Assinaturas</p>
-            <p class="helper-text" style="margin:0">${jaAssinado ? 'Assinado pelo técnico e pelo cliente.' : 'Ainda sem assinatura — a captura de assinatura na tela chega no próximo bloco desta funcionalidade.'}</p>
+            <p class="report-subtitle" style="margin-top:0">Assinaturas ${jaAssinado ? '<span class="status-pill status-concluido">Assinado</span>' : ''}</p>
+            <div class="mnt-signatures-grid">
+                <div>
+                    <p class="mnt-signature-caption">Técnico</p>
+                    ${m.assinaturaTecnico ? `<img class="signature-preview-img" src="${escapeHtml(m.assinaturaTecnico)}" alt="Assinatura do técnico">` : '<p class="helper-text" style="margin:0">Sem assinatura.</p>'}
+                </div>
+                <div>
+                    <p class="mnt-signature-caption">Cliente</p>
+                    ${m.assinaturaCliente ? `<img class="signature-preview-img" src="${escapeHtml(m.assinaturaCliente)}" alt="Assinatura do cliente">` : '<p class="helper-text" style="margin:0">Sem assinatura.</p>'}
+                </div>
+            </div>
         </div>
     `;
 
@@ -386,7 +395,11 @@ function itemRowHtml(tipoRelatorio, item = {}) {
             <input type="text" placeholder="Equipamento" class="mnt-item-equipamento" value="${escapeHtml(item.equipamento || '')}">
             <input type="text" placeholder="Produto" class="mnt-item-produto" value="${escapeHtml(item.produto || '')}">
             <input type="text" placeholder="Diluição" class="mnt-item-diluicao" value="${escapeHtml(item.diluicao || '')}">
-            <input type="text" placeholder="Aferido" class="mnt-item-aferido" value="${escapeHtml(item.aferido || '')}">
+            <select class="mnt-item-aferido">
+                <option value="" ${!item.aferido ? 'selected' : ''}>Aferido?</option>
+                <option value="Sim" ${item.aferido === 'Sim' ? 'selected' : ''}>Sim</option>
+                <option value="Não" ${item.aferido === 'Não' ? 'selected' : ''}>Não</option>
+            </select>
             <button type="button" class="mini-button mini-button-danger mnt-item-remove" aria-label="Remover linha">×</button>
         </div>`;
     }
@@ -469,6 +482,73 @@ function collectVazoes() {
         diluicao: row.querySelector('.mnt-vazao-diluicao').value.trim(),
         vazaoAferida: row.querySelector('.mnt-vazao-aferida').value.trim()
     })).filter((r) => r.produto || r.diluicao || r.vazaoAferida));
+}
+
+// Assinatura desenhada na tela (dedo no celular, mouse no desktop) — Pointer
+// Events cobre os dois com o mesmo código. O canvas nasce em CSS (100% de
+// largura, altura fixa) mas o <canvas> por padrão desenha numa resolução
+// interna fixa (300x150) — sem ajustar width/height reais pro tamanho
+// exibido (considerando devicePixelRatio), o traço sai borrado/esticado.
+function bindSignaturePad(canvas) {
+    const ctx = canvas.getContext('2d');
+    const ratio = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1a1a1a';
+
+    let drawing = false;
+    let last = null;
+    const pos = (e) => {
+        const r = canvas.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+    canvas.addEventListener('pointerdown', (e) => {
+        drawing = true;
+        canvas.setPointerCapture(e.pointerId);
+        last = pos(e);
+        canvas.dataset.signed = '1';
+    });
+    canvas.addEventListener('pointermove', (e) => {
+        if (!drawing) return;
+        const p = pos(e);
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        last = p;
+    });
+    const stop = () => { drawing = false; };
+    canvas.addEventListener('pointerup', stop);
+    canvas.addEventListener('pointerleave', stop);
+    canvas.addEventListener('pointercancel', stop);
+}
+
+function clearSignaturePad(canvas) {
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    canvas.dataset.signed = '';
+}
+
+// Editar um relatório que já tem assinatura salva pré-carrega o traço no
+// canvas — se o usuário não mexer nele, o valor é reenviado igual no
+// submit; se clicar em "Limpar", o dataset.signed some e a assinatura sai
+// do relatório.
+function loadSignatureIntoCanvas(canvas, dataUrl) {
+    if (!dataUrl) return;
+    const img = new Image();
+    img.onload = () => {
+        const ratio = window.devicePixelRatio || 1;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width / ratio, canvas.height / ratio);
+        canvas.dataset.signed = '1';
+    };
+    img.src = dataUrl;
+}
+
+function signaturePadToDataUrl(canvas) {
+    return canvas.dataset.signed ? canvas.toDataURL('image/png') : '';
 }
 
 // Alterna quais blocos `.mnt-tipo-fields` ficam visíveis pro tipo de
@@ -635,7 +715,14 @@ export async function renderManutencaoFormPage(record) {
             </div>
 
             <div class="form-group full-width">
-                <p class="helper-text" style="margin:0">A assinatura do técnico e do cliente na tela chega no próximo bloco desta funcionalidade — por enquanto o relatório é salvo sem assinatura.</p>
+                <label>Assinatura do Técnico</label>
+                <canvas id="mnt-signature-tecnico" class="signature-pad"></canvas>
+                <div class="signature-pad-actions"><button type="button" class="mini-button" id="mnt-signature-tecnico-clear">Limpar assinatura</button></div>
+            </div>
+            <div class="form-group full-width">
+                <label>Assinatura do Cliente</label>
+                <canvas id="mnt-signature-cliente" class="signature-pad"></canvas>
+                <div class="signature-pad-actions"><button type="button" class="mini-button" id="mnt-signature-cliente-clear">Limpar assinatura</button></div>
             </div>
 
             <div class="form-actions full-width">
@@ -646,6 +733,17 @@ export async function renderManutencaoFormPage(record) {
     `;
 
     syncTipoFieldsVisibility(tipoInicial);
+
+    const sigTecnico = document.getElementById('mnt-signature-tecnico');
+    const sigCliente = document.getElementById('mnt-signature-cliente');
+    bindSignaturePad(sigTecnico);
+    bindSignaturePad(sigCliente);
+    if (isEdit) {
+        loadSignatureIntoCanvas(sigTecnico, m.assinaturaTecnico);
+        loadSignatureIntoCanvas(sigCliente, m.assinaturaCliente);
+    }
+    document.getElementById('mnt-signature-tecnico-clear').addEventListener('click', () => clearSignaturePad(sigTecnico));
+    document.getElementById('mnt-signature-cliente-clear').addEventListener('click', () => clearSignaturePad(sigCliente));
 
     initializeSearchableInput({
         input: document.getElementById('mnt-cliente'),
@@ -710,6 +808,11 @@ export async function renderManutencaoFormPage(record) {
             cliente: clienteVal, cidade: cidadeVal, tecnico: tecnicoVal,
             tipoRelatorio, tipoVisita: tipoVisitaVal, tipoEquipamento: tipoEquipamentoVal,
             observacao: observacaoVal,
+            // Sempre manda o que está no canvas agora (mesmo vazio) — assim
+            // clicar em "Limpar" numa edição realmente apaga a assinatura
+            // salva, em vez de deixar o valor antigo intocado no servidor.
+            assinaturaTecnico: signaturePadToDataUrl(sigTecnico),
+            assinaturaCliente: signaturePadToDataUrl(sigCliente),
             user: state.currentUser
         };
 
