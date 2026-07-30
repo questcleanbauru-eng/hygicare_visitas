@@ -91,9 +91,7 @@ export function normalizeContrato(contrato) {
 // repetir os mesmos 22 pares 2x (objeto normalizado + mapeamento reverso
 // nunca precisado aqui, só o objeto mesmo).
 const MANUTENCAO_LAVANDERIA_FIELDS = [
-    ['Codigo', 'codigo'], ['RE', 're'], ['Vendedor', 'vendedor'], ['SC', 'sc'],
-    ['EquipamentoNome', 'equipamentoNome'], ['Serie', 'serie'], ['Supervisor', 'supervisor'],
-    ['LeituraTecnica', 'leituraTecnica'], ['TipoMaquina', 'tipoMaquina'],
+    ['Vendedor', 'vendedor'], ['EquipamentoNome', 'equipamentoNome'], ['TipoMaquina', 'tipoMaquina'],
     ['HoraChegada', 'horaChegada'], ['HoraSaida', 'horaSaida'], ['Refeicao', 'refeicao'],
     ['KmInicial', 'kmInicial'], ['KmFinal', 'kmFinal'],
     ['ChecklistDosador1', 'checklistDosador1'], ['ChecklistDosador2', 'checklistDosador2'],

@@ -315,14 +315,8 @@ export async function renderManutencaoDetailPage(id) {
         ${isLavanderia ? `
         <div class="card detail-card">
             <p class="report-subtitle" style="margin-top:0">Dados do Atendimento</p>
-            ${renderDetailRow('Código', m.codigo || '-')}
-            ${renderDetailRow('RE', m.re || '-')}
             ${renderDetailRow('Vendedor', titleCase(m.vendedor) || '-')}
-            ${renderDetailRow('SC', m.sc || '-')}
             ${renderDetailRow('Equipamento', m.equipamentoNome || '-')}
-            ${renderDetailRow('Série', m.serie || '-')}
-            ${renderDetailRow('Supervisor', titleCase(m.supervisor) || '-')}
-            ${renderDetailRow('Leitura Técnica', m.leituraTecnica || '-')}
             ${renderDetailRow('Tipo de Máquina', m.tipoMaquina || '-')}
             ${renderDetailRow('Tipo de Visita', m.tipoVisita || '-')}
             ${renderDetailRow('Hora de Chegada', m.horaChegada || '-')}
@@ -583,14 +577,8 @@ export async function renderManutencaoFormPage(record) {
                 </label>`).join('')}
             </div>
 
-            ${mntField('mnt-codigo', 'Código', m.codigo)}
-            ${mntField('mnt-re', 'RE', m.re)}
             ${mntField('mnt-vendedor', 'Vendedor', m.vendedor)}
-            ${mntField('mnt-sc', 'SC', m.sc)}
             ${mntField('mnt-equipamento-nome', 'Equipamento', m.equipamentoNome)}
-            ${mntField('mnt-serie', 'Série', m.serie)}
-            ${mntField('mnt-supervisor', 'Supervisor', m.supervisor)}
-            ${mntField('mnt-leitura-tecnica', 'Leitura Técnica', m.leituraTecnica)}
 
             <div class="form-group full-width mnt-tipo-fields" data-tipo-fields="atendimento_lavanderia">
                 <label>Tipo de Máquina</label>
@@ -726,14 +714,8 @@ export async function renderManutencaoFormPage(record) {
         };
 
         if (isLavanderia) {
-            payload.codigo = document.getElementById('mnt-codigo').value.trim();
-            payload.re = document.getElementById('mnt-re').value.trim();
             payload.vendedor = document.getElementById('mnt-vendedor').value.trim();
-            payload.sc = document.getElementById('mnt-sc').value.trim();
             payload.equipamentoNome = document.getElementById('mnt-equipamento-nome').value.trim();
-            payload.serie = document.getElementById('mnt-serie').value.trim();
-            payload.supervisor = document.getElementById('mnt-supervisor').value.trim();
-            payload.leituraTecnica = document.getElementById('mnt-leitura-tecnica').value.trim();
             payload.tipoMaquina = document.querySelector('input[name="mnt-tipo-maquina"]:checked')?.value || '';
             payload.horaChegada = document.getElementById('mnt-hora-chegada').value;
             payload.horaSaida = document.getElementById('mnt-hora-saida').value;
