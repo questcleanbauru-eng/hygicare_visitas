@@ -220,12 +220,13 @@ export async function renderManutencaoDetailPage(id) {
     // addScrollTop remove o anterior, e essa página não chama de novo).
     document.getElementById('page-scroll-top')?.remove();
 
-    const result = await getManutencaoById(id);
+    const [result, fdResult] = await Promise.all([getManutencaoById(id), ensureFormData()]);
     if (result.status !== 'success') {
         mainContent.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Relatório não encontrado.')}</p>`;
         return;
     }
 
+    const logoEmpresa = (fdResult.data && fdResult.data.logoEmpresa) || '';
     const m = normalizeManutencao(result.manutencao);
     state.currentManutencao = m;
     const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
@@ -268,9 +269,12 @@ export async function renderManutencaoDetailPage(id) {
         </div>` : ''}
         <div class="mnt-report">
             <div class="mnt-report-header">
-                <div>
-                    <strong class="mnt-report-brand">Hygicare</strong>
-                    <div class="mnt-report-title">Relatório de Manutenção <span class="mnt-report-os">Nº ${escapeHtml(m.id)}</span></div>
+                <div class="mnt-report-header-main">
+                    ${logoEmpresa ? `<img class="mnt-report-logo" src="${escapeHtml(logoEmpresa)}" alt="Logo da empresa">` : ''}
+                    <div>
+                        <strong class="mnt-report-brand">Hygicare</strong>
+                        <div class="mnt-report-title">Relatório de Manutenção <span class="mnt-report-os">Nº ${escapeHtml(m.id)}</span></div>
+                    </div>
                 </div>
                 <span class="mnt-status-badge mnt-status-${statusKey}">${statusLabel}</span>
             </div>
@@ -314,7 +318,18 @@ export async function renderManutencaoDetailPage(id) {
 
     document.getElementById('back-manutencao').addEventListener('click', () => navigateTo('manutencao'));
     document.getElementById('edit-manutencao').addEventListener('click', () => navigateTo('manutencao-edit', { manutencao: m }));
-    document.getElementById('print-manutencao').addEventListener('click', () => window.print());
+    document.getElementById('print-manutencao').addEventListener('click', () => {
+        // O nome sugerido no diálogo "Salvar como PDF" vem do <title> da
+        // página no momento do print — troca só pra essa hora e volta
+        // depois, senão a aba do app fica com esse nome errado.
+        const sanitize = (s) => String(s || '').replace(/[\\/:*?"<>|]/g, '-').trim();
+        const originalTitle = document.title;
+        document.title = `Relatório de Visita e Manutenção - ${sanitize(m.cliente)} - ${sanitize(m.data)}`;
+        const restoreTitle = () => { document.title = originalTitle; window.removeEventListener('afterprint', restoreTitle); };
+        window.addEventListener('afterprint', restoreTitle);
+        window.print();
+        setTimeout(restoreTitle, 3000);
+    });
     document.getElementById('share-manutencao-whatsapp').addEventListener('click', () => {
         const text = `*Relatório de Manutenção - ${m.cliente}*\nCidade: ${m.cidade || '-'}\nTécnico: ${m.tecnico || '-'}\nData: ${m.data || '-'}\nObservação: ${m.observacao || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);

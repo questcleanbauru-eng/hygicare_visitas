@@ -96,6 +96,22 @@
     border-bottom: 0.5px solid var(--border);
 }
 
+.mnt-report-header-main {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.mnt-report-logo {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    flex-shrink: 0;
+    border-radius: 4px;
+    background: #fff;
+}
+
 .mnt-report-brand {
     display: block;
     font-size: 0.7rem;
@@ -253,7 +269,16 @@
 }
 
 @media print {
-    .mnt-report { border: 1px solid var(--border); box-shadow: none; break-inside: avoid; }
+    /* border-radius + overflow:hidden (usado pra recortar o cabeçalho
+       quadrado nos cantos arredondados do cartão) some com a folga que
+       normalmente sobra fora do raio — em alguns motores de impressão
+       (varia por navegador/versão) essa sobra vira uma faixa fina e sólida
+       colada numa das bordas da página em vez de simplesmente desaparecer.
+       Cantos retos na impressão evitam essa combinação por completo. */
+    .mnt-report, .mnt-afericao-card, .mnt-signature-box {
+        border-radius: 0;
+    }
+    .mnt-report { border: 1px solid var(--border); box-shadow: none; overflow: visible; break-inside: avoid; }
     .mnt-report-section { break-inside: avoid; }
 
     /* Sem isso, boa parte dos navegadores some com as cores de fundo (e

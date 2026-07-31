@@ -14,6 +14,41 @@ function isConfigOn(value) {
     return String(value ?? '').trim().toLowerCase() === 'true';
 }
 
+// Redimensiona pro maior lado ficar em no máx. maxDim antes de virar
+// base64 — a logo é salva numa célula do Sheets (limite de 50.000
+// caracteres), e um arquivo exportado de um editor de design facilmente
+// vem grande demais pra caber sem isso. SVG passa direto sem rasterizar
+// (arquivo vetorial já costuma ser pequeno, e rasterizar perderia a
+// nitidez em qualquer tamanho de tela).
+async function resizeImageToDataUrl(file, maxDim) {
+    if (file.type === 'image/svg+xml') {
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
+            reader.readAsDataURL(file);
+        });
+    }
+    const rawDataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
+        reader.readAsDataURL(file);
+    });
+    const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Arquivo de imagem inválido.'));
+        image.src = rawDataUrl;
+    });
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/png');
+}
+
 export async function renderAdminPage() {
     ensureStyles('admin');
     const mainContent = document.getElementById('main-content');
@@ -247,6 +282,24 @@ function fillAdminContent(mainContent, data, emailConfig) {
                     </label>
                     <p class="helper-text" style="text-align:left;margin:0">Admin sempre pode criar/apagar/acessar o Radar e editar qualquer Relatório de Manutenção, mesmo assinado. Nova Visita continua liberada pra todos. As outras opções afetam Proposta, Funil, Radar de Clientes e Relatório de Manutenção.</p>
                     <button type="button" id="save-permissoes" class="primary-button" style="align-self:flex-start">Salvar</button>
+                </div>
+            </div>
+            <div class="admin-section" style="margin-bottom:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">Logo da Empresa</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <p class="helper-text" style="text-align:left;margin:0">Aparece no cabeçalho do Relatório de Manutenção. A imagem é redimensionada automaticamente ao enviar — não precisa mandar já pequena.</p>
+                    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+                        <div id="logo-empresa-preview" style="width:64px;height:64px;border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;flex-shrink:0">
+                            ${emailConfig.logo_empresa ? `<img src="${escapeHtml(emailConfig.logo_empresa)}" alt="Logo atual" style="max-width:100%;max-height:100%;object-fit:contain">` : '<span class="helper-text" style="margin:0;font-size:0.65rem;text-align:center">Sem logo</span>'}
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:0.5rem">
+                            <input type="file" id="logo-empresa-input" accept="image/*">
+                            <div style="display:flex;gap:0.5rem">
+                                <button type="button" id="save-logo-empresa" class="primary-button" disabled>Enviar logo</button>
+                                <button type="button" id="remove-logo-empresa" class="secondary-button" ${emailConfig.logo_empresa ? '' : 'style="display:none"'}>Remover</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="admin-section" style="margin-bottom:1.25rem">
@@ -502,6 +555,64 @@ export function bindAdminEvents(data) {
             showToast(result.message || 'Não foi possível salvar.', true);
         }
     });
+
+    // Logo da empresa
+    {
+        const logoInput = document.getElementById('logo-empresa-input');
+        const logoSaveBtn = document.getElementById('save-logo-empresa');
+        const logoPreview = document.getElementById('logo-empresa-preview');
+        let pendingLogoDataUrl = null;
+
+        logoInput?.addEventListener('change', async () => {
+            pendingLogoDataUrl = null;
+            if (logoSaveBtn) logoSaveBtn.disabled = true;
+            const file = logoInput.files && logoInput.files[0];
+            if (!file) return;
+            try {
+                const dataUrl = await resizeImageToDataUrl(file, 220);
+                // Margem sob o limite de 50.000 caracteres da célula do
+                // Sheets (data:image/...;base64, + o resto da linha já
+                // consome uma parte).
+                if (dataUrl.length > 45000) {
+                    showToast('Imagem grande demais mesmo redimensionada. Tente um arquivo mais simples (PNG/SVG).', true);
+                    logoInput.value = '';
+                    return;
+                }
+                pendingLogoDataUrl = dataUrl;
+                if (logoSaveBtn) logoSaveBtn.disabled = false;
+                if (logoPreview) logoPreview.innerHTML = `<img src="${dataUrl}" alt="Prévia da logo" style="max-width:100%;max-height:100%;object-fit:contain">`;
+            } catch (e) {
+                showToast(e.message || 'Não foi possível ler essa imagem.', true);
+            }
+        });
+
+        logoSaveBtn?.addEventListener('click', async () => {
+            if (!pendingLogoDataUrl) return;
+            setSaving(true, logoSaveBtn, 'Enviando...');
+            const result = await saveEmailConfig({ logo_empresa: pendingLogoDataUrl });
+            if (result.status === 'success') {
+                showToast('Logo salva.');
+                await renderAdminPage();
+            } else {
+                showToast(result.message || 'Não foi possível salvar a logo.', true);
+                setSaving(false, logoSaveBtn);
+            }
+        });
+
+        document.getElementById('remove-logo-empresa')?.addEventListener('click', async (event) => {
+            if (!confirm('Remover a logo da empresa?')) return;
+            const btn = event.currentTarget;
+            setSaving(true, btn, 'Removendo...');
+            const result = await saveEmailConfig({ logo_empresa: '' });
+            if (result.status === 'success') {
+                showToast('Logo removida.');
+                await renderAdminPage();
+            } else {
+                showToast(result.message || 'Não foi possível remover a logo.', true);
+                setSaving(false, btn);
+            }
+        });
+    }
 
     // Modo Manutenção
     document.getElementById('save-manutencao')?.addEventListener('click', async () => {
