@@ -1,48 +1,3 @@
-.mnt-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-}
-
-.mnt-table th, .mnt-table td {
-    text-align: left;
-    padding: 0.5rem 0.6rem;
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-}
-
-.mnt-table th { color: var(--text-muted-strong); font-weight: 600; background: #f8fafc; }
-
-.mnt-table tbody tr:nth-child(even) { background: #fbfcfe; }
-
-.mnt-table tbody tr:last-child td { border-bottom: none; }
-
-/* Os cards de detalhe (Cliente/Cidade..., Tabela de Aferição, Observação,
-   Assinaturas) ficavam encostados um no outro (margin 0), sem respiro
-   nenhum entre as seções — nem na tela, nem no impresso. */
-.mnt-detail-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-}
-
-/* Título de seção com identidade própria (barra colorida + versalete) em
-   vez do .report-subtitle genérico cinza — dá uma cara de "seção de
-   relatório" tanto na tela quanto impresso. */
-.mnt-section-title {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--primary-dark);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin: 0 0 0.7rem;
-    padding-left: 0.65rem;
-    border-left: 3px solid var(--primary);
-}
-
 /* Áreas nomeadas (não auto-fit) — cada campo fica sempre na mesma célula
    lógica, independente de quantas colunas cabem na largura disponível.
    Com auto-fit puro, o número de colunas mudava conforme a tela e os
@@ -117,64 +72,195 @@
     margin-top: 0.4rem;
 }
 
-.mnt-signatures-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+/* ── Relatório (tela de detalhe) ──────────────────────────────────────
+   Um único cartão-documento (não vários cards soltos) com cabeçalho
+   colorido, corpo com seções internas e rodapé — pensado pra já sair
+   com cara de relatório profissional tanto na tela quanto impresso/PDF.
+   Cor de destaque só aparece no cabeçalho e nos badges de status; o
+   resto é neutro (texto/bordas em tons de cinza). */
+.mnt-report {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-xs);
+    overflow: hidden;
+}
+
+.mnt-report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--primary-light);
+    border-bottom: 0.5px solid var(--border);
+}
+
+.mnt-report-brand {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--primary-dark);
+}
+
+.mnt-report-title {
+    margin-top: 0.15rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.mnt-report-os {
+    font-weight: 500;
+    font-size: 0.78rem;
+    color: var(--text-muted-strong);
+}
+
+.mnt-status-badge {
+    flex-shrink: 0;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.mnt-status-badge.mnt-status-assinado { background: #dcfce7; color: #166534; }
+.mnt-status-badge.mnt-status-pendente { background: #fef3c7; color: #92400e; }
+.mnt-status-badge.mnt-status-nao-assinado { background: #e2e8f0; color: var(--text-muted-strong); }
+
+.mnt-report-body {
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
 }
 
-.mnt-signature-caption {
-    font-size: 0.82rem;
+.mnt-section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted-strong);
+    margin: 0 0 0.55rem;
+}
+
+.mnt-grid-2x2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem 1rem;
+}
+
+.mnt-field { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+
+.mnt-field-label {
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+}
+
+.mnt-field-value {
+    font-size: 0.87rem;
+    font-weight: 600;
+    color: var(--text);
+    overflow-wrap: break-word;
+}
+
+.mnt-aferido-sim { color: #166534; }
+
+.mnt-afericao-card {
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.mnt-afericao-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem 0.75rem;
+    padding: 0.6rem 0.75rem;
+}
+
+.mnt-afericao-row + .mnt-afericao-row { border-top: 0.5px solid var(--border); }
+.mnt-afericao-row:nth-child(even) { background: #fbfcfe; }
+
+@media (max-width: 479px) {
+    .mnt-afericao-row {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: "equip prod" "dil aferido";
+    }
+    .mnt-afericao-row .mnt-field:nth-child(1) { grid-area: equip; }
+    .mnt-afericao-row .mnt-field:nth-child(2) { grid-area: prod; }
+    .mnt-afericao-row .mnt-field:nth-child(3) { grid-area: dil; }
+    .mnt-afericao-row .mnt-field:nth-child(4) { grid-area: aferido; }
+}
+
+.mnt-observacao-block {
+    border-left: 3px solid var(--border);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text);
+    background: #fafbfd;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+.mnt-signatures-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.mnt-signature-box {
+    height: 64px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.mnt-signature-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+.mnt-signature-name {
+    margin: 0.35rem 0 0;
+    text-align: center;
+    font-size: 0.76rem;
     font-weight: 600;
     color: var(--text-muted-strong);
-    margin: 0 0 0.4rem;
+    overflow-wrap: break-word;
 }
 
-.signature-preview-img {
-    display: block;
-    max-width: 100%;
-    height: 160px;
-    object-fit: contain;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: #fff;
+.mnt-report-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 1.1rem;
+    border-top: 0.5px solid var(--border);
+    background: #fafbfd;
+    font-size: 0.68rem;
+    color: var(--text-muted);
 }
-
-/* Cabeçalho tipo papel timbrado — só aparece na impressão/PDF (mesmo
-   esquema do .report-print-header do Relatório de KPIs: escondido na tela,
-   revelado só no @media print). */
-.mnt-print-header { display: none; }
 
 @media print {
-    .mnt-print-header {
-        display: block;
-        margin-bottom: 1.1rem;
-        padding: 0.1rem 0 0.8rem 0.9rem;
-        border-left: 4px solid var(--primary);
-        border-bottom: 1px solid var(--border);
-    }
-    .mnt-print-header h2 {
-        margin: 0 0 0.3rem;
-        font-size: 1.4rem;
-        color: var(--primary-dark);
-    }
-    .mnt-print-header p { margin: 0.15rem 0; font-size: 0.82rem; color: #444; }
-
-    /* Mais respiro entre seções no papel do que na tela, e cada seção
-       inteira tenta ficar numa página só (evita cortar uma tabela ou um
-       bloco de assinatura ao meio). */
-    .mnt-detail-body { gap: 1.15rem; }
-    .mnt-detail-body .card { border: 1px solid var(--border); box-shadow: none; break-inside: avoid; }
-
-    /* Sem scroll no papel — texto longo precisa quebrar linha, não ficar
-       cortado fora da largura da folha. */
-    .mnt-table th, .mnt-table td { white-space: normal; }
+    .mnt-report { border: 1px solid var(--border); box-shadow: none; break-inside: avoid; }
+    .mnt-report-section { break-inside: avoid; }
 
     /* Sem isso, boa parte dos navegadores some com as cores de fundo (e
        às vezes até bordas com cor) na impressão a menos que a pessoa
        marque manualmente "Imagens de fundo/Background graphics" no
        diálogo de impressão — força a intenção mesmo com a opção desligada. */
-    .mnt-print-header, .mnt-section-title, .mnt-table th, .status-pill {
+    .mnt-report-header, .mnt-status-badge, .mnt-report-footer, .mnt-afericao-row {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }

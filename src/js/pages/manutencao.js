@@ -2,14 +2,14 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
 import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase } from '../utils/format.js';
 import {
-    debounce, initializeSearchableInput, renderDetailRow, showToast,
+    debounce, initializeSearchableInput, showToast,
     skeletonList, skeletonDetail, addScrollTop, setSaving, openExternal
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 
 // O card da lista (.proposal-card/.proposal-meta) e o cabeçalho do card
 // (.visit-card-header) vêm dos bundles de CSS de Propostas/Visitas, não de
-// manutencao.css (que só tem estilo específico daqui, ex.: .mnt-table) —
+// manutencao.css (que só tem estilo específico daqui, ex.: .mnt-report) —
 // mesmo esquema que Contratos já usa (reaproveita o visual em vez de
 // duplicar CSS). Sem isso, quem abre Manutenção sem ter passado antes por
 // Propostas/Visitas na mesma sessão via os cards sem nenhum estilo (caixa
@@ -232,17 +232,22 @@ export async function renderManutencaoDetailPage(id) {
     const jaAssinado = !!(m.assinaturaTecnico && m.assinaturaCliente);
     const itens = safeParseJson(m.itensTabela, []);
 
-    const tabelaHtml = `<table class="mnt-table"><thead><tr><th>Equipamento</th><th>Produto</th><th>Diluição</th><th>Aferido</th></tr></thead>
-        <tbody>${itens.map((i) => `<tr><td>${escapeHtml(i.equipamento || '-')}</td><td>${escapeHtml(i.produto || '-')}</td><td>${escapeHtml(i.diluicao || '-')}</td><td>${escapeHtml(i.aferido || '-')}</td></tr>`).join('') || '<tr><td colspan="4">Sem itens.</td></tr>'}</tbody></table>`;
+    let statusKey = 'nao-assinado';
+    let statusLabel = 'Não assinado';
+    if (m.pendenteAprovacao === 'Sim') { statusKey = 'pendente'; statusLabel = 'Pendente de aprovação'; }
+    else if (jaAssinado) { statusKey = 'assinado'; statusLabel = 'Assinado'; }
+
+    const afericaoRowsHtml = itens.length ? itens.map((i) => `
+        <div class="mnt-afericao-row">
+            <div class="mnt-field"><span class="mnt-field-label">Equipamento</span><span class="mnt-field-value">${escapeHtml(i.equipamento || '-')}</span></div>
+            <div class="mnt-field"><span class="mnt-field-label">Produto</span><span class="mnt-field-value">${escapeHtml(i.produto || '-')}</span></div>
+            <div class="mnt-field"><span class="mnt-field-label">Diluição</span><span class="mnt-field-value">${escapeHtml(i.diluicao || '-')}</span></div>
+            <div class="mnt-field"><span class="mnt-field-label">Aferido</span><span class="mnt-field-value${i.aferido === 'Sim' ? ' mnt-aferido-sim' : ''}">${i.aferido === 'Sim' ? '✓ Sim' : escapeHtml(i.aferido || '-')}</span></div>
+        </div>
+    `).join('') : '<p class="helper-text" style="margin:0.75rem">Sem itens registrados.</p>';
 
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Manutenção', page: 'manutencao' }, { label: m.cliente || 'Relatório' }])}
-        <div class="mnt-print-header">
-            <h2>Hygicare — Relatório de Manutenção</h2>
-            <p>Aferição de Vazão · ${escapeHtml(titleCase(m.cliente) || '-')} · ${escapeHtml(titleCase(m.cidade) || '-')}</p>
-            <p>Técnico: ${escapeHtml(titleCase(m.tecnico) || '-')} · Data: ${escapeHtml(m.data || '-')}</p>
-            <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
-        </div>
         <div class="page-header compact-header no-print">
             <button type="button" class="mini-button" id="back-manutencao">Voltar</button>
             <h2>Detalhes do Relatório</h2>
@@ -261,32 +266,48 @@ export async function renderManutencaoDetailPage(id) {
             <span style="flex:1">Este relatório foi editado após ser assinado e está pendente de aprovação.</span>
             ${isAdmin ? '<button type="button" class="mini-button" id="approve-manutencao" style="margin-left:0.5rem">Aprovar</button>' : ''}
         </div>` : ''}
-        <div class="mnt-detail-body">
-            <div class="card detail-card">
-                ${renderDetailRow('Cliente', titleCase(m.cliente))}
-                ${renderDetailRow('Cidade', titleCase(m.cidade))}
-                ${renderDetailRow('Técnico', titleCase(m.tecnico))}
-                ${renderDetailRow('Data', m.data)}
+        <div class="mnt-report">
+            <div class="mnt-report-header">
+                <div>
+                    <strong class="mnt-report-brand">Hygicare</strong>
+                    <div class="mnt-report-title">Relatório de Manutenção <span class="mnt-report-os">Nº ${escapeHtml(m.id)}</span></div>
+                </div>
+                <span class="mnt-status-badge mnt-status-${statusKey}">${statusLabel}</span>
             </div>
-            <div class="card detail-card">
-                <p class="mnt-section-title">Tabela de Aferição</p>
-                <div style="overflow-x:auto">${tabelaHtml}</div>
-            </div>
-            <div class="card detail-card">
-                ${renderDetailRow('Observação', m.observacao || '-')}
-            </div>
-            <div class="card detail-card">
-                <p class="mnt-section-title">Assinaturas ${jaAssinado ? '<span class="status-pill status-concluido">Assinado</span>' : ''}</p>
-                <div class="mnt-signatures-grid">
-                    <div>
-                        <p class="mnt-signature-caption">Técnico</p>
-                        ${m.assinaturaTecnico ? `<img class="signature-preview-img" src="${escapeHtml(m.assinaturaTecnico)}" alt="Assinatura do técnico">` : '<p class="helper-text" style="margin:0">Sem assinatura.</p>'}
-                    </div>
-                    <div>
-                        <p class="mnt-signature-caption">Cliente</p>
-                        ${m.assinaturaCliente ? `<img class="signature-preview-img" src="${escapeHtml(m.assinaturaCliente)}" alt="Assinatura do cliente">` : '<p class="helper-text" style="margin:0">Sem assinatura.</p>'}
+            <div class="mnt-report-body">
+                <div class="mnt-report-section">
+                    <div class="mnt-grid-2x2">
+                        <div class="mnt-field"><span class="mnt-field-label">Cliente</span><span class="mnt-field-value">${escapeHtml(titleCase(m.cliente) || '-')}</span></div>
+                        <div class="mnt-field"><span class="mnt-field-label">Cidade</span><span class="mnt-field-value">${escapeHtml(titleCase(m.cidade) || '-')}</span></div>
+                        <div class="mnt-field"><span class="mnt-field-label">Técnico</span><span class="mnt-field-value">${escapeHtml(titleCase(m.tecnico) || '-')}</span></div>
+                        <div class="mnt-field"><span class="mnt-field-label">Data</span><span class="mnt-field-value">${escapeHtml(m.data || '-')}</span></div>
                     </div>
                 </div>
+                <div class="mnt-report-section">
+                    <p class="mnt-section-title">Aferição de Vazão</p>
+                    <div class="mnt-afericao-card">${afericaoRowsHtml}</div>
+                </div>
+                <div class="mnt-report-section">
+                    <p class="mnt-section-title">Observação</p>
+                    <div class="mnt-observacao-block">${escapeHtml(m.observacao || 'Nenhuma observação registrada.')}</div>
+                </div>
+                <div class="mnt-report-section">
+                    <p class="mnt-section-title">Assinaturas</p>
+                    <div class="mnt-signatures-grid">
+                        <div class="mnt-signature-block">
+                            <div class="mnt-signature-box">${m.assinaturaTecnico ? `<img src="${escapeHtml(m.assinaturaTecnico)}" alt="Assinatura do técnico">` : ''}</div>
+                            <p class="mnt-signature-name">${escapeHtml(titleCase(m.tecnico) || 'Técnico')}</p>
+                        </div>
+                        <div class="mnt-signature-block">
+                            <div class="mnt-signature-box">${m.assinaturaCliente ? `<img src="${escapeHtml(m.assinaturaCliente)}" alt="Assinatura do cliente">` : ''}</div>
+                            <p class="mnt-signature-name">${escapeHtml(titleCase(m.cliente) || 'Cliente')}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mnt-report-footer">
+                <span>${escapeHtml(window.location.origin)}</span>
+                <span>Gerado em ${new Date().toLocaleString('pt-BR')}</span>
             </div>
         </div>
     `;
