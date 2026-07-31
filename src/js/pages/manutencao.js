@@ -3,9 +3,22 @@ import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '.
 import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, showToast,
-    skeletonList, skeletonDetail, addScrollTop, setSaving
+    skeletonList, skeletonDetail, addScrollTop, setSaving, openExternal
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
+
+// O card da lista (.proposal-card/.proposal-meta) e o cabeçalho do card
+// (.visit-card-header) vêm dos bundles de CSS de Propostas/Visitas, não de
+// manutencao.css (que só tem estilo específico daqui, ex.: .mnt-table) —
+// mesmo esquema que Contratos já usa (reaproveita o visual em vez de
+// duplicar CSS). Sem isso, quem abre Manutenção sem ter passado antes por
+// Propostas/Visitas na mesma sessão via os cards sem nenhum estilo (caixa
+// cinza padrão do navegador).
+function ensureManutencaoStyles() {
+    ensureStyles('manutencao');
+    ensureStyles('proposals');
+    ensureStyles('visits');
+}
 
 function safeParseJson(value, fallback) {
     try {
@@ -159,7 +172,7 @@ export function fillManutencaoContent(mainContent, manutencoes) {
 }
 
 export async function renderManutencaoPage() {
-    ensureStyles('manutencao');
+    ensureManutencaoStyles();
     const mainContent = document.getElementById('main-content');
     const cachedRaw = loadCache('manutencoes');
     const cached = (Array.isArray(cachedRaw) && cachedRaw.length > 0) ? cachedRaw : null;
@@ -198,7 +211,7 @@ export async function renderManutencaoPage() {
 }
 
 export async function renderManutencaoDetailPage(id) {
-    ensureStyles('manutencao');
+    ensureManutencaoStyles();
     const mainContent = document.getElementById('main-content');
     if (!state.manutencoes.find((m) => String(m.Id || m.id) === String(id))) {
         mainContent.innerHTML = skeletonDetail(10);
@@ -229,6 +242,9 @@ export async function renderManutencaoDetailPage(id) {
             <h2>Detalhes do Relatório</h2>
             <div class="header-actions-group">
                 <button type="button" class="mini-button" id="edit-manutencao">Editar</button>
+                <button type="button" class="mini-button mini-button-whatsapp" id="share-manutencao-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                </button>
                 ${state.canDelete ? '<button type="button" class="mini-button mini-button-danger" id="delete-manutencao" aria-label="Apagar" title="Apagar">🗑️</button>' : ''}
             </div>
         </div>
@@ -268,6 +284,10 @@ export async function renderManutencaoDetailPage(id) {
 
     document.getElementById('back-manutencao').addEventListener('click', () => navigateTo('manutencao'));
     document.getElementById('edit-manutencao').addEventListener('click', () => navigateTo('manutencao-edit', { manutencao: m }));
+    document.getElementById('share-manutencao-whatsapp').addEventListener('click', () => {
+        const text = `*Relatório de Manutenção - ${m.cliente}*\nCidade: ${m.cidade || '-'}\nTécnico: ${m.tecnico || '-'}\nData: ${m.data || '-'}\nObservação: ${m.observacao || '-'}`;
+        openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
+    });
     document.getElementById('approve-manutencao')?.addEventListener('click', async (event) => {
         const btn = event.currentTarget;
         setSaving(true, btn, 'Aprovando...');
@@ -400,7 +420,7 @@ function signaturePadToDataUrl(canvas) {
 }
 
 export async function renderManutencaoFormPage(record) {
-    ensureStyles('manutencao');
+    ensureManutencaoStyles();
     const mainContent = document.getElementById('main-content');
     const isEdit = Boolean(record && (record.Id || record.id));
     const m = isEdit ? normalizeManutencao(record) : normalizeManutencao({});
