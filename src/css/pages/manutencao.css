@@ -30,53 +30,6 @@
     padding: 0;
 }
 
-.mnt-checklist-group { margin-bottom: 1rem; }
-.mnt-checklist-group:last-child { margin-bottom: 0; }
-
-.mnt-checklist-group-title {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text-muted-strong);
-    margin: 0 0 0.4rem;
-}
-
-.mnt-checklist-items {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 0.35rem 1rem;
-}
-
-.mnt-checklist-check {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.mnt-checklist-check input {
-    width: auto;
-    accent-color: var(--primary);
-}
-
-.mnt-checklist-detail-items {
-    margin: 0 0 0.75rem;
-    font-size: 0.85rem;
-    line-height: 1.6;
-}
-
-.mnt-vazoes-table input {
-    width: 100%;
-    min-height: 36px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.3rem 0.5rem;
-    font-size: 0.85rem;
-}
-
-.mnt-vazoes-table td, .mnt-vazoes-table th { white-space: normal; }
-
 .signature-pad {
     display: block;
     width: 100%;
