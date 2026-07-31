@@ -488,9 +488,13 @@ export async function renderManutencaoFormPage(record) {
         document.getElementById('back-manutencao-overlay')?.addEventListener('click', () => navigateTo(isEdit ? 'manutencao-detail' : 'manutencao', isEdit ? { id: m.id } : {}));
     }
 
-    const fdResult = await ensureFormData();
+    const [fdResult, modelosResult] = await Promise.all([
+        ensureFormData(),
+        callAPI('getManutencaoModelos', { user: state.currentUser })
+    ]);
     const cidades = (fdResult.data && fdResult.data.cidades) || [];
     const clientes = (fdResult.data && fdResult.data.clientes) || [];
+    const modelos = (modelosResult.status === 'success' ? modelosResult.modelos : []) || [];
 
     const itensIniciais = isEdit ? safeParseJson(m.itensTabela, []) : [];
 
@@ -521,6 +525,10 @@ export async function renderManutencaoFormPage(record) {
 
             <div class="form-group full-width">
                 <label>Tabela de Aferição</label>
+                <div class="mnt-modelo-actions">
+                    <button type="button" class="mini-button" id="mnt-load-modelo">📋 Carregar modelo do cliente</button>
+                    <button type="button" class="mini-button" id="mnt-save-modelo">💾 Salvar como modelo</button>
+                </div>
                 <div id="mnt-itens-container">${(itensIniciais.length ? itensIniciais : [{}, {}, {}]).map((i) => itemRowHtml(i)).join('')}</div>
                 <button type="button" class="mini-button" id="mnt-add-item" style="margin-top:0.5rem">+ Adicionar linha</button>
             </div>
@@ -576,6 +584,47 @@ export async function renderManutencaoFormPage(record) {
     document.getElementById('mnt-add-item').addEventListener('click', () => {
         itensContainer.insertAdjacentHTML('beforeend', itemRowHtml());
         bindItemRowRemove(itensContainer);
+    });
+
+    // Modelo por cliente: Equipamento/Produto/Diluição que esse cliente já
+    // costuma usar, salvos uma vez pra não digitar tudo de novo a cada
+    // visita — Aferido nunca entra no modelo, é resultado de cada visita.
+    const findModeloForCliente = (cliente) => {
+        const key = String(cliente || '').trim().toLowerCase();
+        if (!key) return null;
+        return modelos.find((mo) => String(mo.cliente || '').trim().toLowerCase() === key) || null;
+    };
+
+    document.getElementById('mnt-load-modelo').addEventListener('click', () => {
+        const clienteVal = document.getElementById('mnt-cliente').value.trim();
+        if (!clienteVal) { showToast('Informe o cliente primeiro.', true); return; }
+        const modelo = findModeloForCliente(clienteVal);
+        if (!modelo) { showToast(`Nenhum modelo salvo para "${clienteVal}" ainda.`, true); return; }
+        const itensModelo = safeParseJson(modelo.itensTabela, []);
+        if (!itensModelo.length) { showToast('O modelo salvo está vazio.', true); return; }
+        const hasContent = collectItens(itensContainer).length > 0;
+        if (hasContent && !confirm('Isso substitui as linhas já preenchidas na Tabela de Aferição. Continuar?')) return;
+        itensContainer.innerHTML = itensModelo.map((i) => itemRowHtml({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao })).join('');
+        bindItemRowRemove(itensContainer);
+        showToast('Modelo carregado.');
+    });
+
+    document.getElementById('mnt-save-modelo').addEventListener('click', async (event) => {
+        const clienteVal = document.getElementById('mnt-cliente').value.trim();
+        if (!clienteVal) { showToast('Informe o cliente primeiro.', true); return; }
+        const itensParaModelo = collectItens(itensContainer).map((i) => ({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao }));
+        if (!itensParaModelo.length) { showToast('Preencha ao menos uma linha da tabela antes de salvar como modelo.', true); return; }
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Salvando...');
+        const result = await callAPI('saveManutencaoModelo', { cliente: clienteVal, itensTabela: JSON.stringify(itensParaModelo), user: state.currentUser });
+        setSaving(false, btn);
+        if (result.status === 'success') {
+            const idx = modelos.findIndex((mo) => String(mo.cliente || '').trim().toLowerCase() === clienteVal.toLowerCase());
+            if (idx >= 0) modelos[idx] = result.modelo; else modelos.push(result.modelo);
+            showToast(`Modelo salvo para "${clienteVal}".`);
+        } else {
+            showToast(result.message || 'Não foi possível salvar o modelo.', true);
+        }
     });
 
     document.getElementById('back-manutencao-form').addEventListener('click', () => navigateTo(isEdit ? 'manutencao-detail' : 'manutencao', isEdit ? { id: m.id } : {}));

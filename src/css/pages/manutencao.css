@@ -1,3 +1,10 @@
+.mnt-modelo-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+
 /* Áreas nomeadas (não auto-fit) — cada campo fica sempre na mesma célula
    lógica, independente de quantas colunas cabem na largura disponível.
    Com auto-fit puro, o número de colunas mudava conforme a tela e os
@@ -289,4 +296,33 @@
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+
+    /* O espaçamento/tipografia compacta faz sentido pro app no celular, mas
+       numa folha A4 inteira o mesmo relatório ficava pequeno, encolhido no
+       topo da página com uma folha inteira de espaço em branco embaixo.
+       Aumenta fonte, preenchimento e altura das caixas de assinatura só na
+       impressão pra ocupar a página como um documento de verdade. */
+    .mnt-report-header { padding: 1.5rem 2rem; }
+    .mnt-report-logo { width: 60px; height: 60px; }
+    .mnt-report-brand { font-size: 0.85rem; }
+    .mnt-report-title { font-size: 1.55rem; margin-top: 0.25rem; }
+    .mnt-report-os { font-size: 1rem; }
+    .mnt-status-badge { font-size: 0.85rem; padding: 0.4rem 1rem; }
+
+    .mnt-report-body { padding: 2.2rem 2rem; gap: 2.2rem; }
+    .mnt-section-title { font-size: 0.88rem; margin-bottom: 0.9rem; }
+
+    .mnt-grid-2x2 { gap: 1.4rem 2.5rem; }
+    .mnt-field-label { font-size: 0.78rem; }
+    .mnt-field-value { font-size: 1.2rem; }
+
+    .mnt-afericao-row { padding: 1.2rem 1.4rem; gap: 0.8rem 1.5rem; }
+
+    .mnt-observacao-block { padding: 1.1rem 1.4rem; font-size: 1.05rem; line-height: 1.6; min-height: 3rem; }
+
+    .mnt-signatures-grid { gap: 2rem; }
+    .mnt-signature-box { height: 150px; }
+    .mnt-signature-name { font-size: 0.95rem; margin-top: 0.6rem; }
+
+    .mnt-report-footer { padding: 1rem 2rem; font-size: 0.82rem; }
 }

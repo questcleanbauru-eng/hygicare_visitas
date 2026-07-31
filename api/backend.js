@@ -13,7 +13,7 @@ import {
 } from '../lib/handlers/agendamentos.js';
 import {
     handleGetManutencoes, handleGetManutencaoById, handleCreateManutencao, handleUpdateManutencao,
-    handleDeleteManutencao, handleApproveManutencao
+    handleDeleteManutencao, handleApproveManutencao, handleGetManutencaoModelos, handleSaveManutencaoModelo
 } from '../lib/handlers/manutencao.js';
 import {
     handleGetRadarCidadesDisponiveis, handleGetRadarClientes, handleUpdateRadarClienteStatus,
@@ -70,6 +70,8 @@ const HANDLERS = {
     updateManutencao: handleUpdateManutencao,
     deleteManutencao: handleDeleteManutencao,
     approveManutencao: handleApproveManutencao,
+    getManutencaoModelos: handleGetManutencaoModelos,
+    saveManutencaoModelo: handleSaveManutencaoModelo,
     getRadarCidadesDisponiveis: handleGetRadarCidadesDisponiveis,
     getRadarClientes: handleGetRadarClientes,
     updateRadarClienteStatus: handleUpdateRadarClienteStatus,
