@@ -20,6 +20,34 @@ function ensureManutencaoStyles() {
     ensureStyles('visits');
 }
 
+function mmToPx(mm) {
+    return mm * 96 / 25.4;
+}
+
+// Antes de imprimir, se o relatório passar da altura útil de uma folha A4
+// (297mm menos as margens do @page em manutencao.css), aplica classes de
+// compactação progressiva (mnt-compact-1/2/3 — cada uma reduz mais o
+// padding/fonte/altura das assinaturas, ver @media print em
+// manutencao.css) até caber numa página só, sem usar break-inside/
+// page-break em lugar nenhum. beforeprint é global e cadastrado uma única
+// vez no carregamento do módulo (não a cada render da página de detalhe)
+// pra nunca duplicar o listener; o guard querySelector cobre o caso de
+// imprimir com outra página aberta.
+const MNT_PAGE_HEIGHT_MM = 297;
+const MNT_PAGE_MARGIN_MM = 24; // soma do @page margin (12mm em cima + 12mm embaixo)
+function autoFitManutencaoReport() {
+    const report = document.querySelector('.mnt-report');
+    if (!report) return;
+    const levels = ['mnt-compact-1', 'mnt-compact-2', 'mnt-compact-3'];
+    levels.forEach((level) => report.classList.remove(level));
+    const usablePx = mmToPx(MNT_PAGE_HEIGHT_MM - MNT_PAGE_MARGIN_MM);
+    for (const level of levels) {
+        if (report.scrollHeight <= usablePx) break;
+        report.classList.add(level);
+    }
+}
+window.addEventListener('beforeprint', autoFitManutencaoReport);
+
 function safeParseJson(value, fallback) {
     try {
         const parsed = JSON.parse(value);
@@ -239,17 +267,19 @@ export async function renderManutencaoDetailPage(id) {
     else if (jaAssinado) { statusKey = 'assinado'; statusLabel = 'Assinado'; }
 
     const afericaoRowsHtml = itens.length ? itens.map((i) => `
-        <div class="mnt-afericao-row">
-            <div class="mnt-field"><span class="mnt-field-label">Equipamento</span><span class="mnt-field-value">${escapeHtml(i.equipamento || '-')}</span></div>
-            <div class="mnt-field"><span class="mnt-field-label">Produto</span><span class="mnt-field-value">${escapeHtml(i.produto || '-')}</span></div>
-            <div class="mnt-field"><span class="mnt-field-label">Diluição</span><span class="mnt-field-value">${escapeHtml(i.diluicao || '-')}</span></div>
-            <div class="mnt-field"><span class="mnt-field-label">Aferido</span><span class="mnt-field-value${i.aferido === 'Sim' ? ' mnt-aferido-sim' : ''}">${i.aferido === 'Sim' ? '✓ Sim' : escapeHtml(i.aferido || '-')}</span></div>
-        </div>
-    `).join('') : '<p class="helper-text" style="margin:0.75rem">Sem itens registrados.</p>';
+        <tr>
+            <td>${escapeHtml(i.equipamento || '-')}</td>
+            <td>${escapeHtml(i.produto || '-')}</td>
+            <td>${escapeHtml(i.diluicao || '-')}</td>
+            <td class="${i.aferido === 'Sim' ? 'mnt-aferido-sim' : ''}">${i.aferido === 'Sim' ? '✓ Sim' : escapeHtml(i.aferido || '-')}</td>
+        </tr>
+    `).join('') : '<tr><td colspan="4" class="mnt-afericao-empty">Sem itens registrados.</td></tr>';
+
+    const hasObservacao = !!(m.observacao && m.observacao.trim());
 
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Manutenção', page: 'manutencao' }, { label: m.cliente || 'Relatório' }])}
-        <div class="page-header compact-header no-print">
+        <div class="page-header compact-header no-print mnt-page-header">
             <button type="button" class="mini-button" id="back-manutencao">Voltar</button>
             <h2>Detalhes do Relatório</h2>
             <div class="header-actions-group">
@@ -273,11 +303,12 @@ export async function renderManutencaoDetailPage(id) {
                     ${logoEmpresa ? `<img class="mnt-report-logo" src="${escapeHtml(logoEmpresa)}" alt="Logo da empresa">` : ''}
                     <div>
                         <strong class="mnt-report-brand">Hygicare</strong>
-                        <div class="mnt-report-title">Relatório de Manutenção <span class="mnt-report-os">Nº ${escapeHtml(m.id)}</span></div>
+                        <div class="mnt-report-title">Relatório de Manutenção</div>
                     </div>
                 </div>
-                <span class="mnt-status-badge mnt-status-${statusKey}">${statusLabel}</span>
+                <span class="mnt-status-badge mnt-status-${statusKey}"><span class="mnt-status-dot" aria-hidden="true"></span>${statusLabel}</span>
             </div>
+            <div class="mnt-report-docnum">Nº ${escapeHtml(m.id)}</div>
             <div class="mnt-report-body">
                 <div class="mnt-report-section">
                     <div class="mnt-grid-2x2">
@@ -289,11 +320,16 @@ export async function renderManutencaoDetailPage(id) {
                 </div>
                 <div class="mnt-report-section">
                     <p class="mnt-section-title">Aferição de Vazão</p>
-                    <div class="mnt-afericao-card">${afericaoRowsHtml}</div>
+                    <div style="overflow-x:auto">
+                        <table class="mnt-afericao-table">
+                            <thead><tr><th>Equipamento</th><th>Produto</th><th>Diluição</th><th>Aferido</th></tr></thead>
+                            <tbody>${afericaoRowsHtml}</tbody>
+                        </table>
+                    </div>
                 </div>
                 <div class="mnt-report-section">
                     <p class="mnt-section-title">Observação</p>
-                    <div class="mnt-observacao-block">${escapeHtml(m.observacao || 'Nenhuma observação registrada.')}</div>
+                    <div class="mnt-observacao-block ${hasObservacao ? 'mnt-observacao-filled' : 'mnt-observacao-empty'}">${hasObservacao ? escapeHtml(m.observacao) : '<em>Nenhuma observação registrada.</em>'}</div>
                 </div>
                 <div class="mnt-report-section">
                     <p class="mnt-section-title">Assinaturas</p>

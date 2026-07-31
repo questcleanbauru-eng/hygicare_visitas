@@ -79,13 +79,36 @@
     margin-top: 0.4rem;
 }
 
+/* Página de detalhe tinha 4-5 botões de ação (Voltar/Editar/PDF/Zap/Apagar)
+   no cabeçalho compacto — com um nome de cliente comprido, o título
+   "Detalhes do Relatório" (.compact-header h2 é flex:1, genérico, usado em
+   toda página de detalhe do app) sobrava tão pouco espaço que quebrava em
+   3 linhas e empurrava os botões pra fora da tela. Abaixo de 480px o
+   cabeçalho quebra em 2 linhas (título sozinho em cima, Voltar + ações
+   embaixo) só aqui — não mexe em .compact-header/.header-actions-group
+   porque são classes compartilhadas com todo o resto do app. */
+@media (max-width: 480px) {
+    .mnt-page-header {
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
+    }
+    .mnt-page-header h2 {
+        order: -1;
+        flex: 1 1 100%;
+        text-align: left;
+    }
+}
+
 /* ── Relatório (tela de detalhe) ──────────────────────────────────────
    Um único cartão-documento (não vários cards soltos) com cabeçalho
-   colorido, corpo com seções internas e rodapé — pensado pra já sair
-   com cara de relatório profissional tanto na tela quanto impresso/PDF.
-   Cor de destaque só aparece no cabeçalho e nos badges de status; o
-   resto é neutro (texto/bordas em tons de cinza). */
+   colorido, corpo com seções internas e rodapé — mesmo HTML/CSS serve
+   pra tela e pra impressão/PDF. Paleta própria do relatório (não usa
+   --primary do app) porque é a identidade visual pedida especificamente
+   pra esse documento. */
 .mnt-report {
+    --mnt-accent: #185FA5;
+    --mnt-accent-soft: #E6F1FB;
+    --mnt-accent-dark: #0C447C;
     background: var(--surface);
     border: 0.5px solid var(--border);
     border-radius: var(--radius);
@@ -99,8 +122,7 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.85rem 1.1rem;
-    background: var(--primary-light);
-    border-bottom: 0.5px solid var(--border);
+    background: var(--mnt-accent);
 }
 
 .mnt-report-header-main {
@@ -125,23 +147,31 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--primary-dark);
+    color: rgba(255, 255, 255, 0.78);
 }
 
 .mnt-report-title {
     margin-top: 0.15rem;
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--text);
+    color: #fff;
 }
 
-.mnt-report-os {
-    font-weight: 500;
+/* Nº do documento em linha própria, fundo neutro — separado do cabeçalho
+   azul (que fica só com marca + título + badge de status). */
+.mnt-report-docnum {
+    padding: 0.45rem 1.1rem;
+    background: #F3F5F7;
+    border-bottom: 0.5px solid var(--border);
     font-size: 0.78rem;
+    font-weight: 600;
     color: var(--text-muted-strong);
 }
 
 .mnt-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     flex-shrink: 0;
     padding: 0.25rem 0.7rem;
     border-radius: 999px;
@@ -151,6 +181,8 @@
     letter-spacing: 0.03em;
     white-space: nowrap;
 }
+
+.mnt-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
 .mnt-status-badge.mnt-status-assinado { background: #dcfce7; color: #166534; }
 .mnt-status-badge.mnt-status-pendente { background: #fef3c7; color: #92400e; }
@@ -163,13 +195,26 @@
     gap: 1rem;
 }
 
+/* Título em azul + linha divisória fina preenchendo o resto da largura —
+   o texto vira um item flex "anônimo" ao lado do ::after, não precisa de
+   span extra no HTML. */
 .mnt-section-title {
-    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted-strong);
-    margin: 0 0 0.55rem;
+    letter-spacing: 0.04em;
+    color: var(--mnt-accent);
+    margin: 0 0 0.6rem;
+}
+
+.mnt-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
 }
 
 .mnt-grid-2x2 {
@@ -197,43 +242,71 @@
 
 .mnt-aferido-sim { color: #166534; }
 
-.mnt-afericao-card {
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
+/* Tabela de verdade (não divs) — <thead> repete se algum dia quebrar
+   página (rede de segurança; o auto-ajuste em beforeprint evita isso na
+   prática). border-collapse:separate + border-spacing dá o efeito de
+   "linha em pílula" com cantos arredondados só no primeiro/último <td>,
+   que border-radius não faz nativamente em <tr>. */
+.mnt-afericao-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 6px;
+    font-size: 13px;
 }
 
-.mnt-afericao-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.5rem 0.75rem;
-    padding: 0.6rem 0.75rem;
+.mnt-afericao-table thead th {
+    text-align: left;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
 }
 
-.mnt-afericao-row + .mnt-afericao-row { border-top: 0.5px solid var(--border); }
-.mnt-afericao-row:nth-child(even) { background: #fbfcfe; }
+.mnt-afericao-table tbody tr { background: #F3F6FA; }
 
-@media (max-width: 479px) {
-    .mnt-afericao-row {
-        grid-template-columns: 1fr 1fr;
-        grid-template-areas: "equip prod" "dil aferido";
-    }
-    .mnt-afericao-row .mnt-field:nth-child(1) { grid-area: equip; }
-    .mnt-afericao-row .mnt-field:nth-child(2) { grid-area: prod; }
-    .mnt-afericao-row .mnt-field:nth-child(3) { grid-area: dil; }
-    .mnt-afericao-row .mnt-field:nth-child(4) { grid-area: aferido; }
+.mnt-afericao-table tbody td {
+    padding: 8px 12px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
 }
 
+.mnt-afericao-table tbody td:first-child { border-radius: 8px 0 0 8px; }
+.mnt-afericao-table tbody td:last-child { border-radius: 0 8px 8px 0; }
+
+.mnt-afericao-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-style: italic;
+    white-space: normal;
+}
+
+/* Regra principal: borda azul lateral SÓ quando tem observação de
+   verdade — vazio vira um bloco cinza fechado (arredondado nos 4 cantos,
+   sem "aba" de borda) com o aviso em itálico. Antes a borda aparecia
+   sempre, mesmo vazio, parecendo elemento quebrado. */
 .mnt-observacao-block {
-    border-left: 3px solid var(--border);
-    padding: 0.5rem 0.75rem;
+    padding: 0.55rem 0.8rem;
     font-size: 0.85rem;
     line-height: 1.5;
-    color: var(--text);
-    background: #fafbfd;
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     white-space: pre-wrap;
     overflow-wrap: break-word;
+}
+
+.mnt-observacao-block.mnt-observacao-filled {
+    border-left: 3px solid var(--mnt-accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--mnt-accent-soft);
+    color: var(--mnt-accent-dark);
+}
+
+.mnt-observacao-block.mnt-observacao-empty {
+    border-radius: var(--radius-sm);
+    background: #F3F4F6;
+    color: var(--text-muted);
 }
 
 .mnt-signatures-grid {
@@ -275,6 +348,14 @@
     color: var(--text-muted);
 }
 
+/* Folha A4 controlada explicitamente — o auto-ajuste em JS (beforeprint,
+   manutencao.js) mede a altura real e aplica mnt-compact-1/2/3 até caber
+   dentro dela, sem nenhum break-inside/page-break em lugar nenhum. */
+@page {
+    size: A4;
+    margin: 12mm 14mm;
+}
+
 @media print {
     /* border-radius + overflow:hidden (usado pra recortar o cabeçalho
        quadrado nos cantos arredondados do cartão) some com a folga que
@@ -282,31 +363,37 @@
        (varia por navegador/versão) essa sobra vira uma faixa fina e sólida
        colada numa das bordas da página em vez de simplesmente desaparecer.
        Cantos retos na impressão evitam essa combinação por completo. */
-    .mnt-report, .mnt-afericao-card, .mnt-signature-box {
+    .mnt-report, .mnt-signature-box {
         border-radius: 0;
     }
-    .mnt-report { border: 1px solid var(--border); box-shadow: none; overflow: visible; break-inside: avoid; }
-    .mnt-report-section { break-inside: avoid; }
+    .mnt-afericao-table tbody td:first-child, .mnt-afericao-table tbody td:last-child { border-radius: 0; }
+    .mnt-report { border: 1px solid var(--border); box-shadow: none; overflow: visible; }
 
     /* Sem isso, boa parte dos navegadores some com as cores de fundo (e
        às vezes até bordas com cor) na impressão a menos que a pessoa
        marque manualmente "Imagens de fundo/Background graphics" no
        diálogo de impressão — força a intenção mesmo com a opção desligada. */
-    .mnt-report-header, .mnt-status-badge, .mnt-report-footer, .mnt-afericao-row {
+    .mnt-report-header, .mnt-report-docnum, .mnt-status-badge, .mnt-report-footer,
+    .mnt-afericao-table thead th, .mnt-afericao-table tbody tr, .mnt-observacao-block {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+
+    /* Sem scroll no papel — texto longo (produto, diluição) precisa
+       quebrar linha, não ficar cortado fora da largura da folha. */
+    .mnt-afericao-table tbody td { white-space: normal; }
 
     /* O espaçamento/tipografia compacta faz sentido pro app no celular, mas
        numa folha A4 inteira o mesmo relatório ficava pequeno, encolhido no
        topo da página com uma folha inteira de espaço em branco embaixo.
        Aumenta fonte, preenchimento e altura das caixas de assinatura só na
-       impressão pra ocupar a página como um documento de verdade. */
+       impressão pra ocupar a página como um documento de verdade — o
+       auto-ajuste (mnt-compact-*) reduz de volta se não couber assim. */
     .mnt-report-header { padding: 1.5rem 2rem; }
     .mnt-report-logo { width: 60px; height: 60px; }
     .mnt-report-brand { font-size: 0.85rem; }
     .mnt-report-title { font-size: 1.55rem; margin-top: 0.25rem; }
-    .mnt-report-os { font-size: 1rem; }
+    .mnt-report-docnum { padding: 0.65rem 2rem; font-size: 0.92rem; }
     .mnt-status-badge { font-size: 0.85rem; padding: 0.4rem 1rem; }
 
     .mnt-report-body { padding: 2.2rem 2rem; gap: 2.2rem; }
@@ -316,7 +403,9 @@
     .mnt-field-label { font-size: 0.78rem; }
     .mnt-field-value { font-size: 1.2rem; }
 
-    .mnt-afericao-row { padding: 1.2rem 1.4rem; gap: 0.8rem 1.5rem; }
+    .mnt-afericao-table { font-size: 14px; }
+    .mnt-afericao-table thead th { font-size: 12px; padding: 8px 14px; }
+    .mnt-afericao-table tbody td { padding: 12px 14px; }
 
     .mnt-observacao-block { padding: 1.1rem 1.4rem; font-size: 1.05rem; line-height: 1.6; min-height: 3rem; }
 
@@ -325,4 +414,47 @@
     .mnt-signature-name { font-size: 0.95rem; margin-top: 0.6rem; }
 
     .mnt-report-footer { padding: 1rem 2rem; font-size: 0.82rem; }
+
+    /* ── Auto-ajuste (beforeprint em manutencao.js) ──────────────────
+       Cada nível reduz mais espaçamento/fonte que o anterior — aplicado só
+       se o relatório "cheio" (regras acima) não couber na altura útil da
+       A4, pra nunca precisar de uma segunda página. */
+    .mnt-compact-1 .mnt-report-header { padding: 1.1rem 1.6rem; }
+    .mnt-compact-1 .mnt-report-logo { width: 46px; height: 46px; }
+    .mnt-compact-1 .mnt-report-title { font-size: 1.3rem; }
+    .mnt-compact-1 .mnt-report-body { padding: 1.5rem 1.6rem; gap: 1.4rem; }
+    .mnt-compact-1 .mnt-grid-2x2 { gap: 1rem 2rem; }
+    .mnt-compact-1 .mnt-field-value { font-size: 1.05rem; }
+    .mnt-compact-1 .mnt-afericao-table { font-size: 12.5px; border-spacing: 0 4px; }
+    .mnt-compact-1 .mnt-afericao-table thead th, .mnt-compact-1 .mnt-afericao-table tbody td { padding: 6px 10px; }
+    .mnt-compact-1 .mnt-observacao-block { padding: 0.8rem 1rem; font-size: 0.92rem; min-height: 0; }
+    .mnt-compact-1 .mnt-signature-box { height: 100px; }
+
+    .mnt-compact-2 .mnt-report-header { padding: 0.9rem 1.4rem; }
+    .mnt-compact-2 .mnt-report-logo { width: 38px; height: 38px; }
+    .mnt-compact-2 .mnt-report-title { font-size: 1.1rem; }
+    .mnt-compact-2 .mnt-report-body { padding: 1.1rem 1.4rem; gap: 1rem; }
+    .mnt-compact-2 .mnt-section-title { margin-bottom: 0.45rem; }
+    .mnt-compact-2 .mnt-grid-2x2 { gap: 0.7rem 1.5rem; }
+    .mnt-compact-2 .mnt-field-value { font-size: 0.92rem; }
+    .mnt-compact-2 .mnt-afericao-table { font-size: 11.5px; border-spacing: 0 3px; }
+    .mnt-compact-2 .mnt-afericao-table thead th, .mnt-compact-2 .mnt-afericao-table tbody td { padding: 4px 8px; }
+    .mnt-compact-2 .mnt-observacao-block { padding: 0.6rem 0.8rem; font-size: 0.85rem; }
+    .mnt-compact-2 .mnt-signature-box { height: 68px; }
+
+    .mnt-compact-3 .mnt-report-header { padding: 0.7rem 1.2rem; }
+    .mnt-compact-3 .mnt-report-logo { width: 30px; height: 30px; }
+    .mnt-compact-3 .mnt-report-title { font-size: 0.95rem; }
+    .mnt-compact-3 .mnt-report-docnum { padding: 0.35rem 1.2rem; font-size: 0.78rem; }
+    .mnt-compact-3 .mnt-report-body { padding: 0.8rem 1.2rem; gap: 0.7rem; }
+    .mnt-compact-3 .mnt-section-title { font-size: 0.7rem; margin-bottom: 0.35rem; }
+    .mnt-compact-3 .mnt-grid-2x2 { gap: 0.5rem 1.2rem; }
+    .mnt-compact-3 .mnt-field-label { font-size: 0.66rem; }
+    .mnt-compact-3 .mnt-field-value { font-size: 0.82rem; }
+    .mnt-compact-3 .mnt-afericao-table { font-size: 10.5px; border-spacing: 0 1px; }
+    .mnt-compact-3 .mnt-afericao-table thead th, .mnt-compact-3 .mnt-afericao-table tbody td { padding: 2px 6px; }
+    .mnt-compact-3 .mnt-observacao-block { padding: 0.45rem 0.6rem; font-size: 0.78rem; }
+    .mnt-compact-3 .mnt-signature-box { height: 46px; }
+    .mnt-compact-3 .mnt-signature-name { font-size: 0.78rem; margin-top: 0.3rem; }
+    .mnt-compact-3 .mnt-report-footer { padding: 0.6rem 1.2rem; font-size: 0.7rem; }
 }
