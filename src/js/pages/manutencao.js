@@ -237,11 +237,18 @@ export async function renderManutencaoDetailPage(id) {
 
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Manutenção', page: 'manutencao' }, { label: m.cliente || 'Relatório' }])}
-        <div class="page-header compact-header">
+        <div class="mnt-print-header">
+            <h2>Hygicare — Relatório de Manutenção</h2>
+            <p>Aferição de Vazão · ${escapeHtml(titleCase(m.cliente) || '-')} · ${escapeHtml(titleCase(m.cidade) || '-')}</p>
+            <p>Técnico: ${escapeHtml(titleCase(m.tecnico) || '-')} · Data: ${escapeHtml(m.data || '-')}</p>
+            <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
+        <div class="page-header compact-header no-print">
             <button type="button" class="mini-button" id="back-manutencao">Voltar</button>
             <h2>Detalhes do Relatório</h2>
             <div class="header-actions-group">
                 <button type="button" class="mini-button" id="edit-manutencao">Editar</button>
+                <button type="button" class="mini-button" id="print-manutencao" aria-label="Imprimir ou salvar em PDF" title="Imprimir ou salvar em PDF">📄 PDF</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-manutencao-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 </button>
@@ -249,7 +256,7 @@ export async function renderManutencaoDetailPage(id) {
             </div>
         </div>
         ${m.pendenteAprovacao === 'Sim' ? `
-        <div class="alert-banner">
+        <div class="alert-banner no-print">
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <span style="flex:1">Este relatório foi editado após ser assinado e está pendente de aprovação.</span>
             ${isAdmin ? '<button type="button" class="mini-button" id="approve-manutencao" style="margin-left:0.5rem">Aprovar</button>' : ''}
@@ -284,6 +291,7 @@ export async function renderManutencaoDetailPage(id) {
 
     document.getElementById('back-manutencao').addEventListener('click', () => navigateTo('manutencao'));
     document.getElementById('edit-manutencao').addEventListener('click', () => navigateTo('manutencao-edit', { manutencao: m }));
+    document.getElementById('print-manutencao').addEventListener('click', () => window.print());
     document.getElementById('share-manutencao-whatsapp').addEventListener('click', () => {
         const text = `*Relatório de Manutenção - ${m.cliente}*\nCidade: ${m.cidade || '-'}\nTécnico: ${m.tecnico || '-'}\nData: ${m.data || '-'}\nObservação: ${m.observacao || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);

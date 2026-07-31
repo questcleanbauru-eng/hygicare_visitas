@@ -11,7 +11,11 @@
     white-space: nowrap;
 }
 
-.mnt-table th { color: var(--text-muted-strong); font-weight: 600; }
+.mnt-table th { color: var(--text-muted-strong); font-weight: 600; background: #f8fafc; }
+
+.mnt-table tbody tr:nth-child(even) { background: #fbfcfe; }
+
+.mnt-table tbody tr:last-child td { border-bottom: none; }
 
 /* Áreas nomeadas (não auto-fit) — cada campo fica sempre na mesma célula
    lógica, independente de quantas colunas cabem na largura disponível.
@@ -108,4 +112,23 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: #fff;
+}
+
+/* Cabeçalho tipo papel timbrado — só aparece na impressão/PDF (mesmo
+   esquema do .report-print-header do Relatório de KPIs: escondido na tela,
+   revelado só no @media print). */
+.mnt-print-header { display: none; }
+
+@media print {
+    .mnt-print-header {
+        display: block;
+        margin-bottom: 1rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 2px solid #111;
+    }
+    .mnt-print-header h2 { margin: 0 0 0.3rem; font-size: 1.3rem; }
+    .mnt-print-header p { margin: 0.1rem 0; font-size: 0.82rem; color: #333; }
+    /* Sem scroll no papel — texto longo precisa quebrar linha, não ficar
+       cortado fora da largura da folha. */
+    .mnt-table th, .mnt-table td { white-space: normal; }
 }
