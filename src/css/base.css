@@ -661,5 +661,9 @@ main {
         margin: 0 !important;
     }
     body { background: #fff; }
-    .breadcrumb { display: none; }
+    /* !important necessário aqui: components.css (que define .breadcrumb
+       com display:flex, sem guarda de impressão) carrega DEPOIS de
+       base.css no documento, então sem isso essa regra perdia a queda de
+       braço da cascata e a barra "Página > Item" aparecia na impressão. */
+    .breadcrumb { display: none !important; }
 }

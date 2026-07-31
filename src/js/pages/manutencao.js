@@ -261,29 +261,31 @@ export async function renderManutencaoDetailPage(id) {
             <span style="flex:1">Este relatório foi editado após ser assinado e está pendente de aprovação.</span>
             ${isAdmin ? '<button type="button" class="mini-button" id="approve-manutencao" style="margin-left:0.5rem">Aprovar</button>' : ''}
         </div>` : ''}
-        <div class="card detail-card">
-            ${renderDetailRow('Cliente', titleCase(m.cliente))}
-            ${renderDetailRow('Cidade', titleCase(m.cidade))}
-            ${renderDetailRow('Técnico', titleCase(m.tecnico))}
-            ${renderDetailRow('Data', m.data)}
-        </div>
-        <div class="card detail-card">
-            <p class="report-subtitle" style="margin-top:0">Tabela de Aferição</p>
-            <div style="overflow-x:auto">${tabelaHtml}</div>
-        </div>
-        <div class="card detail-card">
-            ${renderDetailRow('Observação', m.observacao || '-')}
-        </div>
-        <div class="card detail-card">
-            <p class="report-subtitle" style="margin-top:0">Assinaturas ${jaAssinado ? '<span class="status-pill status-concluido">Assinado</span>' : ''}</p>
-            <div class="mnt-signatures-grid">
-                <div>
-                    <p class="mnt-signature-caption">Técnico</p>
-                    ${m.assinaturaTecnico ? `<img class="signature-preview-img" src="${escapeHtml(m.assinaturaTecnico)}" alt="Assinatura do técnico">` : '<p class="helper-text" style="margin:0">Sem assinatura.</p>'}
-                </div>
-                <div>
-                    <p class="mnt-signature-caption">Cliente</p>
-                    ${m.assinaturaCliente ? `<img class="signature-preview-img" src="${escapeHtml(m.assinaturaCliente)}" alt="Assinatura do cliente">` : '<p class="helper-text" style="margin:0">Sem assinatura.</p>'}
+        <div class="mnt-detail-body">
+            <div class="card detail-card">
+                ${renderDetailRow('Cliente', titleCase(m.cliente))}
+                ${renderDetailRow('Cidade', titleCase(m.cidade))}
+                ${renderDetailRow('Técnico', titleCase(m.tecnico))}
+                ${renderDetailRow('Data', m.data)}
+            </div>
+            <div class="card detail-card">
+                <p class="mnt-section-title">Tabela de Aferição</p>
+                <div style="overflow-x:auto">${tabelaHtml}</div>
+            </div>
+            <div class="card detail-card">
+                ${renderDetailRow('Observação', m.observacao || '-')}
+            </div>
+            <div class="card detail-card">
+                <p class="mnt-section-title">Assinaturas ${jaAssinado ? '<span class="status-pill status-concluido">Assinado</span>' : ''}</p>
+                <div class="mnt-signatures-grid">
+                    <div>
+                        <p class="mnt-signature-caption">Técnico</p>
+                        ${m.assinaturaTecnico ? `<img class="signature-preview-img" src="${escapeHtml(m.assinaturaTecnico)}" alt="Assinatura do técnico">` : '<p class="helper-text" style="margin:0">Sem assinatura.</p>'}
+                    </div>
+                    <div>
+                        <p class="mnt-signature-caption">Cliente</p>
+                        ${m.assinaturaCliente ? `<img class="signature-preview-img" src="${escapeHtml(m.assinaturaCliente)}" alt="Assinatura do cliente">` : '<p class="helper-text" style="margin:0">Sem assinatura.</p>'}
+                    </div>
                 </div>
             </div>
         </div>

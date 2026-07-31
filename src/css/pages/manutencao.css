@@ -17,6 +17,32 @@
 
 .mnt-table tbody tr:last-child td { border-bottom: none; }
 
+/* Os cards de detalhe (Cliente/Cidade..., Tabela de Aferição, Observação,
+   Assinaturas) ficavam encostados um no outro (margin 0), sem respiro
+   nenhum entre as seções — nem na tela, nem no impresso. */
+.mnt-detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+/* Título de seção com identidade própria (barra colorida + versalete) em
+   vez do .report-subtitle genérico cinza — dá uma cara de "seção de
+   relatório" tanto na tela quanto impresso. */
+.mnt-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 0.7rem;
+    padding-left: 0.65rem;
+    border-left: 3px solid var(--primary);
+}
+
 /* Áreas nomeadas (não auto-fit) — cada campo fica sempre na mesma célula
    lógica, independente de quantas colunas cabem na largura disponível.
    Com auto-fit puro, o número de colunas mudava conforme a tela e os
@@ -122,13 +148,34 @@
 @media print {
     .mnt-print-header {
         display: block;
-        margin-bottom: 1rem;
-        padding-bottom: 0.6rem;
-        border-bottom: 2px solid #111;
+        margin-bottom: 1.1rem;
+        padding: 0.1rem 0 0.8rem 0.9rem;
+        border-left: 4px solid var(--primary);
+        border-bottom: 1px solid var(--border);
     }
-    .mnt-print-header h2 { margin: 0 0 0.3rem; font-size: 1.3rem; }
-    .mnt-print-header p { margin: 0.1rem 0; font-size: 0.82rem; color: #333; }
+    .mnt-print-header h2 {
+        margin: 0 0 0.3rem;
+        font-size: 1.4rem;
+        color: var(--primary-dark);
+    }
+    .mnt-print-header p { margin: 0.15rem 0; font-size: 0.82rem; color: #444; }
+
+    /* Mais respiro entre seções no papel do que na tela, e cada seção
+       inteira tenta ficar numa página só (evita cortar uma tabela ou um
+       bloco de assinatura ao meio). */
+    .mnt-detail-body { gap: 1.15rem; }
+    .mnt-detail-body .card { border: 1px solid var(--border); box-shadow: none; break-inside: avoid; }
+
     /* Sem scroll no papel — texto longo precisa quebrar linha, não ficar
        cortado fora da largura da folha. */
     .mnt-table th, .mnt-table td { white-space: normal; }
+
+    /* Sem isso, boa parte dos navegadores some com as cores de fundo (e
+       às vezes até bordas com cor) na impressão a menos que a pessoa
+       marque manualmente "Imagens de fundo/Background graphics" no
+       diálogo de impressão — força a intenção mesmo com a opção desligada. */
+    .mnt-print-header, .mnt-section-title, .mnt-table th, .status-pill {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
 }
