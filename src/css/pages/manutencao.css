@@ -13,21 +13,61 @@
 
 .mnt-table th { color: var(--text-muted-strong); font-weight: 600; }
 
+/* Áreas nomeadas (não auto-fit) — cada campo fica sempre na mesma célula
+   lógica, independente de quantas colunas cabem na largura disponível.
+   Com auto-fit puro, o número de colunas mudava conforme a tela e os
+   campos "vazavam" pra célula errada ao quebrar linha (ex.: Diluição
+   caindo na coluna estreita do botão remover, e o botão remover esticando
+   pra ocupar uma coluna inteira). */
 .mnt-item-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) 40px;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) 40px;
+    grid-template-areas: "equip prod dil aferido remove";
     gap: 0.5rem;
     align-items: center;
     margin-bottom: 0.5rem;
 }
 
+.mnt-item-equipamento { grid-area: equip; }
+.mnt-item-produto { grid-area: prod; }
+.mnt-item-diluicao { grid-area: dil; }
+.mnt-item-aferido { grid-area: aferido; }
+.mnt-item-remove { grid-area: remove; }
+
 .mnt-item-row input, .mnt-item-row select {
     min-height: 40px;
+    min-width: 0;
 }
 
 .mnt-item-remove {
     min-height: 40px;
     padding: 0;
+}
+
+/* Abaixo de 640px os 4 campos não cabem numa linha só sem espremer —
+   agrupa em card 2x2 com o botão remover virando um ícone redondo no
+   canto, em vez de tentar forçar tudo numa linha horizontal. */
+@media (max-width: 639px) {
+    .mnt-item-row {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+            "equip prod"
+            "dil aferido";
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 2.1rem 0.6rem 0.6rem;
+        margin-bottom: 0.75rem;
+        position: relative;
+    }
+
+    .mnt-item-remove {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        width: 30px;
+        min-height: 30px;
+        border-radius: 50%;
+    }
 }
 
 .signature-pad {
