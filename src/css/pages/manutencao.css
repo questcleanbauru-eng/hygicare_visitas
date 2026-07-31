@@ -1,8 +1,13 @@
 .mnt-modelo-actions {
     display: flex;
-    flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 0.6rem;
+}
+
+.mnt-modelo-actions .mini-button {
+    flex: 1;
+    white-space: normal;
+    line-height: 1.25;
 }
 
 /* Áreas nomeadas (não auto-fit) — cada campo fica sempre na mesma célula
