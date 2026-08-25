@@ -255,6 +255,10 @@ export async function renderRadarPage(options) {
                     <label>Status</label>
                     <div class="radar-status-chips" id="radar-status-chips" role="group" aria-label="Filtrar por status">${STATUS_FILTER_CHIPS_HTML}</div>
                 </div>
+                <div class="form-group" id="radar-prioridade-group" style="display:none">
+                    <label for="radar-prioridade">Prioridade</label>
+                    <select id="radar-prioridade"><option value="">Todas as prioridades</option><option value="Alta">Alta (70–100)</option><option value="Media">Media (40–69)</option><option value="Baixa">Baixa (0–39)</option></select>
+                </div>
                 <div class="form-group" id="radar-limpar-group" style="display:none">
                     <button type="button" class="mini-button" id="radar-limpar-filtros">Limpar filtros</button>
                 </div>
@@ -360,6 +364,16 @@ export async function renderRadarPage(options) {
                             Quem geocodifica é o script à parte (fora do app, direto na planilha) — esse
                             número é só o limite que ele respeita sozinho antes de parar por esse mês.
                         </p>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="radar-cfg-score-segmentos">Segmentos prioritarios</label>
+                        <textarea id="radar-cfg-score-segmentos" rows="3" placeholder="Ex.: hospitais, industrias, supermercados"></textarea>
+                        <p class="field-helper-text">Separe por virgula ou uma linha por segmento. Cada correspondencia soma 20 pontos.</p>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="radar-cfg-score-cidades">Cidades prioritarias</label>
+                        <textarea id="radar-cfg-score-cidades" rows="3" placeholder="Ex.: Bauru|SP, Marilia|SP"></textarea>
+                        <p class="field-helper-text">Use Cidade ou Cidade|UF, separadas por virgula ou linha. Cada correspondencia soma 15 pontos.</p>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="primary-button" id="radar-cfg-salvar">Salvar</button>
@@ -488,6 +502,8 @@ function bindConfigTab() {
     const reservaInput = document.getElementById('radar-cfg-reserva-meses');
     const visitaInput = document.getElementById('radar-cfg-visita-dias');
     const limiteInput = document.getElementById('radar-cfg-geo-limite');
+    const segmentosInput = document.getElementById('radar-cfg-score-segmentos');
+    const cidadesInput = document.getElementById('radar-cfg-score-cidades');
     const geoResumoEl = document.getElementById('radar-cfg-geo-resumo');
     const saveBtn = document.getElementById('radar-cfg-salvar');
 
@@ -496,6 +512,8 @@ function bindConfigTab() {
         reservaInput.value = result.data.radar_reserva_meses || '6';
         visitaInput.value = result.data.radar_visita_dias || '7';
         limiteInput.value = result.data.radar_geocoding_limite_mensal || '50';
+        segmentosInput.value = result.data.radar_score_segmentos_prioritarios || '';
+        cidadesInput.value = result.data.radar_score_cidades_prioritarias || '';
         renderGeoResumo(result.data, geoResumoEl);
     });
 
@@ -512,7 +530,9 @@ function bindConfigTab() {
             config: {
                 radar_reserva_meses: String(reservaMeses),
                 radar_visita_dias: String(visitaDias),
-                radar_geocoding_limite_mensal: String(limiteMensal)
+                radar_geocoding_limite_mensal: String(limiteMensal),
+                radar_score_segmentos_prioritarios: segmentosInput.value.trim(),
+                radar_score_cidades_prioritarias: cidadesInput.value.trim()
             }
         });
         setSaving(false, saveBtn);
@@ -630,6 +650,8 @@ async function renderBuscarTab() {
     const segmentoInput = document.getElementById('radar-segmento');
     const statusFiltroGroup = document.getElementById('radar-status-filtro-group');
     const statusChips = document.getElementById('radar-status-chips');
+    const prioridadeGroup = document.getElementById('radar-prioridade-group');
+    const prioridadeInput = document.getElementById('radar-prioridade');
     const limparGroup = document.getElementById('radar-limpar-group');
     const limparBtn = document.getElementById('radar-limpar-filtros');
 
@@ -647,6 +669,7 @@ async function renderBuscarTab() {
         buscaNomeGroup.style.display = '';
         segmentoGroup.style.display = '';
         statusFiltroGroup.style.display = '';
+        prioridadeGroup.style.display = '';
         limparGroup.style.display = '';
         // Data mais recente entre as empresas da cidade — dá pra ter noção
         // de quão desatualizada a base pode estar (importação é periódica,
@@ -677,6 +700,7 @@ async function renderBuscarTab() {
     buscaNomeInput.addEventListener('input', () => renderRadarResults(resultsEl));
 
     segmentoInput.addEventListener('change', () => renderRadarResults(resultsEl));
+    prioridadeInput.addEventListener('change', () => renderRadarResults(resultsEl));
 
     statusChips.querySelectorAll('.radar-status-chip').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -695,9 +719,11 @@ async function renderBuscarTab() {
         buscaNomeInput.value = '';
         segmentoInput.value = '';
         statusChips.querySelectorAll('.radar-status-chip').forEach((b) => b.classList.toggle('active', b.dataset.status === ''));
+        prioridadeInput.value = '';
         buscaNomeGroup.style.display = 'none';
         segmentoGroup.style.display = 'none';
         statusFiltroGroup.style.display = 'none';
+        prioridadeGroup.style.display = 'none';
         limparGroup.style.display = 'none';
         dadosInfoEl.style.display = 'none';
         resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Escolha uma cidade acima pra ver as empresas.</p></div>`;
@@ -956,6 +982,7 @@ function renderRadarResults(resultsEl) {
     const buscaNomeDigitos = buscaNome.replace(/\D/g, '');
     const segmento = document.getElementById('radar-segmento')?.value.trim().toLowerCase() || '';
     const statusFiltro = document.querySelector('#radar-status-chips .radar-status-chip.active')?.dataset.status || '';
+    const prioridade = document.getElementById('radar-prioridade')?.value || '';
 
     const porNome = buscaNome
         ? currentClientes.filter((c) =>
@@ -972,7 +999,8 @@ function renderRadarResults(resultsEl) {
     // O resumo por status usa o total ANTES do filtro de status (senão só
     // mostraria 100% de um status só) — o filtro de status só afasta a
     // lista de cards abaixo, sem mudar o resumo.
-    const filtered = statusFiltro ? porSegmento.filter((c) => c.status === statusFiltro) : porSegmento;
+    const porStatus = statusFiltro ? porSegmento.filter((c) => c.status === statusFiltro) : porSegmento;
+    const filtered = prioridade ? porStatus.filter((c) => c.pontuacao?.prioridade === prioridade) : porStatus;
 
     if (RADAR_EMPRESA_MAP_ENABLED) renderEmpresaMapa(filtered, () => renderRadarResults(resultsEl));
 
@@ -1123,7 +1151,7 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHt
         return;
     }
 
-    const sorted = [...list].sort((a, b) => (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9));
+    const sorted = [...list].sort((a, b) => (b.pontuacao?.score || 0) - (a.pontuacao?.score || 0) || (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9));
 
     resultsEl.innerHTML = `
         ${resumoHtml || `<p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>`}
@@ -1132,6 +1160,7 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHt
                 <div class="radar-cliente-header">
                     <strong>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</strong>
                     <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
+                    <span class="radar-score-pill radar-score-${String(c.pontuacao?.prioridade || '').toLowerCase()}">${escapeHtml(c.pontuacao?.prioridade === 'Encerrada' ? 'Encerrada' : `${c.pontuacao?.score || 0}/100 · ${c.pontuacao?.prioridade || 'Baixa'}`)}</span>
                 </div>
                 ${c.nomeFantasia && c.nome && c.nomeFantasia !== c.nome ? `<div class="radar-cliente-meta"><span>${escapeHtml(c.nome)}</span></div>` : ''}
                 <div class="radar-cliente-meta">
@@ -1685,6 +1714,7 @@ function openRadarDetailCard(cliente, onUpdated) {
             ${cliente.telefone ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">📞 <a href="tel:${escapeHtml(cliente.telefone.replace(/\D/g, ''))}">${escapeHtml(cliente.telefone)}</a></p>` : ''}
             ${cliente.email ? `<p class="helper-text" style="text-align:left;margin:0 0 0.25rem">✉️ <a href="mailto:${escapeHtml(cliente.email)}">${escapeHtml(cliente.email)}</a></p>` : ''}
             ${cliente.dataBusca ? `<p class="helper-text" style="text-align:left;margin:0 0 0.85rem;font-size:0.78rem;opacity:0.8">Dados consultados em ${escapeHtml(cliente.dataBusca)}</p>` : ''}
+            <div class="radar-score-detail"><strong>Prioridade: ${escapeHtml(cliente.pontuacao?.prioridade || 'Baixa')} · ${escapeHtml(cliente.pontuacao?.score || 0)}/100</strong><br><span>${escapeHtml((cliente.pontuacao?.detalhes || []).join(' · '))}</span></div>
             <span class="${STATUS_CLASSES[cliente.status] || 'status-pill'}" style="margin-bottom:1rem;display:inline-block">${escapeHtml(STATUS_LABELS[cliente.status] || cliente.status)}</span>
             ${cliente.status === 'recusado' && cliente.statusPor
                 ? `<p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Recusado por ${escapeHtml(cliente.statusPor)}${cliente.statusData ? ' em ' + escapeHtml(cliente.statusData) : ''}</p>` : ''}

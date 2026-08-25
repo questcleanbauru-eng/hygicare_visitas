@@ -289,6 +289,26 @@
 .status-pill.radar-status-recusado  { background: #fee2e2; color: #991b1b; }
 .status-pill.radar-status-agendada  { background: #fef3c7; color: #b45309; }
 
+.radar-score-pill {
+    border-radius: 999px;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.radar-score-alta { background: #dcfce7; color: #166534; }
+.radar-score-media { background: #fef3c7; color: #92400e; }
+.radar-score-baixa, .radar-score-encerrada { background: #e2e8f0; color: #475569; }
+.radar-score-detail {
+    margin: 0 0 0.7rem;
+    padding: 0.6rem 0.7rem;
+    border-radius: var(--radius-sm);
+    background: #f8fafc;
+    color: #334155;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
 /* Mapa por empresa (aba Buscar) — mapa de verdade via Leaflet + tiles da
    MapTiler (streets), pins com coordenada real vinda do backfill de
    geocodificação via CNPJá (ver scripts/radar-geocoding-backfill.gs).
