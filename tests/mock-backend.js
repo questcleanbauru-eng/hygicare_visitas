@@ -4,7 +4,7 @@ export const MOCK_USER = { email: 'test@example.com', name: 'Teste Usuario', pro
 
 const DEFAULT_RESPONSES = {
     ping: () => ({ status: 'ok' }),
-    login: () => ({ status: 'success', userData: MOCK_USER }),
+    login: () => ({ status: 'success', userData: MOCK_USER, accessToken: 'test-session-token' }),
     getDashboardData: () => ({
         status: 'success',
         data: {

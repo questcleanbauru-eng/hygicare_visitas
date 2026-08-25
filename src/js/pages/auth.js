@@ -124,8 +124,8 @@ export function renderLoginPage() {
                         return;
                     }
                 }
-                state.currentUser = result.userData;
-                persistUser(result.userData);
+                state.currentUser = { ...result.userData, accessToken: result.accessToken };
+                persistUser(state.currentUser);
                 await navigateTo('dashboard');
                 return;
             }
@@ -230,8 +230,8 @@ export async function performLogin(email, password) {
             const prevLogin = localStorage.getItem('lastLoginAt');
             const isFirstToday = !prevLogin || new Date(prevLogin).toDateString() !== new Date().toDateString();
             localStorage.setItem('lastLoginAt', new Date().toISOString());
-            state.currentUser = result.userData;
-            persistUser(result.userData);
+            state.currentUser = { ...result.userData, accessToken: result.accessToken };
+            persistUser(state.currentUser);
             if (isFirstToday) {
                 await showWelcomeSplash(result.userData);
             }
@@ -243,4 +243,4 @@ export async function performLogin(email, password) {
         errorEl.textContent = 'Nao foi possivel conectar ao servidor. Verifique sua internet.';
     }
 }
-
+

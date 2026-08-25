@@ -1,4 +1,5 @@
 import { checkRateLimit } from '../lib/common.js';
+import { readSession } from '../lib/security.js';
 import { handleLogin, handleForgotPassword } from '../lib/handlers/auth.js';
 import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit } from '../lib/handlers/visits.js';
 import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal } from '../lib/handlers/proposals.js';
@@ -34,6 +35,11 @@ function parseBody(req) {
         try { return JSON.parse(req.body); } catch (e) { return {}; }
     }
     return req.body;
+}
+
+function getBearerToken(req) {
+    const value = String(req.headers.authorization || '');
+    return value.startsWith('Bearer ') ? value.slice(7).trim() : '';
 }
 
 const HANDLERS = {
@@ -109,12 +115,13 @@ export default async function handler(req, res) {
         const payload = body.payload || {};
 
         if (action !== 'ping' && action !== 'login' && action !== 'forgotPassword') {
-            const rlEmail = (payload.user && payload.user.email) ? String(payload.user.email) : '';
+            const session = readSession(getBearerToken(req));
+            payload.user = session;
+            const rlEmail = session.email;
             // Ações sem usuário autenticado (ex.: getManutencao, chamada antes do
             // login) caem pro IP do cliente, senão o rate limit é ignorado de fato
             // (checkRateLimit não faz nada com chave vazia).
-            const rlIp = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
-            checkRateLimit(rlEmail || 'ip:' + rlIp);
+            checkRateLimit(rlEmail);
         }
 
         const fn = HANDLERS[action];

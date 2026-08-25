@@ -12,6 +12,14 @@ export const STORAGE_KEY = 'app-visitas-current-user';
 // Script) — substitui a antiga URL do Google Apps Script.
 export const API_URL = '/api/backend';
 
+export class APIRequestError extends Error {
+    constructor(message, isNetworkError = false) {
+        super(message);
+        this.name = 'APIRequestError';
+        this.isNetworkError = isNetworkError;
+    }
+}
+
 // ── Cache (stale-while-revalidate) ──────────────────────────────
 
 export function _ck(name) { return 'apv_v2_' + name + '_' + (state && state.currentUser ? state.currentUser.email : ''); }
@@ -106,22 +114,27 @@ export async function _callAPIRaw(action, payload = {}) {
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
     let response;
     try {
+        const storedUser = loadStoredUser();
+        const headers = { 'Content-Type': 'text/plain;charset=utf-8' };
+        if (storedUser && storedUser.accessToken) headers.Authorization = `Bearer ${storedUser.accessToken}`;
         response = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            headers,
             body: JSON.stringify({ action, payload }),
             signal: controller.signal
         });
     } catch (e) {
         if (e.name === 'AbortError') throw new Error('A operação demorou demais e foi cancelada. Tente novamente.');
+        e.isNetworkError = true;
         throw e;
     } finally {
         clearTimeout(timeoutId);
     }
 
-    const data = await response.json();
+    let data;
+    try { data = await response.json(); } catch (e) { throw new APIRequestError('Resposta invalida da API.', !response.ok); }
     if (!response.ok) {
-        throw new Error(data.message || 'Erro na comunicacao com a API.');
+        throw new APIRequestError(data.message || 'Erro na comunicacao com a API.', response.status >= 500);
     }
     return data;
 }
@@ -149,6 +162,7 @@ export async function attemptOrQueue(action, payload, meta) {
     try {
         return await callAPI(action, finalPayload);
     } catch (error) {
+        if (!error || !error.isNetworkError) throw error;
         await enqueueWrite(action, finalPayload, meta);
         refreshPendingSyncBanner();
         return { status: 'queued' };
@@ -418,9 +432,12 @@ export function persistUser(user) {
 
 export function loadStoredUser() {
     try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        const user = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        // Dados salvos por versoes anteriores nao representam uma sessao
+        // autenticada; force um novo login para obter o token assinado.
+        return user && user.accessToken ? user : null;
     } catch (error) {
         return null;
     }
 }
-
+
