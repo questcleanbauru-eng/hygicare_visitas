@@ -286,6 +286,9 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'radar':
             await (await import('./pages/radar.js')).renderRadarPage(options);
             break;
+        case 'cliente-360':
+            await (await import('./pages/cliente360.js')).renderCliente360Page(options);
+            break;
         case 'admin':
             await (await import('./pages/admin.js')).renderAdminPage();
             break;

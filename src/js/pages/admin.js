@@ -14,6 +14,37 @@ function isConfigOn(value) {
     return String(value ?? '').trim().toLowerCase() === 'true';
 }
 
+// Override individual das 3 permissões que até aqui só existiam como chave
+// global (Configurações > "Apagar registros de outros"/"Criar proposta e
+// funil"/"Acesso ao Radar") — vazio = "Padrão" (usa a config global), só
+// preenche quando esse usuário específico precisa fugir da regra geral.
+function renderPermFieldsHtml(perms) {
+    const opt = (current) => renderSimpleOptions(['Padrão', 'Sim', 'Não'], current === 'Sim' ? 'Sim' : current === 'Nao' ? 'Não' : 'Padrão');
+    return `
+        <div class="uif-field">
+            <label>Apagar registros</label>
+            <select class="uif-perm-delete">${opt(perms.permDelete)}</select>
+        </div>
+        <div class="uif-field">
+            <label>Criar proposta/funil</label>
+            <select class="uif-perm-criar">${opt(perms.permCriarPropostaFunil)}</select>
+        </div>
+        <div class="uif-field">
+            <label>Acesso ao Radar</label>
+            <select class="uif-perm-radar">${opt(perms.permAcessoRadar)}</select>
+        </div>
+    `;
+}
+
+function readPermFieldsValue(scope) {
+    const map = { 'Padrão': '', 'Sim': 'Sim', 'Não': 'Nao' };
+    return {
+        permDelete: map[scope.querySelector('.uif-perm-delete').value] ?? '',
+        permCriarPropostaFunil: map[scope.querySelector('.uif-perm-criar').value] ?? '',
+        permAcessoRadar: map[scope.querySelector('.uif-perm-radar').value] ?? ''
+    };
+}
+
 // Redimensiona pro maior lado ficar em no máx. maxDim antes de virar
 // base64 — a logo é salva numa célula do Sheets (limite de 50.000
 // caracteres), e um arquivo exportado de um editor de design facilmente
@@ -182,6 +213,14 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
                 E-mail
             </button>
+            <button type="button" class="admin-tab${activeAdminTab === 'auditoria' ? ' active' : ''}" data-tab="auditoria">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+                Auditoria
+            </button>
+            <button type="button" class="admin-tab${activeAdminTab === 'saude' ? ' active' : ''}" data-tab="saude">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Saúde
+            </button>
         </div>
 
         <!-- Tab: Usuários -->
@@ -333,9 +372,113 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 ${emailPanel('agendamentos', 'Retornos agendados', 'Avisa vendedores com retorno de visita agendado nos próximos X dias', ['nome', 'quantidade', 'dias'], emailConfig, 'Dias de antecedência do retorno')}
             </div>
         </div>
+
+        <!-- Tab: Auditoria -->
+        <div class="admin-tab-panel${activeAdminTab === 'auditoria' ? ' active' : ''} card" id="admin-tab-auditoria" style="padding:1rem">
+            <div id="auditoria-content"><p class="helper-text">Carregando...</p></div>
+        </div>
+
+        <!-- Tab: Saúde -->
+        <div class="admin-tab-panel${activeAdminTab === 'saude' ? ' active' : ''} card" id="admin-tab-saude" style="padding:1rem">
+            <div id="saude-content"><p class="helper-text">Carregando...</p></div>
+        </div>
     `;
 
     bindAdminEvents(data);
+    if (activeAdminTab === 'auditoria') { loadAuditoriaTab(); }
+    if (activeAdminTab === 'saude') { loadSaudeTab(); }
+}
+
+
+let _saudeData = null;
+
+async function loadSaudeTab() {
+    const container = document.getElementById('saude-content');
+    if (!container) return;
+    if (!_saudeData) {
+        try {
+            const result = await callAPI('getHealthPanel', { user: state.currentUser });
+            _saudeData = result.status === 'success' ? result.data : null;
+        } catch (e) { _saudeData = null; }
+    }
+    if (!_saudeData) {
+        container.innerHTML = '<p class="helper-text">Não foi possível carregar o painel de saúde.</p>';
+        return;
+    }
+    const d = _saudeData;
+    const geoTem = d.radarGeocodingLimite > 0;
+    container.innerHTML = `
+        <div class="admin-stats-row" style="margin-bottom:1rem">
+            <div class="admin-stat">
+                <div class="admin-stat-body">
+                    <strong class="admin-stat-num">${d.usuariosAtivos7d}/${d.totalUsuarios}</strong>
+                    <span class="admin-stat-lbl">Usuários ativos (7 dias)</span>
+                </div>
+            </div>
+            ${geoTem ? `<div class="admin-stat">
+                <div class="admin-stat-body">
+                    <strong class="admin-stat-num">${d.radarGeocodingUsado}/${d.radarGeocodingLimite}</strong>
+                    <span class="admin-stat-lbl">Cota de geocoding do Radar (mês)</span>
+                </div>
+            </div>` : ''}
+        </div>
+        <p class="dash-section-heading">Tamanho das abas</p>
+        <div class="admin-user-table-wrap">
+            <table class="admin-user-table">
+                <thead><tr><th>Aba</th><th>Registros</th></tr></thead>
+                <tbody>
+                    <tr><td data-label="Aba">Visitas</td><td data-label="Registros">${d.registros.visitas}</td></tr>
+                    <tr><td data-label="Aba">Propostas</td><td data-label="Registros">${d.registros.propostas}</td></tr>
+                    <tr><td data-label="Aba">Funil</td><td data-label="Registros">${d.registros.funil}</td></tr>
+                    <tr><td data-label="Aba">Contratos</td><td data-label="Registros">${d.registros.contratos}</td></tr>
+                    <tr><td data-label="Aba">Manutenções</td><td data-label="Registros">${d.registros.manutencoes}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+
+const ACAO_ICON = { criou: '✚', editou: '✏️', apagou: '🗑️', aprovou: '✅' };
+const ENTIDADE_LABEL = { visita: 'Visita', proposta: 'Proposta', funil: 'Funil', contrato: 'Contrato', manutencao: 'Manutenção', usuario: 'Usuário' };
+
+let _auditoriaEntries = null;
+
+async function loadAuditoriaTab() {
+    const container = document.getElementById('auditoria-content');
+    if (!container) return;
+    if (!_auditoriaEntries) {
+        try {
+            const result = await callAPI('getAuditoria', { user: state.currentUser });
+            _auditoriaEntries = result.status === 'success' ? result.entries : [];
+        } catch (e) {
+            container.innerHTML = '<p class="helper-text">Não foi possível carregar a auditoria.</p>';
+            return;
+        }
+    }
+    renderAuditoriaEntries(container, _auditoriaEntries);
+}
+
+function renderAuditoriaEntries(container, entries) {
+    if (!entries.length) {
+        container.innerHTML = '<p class="helper-text">Nenhum registro de auditoria ainda.</p>';
+        return;
+    }
+    container.innerHTML = `
+        <div class="admin-user-table-wrap">
+            <table class="admin-user-table">
+                <thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Registro</th></tr></thead>
+                <tbody>
+                    ${entries.map((e) => `<tr>
+                        <td data-label="Quando" style="font-size:0.82rem;color:var(--text-muted-strong);white-space:nowrap">${escapeHtml(e.data)} ${escapeHtml(e.hora)}</td>
+                        <td data-label="Quem" style="font-size:0.85rem">${escapeHtml(e.usuarioNome || e.usuarioEmail)}</td>
+                        <td data-label="Ação" style="font-size:0.85rem">${ACAO_ICON[e.acao] || ''} ${escapeHtml(e.acao)}</td>
+                        <td data-label="Registro" style="font-size:0.85rem">${escapeHtml(ENTIDADE_LABEL[e.entidade] || e.entidade)} — ${escapeHtml(e.detalhes || e.entidadeId)}</td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
 }
 
 
@@ -349,6 +492,8 @@ export function bindAdminEvents(data) {
             tab.classList.add('active');
             const panel = document.getElementById(`admin-tab-${tab.dataset.tab}`);
             if (panel) { panel.classList.add('active'); }
+            if (tab.dataset.tab === 'auditoria') { loadAuditoriaTab(); }
+            if (tab.dataset.tab === 'saude') { loadSaudeTab(); }
         });
     });
 
@@ -386,6 +531,11 @@ export function bindAdminEvents(data) {
                     <label>Cargo</label>
                     <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Admin'], '')}</select>
                 </div>
+                <div class="uif-field">
+                    <label>Meta mensal (visitas)</label>
+                    <input type="number" class="uif-meta" min="0" placeholder="Ex.: 40">
+                </div>
+                ${renderPermFieldsHtml({})}
             </div>
             <div class="uif-actions">
                 <button type="button" class="uif-cancel">Cancelar</button>
@@ -400,6 +550,7 @@ export function bindAdminEvents(data) {
         tr.querySelector('.uif-save').addEventListener('click', async () => {
             const senha = tr.querySelector('.uif-senha').value.trim();
             if (!senha) { showToast('Informe a senha para o novo usuário.', true); return; }
+            if (senha.length < 6) { showToast('A senha precisa ter pelo menos 6 caracteres.', true); return; }
             const saveBtn = tr.querySelector('.uif-save');
             setSaving(true, saveBtn, 'Criando...');
             const result = await saveUser({
@@ -408,7 +559,9 @@ export function bindAdminEvents(data) {
                 nomeVendedor: tr.querySelector('.uif-nome').value.trim(),
                 senha,
                 gerencia: tr.querySelector('.uif-gerencia').value.trim(),
-                perfil: tr.querySelector('.uif-perfil').value
+                perfil: tr.querySelector('.uif-perfil').value,
+                metaVisitasMes: tr.querySelector('.uif-meta').value.trim(),
+                ...readPermFieldsValue(tr)
             });
             if (result.status === 'success') {
                 showToast('Usuário criado.');
@@ -428,6 +581,12 @@ export function bindAdminEvents(data) {
             const nome = user.nomeVendedor || user.NomeVendedor || user.name || '';
             const perfil = user.perfil || user.Perfil || user.profile || '';
             const gerencia = (user.gerencia || user.Gerencia || '') === '-' ? '' : (user.gerencia || user.Gerencia || '');
+            const metaVisitasMes = user.metaVisitasMes || user.MetaVisitasMes || '';
+            const perms = {
+                permDelete: user.permDelete || user.PermDelete || '',
+                permCriarPropostaFunil: user.permCriarPropostaFunil || user.PermCriarPropostaFunil || '',
+                permAcessoRadar: user.permAcessoRadar || user.PermAcessoRadar || ''
+            };
             const pc = profileClass(perfil);
 
             row.innerHTML = `<td colspan="5" class="uif-cell">
@@ -456,6 +615,11 @@ export function bindAdminEvents(data) {
                         <label>Cargo</label>
                         <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Admin'], perfil)}</select>
                     </div>
+                    <div class="uif-field">
+                        <label>Meta mensal (visitas)</label>
+                        <input type="number" class="uif-meta" min="0" value="${escapeHtml(String(metaVisitasMes))}" placeholder="Ex.: 40">
+                    </div>
+                    ${renderPermFieldsHtml(perms)}
                 </div>
                 <div class="uif-actions">
                     <button type="button" class="uif-cancel">Cancelar</button>
@@ -465,15 +629,19 @@ export function bindAdminEvents(data) {
 
             row.querySelector('.uif-cancel').addEventListener('click', () => renderAdminPage());
             row.querySelector('.uif-save').addEventListener('click', async () => {
+                const senhaEdit = row.querySelector('.uif-senha').value.trim();
+                if (senhaEdit && senhaEdit.length < 6) { showToast('A senha precisa ter pelo menos 6 caracteres.', true); return; }
                 const saveBtn = row.querySelector('.uif-save');
                 setSaving(true, saveBtn, 'Salvando...');
                 const result = await saveUser({
                     originalEmail: email,
                     emailLogin: row.querySelector('.uif-email').value.trim(),
                     nomeVendedor: row.querySelector('.uif-nome').value.trim(),
-                    senha: row.querySelector('.uif-senha').value.trim(),
+                    senha: senhaEdit,
                     gerencia: row.querySelector('.uif-gerencia').value.trim(),
-                    perfil: row.querySelector('.uif-perfil').value
+                    perfil: row.querySelector('.uif-perfil').value,
+                    metaVisitasMes: row.querySelector('.uif-meta').value.trim(),
+                    ...readPermFieldsValue(row)
                 });
                 if (result.status === 'success') {
                     showToast('Usuário salvo.');

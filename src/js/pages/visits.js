@@ -12,7 +12,7 @@ import {
     debounce, downloadCSV, initializeSearchableInput, renderDetailRow,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
     loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
-    buildIcsContent, downloadIcs
+    buildIcsContent, downloadIcs, renderSavedFilters
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 import { getProposals } from './proposals.js';
@@ -89,6 +89,7 @@ export function fillVisitsContent(container, visits) {
                     <button type="button" class="mini-button visits-filter-toggle" id="visit-filters-toggle" aria-expanded="true" aria-controls="visit-filters-panel">Ocultar</button>
                 </div>
             </div>
+            <div class="saved-filters-row" id="visit-saved-filters"></div>
             <div class="visits-filter-grid" id="visit-filters-panel">
                 <div class="form-group">
                     <label for="visit-filter-period">${filterLabelHtml('Período')}</label>
@@ -291,6 +292,11 @@ export function fillVisitsContent(container, visits) {
         state.visitsYearFilter = null;
         renderFilteredVisits();
         updateYearChips();
+    });
+
+    renderSavedFilters(document.getElementById('visit-saved-filters'), 'visits', _visitFilterIds, (values) => {
+        _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
+        renderFilteredVisits();
     });
 
     document.getElementById('visits-csv-btn')?.addEventListener('click', () => {
@@ -889,6 +895,9 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         </div>
         <form id="visit-form" class="card form-card form-layout visit-form-layout">
             <input type="hidden" id="visit-id" value="${escapeHtml(normalizedVisit ? normalizedVisit.id : '')}">
+            ${!isEdit ? `<div class="form-group full-width" id="geo-checkin-status" style="margin-bottom:-0.5rem">
+                <span id="geo-checkin-text" class="helper-text">📍 Obtendo localização...</span>
+            </div>` : ''}
             <div class="form-group full-width">
                 <label>Prospecção</label>
                 <div class="radio-group" id="prospeccao-group">
@@ -1211,6 +1220,31 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     });
     syncProspectionMode();
 
+    // Check-in por geolocalização: melhor-esforço, só em Nova Visita (numa
+    // edição o vendedor pode nem estar mais no local) — nunca bloqueia o
+    // envio do formulário, só anexa lat/lng se o navegador conceder a
+    // permissão a tempo de o usuário terminar de preencher e salvar.
+    let _capturedGeo = null;
+    if (!isEdit) {
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    _capturedGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    const el = document.getElementById('geo-checkin-text');
+                    if (el) el.textContent = '📍 Localização registrada';
+                },
+                () => {
+                    const el = document.getElementById('geo-checkin-text');
+                    if (el) el.textContent = '📍 Localização não disponível (opcional)';
+                },
+                { timeout: 10000, maximumAge: 60000 }
+            );
+        } else {
+            const el = document.getElementById('geo-checkin-text');
+            if (el) el.textContent = '📍 Localização não suportada neste navegador';
+        }
+    }
+
     if (!isEdit) {
         const draftKey = 'apv_draft_visit_' + (state.currentUser && state.currentUser.email || '');
         const savedDraft = (() => { try { return JSON.parse(localStorage.getItem(draftKey) || 'null'); } catch(e) { return null; } })();
@@ -1271,6 +1305,8 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 const selectedClient = state.formData.clientes.find((item) => String(item.nome || '').trim().toLowerCase() === String(clienteSelect.value || '').trim().toLowerCase());
                 return selectedClient ? selectedClient.id : '';
             })(),
+            latitude: _capturedGeo ? _capturedGeo.lat : '',
+            longitude: _capturedGeo ? _capturedGeo.lng : '',
             user: state.currentUser
         };
 
@@ -1441,6 +1477,7 @@ export async function renderVisitDetailPage(id) {
             <button type="button" class="mini-button" id="back-visits">Voltar</button>
             <h2>Detalhes da Visita</h2>
             <div class="header-actions-group">
+                ${visit.cliente ? `<button type="button" class="mini-button" id="visit-c360" title="Ver histórico completo do cliente">👤 360°</button>` : ''}
                 <button type="button" class="mini-button" id="edit-visit">Editar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -1463,6 +1500,11 @@ export async function renderVisitDetailPage(id) {
             ${renderDetailRow('Gerência', visit.gerencia)}
             ${renderDetailRow('Veículo', visit.veiculo)}
             ${renderDetailRow('Observação', visit.observacao || '-')}
+            ${visit.latitude && visit.longitude ? `
+            <div class="detail-row">
+                <span class="detail-label">📍 Check-in</span>
+                <button type="button" class="mini-button" id="visit-map-link">Ver no mapa</button>
+            </div>` : ''}
         </div>
     `;
 
@@ -1496,6 +1538,12 @@ export async function renderVisitDetailPage(id) {
         const message = buildWhatsappMessage(whatsappInfo?.mensagemPadrao, visit);
         openExternal(`https://wa.me/?text=${encodeURIComponent(message)}`);
     });
+
+    document.getElementById('visit-map-link')?.addEventListener('click', () => {
+        openExternal(`https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`);
+    });
+
+    document.getElementById('visit-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: visit.cliente }));
 }
 
 

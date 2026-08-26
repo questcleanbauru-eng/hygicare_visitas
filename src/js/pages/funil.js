@@ -8,7 +8,7 @@ import {
 import {
     debounce, renderDetailRow, showToast, renderSimpleOptions,
     showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addScrollTop,
-    openExternal, initializeSearchableInput, renderYearChips, setSaving
+    openExternal, initializeSearchableInput, renderYearChips, setSaving, renderSavedFilters
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
@@ -77,7 +77,10 @@ export function fillFunilContent(mainContent, funil) {
                 <h2>Funil de Vendas</h2>
                 <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
             </div>
-            <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
+            <div style="display:flex;gap:0.5rem">
+                <button type="button" class="mini-button" id="funil-view-toggle">${(localStorage.getItem('funil_view') === 'kanban') ? '📋 Lista' : '🗂️ Kanban'}</button>
+                <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
+            </div>
         </div>
         ${summaryCount > 0 ? `<div style="margin-bottom:0.75rem">
             <button type="button" class="csv-export-btn" id="update-summary-btn" title="Compartilhar resumo de atualizações">
@@ -98,6 +101,7 @@ export function fillFunilContent(mainContent, funil) {
                     <button type="button" class="mini-button" id="funil-filter-toggle">Ocultar</button>
                 </div>
             </div>
+            <div class="saved-filters-row" id="funil-saved-filters"></div>
             <div class="visits-filter-grid" id="funil-filter-panel">
                 <div class="form-group">
                     <label for="funil-filter-status">${filterLabelHtml('Status')}</label>
@@ -228,6 +232,12 @@ export function fillFunilContent(mainContent, funil) {
             return;
         }
 
+        if (localStorage.getItem('funil_view') === 'kanban') {
+            renderKanbanBoard(container, filtered);
+            wireFunilCardEvents(container);
+            return;
+        }
+
         const sorted = [...filtered].sort((a, b) => {
             const da = parseDisplayDate(a.data) || parseDisplayDate(a.atualizacao);
             const db = parseDisplayDate(b.data) || parseDisplayDate(b.atualizacao);
@@ -272,6 +282,10 @@ export function fillFunilContent(mainContent, funil) {
             </section>
         `).join('');
 
+        wireFunilCardEvents(container);
+    };
+
+    function wireFunilCardEvents(container) {
         container.querySelectorAll('[data-funil-id]').forEach((btn) => {
             btn.addEventListener('click', () => navigateTo('funil-detail', { id: btn.dataset.funilId }));
         });
@@ -288,7 +302,30 @@ export function fillFunilContent(mainContent, funil) {
                 openFunilInlineStatusEditor(pill, pill.dataset.inlineFunilStatus, pill.dataset.currentStatus);
             });
         });
-    };
+
+        // Kanban: arrastar-e-soltar entre colunas (só existe quando renderKanbanBoard
+        // desenhou .funil-kanban-col — em modo lista essas queries só não acham nada).
+        container.querySelectorAll('.funil-kanban-card[draggable="true"]').forEach((card) => {
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', card.dataset.funilId);
+                card.classList.add('dragging');
+            });
+            card.addEventListener('dragend', () => card.classList.remove('dragging'));
+        });
+        container.querySelectorAll('.funil-kanban-col').forEach((col) => {
+            col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('drag-over'); });
+            col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+            col.addEventListener('drop', (e) => {
+                e.preventDefault();
+                col.classList.remove('drag-over');
+                const funilId = e.dataTransfer.getData('text/plain');
+                const newStatus = col.dataset.status;
+                const item = funilData.find((f) => String(f.id) === funilId);
+                if (!item || item.status === newStatus) return;
+                applyFunilStatusChangeFromKanban(funilId, newStatus, renderFiltered);
+            });
+        });
+    }
 
     const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
         'funil-filter-atrasado', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
@@ -304,6 +341,11 @@ export function fillFunilContent(mainContent, funil) {
         const el = document.getElementById(id);
         const isText = _funilTextFilterIds.has(id);
         el?.addEventListener(isText ? 'input' : 'change', isText ? _debouncedFunilFilter : renderFiltered);
+    });
+
+    renderSavedFilters(document.getElementById('funil-saved-filters'), 'funil', _funilFilterIds, (values) => {
+        _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
+        renderFiltered();
     });
 
     document.getElementById('funil-filter-clear')?.addEventListener('click', () => {
@@ -351,6 +393,12 @@ export function fillFunilContent(mainContent, funil) {
         } catch(e) {}
     });
 
+    document.getElementById('funil-view-toggle')?.addEventListener('click', (e) => {
+        const next = localStorage.getItem('funil_view') === 'kanban' ? 'list' : 'kanban';
+        try { localStorage.setItem('funil_view', next); } catch (err) {}
+        e.currentTarget.textContent = next === 'kanban' ? '📋 Lista' : '🗂️ Kanban';
+        renderFiltered();
+    });
     document.getElementById('btn-new-funil')?.addEventListener('click', () => navigateTo('funil-new'));
     document.getElementById('update-summary-btn')?.addEventListener('click', () => {
         if (confirm('Compartilhar o resumo de atualizações no WhatsApp e limpar a lista?')) {
@@ -379,6 +427,10 @@ function openFunilQuickUpdateModal(f, onUpdated) {
                 <label for="fq-status">Status</label>
                 <select id="fq-status">${renderSimpleOptions(['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'], f.status)}</select>
             </div>
+            <div class="form-group full-width" id="fq-motivo-group" style="display:${f.status === 'PERDIDO' ? '' : 'none'}">
+                <label for="fq-motivo-perda">Motivo da perda</label>
+                <textarea id="fq-motivo-perda" rows="2" placeholder="Ex.: preço, concorrência, sem orçamento...">${escapeHtml(f.motivoPerda || '')}</textarea>
+            </div>
             <div class="form-group full-width">
                 <label for="fq-comentarios">Comentários</label>
                 <textarea id="fq-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(f.comentarios || '')}</textarea>
@@ -392,25 +444,33 @@ function openFunilQuickUpdateModal(f, onUpdated) {
     document.body.appendChild(overlay);
     const close = () => overlay.remove();
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#fq-status').addEventListener('change', (e) => {
+        overlay.querySelector('#fq-motivo-group').style.display = e.target.value === 'PERDIDO' ? '' : 'none';
+    });
     overlay.querySelector('#fq-cancel').addEventListener('click', close);
     overlay.querySelector('#fq-save').addEventListener('click', async () => {
         const btn = overlay.querySelector('#fq-save');
         const newStatus = overlay.querySelector('#fq-status').value;
         const newComentarios = overlay.querySelector('#fq-comentarios').value.trim();
+        const newMotivoPerda = overlay.querySelector('#fq-motivo-perda').value.trim();
+        if (newStatus === 'PERDIDO' && !newMotivoPerda) {
+            showToast('Informe o motivo da perda.', true);
+            return;
+        }
         setSaving(true, btn, 'Salvando...');
 
         const idx = state.funil.findIndex((item) => String(item.id) === String(f.id));
         const original = idx >= 0 ? { ...state.funil[idx] } : null;
         const nowDisplay = formatDateForDisplay(new Date());
         if (idx >= 0) {
-            state.funil[idx] = { ...state.funil[idx], status: newStatus, comentarios: newComentarios, atualizacao: nowDisplay };
+            state.funil[idx] = { ...state.funil[idx], status: newStatus, comentarios: newComentarios, motivoPerda: newMotivoPerda, atualizacao: nowDisplay };
             saveCache('funil', state.funil);
         }
         close();
         showToast('Funil atualizado com sucesso.');
         if (onUpdated) onUpdated();
 
-        attemptOrQueue('updateFunil', { id: f.id, status: newStatus, comentarios: newComentarios, user: state.currentUser },
+        attemptOrQueue('updateFunil', { id: f.id, status: newStatus, comentarios: newComentarios, motivoPerda: newMotivoPerda, user: state.currentUser },
             { entity: 'funil', tempId: f.id })
             .then((result) => {
                 if (result && result.status === 'success') {
@@ -459,18 +519,23 @@ function openFunilInlineStatusEditor(pill, funilId, currentStatus) {
             const newStatus = opt.dataset.s;
             close();
             if (newStatus === currentStatus) return;
+            let motivoPerda;
+            if (newStatus === 'PERDIDO') {
+                motivoPerda = (prompt('Motivo da perda:') || '').trim();
+                if (!motivoPerda) return;
+            }
             const idx = state.funil.findIndex((item) => String(item.id) === String(funilId));
             const original = idx >= 0 ? { ...state.funil[idx] } : null;
             const nowDisplay = formatDateForDisplay(new Date());
             if (idx >= 0) {
-                state.funil[idx] = { ...state.funil[idx], status: newStatus, atualizacao: nowDisplay };
+                state.funil[idx] = { ...state.funil[idx], status: newStatus, atualizacao: nowDisplay, ...(motivoPerda ? { motivoPerda } : {}) };
                 saveCache('funil', state.funil);
             }
             pill.textContent = newStatus;
             pill.className = `status-pill funil-status-${newStatus.toLowerCase()} status-pill-editable`;
             pill.dataset.currentStatus = newStatus;
             showToast('Status atualizado.');
-            attemptOrQueue('updateFunil', { id: funilId, status: newStatus, user: state.currentUser },
+            attemptOrQueue('updateFunil', { id: funilId, status: newStatus, ...(motivoPerda ? { motivoPerda } : {}), user: state.currentUser },
                 { entity: 'funil', tempId: String(funilId) })
                 .then((result) => {
                     const clienteNome = original ? (original.cliente || '') : '';
@@ -492,6 +557,92 @@ function openFunilInlineStatusEditor(pill, funilId, currentStatus) {
         });
     });
     setTimeout(() => document.addEventListener('click', close, { once: true }), 0);
+}
+
+
+const KANBAN_COLUMNS = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'RETOMAR', 'CONCLUIDO', 'PERDIDO'];
+
+// Kanban do Funil: mesmas colunas do editor de status (openFunilInlineStatusEditor),
+// só que como quadro — cada card mantém os mesmos data-attributes do card de
+// lista (data-funil-id/-quick/-inline-funil-status) pra reaproveitar
+// wireFunilCardEvents sem duplicar a lógica de clique/toque.
+function renderKanbanBoard(container, filtered) {
+    const byStatus = {};
+    KANBAN_COLUMNS.forEach((s) => { byStatus[s] = []; });
+    filtered.forEach((f) => {
+        const s = KANBAN_COLUMNS.includes(f.status) ? f.status : 'IDENTIFICAR';
+        byStatus[s].push(f);
+    });
+
+    container.innerHTML = `
+        <div class="funil-kanban-board">
+            ${KANBAN_COLUMNS.map((status) => `
+                <div class="funil-kanban-col" data-status="${escapeHtml(status)}">
+                    <div class="funil-kanban-col-header">
+                        <span>${funilStatusIcon(status)} ${escapeHtml(status)}</span>
+                        <span class="funil-kanban-col-count">${byStatus[status].length}</span>
+                    </div>
+                    <div class="funil-kanban-col-body">
+                        ${byStatus[status].map((f) => `
+                            <div class="funil-kanban-card" draggable="true" data-funil-id="${escapeHtml(f.id)}">
+                                <strong>${escapeHtml(f.cliente || 'Cliente não informado')}</strong>
+                                <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}</span>
+                                ${f.vlMensal ? `<span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}
+                                <div class="funil-kanban-card-actions">
+                                    <span class="card-quick-edit-btn" role="button" tabindex="0" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
+                                    <span class="status-pill funil-status-${escapeHtml(status.toLowerCase())} status-pill-editable" role="button" tabindex="0" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(status)}">Mover</span>
+                                </div>
+                            </div>
+                        `).join('') || '<p class="helper-text" style="padding:0.5rem">Vazio</p>'}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// Mesma lógica de update otimista + attemptOrQueue + rollback já usada em
+// openFunilInlineStatusEditor, só que disparada pelo drop de uma coluna do
+// Kanban (id/status vêm do dataset do drop, não de um dropdown) — re-renderiza
+// via onDone (renderFiltered) em vez de patchar o pill direto na tela, porque
+// o card pode ter que "pular" de coluna, não só trocar de texto.
+function applyFunilStatusChangeFromKanban(funilId, newStatus, onDone) {
+    let motivoPerda;
+    if (newStatus === 'PERDIDO') {
+        motivoPerda = (prompt('Motivo da perda:') || '').trim();
+        if (!motivoPerda) return;
+    }
+    const idx = state.funil.findIndex((item) => String(item.id) === String(funilId));
+    const original = idx >= 0 ? { ...state.funil[idx] } : null;
+    const nowDisplay = formatDateForDisplay(new Date());
+    if (idx >= 0) {
+        state.funil[idx] = { ...state.funil[idx], status: newStatus, atualizacao: nowDisplay, ...(motivoPerda ? { motivoPerda } : {}) };
+        saveCache('funil', state.funil);
+    }
+    showToast('Status atualizado.');
+    if (onDone) onDone();
+
+    attemptOrQueue('updateFunil', { id: funilId, status: newStatus, ...(motivoPerda ? { motivoPerda } : {}), user: state.currentUser },
+        { entity: 'funil', tempId: String(funilId) })
+        .then((result) => {
+            const clienteNome = original ? (original.cliente || '') : '';
+            if (result && result.status === 'queued') {
+                if (idx >= 0) { state.funil[idx] = { ...state.funil[idx], _pending: true }; saveCache('funil', state.funil); }
+                showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                trackUpdate('funil', { id: funilId, cliente: clienteNome, status: newStatus });
+            } else if (!result || result.status !== 'success') {
+                if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
+                showToast((result && result.message) || 'Erro ao atualizar status.', true);
+                if (onDone) onDone();
+            } else {
+                trackUpdate('funil', { id: funilId, cliente: clienteNome, status: newStatus });
+            }
+        })
+        .catch(() => {
+            if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
+            showToast('Erro ao atualizar status.', true);
+            if (onDone) onDone();
+        });
 }
 
 
@@ -781,6 +932,7 @@ export async function renderFunilDetailPage(id) {
             <button type="button" class="mini-button" id="back-funil">Voltar</button>
             <h2>Funil de Vendas</h2>
             <div class="header-actions-group">
+                ${f.cliente ? `<button type="button" class="mini-button" id="funil-c360" title="Ver histórico completo do cliente">👤 360°</button>` : ''}
                 <button type="button" class="mini-button" id="edit-funil">Editar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-funil-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -806,11 +958,13 @@ export async function renderFunilDetailPage(id) {
             ${renderDetailRow('Conclusão', f.conclusao || '-')}
             ${renderDetailRow('Inf Importantes', f.infImportantes || '-')}
             ${renderDetailRow('Comentários', f.comentarios || '-')}
+            ${f.status === 'PERDIDO' ? renderDetailRow('Motivo da Perda', f.motivoPerda || '-') : ''}
         </div>
     `;
 
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => navigateTo('funil')));
     document.getElementById('edit-funil').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
+    document.getElementById('funil-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: f.cliente }));
     document.getElementById('share-funil-whatsapp').addEventListener('click', () => {
         const text = `*Funil - ${f.cliente}*\nStatus: ${f.status}\nFoco: ${f.foco || '-'}\nCidade: ${f.cidade || '-'}\nVL Mensal: ${formatCurrency(f.vlMensal) || '-'}\nAtualização: ${f.atualizacao || f.data || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);

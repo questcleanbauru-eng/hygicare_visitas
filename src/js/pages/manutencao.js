@@ -283,6 +283,7 @@ export async function renderManutencaoDetailPage(id) {
             <button type="button" class="mini-button" id="back-manutencao">Voltar</button>
             <h2>Detalhes do Relatório</h2>
             <div class="header-actions-group">
+                ${m.cliente ? `<button type="button" class="mini-button" id="manutencao-c360" title="Ver histórico completo do cliente">👤 360°</button>` : ''}
                 <button type="button" class="mini-button" id="edit-manutencao">Editar</button>
                 <button type="button" class="mini-button" id="print-manutencao" aria-label="Imprimir ou salvar em PDF" title="Imprimir ou salvar em PDF">📄 PDF</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-manutencao-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
@@ -353,6 +354,7 @@ export async function renderManutencaoDetailPage(id) {
     `;
 
     document.getElementById('back-manutencao').addEventListener('click', () => navigateTo('manutencao'));
+    document.getElementById('manutencao-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: m.cliente }));
     document.getElementById('edit-manutencao').addEventListener('click', () => navigateTo('manutencao-edit', { manutencao: m }));
     document.getElementById('print-manutencao').addEventListener('click', () => {
         // O nome sugerido no diálogo "Salvar como PDF" vem do <title> da

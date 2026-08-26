@@ -8,7 +8,7 @@ import {
 import {
     debounce, downloadCSV, renderDetailRow, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
-    loadingState, addScrollTop, openExternal, renderYearChips, setSaving
+    loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
@@ -91,6 +91,7 @@ export function fillProposalsContent(mainContent, proposals) {
                     <button type="button" class="mini-button" id="proposal-filter-toggle">Ocultar</button>
                 </div>
             </div>
+            <div class="saved-filters-row" id="proposal-saved-filters"></div>
             <div class="visits-filter-grid" id="proposal-filter-panel">
                 <div class="form-group">
                     <label for="pf-status">${filterLabelHtml('Status')}</label>
@@ -293,6 +294,11 @@ export function fillProposalsContent(mainContent, proposals) {
         updateYearChips();
     });
 
+    renderSavedFilters(document.getElementById('proposal-saved-filters'), 'proposals', _proposalFilterIds, (values) => {
+        _proposalFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
+        renderFiltered();
+    });
+
     document.getElementById('scope-load-days')?.addEventListener('click', () => {
         const v = parseInt(document.getElementById('scope-dias-input')?.value, 10);
         if (v > 0) { state.loadDias = v; saveCache('proposals', null); navigateTo('proposals'); }
@@ -432,6 +438,7 @@ export async function renderProposalDetailPage(id) {
             </button>
             <h2>Detalhes da Proposta</h2>
             <div class="header-actions-group">
+                ${proposal.cliente ? `<button type="button" class="mini-button" id="proposal-c360" title="Ver histórico completo do cliente">👤 360°</button>` : ''}
                 <button type="button" class="mini-button" id="edit-proposal">Editar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-proposal-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -464,6 +471,7 @@ export async function renderProposalDetailPage(id) {
 
     document.getElementById('back-proposals').addEventListener('click', () => navigateTo('proposals'));
     document.getElementById('edit-proposal').addEventListener('click', () => navigateTo('proposal-edit', { proposal }));
+    document.getElementById('proposal-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: proposal.cliente }));
     document.getElementById('share-proposal-whatsapp').addEventListener('click', () => {
         const text = `*Proposta - ${proposal.cliente}*\nStatus: ${proposal.status}\nFoco: ${proposal.foco || '-'}\nCidade: ${proposal.cidade || '-'}\nÚltima atualização: ${proposal.atualizacao || '-'}\nObs: ${proposal.obs || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);

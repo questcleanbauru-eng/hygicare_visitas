@@ -25,6 +25,8 @@ export function normalizeVisit(visit) {
         gerencia: visit['Gerência'] || visit['Gerencia'] || visit.gerencia || '',
         veiculo: visit['Qual o Veículo?'] || visit['Qual o Veiculo?'] || visit.veiculo || 'Particular',
         observacao: visit['Observação'] || visit['Observacao'] || visit.observacao || '',
+        latitude: visit['Latitude'] || visit.latitude || '',
+        longitude: visit['Longitude'] || visit.longitude || '',
         _pending: !!visit._pending
     };
 }

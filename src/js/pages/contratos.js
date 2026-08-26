@@ -245,6 +245,7 @@ export async function renderContratoDetailPage(id) {
             </button>
             <h2>Detalhes do Contrato</h2>
             <div class="header-actions-group">
+                ${contrato.cliente ? `<button type="button" class="mini-button" id="contrato-c360" title="Ver histórico completo do cliente">👤 360°</button>` : ''}
                 <button type="button" class="mini-button" id="edit-contrato">Editar</button>
                 ${contrato.anexo ? '<button type="button" class="mini-button mini-button-whatsapp" id="ver-anexo-contrato" aria-label="Ver PDF do contrato" title="Ver PDF do contrato">📄</button>' : ''}
                 ${state.canDelete ? '<button type="button" class="mini-button mini-button-danger" id="delete-contrato" aria-label="Apagar" title="Apagar">🗑️</button>' : ''}
@@ -274,6 +275,7 @@ export async function renderContratoDetailPage(id) {
     `;
 
     document.getElementById('back-contratos').addEventListener('click', () => navigateTo('contratos'));
+    document.getElementById('contrato-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: contrato.cliente }));
     document.getElementById('edit-contrato').addEventListener('click', () => navigateTo('contrato-edit', { contrato }));
     document.getElementById('ver-anexo-contrato')?.addEventListener('click', () => openExternal(contrato.anexo));
     document.getElementById('delete-contrato')?.addEventListener('click', async (event) => {

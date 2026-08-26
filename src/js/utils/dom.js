@@ -1,6 +1,54 @@
 import { state, addDocumentClickListener } from '../app.js';
 import { escapeHtml, parseDisplayDate, getFieldIcon } from './format.js';
 
+// ── Filtros salvos ───────────────────────────────────────────────
+// Presets client-side (localStorage, por usuário) — cada página de lista
+// (Visitas/Propostas/Funil) já lê seus filtros direto do DOM por id
+// (ver `_visitFilterIds` em visits.js), então "aplicar" um preset aqui é só
+// setar `.value` nesses mesmos campos e deixar a própria página re-filtrar.
+export function renderSavedFilters(containerEl, storageKey, fieldIds, onApply) {
+    if (!containerEl) return;
+    const key = 'saved_filters_' + storageKey + '_' + (state.currentUser?.email || '');
+    const load = () => { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; } };
+    const save = (list) => { try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {} };
+    let presets = load();
+
+    function render() {
+        containerEl.innerHTML = presets.map((p, i) => `
+            <button type="button" class="saved-filter-chip" data-idx="${i}" title="Aplicar filtro">
+                <span>${escapeHtml(p.name)}</span>
+                <span class="saved-filter-remove" data-remove="${i}" aria-label="Remover filtro ${escapeHtml(p.name)}">✕</span>
+            </button>
+        `).join('') + `<button type="button" class="saved-filter-chip saved-filter-add" id="${containerEl.id}-add">+ Salvar filtro atual</button>`;
+
+        containerEl.querySelectorAll('[data-idx]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                if (e.target.closest('[data-remove]')) return;
+                onApply(presets[Number(btn.dataset.idx)].values);
+            });
+        });
+        containerEl.querySelectorAll('[data-remove]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                presets.splice(Number(btn.dataset.remove), 1);
+                save(presets);
+                render();
+            });
+        });
+        document.getElementById(`${containerEl.id}-add`)?.addEventListener('click', () => {
+            const name = (prompt('Nome do filtro (ex.: "Minhas propostas vencendo essa semana"):') || '').trim().slice(0, 40);
+            if (!name) return;
+            const values = {};
+            fieldIds.forEach((id) => { const el = document.getElementById(id); if (el) values[id] = el.value; });
+            presets.push({ name, values });
+            save(presets);
+            render();
+        });
+    }
+    render();
+}
+
+
 export function showLoginNotification(prevDate) {
     const newVisits = (state.visits || []).filter((v) => {
         const d = parseDisplayDate(v.dataVisita);
