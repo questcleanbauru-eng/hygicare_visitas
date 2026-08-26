@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { escapeHtml, normalizeVisit, normalizeProposal } from './format.js';
+import { escapeHtml, normalizeVisit, normalizeProposal, normalizeContrato, normalizeManutencao } from './format.js';
 import { debounce, showToast } from './dom.js';
 import { ensureFormData, logout, saveCache } from '../api.js';
 
@@ -231,6 +231,41 @@ function updateAppBadge(count) {
     if (!('setAppBadge' in navigator)) return;
     if (count > 0) { navigator.setAppBadge(count).catch(() => {}); }
     else { navigator.clearAppBadge?.().catch(() => {}); }
+}
+
+
+// Lembrete de pendências (propostas/funil atrasados) mostrado quando o app
+// está aberto ou volta a ficar visível — sem push real (sem VAPID nem
+// trigger no backend), só reaproveita o mesmo dado que já alimenta o sino e
+// o badge. Guarda o último total avisado em localStorage pra não repetir a
+// mesma notificação a cada navegação; só dispara de novo se o total mudar
+// (ex.: mais um item atrasou, ou zerou e depois voltou a ter pendência).
+export function checkOverdueNotification(overdueProposals, overdueFunil) {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    const total = (overdueProposals || 0) + (overdueFunil || 0);
+    if (total === 0) return;
+    if (Notification.permission === 'denied') return;
+
+    const lastNotified = parseInt(localStorage.getItem('last_notified_overdue') || '0', 10);
+    if (total === lastNotified) return;
+
+    const fire = () => {
+        localStorage.setItem('last_notified_overdue', String(total));
+        const parts = [];
+        if (overdueProposals > 0) parts.push(`${overdueProposals} proposta${overdueProposals > 1 ? 's' : ''} atrasada${overdueProposals > 1 ? 's' : ''}`);
+        if (overdueFunil > 0) parts.push(`${overdueFunil} oportunidade${overdueFunil > 1 ? 's' : ''} no funil sem atualização`);
+        navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification('Pendências no Hygicare Visitas', {
+                body: parts.join(' · '),
+                tag: 'overdue-items',
+                icon: './icons/apple-touch-icon.png',
+                data: { page: overdueProposals > 0 ? 'proposals' : 'funil' }
+            }).catch(() => {});
+        }).catch(() => {});
+    };
+
+    if (Notification.permission === 'granted') { fire(); }
+    else { Notification.requestPermission().then((perm) => { if (perm === 'granted') fire(); }); }
 }
 
 
@@ -506,7 +541,7 @@ export function openGlobalSearch() {
         <div class="global-search-inner">
             <div class="global-search-bar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="global-search-input" placeholder="Buscar visitas, propostas, funil..." autofocus>
+                <input type="text" id="global-search-input" placeholder="Buscar cliente em visitas, propostas, funil, contratos..." autofocus>
                 <button type="button" class="global-search-close" id="global-search-close" aria-label="Fechar">✕</button>
             </div>
             <div id="global-search-results" class="global-search-results">
@@ -538,8 +573,16 @@ export function openGlobalSearch() {
         const funil = (state.funil || []).filter(f => {
             return [f.cliente, f.status, f.vendedor].some(fi => String(fi || '').toLowerCase().includes(query));
         }).slice(0, 5);
+        const contratos = (state.contratos || []).filter(c => {
+            const n = normalizeContrato(c);
+            return [n.cliente, n.cidade, n.vendedor].some(f => String(f || '').toLowerCase().includes(query));
+        }).slice(0, 5);
+        const manutencoes = (state.manutencoes || []).filter(m => {
+            const n = normalizeManutencao(m);
+            return [n.cliente, n.cidade, n.tecnico].some(f => String(f || '').toLowerCase().includes(query));
+        }).slice(0, 5);
 
-        const total = visits.length + proposals.length + funil.length;
+        const total = visits.length + proposals.length + funil.length + contratos.length + manutencoes.length;
         if (total === 0) {
             resultsEl.innerHTML = `<p class="helper-text" style="text-align:center;padding:1rem">Nenhum resultado para "${escapeHtml(q.trim())}"</p>`;
             return;
@@ -556,6 +599,14 @@ export function openGlobalSearch() {
         if (funil.length > 0) {
             html += `<div class="gs-group-label">Funil</div>`;
             html += funil.map(f => `<button class="gs-result-item" data-type="funil-detail" data-id="${escapeHtml(f.id || '')}" type="button"><span class="gs-result-icon">📊</span><span class="gs-result-text"><strong>${escapeHtml(f.cliente || '-')}</strong><span>${escapeHtml(f.status || '')}</span></span></button>`).join('');
+        }
+        if (contratos.length > 0) {
+            html += `<div class="gs-group-label">Contratos</div>`;
+            html += contratos.map(c => { const n = normalizeContrato(c); return `<button class="gs-result-item" data-type="contrato-detail" data-id="${escapeHtml(n.id)}" type="button"><span class="gs-result-icon">📑</span><span class="gs-result-text"><strong>${escapeHtml(n.cliente || '-')}</strong><span>${escapeHtml(n.cidade || '')}${n.vencido ? ' · vencido' : ''}</span></span></button>`; }).join('');
+        }
+        if (manutencoes.length > 0) {
+            html += `<div class="gs-group-label">Manutenção</div>`;
+            html += manutencoes.map(m => { const n = normalizeManutencao(m); return `<button class="gs-result-item" data-type="manutencao-detail" data-id="${escapeHtml(n.id)}" type="button"><span class="gs-result-icon">🔧</span><span class="gs-result-text"><strong>${escapeHtml(n.cliente || '-')}</strong><span>${escapeHtml(n.cidade || '')} · ${escapeHtml(n.data || '')}</span></span></button>`; }).join('');
         }
         resultsEl.innerHTML = html;
         resultsEl.querySelectorAll('.gs-result-item').forEach(btn => {

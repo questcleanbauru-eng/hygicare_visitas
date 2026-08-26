@@ -62,6 +62,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'ping', payload: {} }) }).catch(function() {});
 
     registerServiceWorker();
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (e) => {
+            if (e.data?.type === 'NAVIGATE' && state.currentUser) navigateTo(e.data.page);
+        });
+    }
     initOfflineBanner();
     initOfflineQueueSync();
     initBackButton();

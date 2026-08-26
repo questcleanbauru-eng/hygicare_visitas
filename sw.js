@@ -20,6 +20,22 @@ self.addEventListener('message', (event) => {
     }
 });
 
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const page = (event.notification.data && event.notification.data.page) || 'dashboard';
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            const client = clientList.find((c) => 'focus' in c);
+            if (client) {
+                client.focus();
+                client.postMessage({ type: 'NAVIGATE', page });
+                return null;
+            }
+            return self.clients.openWindow ? self.clients.openWindow('./') : null;
+        })
+    );
+});
+
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()

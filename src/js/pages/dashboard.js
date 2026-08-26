@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { logout, loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, calculateDaysFromDisplayDate, visitTypeClass, parseDisplayDate } from '../utils/format.js';
-import { updateHeaderUI, updateProposalsBadge, updateFunilBadge } from '../utils/ui.js';
+import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, checkOverdueNotification } from '../utils/ui.js';
 import { showSuccessPopup } from '../utils/dom.js';
 
 export function fillDashboard(mainContent, data, user) {
@@ -19,6 +19,7 @@ export function fillDashboard(mainContent, data, user) {
     // Cache overdue counts for notification dot
     state.overdueProposals = data.overdueProposals || 0;
     state.overdueFunil     = data.overdueFunil || 0;
+    checkOverdueNotification(state.overdueProposals, state.overdueFunil);
 
     const isAdminOrGerente = ['admin','gerente'].includes((user.profile || '').toLowerCase());
 
