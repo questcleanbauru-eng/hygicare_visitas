@@ -751,7 +751,7 @@ export async function renderProposalCreatePage() {
                 <input type="date" id="pc-data-limite" value="${defaultDataLimite}">
             </div>
             <div class="form-group full-width">
-                <label for="pc-obs">Observacoes</label>
+                <label for="pc-obs">Observações</label>
                 <textarea id="pc-obs" rows="4" placeholder="Detalhes da proposta"></textarea>
             </div>
             <div class="form-actions full-width">

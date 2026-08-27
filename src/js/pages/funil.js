@@ -590,10 +590,10 @@ function renderKanbanBoard(container, filtered) {
                                 ${f.vlMensal ? `<span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}
                                 <div class="funil-kanban-card-actions">
                                     <span class="card-quick-edit-btn" role="button" tabindex="0" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
-                                    <span class="status-pill funil-status-${escapeHtml(status.toLowerCase())} status-pill-editable" role="button" tabindex="0" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(status)}">Mover</span>
+                                    <span class="status-pill funil-status-${escapeHtml(status.toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(status)}" title="Mover para outro status" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(status)}">${escapeHtml(status)}</span>
                                 </div>
                             </div>
-                        `).join('') || '<p class="helper-text" style="padding:0.5rem">Vazio</p>'}
+                        `).join('') || `<div class="empty-state empty-state-compact"><span class="empty-state-icon">📭</span><p>Vazio</p></div>`}
                     </div>
                 </div>
             `).join('')}
@@ -763,14 +763,14 @@ export async function renderFunilCreatePage() {
                 </div>
             </div>
             <div class="form-group">
-                <label for="fc-atuacao">Atuacao</label>
+                <label for="fc-atuacao">Área de Atuação</label>
                 <div class="searchable-select">
                     <input type="text" id="fc-atuacao" placeholder="Pesquise a area" autocomplete="off">
                     <div class="searchable-select-menu" id="fc-atuacao-menu"></div>
                 </div>
             </div>
             <div class="form-group">
-                <label for="fc-aplicacao">Aplicacao</label>
+                <label for="fc-aplicacao">Aplicação</label>
                 <div class="searchable-select">
                     <input type="text" id="fc-aplicacao" placeholder="Pesquise a aplicacao" autocomplete="off">
                     <div class="searchable-select-menu" id="fc-aplicacao-menu"></div>
@@ -790,20 +790,20 @@ export async function renderFunilCreatePage() {
                 </select>
             </div>
             <div class="form-group">
-                <label for="fc-vl-mensal">VL Mensal R$</label>
+                <label for="fc-vl-mensal">Valor Mensal (R$)</label>
                 <input type="text" id="fc-vl-mensal" placeholder="0,00">
             </div>
             <div class="form-group">
-                <label for="fc-conclusao">Conclusao (data)</label>
+                <label for="fc-conclusao">Conclusão (data)</label>
                 <input type="date" id="fc-conclusao">
             </div>
             <div class="form-group full-width">
-                <label for="fc-inf">Inf Importantes</label>
+                <label for="fc-inf">Informações Importantes</label>
                 <input type="text" id="fc-inf" placeholder="Informações relevantes">
             </div>
             <div class="form-group full-width">
-                <label for="fc-comentarios">Comentarios</label>
-                <textarea id="fc-comentarios" rows="4" placeholder="Observacoes e proximos passos"></textarea>
+                <label for="fc-comentarios">Comentários</label>
+                <textarea id="fc-comentarios" rows="4" placeholder="Observações e próximos passos"></textarea>
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-funil-create">Cancelar</button>
@@ -950,13 +950,13 @@ export async function renderFunilDetailPage(id) {
             ${renderDetailRow('Data', f.data)}
             ${renderDetailRow('Ativo', f.ativo)}
             ${renderDetailRow('Foco', f.foco)}
-            ${renderDetailRow('Atuacao', f.atuacao)}
-            ${renderDetailRow('Aplicacao', f.aplicacao)}
+            ${renderDetailRow('Área de Atuação', f.atuacao)}
+            ${renderDetailRow('Aplicação', f.aplicacao)}
             ${renderDetailRow('Equipamentos', f.equipamentos)}
             ${renderDetailRow('Gerência', f.gerencia)}
-            ${renderDetailRow('VL Mensal', formatCurrency(f.vlMensal) || '-')}
+            ${renderDetailRow('Valor Mensal', formatCurrency(f.vlMensal) || '-')}
             ${renderDetailRow('Conclusão', f.conclusao || '-')}
-            ${renderDetailRow('Inf Importantes', f.infImportantes || '-')}
+            ${renderDetailRow('Informações Importantes', f.infImportantes || '-')}
             ${renderDetailRow('Comentários', f.comentarios || '-')}
             ${f.status === 'PERDIDO' ? renderDetailRow('Motivo da Perda', f.motivoPerda || '-') : ''}
         </div>
@@ -1042,14 +1042,14 @@ export async function renderFunilFormPage(funil) {
                 </div>
             </div>
             <div class="form-group">
-                <label for="funil-atuacao">Atuacao</label>
+                <label for="funil-atuacao">Área de Atuação</label>
                 <div class="searchable-select">
                     <input type="text" id="funil-atuacao" value="${escapeHtml(f.atuacao || '')}" placeholder="Pesquise a area" autocomplete="off">
                     <div class="searchable-select-menu" id="funil-atuacao-menu"></div>
                 </div>
             </div>
             <div class="form-group">
-                <label for="funil-aplicacao">Aplicacao</label>
+                <label for="funil-aplicacao">Aplicação</label>
                 <div class="searchable-select">
                     <input type="text" id="funil-aplicacao" value="${escapeHtml(f.aplicacao || '')}" placeholder="Pesquise a aplicacao" autocomplete="off">
                     <div class="searchable-select-menu" id="funil-aplicacao-menu"></div>
@@ -1079,20 +1079,20 @@ export async function renderFunilFormPage(funil) {
                 </select>
             </div>
             <div class="form-group">
-                <label for="funil-vl-mensal">VL Mensal R$</label>
+                <label for="funil-vl-mensal">Valor Mensal (R$)</label>
                 <input type="text" id="funil-vl-mensal" value="${escapeHtml(f.vlMensal || '')}" placeholder="0,00">
             </div>
             <div class="form-group">
-                <label for="funil-conclusao">Conclusao (data)</label>
+                <label for="funil-conclusao">Conclusão (data)</label>
                 <input type="date" id="funil-conclusao" value="${escapeHtml(formatInputDateFromDisplay(f.conclusao) || '')}">
             </div>
             <div class="form-group full-width">
-                <label for="funil-inf">Inf Importantes</label>
+                <label for="funil-inf">Informações Importantes</label>
                 <input type="text" id="funil-inf" value="${escapeHtml(f.infImportantes || '')}" placeholder="Informações relevantes">
             </div>
             <div class="form-group full-width">
-                <label for="funil-comentarios">Comentarios</label>
-                <textarea id="funil-comentarios" rows="4" placeholder="Observacoes e proximos passos">${escapeHtml(f.comentarios || '')}</textarea>
+                <label for="funil-comentarios">Comentários</label>
+                <textarea id="funil-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(f.comentarios || '')}</textarea>
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-funil">Cancelar</button>
@@ -1116,20 +1116,20 @@ export async function renderFunilFormPage(funil) {
                 </select>
             </div>
             <div class="form-group">
-                <label for="funil-vl-mensal">VL Mensal R$</label>
+                <label for="funil-vl-mensal">Valor Mensal (R$)</label>
                 <input type="text" id="funil-vl-mensal" value="${escapeHtml(f.vlMensal || '')}" placeholder="0,00">
             </div>
             <div class="form-group">
-                <label for="funil-conclusao">Conclusao (data)</label>
+                <label for="funil-conclusao">Conclusão (data)</label>
                 <input type="date" id="funil-conclusao" value="${escapeHtml(formatInputDateFromDisplay(f.conclusao) || '')}">
             </div>
             <div class="form-group full-width">
-                <label for="funil-inf">Inf Importantes</label>
+                <label for="funil-inf">Informações Importantes</label>
                 <input type="text" id="funil-inf" value="${escapeHtml(f.infImportantes || '')}" placeholder="Informações relevantes">
             </div>
             <div class="form-group full-width">
-                <label for="funil-comentarios">Comentarios</label>
-                <textarea id="funil-comentarios" rows="4" placeholder="Observacoes e proximos passos">${escapeHtml(f.comentarios || '')}</textarea>
+                <label for="funil-comentarios">Comentários</label>
+                <textarea id="funil-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(f.comentarios || '')}</textarea>
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-funil">Cancelar</button>
