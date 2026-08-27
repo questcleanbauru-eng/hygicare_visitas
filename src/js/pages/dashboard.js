@@ -29,7 +29,7 @@ export function fillDashboard(mainContent, data, user) {
     mainContent.innerHTML = `
         <div class="page-header" style="margin-bottom:1rem">
             <div>
-                <h2 style="font-size:1.2rem;font-weight:700;margin:0">Dashboard</h2>
+                <h2>Dashboard</h2>
                 <p class="page-subtitle" style="margin:0.15rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>
             </div>
             <button id="logout-button" class="secondary-button" type="button" style="font-size:0.8rem;padding:0.42rem 0.85rem">Sair</button>

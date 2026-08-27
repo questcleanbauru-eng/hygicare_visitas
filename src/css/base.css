@@ -343,6 +343,23 @@ input, textarea, select,
     --text-muted:     #64748b;
     /* Usar em textos < 14px onde --text-muted fica no limite de contraste (~4.6:1) */
     --text-muted-strong: #4b5b70;
+    /* Cores semânticas — antes cada badge/pill/botão (status do funil,
+       mini-button-danger, ranking do dashboard, Cliente 360°...) escolhia
+       seu próprio verde/âmbar/vermelho "de olho", com valores levemente
+       diferentes em cada arquivo. Centralizados aqui pra convergir esse
+       drift sem precisar redesenhar nada — mesma cor que já dominava em
+       cada família, só nomeada. Seguem a mesma regra dos tokens de
+       espaçamento/tipografia acima: usar em componentes novos/tocados, não
+       um retrofit obrigatório do que já funciona. */
+    --success:        #166534;
+    --success-bg:      #dcfce7;
+    --success-border:  #86efac;
+    --warning:         #b45309;
+    --warning-bg:      #fef3c7;
+    --warning-border:  #fde68a;
+    --danger:          #991b1b;
+    --danger-bg:       #fee2e2;
+    --danger-border:   #fecaca;
     /* Escala de espaçamento (múltiplos de 4px) — usar em componentes novos/tocados */
     --space-1: 0.25rem;
     --space-2: 0.5rem;
@@ -500,10 +517,10 @@ main {
 
 /* Variantes de cor pro grupo de ações do cabeçalho (Editar/WhatsApp/Apagar
    lado a lado) — mesmo tamanho do .mini-button, só muda a cor. */
-.mini-button-whatsapp { color: #15803d; background-color: #dcfce7; border-color: #86efac; }
+.mini-button-whatsapp { color: var(--success); background-color: var(--success-bg); border-color: var(--success-border); }
 .mini-button-whatsapp:hover { background-color: #bbf7d0; }
-.mini-button-danger { color: #b91c1c; background-color: #fef2f2; border-color: #fecaca; }
-.mini-button-danger:hover { background-color: #fee2e2; }
+.mini-button-danger { color: var(--danger); background-color: var(--danger-bg); border-color: var(--danger-border); }
+.mini-button-danger:hover { background-color: #fecaca; }
 
 .header-actions-group { display: flex; align-items: center; gap: 0.4rem; }
 

@@ -826,10 +826,10 @@ textarea { resize: vertical; }
     font-size: 0.72rem;
     font-weight: 700;
 }
-.c360-badge-ok { background: #dcfce7; color: #15803d; }
-.c360-badge-warning { background: #fef3c7; color: #b45309; }
-.c360-badge-danger { background: #fee2e2; color: #b91c1c; }
-.c360-badge-neutral { background: #e2e8f0; color: #475569; }
+.c360-badge-ok { background: var(--success-bg); color: var(--success); }
+.c360-badge-warning { background: var(--warning-bg); color: var(--warning); }
+.c360-badge-danger { background: var(--danger-bg); color: var(--danger); }
+.c360-badge-neutral { background: var(--bg); color: var(--text-muted-strong); }
 
 .c360-section-card { padding: 0.9rem 1rem; margin-bottom: 0.75rem; }
 

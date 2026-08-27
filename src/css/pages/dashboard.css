@@ -271,8 +271,8 @@
     text-align: center;
 }
 
-.dash-ranking-rank-1 { color: #b45309; }
-.dash-ranking-rank-2 { color: #64748b; }
+.dash-ranking-rank-1 { color: var(--warning); }
+.dash-ranking-rank-2 { color: var(--text-muted); }
 .dash-ranking-rank-3 { color: #92400e; }
 
 .dash-ranking-figures {
@@ -297,9 +297,9 @@
     text-align: center;
 }
 
-.dash-ranking-pct.is-ok      { background: #dcfce7; color: #15803d; }
-.dash-ranking-pct.is-warn    { background: #fef3c7; color: #b45309; }
-.dash-ranking-pct.is-low     { background: #fee2e2; color: #b91c1c; }
+.dash-ranking-pct.is-ok      { background: var(--success-bg); color: var(--success); }
+.dash-ranking-pct.is-warn    { background: var(--warning-bg); color: var(--warning); }
+.dash-ranking-pct.is-low     { background: var(--danger-bg); color: var(--danger); }
 .dash-ranking-pct.is-neutral { background: var(--bg); color: var(--text-muted); font-weight: 600; }
 
 @media (min-width: 900px)  { .dash-panels-grid { grid-template-columns: 1fr 1fr; } }
