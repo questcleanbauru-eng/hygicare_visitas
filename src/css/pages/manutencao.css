@@ -409,7 +409,7 @@
        relatório longo: aí o conteúdo já passa da altura mínima sozinho, e
        o auto-ajuste (mnt-compact-*) continua cuidando desse caso à parte. */
     .mnt-report {
-        border: 1px solid var(--border);
+        border: none;
         box-shadow: none;
         overflow: visible;
         min-height: calc(297mm - 24mm);
@@ -417,6 +417,11 @@
         flex-direction: column;
     }
     .mnt-report-body { flex: 1; }
+    /* Nº e rodapé usam um cinza quase-branco só pra dar uma leve separação
+       na tela (mnt-report-docnum/-footer, ver acima) — na folha impressa
+       isso lia como uma "moldura" cinza ao redor do documento. Fundo
+       branco puro em tudo, exceto o cabeçalho azul (que é intencional). */
+    .mnt-report-docnum, .mnt-report-footer { background: #fff; }
 
     /* Sem isso, boa parte dos navegadores some com as cores de fundo (e
        às vezes até bordas com cor) na impressão a menos que a pessoa
