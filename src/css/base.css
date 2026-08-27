@@ -687,7 +687,11 @@ main {
         padding: 0 !important;
         margin: 0 !important;
     }
-    body { background: #fff; }
+    /* html tem --bg (cinza claro) fixado lá no :root, e essa regra só
+       sobrescrevia o body — numa folha impressa com pouco conteúdo, o cinza
+       do html aparecia por baixo/ao redor, na área que o body não chega a
+       cobrir. */
+    html, body { background: #fff; }
     /* !important necessário aqui: components.css (que define .breadcrumb
        com display:flex, sem guarda de impressão) carrega DEPOIS de
        base.css no documento, então sem isso essa regra perdia a queda de

@@ -401,7 +401,22 @@
         border-radius: 0;
     }
     .mnt-afericao-table tbody td:first-child, .mnt-afericao-table tbody td:last-child { border-radius: 0; }
-    .mnt-report { border: 1px solid var(--border); box-shadow: none; overflow: visible; }
+    /* Um relatório curto (1 item, sem observação) só ocupava o topo da
+       folha, deixando o resto em branco solto — min-height = altura útil
+       da A4 (mesma conta de MNT_PAGE_HEIGHT_MM/MNT_PAGE_MARGIN_MM em
+       manutencao.js) + corpo como flex:1 gruda o rodapé na base da página
+       em vez de flutuar logo depois das assinaturas. Não afeta um
+       relatório longo: aí o conteúdo já passa da altura mínima sozinho, e
+       o auto-ajuste (mnt-compact-*) continua cuidando desse caso à parte. */
+    .mnt-report {
+        border: 1px solid var(--border);
+        box-shadow: none;
+        overflow: visible;
+        min-height: calc(297mm - 24mm);
+        display: flex;
+        flex-direction: column;
+    }
+    .mnt-report-body { flex: 1; }
 
     /* Sem isso, boa parte dos navegadores some com as cores de fundo (e
        às vezes até bordas com cor) na impressão a menos que a pessoa
