@@ -48,6 +48,24 @@ function autoFitManutencaoReport() {
 }
 window.addEventListener('beforeprint', autoFitManutencaoReport);
 
+// O Id é o timestamp (Date.now()) do momento da criação — bom como chave
+// interna (evita colisão entre dois relatórios criados ao mesmo tempo por
+// técnicos diferentes, sem precisar de escrita atômica), mas exibido cru
+// num relatório impresso pro cliente parece um erro técnico solto ("Nº
+// 1787853539287"). Reformata só a EXIBIÇÃO — o mesmo valor, decodificado de
+// volta pra data/hora — sem tocar no Id de verdade usado em editar/apagar.
+function formatDocNumber(id) {
+    const n = Number(id);
+    if (Number.isFinite(n) && String(id).trim().length >= 12) {
+        const d = new Date(n);
+        if (!isNaN(d)) {
+            const pad = (x) => String(x).padStart(2, '0');
+            return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        }
+    }
+    return id;
+}
+
 function safeParseJson(value, fallback) {
     try {
         const parsed = JSON.parse(value);
@@ -309,7 +327,7 @@ export async function renderManutencaoDetailPage(id) {
                 </div>
                 <span class="mnt-status-badge mnt-status-${statusKey}"><span class="mnt-status-dot" aria-hidden="true"></span>${statusLabel}</span>
             </div>
-            <div class="mnt-report-docnum">Nº ${escapeHtml(m.id)}</div>
+            <div class="mnt-report-docnum">Nº ${escapeHtml(formatDocNumber(m.id))}</div>
             <div class="mnt-report-body">
                 <div class="mnt-report-section">
                     <div class="mnt-grid-2x2">
