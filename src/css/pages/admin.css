@@ -254,6 +254,10 @@
     align-items: center;
     gap: 0.75rem;
     box-shadow: var(--shadow-xs);
+    /* Item de grid: sem isso, o mínimo é "auto" (o conteúdo nunca encolhe
+       abaixo da própria largura mínima), que é exatamente o que deixava a
+       coluna 1fr crescer além da tela quando o texto era comprido. */
+    min-width: 0;
 }
 
 .admin-stat-icon {
@@ -286,7 +290,12 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-muted);
-    white-space: nowrap;
+    /* Era nowrap — inofensivo enquanto os únicos rótulos eram "Usuários"/
+       "Listas" (uma palavra), mas o painel de Saúde trouxe rótulos bem mais
+       longos ("Cota de geocoding do Radar (mês)"). nowrap força esse texto
+       a ficar numa linha só, e como grid item por padrão não encolhe abaixo
+       do conteúdo, isso empurrava a página inteira mais larga que a tela no
+       celular. Deixa quebrar linha normalmente. */
 }
 
 /* ── Admin Tabs ── */
