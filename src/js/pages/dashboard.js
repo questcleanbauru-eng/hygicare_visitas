@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { logout, loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, calculateDaysFromDisplayDate, visitTypeClass, parseDisplayDate } from '../utils/format.js';
-import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, checkOverdueNotification } from '../utils/ui.js';
+import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, checkOverdueNotification, checkClientesPrincipaisNotification } from '../utils/ui.js';
 import { showSuccessPopup } from '../utils/dom.js';
 
 export function fillDashboard(mainContent, data, user) {
@@ -20,6 +20,7 @@ export function fillDashboard(mainContent, data, user) {
     state.overdueProposals = data.overdueProposals || 0;
     state.overdueFunil     = data.overdueFunil || 0;
     checkOverdueNotification(state.overdueProposals, state.overdueFunil);
+    checkClientesPrincipaisNotification(data.clientesPrincipaisPendentes);
 
     const isAdminOrGerente = ['admin','gerente'].includes((user.profile || '').toLowerCase());
 
@@ -71,6 +72,23 @@ export function fillDashboard(mainContent, data, user) {
                         <span class="dias-atraso-badge" style="background:#f3e8ff;color:#7e22ce">${diasLabel}</span>
                     </div>`;
                 }).join('')}
+            </div>
+        </div>` : ''}
+
+        ${(data.clientesPrincipaisPendentes && data.clientesPrincipaisPendentes.length > 0) ? `
+        <div class="dash-today-card dash-cp-card" style="margin-top:0.6rem">
+            <div class="section-title-row">
+                <h3 style="font-size:0.88rem;font-weight:700;margin:0">⭐ Clientes principais sem relatório este mês</h3>
+            </div>
+            <div class="recent-list">
+                ${data.clientesPrincipaisPendentes.map((c) => `
+                    <div class="recent-item recent-item-proposal">
+                        <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
+                            <strong style="font-size:0.85rem;overflow-wrap:break-word">${escapeHtml(c.cliente)}</strong>
+                        </div>
+                        <button type="button" class="mini-button dash-cp-report-btn" data-cliente="${escapeHtml(c.cliente)}">Fazer relatório</button>
+                    </div>
+                `).join('')}
             </div>
         </div>` : ''}
 
@@ -218,6 +236,9 @@ export function fillDashboard(mainContent, data, user) {
     });
     document.getElementById('radar-prospeccao-card')?.addEventListener('click', () => navigateTo('radar', { tab: 'meus-clientes' }));
     document.getElementById('radar-carteira-card')?.addEventListener('click', () => navigateTo('radar', { tab: 'meus-clientes' }));
+    mainContent.querySelectorAll('.dash-cp-report-btn').forEach((btn) => {
+        btn.addEventListener('click', () => navigateTo('manutencao-new', { prefillCliente: btn.dataset.cliente }));
+    });
 
     // Refresh header notification dot after data loads
     updateHeaderUI(user);

@@ -720,6 +720,41 @@
 
 .email-notif-panel-header strong { font-size: 0.95rem; }
 
+/* ── Clientes Principais (Listas → loadClientesPrincipaisTab) ─────────── */
+
+.cp-row {
+    display: flex;
+    /* flex-start (não center) — um nome de cliente comprido quebra em
+       várias linhas numa tela estreita, e centralizar o badge/lixeira
+       contra um bloco de texto alto deixa eles flutuando no meio do
+       nome em vez de alinhados com a primeira linha. Mesma ideia de
+       .recent-item-proposal (dashboard). */
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.cp-row:last-child { border-bottom: none; }
+
+.cp-row-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.cp-row-info strong { overflow-wrap: break-word; }
+
+.cp-row-actions {
+    margin-top: 0.05rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
 /* ── Backward compat: admin grid ── */
 
 @media (min-width: 768px) {

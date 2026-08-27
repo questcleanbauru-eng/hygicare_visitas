@@ -164,6 +164,19 @@
     margin-bottom: 1.1rem;
 }
 
+/* Clientes Principais sem relatório no mês (ver fillDashboard em
+   dashboard.js) — mesma "card" de .dash-today-card, mas com o acento em
+   âmbar (tokens --warning) em vez de azul, pra ler como um aviso e não só
+   mais uma lista informativa. */
+.dash-cp-card {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+}
+
+.dash-cp-report-btn {
+    flex-shrink: 0;
+}
+
 /* Welcome banner replaced: keep compat for other uses */
 
 .dashboard-info-card {

@@ -1,7 +1,7 @@
 import { state } from '../app.js';
-import { callAPI, saveCache, loadCache } from '../api.js';
+import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
 import { escapeHtml, titleCase, getInitials, profileClass } from '../utils/format.js';
-import { showToast, loadingState, renderSimpleOptions, showRefreshIndicator, hideRefreshIndicator, setSaving } from '../utils/dom.js';
+import { showToast, loadingState, renderSimpleOptions, showRefreshIndicator, hideRefreshIndicator, setSaving, initializeSearchableInput } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 
 let activeAdminTab = 'users';
@@ -259,6 +259,18 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 ${renderLookupEditor('Aplicacoes', 'aplicacoes', data.lookups.aplicacoes || [])}
                 ${renderLookupEditor('Equipamentos', 'equipamentos', data.lookups.equipamentos || [])}
             </div>
+
+            <div class="admin-section" style="margin-top:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">⭐ Clientes Principais</h3></div>
+                <div class="card" style="padding:1rem">
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.75rem">Clientes que devem receber um Relatório de Manutenção todo mês. O app avisa o vendedor responsável (painel no Início + notificação) quando um deles ainda não tem relatório no mês corrente.</p>
+                    <div class="searchable-select" style="margin-bottom:0.9rem">
+                        <input type="text" id="cp-add-input" class="form-input" placeholder="Buscar cliente pra adicionar..." autocomplete="off">
+                        <div class="searchable-select-menu" id="cp-add-menu"></div>
+                    </div>
+                    <div id="clientes-principais-content"><p class="helper-text">Carregando...</p></div>
+                </div>
+            </div>
         </div>
 
         <!-- Tab: Configurações -->
@@ -366,6 +378,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
     bindAdminEvents(data);
     if (activeAdminTab === 'auditoria') { loadAuditoriaTab(); }
     if (activeAdminTab === 'saude') { loadSaudeTab(); }
+    if (activeAdminTab === 'listas') { loadClientesPrincipaisTab(); }
 }
 
 
@@ -461,6 +474,90 @@ function renderAuditoriaEntries(container, entries) {
 }
 
 
+let _clientesPrincipaisData = null;
+let _clientesPrincipaisSearchWired = false;
+
+async function loadClientesPrincipaisTab() {
+    const container = document.getElementById('clientes-principais-content');
+    if (!container) return;
+
+    // A busca de "adicionar cliente" só precisa ser configurada uma vez —
+    // ensureFormData() já cacheia por si só, então não custa nada chamar de
+    // novo aqui se a pessoa voltar pra essa aba.
+    if (!_clientesPrincipaisSearchWired) {
+        _clientesPrincipaisSearchWired = true;
+        try {
+            const fd = await ensureFormData();
+            const clientes = (fd.data && fd.data.clientes) || [];
+            const input = document.getElementById('cp-add-input');
+            const menu = document.getElementById('cp-add-menu');
+            if (input && menu) {
+                initializeSearchableInput({
+                    input, menu,
+                    items: clientes.map((c) => c.nome).filter(Boolean),
+                    onSelect: async (nome) => {
+                        input.value = '';
+                        const result = await callAPI('addClientePrincipal', { cliente: nome, user: state.currentUser });
+                        if (result.status === 'success') {
+                            showToast(`"${nome}" adicionado aos Clientes Principais.`);
+                            _clientesPrincipaisData = null;
+                            loadClientesPrincipaisTab();
+                        } else {
+                            showToast(result.message || 'Não foi possível adicionar.', true);
+                        }
+                    }
+                });
+            }
+        } catch (e) { /* autocomplete falha silenciosamente — a lista abaixo ainda carrega */ }
+    }
+
+    if (!_clientesPrincipaisData) {
+        try {
+            const result = await callAPI('getClientesPrincipais', { user: state.currentUser });
+            _clientesPrincipaisData = result.status === 'success' ? result.clientesPrincipais : [];
+        } catch (e) {
+            container.innerHTML = '<p class="helper-text">Não foi possível carregar os clientes principais.</p>';
+            return;
+        }
+    }
+    renderClientesPrincipaisList(container, _clientesPrincipaisData);
+}
+
+function renderClientesPrincipaisList(container, list) {
+    if (!list.length) {
+        container.innerHTML = '<p class="helper-text">Nenhum cliente principal cadastrado ainda.</p>';
+        return;
+    }
+    container.innerHTML = list.map((c) => `
+        <div class="cp-row" data-id="${escapeHtml(c.id)}">
+            <div class="cp-row-info">
+                <strong>${escapeHtml(c.cliente)}</strong>
+                <span class="helper-text">${c.vendedores ? escapeHtml(c.vendedores) + ' · ' : ''}${c.emDia ? `relatório em dia (${escapeHtml(c.ultimoRelatorioEm)})` : 'sem relatório este mês'}</span>
+            </div>
+            <div class="cp-row-actions">
+                <span class="status-pill ${c.emDia ? 'status-concluido' : 'status-aguardando'}">${c.emDia ? '✅ Em dia' : '⚠️ Pendente'}</span>
+                <button type="button" class="mini-button mini-button-danger cp-remove-btn" data-id="${escapeHtml(c.id)}" aria-label="Remover" title="Remover">🗑</button>
+            </div>
+        </div>
+    `).join('');
+    container.querySelectorAll('.cp-remove-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const item = _clientesPrincipaisData.find((c) => c.id === id);
+            if (!confirm(`Remover "${item ? item.cliente : ''}" da lista de Clientes Principais?`)) return;
+            const result = await callAPI('removeClientePrincipal', { id, user: state.currentUser });
+            if (result.status === 'success') {
+                _clientesPrincipaisData = _clientesPrincipaisData.filter((c) => c.id !== id);
+                renderClientesPrincipaisList(container, _clientesPrincipaisData);
+                showToast('Removido dos Clientes Principais.');
+            } else {
+                showToast(result.message || 'Não foi possível remover.', true);
+            }
+        });
+    });
+}
+
+
 export function bindAdminEvents(data) {
     // Tabs
     document.querySelectorAll('.admin-tab').forEach((tab) => {
@@ -473,6 +570,7 @@ export function bindAdminEvents(data) {
             if (panel) { panel.classList.add('active'); }
             if (tab.dataset.tab === 'auditoria') { loadAuditoriaTab(); }
             if (tab.dataset.tab === 'saude') { loadSaudeTab(); }
+            if (tab.dataset.tab === 'listas') { loadClientesPrincipaisTab(); }
         });
     });
 

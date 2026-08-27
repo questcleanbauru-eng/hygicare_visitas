@@ -269,6 +269,40 @@ export function checkOverdueNotification(overdueProposals, overdueFunil) {
     else { Notification.requestPermission().then((perm) => { if (perm === 'granted') fire(); }); }
 }
 
+// Mesmo padrão do checkOverdueNotification acima, mas pra Clientes
+// Principais sem Relatório de Manutenção no mês corrente (ver Admin →
+// Listas → Clientes Principais). Comparação por mês+ano (não só a
+// contagem) evita reavisar todo santo dia enquanto o número não muda, mas
+// ainda assim avisa de novo quando o mês vira — mesmo que a contagem tenha
+// ficado igual à do mês anterior por coincidência.
+export function checkClientesPrincipaisNotification(pendentes) {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    const total = (pendentes || []).length;
+    if (total === 0) return;
+    if (Notification.permission === 'denied') return;
+
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
+    const lastNotified = localStorage.getItem('last_notified_cp');
+    if (lastNotified === `${monthKey}:${total}`) return;
+
+    const fire = () => {
+        localStorage.setItem('last_notified_cp', `${monthKey}:${total}`);
+        const nomes = pendentes.slice(0, 3).map((c) => c.cliente).join(', ');
+        navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification('Clientes principais sem relatório', {
+                body: `${total} cliente${total > 1 ? 's' : ''} ainda sem Relatório de Manutenção este mês: ${nomes}${total > 3 ? '...' : ''}`,
+                tag: 'clientes-principais-pendentes',
+                icon: './icons/apple-touch-icon.png',
+                data: { page: 'dashboard' }
+            }).catch(() => {});
+        }).catch(() => {});
+    };
+
+    if (Notification.permission === 'granted') { fire(); }
+    else { Notification.requestPermission().then((perm) => { if (perm === 'granted') fire(); }); }
+}
+
 
 export function updateHeaderUI(user) {
     const area = document.getElementById('header-user-area');
