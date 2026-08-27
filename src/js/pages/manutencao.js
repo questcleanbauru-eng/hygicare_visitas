@@ -283,7 +283,7 @@ export async function renderManutencaoDetailPage(id) {
             <button type="button" class="mini-button" id="back-manutencao">Voltar</button>
             <h2>Detalhes do Relatório</h2>
             <div class="header-actions-group">
-                ${m.cliente ? `<button type="button" class="mini-button" id="manutencao-c360" title="Ver histórico completo do cliente">👤 360°</button>` : ''}
+                ${m.cliente ? `<button type="button" class="mini-button" id="manutencao-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
                 <button type="button" class="mini-button" id="edit-manutencao">Editar</button>
                 <button type="button" class="mini-button" id="print-manutencao" aria-label="Imprimir ou salvar em PDF" title="Imprimir ou salvar em PDF">📄 PDF</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-manutencao-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">

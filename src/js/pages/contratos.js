@@ -245,7 +245,7 @@ export async function renderContratoDetailPage(id) {
             </button>
             <h2>Detalhes do Contrato</h2>
             <div class="header-actions-group">
-                ${contrato.cliente ? `<button type="button" class="mini-button" id="contrato-c360" title="Ver histórico completo do cliente">👤 360°</button>` : ''}
+                ${contrato.cliente ? `<button type="button" class="mini-button" id="contrato-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
                 <button type="button" class="mini-button" id="edit-contrato">Editar</button>
                 ${contrato.anexo ? '<button type="button" class="mini-button mini-button-whatsapp" id="ver-anexo-contrato" aria-label="Ver PDF do contrato" title="Ver PDF do contrato">📄</button>' : ''}
                 ${state.canDelete ? '<button type="button" class="mini-button mini-button-danger" id="delete-contrato" aria-label="Apagar" title="Apagar">🗑️</button>' : ''}
