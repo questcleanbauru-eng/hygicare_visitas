@@ -225,19 +225,20 @@ export function fillManutencaoContent(mainContent, manutencoes) {
     renderFiltered();
 }
 
-// Lista os clientes que já têm um modelo de tabela de aferição salvo (ver
-// comentário acima de MODELOS_SHEET_NAME no backend — hoje é 1 modelo por
-// cliente, salvar de novo sobrescreve o anterior). Antes disso não existia
-// nenhum jeito de ver essa lista: só dava pra descobrir se um cliente tinha
-// modelo abrindo o formulário dele e clicando em "Carregar modelo".
+// Lista os modelos de tabela de aferição já salvos (ver comentário acima de
+// MODELOS_SHEET_NAME no backend — pode ter mais de um por cliente, cada um
+// com seu próprio Nome, ex.: "SPSP Marília 1"/"SPSP Marília 2" pra
+// unidades diferentes do mesmo cliente). Antes disso não existia nenhum
+// jeito de ver essa lista: só dava pra descobrir se um cliente tinha modelo
+// abrindo o formulário dele e clicando em "Carregar modelo".
 async function openModelosSalvosModal() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
         <div class="modal-card" style="text-align:left;max-width:420px">
             <h3 style="margin-top:0">📋 Modelos salvos</h3>
-            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Tabela de aferição já cadastrada por cliente — carregue com um clique num novo relatório.</p>
-            <input type="text" id="mnt-modelos-search" class="form-input" placeholder="Buscar cliente..." style="margin-bottom:0.75rem">
+            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Tabela de aferição já cadastrada — carregue com um clique num novo relatório. Um cliente pode ter mais de um modelo (nomes diferentes).</p>
+            <input type="text" id="mnt-modelos-search" class="form-input" placeholder="Buscar cliente ou nome do modelo..." style="margin-bottom:0.75rem">
             <div id="mnt-modelos-list" style="max-height:50vh;overflow-y:auto">
                 <p class="helper-text">Carregando...</p>
             </div>
@@ -260,26 +261,31 @@ async function openModelosSalvosModal() {
         listEl.innerHTML = `<p class="helper-text">Não foi possível carregar os modelos agora.</p>`;
         return;
     }
-    modelos.sort((a, b) => String(a.cliente || '').localeCompare(String(b.cliente || ''), 'pt-BR'));
+    modelos.sort((a, b) => String(a.cliente || '').localeCompare(String(b.cliente || ''), 'pt-BR') || String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
 
     const renderList = (filterText) => {
+        const q = filterText.toLowerCase();
         const filtered = filterText
-            ? modelos.filter((mo) => String(mo.cliente || '').toLowerCase().includes(filterText.toLowerCase()))
+            ? modelos.filter((mo) => String(mo.cliente || '').toLowerCase().includes(q) || String(mo.nome || '').toLowerCase().includes(q))
             : modelos;
         if (filtered.length === 0) {
-            listEl.innerHTML = `<p class="helper-text">${modelos.length === 0 ? 'Nenhum modelo salvo ainda. Salve um na tela de um relatório novo/edição.' : 'Nenhum cliente encontrado.'}</p>`;
+            listEl.innerHTML = `<p class="helper-text">${modelos.length === 0 ? 'Nenhum modelo salvo ainda. Salve um na tela de um relatório novo/edição.' : 'Nenhum modelo encontrado.'}</p>`;
             return;
         }
-        listEl.innerHTML = filtered.map((mo, idx) => {
+        listEl.innerHTML = filtered.map((mo) => {
             const itens = safeParseJson(mo.itensTabela, []);
             const originalIdx = modelos.indexOf(mo);
+            const nomeDifereDoCliente = mo.nome && mo.nome.trim().toLowerCase() !== String(mo.cliente || '').trim().toLowerCase();
             return `
                 <div class="mnt-modelo-list-row" data-idx="${originalIdx}">
                     <div class="mnt-modelo-list-info">
-                        <strong>${escapeHtml(mo.cliente || '-')}</strong>
-                        <span class="helper-text">${itens.length} item(ns)${mo.atualizadoPor ? ` · atualizado por ${escapeHtml(mo.atualizadoPor)}` : ''}${mo.atualizadoEm ? ` em ${escapeHtml(mo.atualizadoEm)}` : ''}</span>
+                        <strong>${escapeHtml(mo.nome || mo.cliente || '-')}</strong>
+                        <span class="helper-text">${nomeDifereDoCliente ? `Cliente: ${escapeHtml(mo.cliente || '-')} · ` : ''}${itens.length} item(ns)${mo.atualizadoPor ? ` · atualizado por ${escapeHtml(mo.atualizadoPor)}` : ''}${mo.atualizadoEm ? ` em ${escapeHtml(mo.atualizadoEm)}` : ''}</span>
                     </div>
-                    <button type="button" class="mini-button mnt-modelo-use-btn" data-idx="${originalIdx}">Usar</button>
+                    <div class="mnt-modelo-list-actions">
+                        <button type="button" class="mini-button mnt-modelo-use-btn" data-idx="${originalIdx}">Usar</button>
+                        <button type="button" class="mini-button mini-button-danger mnt-modelo-delete-btn" data-idx="${originalIdx}" aria-label="Apagar modelo" title="Apagar modelo">🗑</button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -288,12 +294,97 @@ async function openModelosSalvosModal() {
                 const mo = modelos[Number(btn.dataset.idx)];
                 if (!mo) return;
                 close();
-                navigateTo('manutencao-new', { prefillCliente: mo.cliente, prefillItens: mo.itensTabela });
+                navigateTo('manutencao-new', { prefillCliente: mo.cliente, prefillItens: mo.itensTabela, prefillModeloNome: mo.nome });
+            });
+        });
+        listEl.querySelectorAll('.mnt-modelo-delete-btn').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const mo = modelos[Number(btn.dataset.idx)];
+                if (!mo) return;
+                if (!confirm(`Apagar o modelo "${mo.nome || mo.cliente}"? Essa ação não pode ser desfeita.`)) return;
+                const result = await callAPI('deleteManutencaoModelo', { id: mo.id, user: state.currentUser });
+                if (result.status === 'success') {
+                    modelos = modelos.filter((item) => item.id !== mo.id);
+                    showToast('Modelo apagado.');
+                    renderList(overlay.querySelector('#mnt-modelos-search').value);
+                } else {
+                    showToast(result.message || 'Não foi possível apagar o modelo.', true);
+                }
             });
         });
     };
     renderList('');
     overlay.querySelector('#mnt-modelos-search').addEventListener('input', (e) => renderList(e.target.value));
+}
+
+// Pede um nome pro modelo antes de salvar (ver "Salvar como modelo" no
+// formulário) — resolve com o texto digitado, ou null se cancelado.
+function promptModeloNome(defaultValue) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card" style="text-align:left">
+                <h3 style="margin-top:0">Nome do modelo</h3>
+                <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Salvar de novo com o mesmo nome atualiza esse modelo. Um nome diferente cria um novo — útil pra guardar mais de um modelo do mesmo cliente (ex.: "SPSP Marília 1", "SPSP Marília 2").</p>
+                <div class="form-group full-width">
+                    <input type="text" id="mnt-modelo-nome-input" class="form-input" value="${escapeHtml(defaultValue || '')}">
+                </div>
+                <div class="form-actions full-width" style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                    <button type="button" class="secondary-button" id="mnt-modelo-nome-cancel">Cancelar</button>
+                    <button type="button" class="primary-button" id="mnt-modelo-nome-confirm">Salvar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        const close = (value) => { overlay.remove(); resolve(value); };
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+        const input = overlay.querySelector('#mnt-modelo-nome-input');
+        input.focus();
+        input.select();
+        overlay.querySelector('#mnt-modelo-nome-cancel').addEventListener('click', () => close(null));
+        overlay.querySelector('#mnt-modelo-nome-confirm').addEventListener('click', () => close(input.value.trim() || defaultValue));
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); close(input.value.trim() || defaultValue); } });
+    });
+}
+
+// Cliente com mais de um modelo salvo — deixa escolher qual carregar em vez
+// de adivinhar. Resolve com o modelo escolhido, ou null se cancelado.
+function pickModeloFromMatches(matches) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card" style="text-align:left">
+                <h3 style="margin-top:0">Qual modelo carregar?</h3>
+                <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Esse cliente tem ${matches.length} modelos salvos.</p>
+                <div id="mnt-modelo-pick-list"></div>
+                <div class="form-actions full-width" style="margin-top:0.75rem">
+                    <button type="button" class="secondary-button" id="mnt-modelo-pick-cancel">Cancelar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        const close = (value) => { overlay.remove(); resolve(value); };
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+        overlay.querySelector('#mnt-modelo-pick-cancel').addEventListener('click', () => close(null));
+        const listEl = overlay.querySelector('#mnt-modelo-pick-list');
+        listEl.innerHTML = matches.map((mo, idx) => {
+            const itens = safeParseJson(mo.itensTabela, []);
+            return `
+                <div class="mnt-modelo-list-row" data-idx="${idx}">
+                    <div class="mnt-modelo-list-info">
+                        <strong>${escapeHtml(mo.nome || mo.cliente || '-')}</strong>
+                        <span class="helper-text">${itens.length} item(ns)</span>
+                    </div>
+                    <button type="button" class="mini-button mnt-modelo-pick-btn" data-idx="${idx}">Carregar</button>
+                </div>
+            `;
+        }).join('');
+        listEl.querySelectorAll('.mnt-modelo-pick-btn').forEach((btn) => {
+            btn.addEventListener('click', () => close(matches[Number(btn.dataset.idx)]));
+        });
+    });
 }
 
 export async function renderManutencaoPage() {
@@ -609,9 +700,17 @@ export async function renderManutencaoFormPage(record, options) {
 
     // Vindo de "Usar" no modal de modelos salvos (ver openModelosSalvosModal)
     // — pré-preenche cliente e a tabela de aferição só na criação, nunca
-    // sobrescrevendo uma edição em andamento.
+    // sobrescrevendo uma edição em andamento. currentModeloNome acompanha
+    // qual modelo está "carregado" na tela: reaparece pré-preenchido se a
+    // pessoa clicar em "Salvar como modelo" de novo sem mudar de ideia — o
+    // upsert no backend é por Cliente+Nome, então manter o mesmo nome
+    // atualiza esse modelo específico; digitar um nome diferente cria um
+    // novo (ex.: carregar "SPSP Marília 1", ajustar e salvar como "SPSP
+    // Marília 2" em vez de sobrescrever o 1).
+    let currentModeloNome = null;
     if (!isEdit && options && options.prefillCliente) {
         m.cliente = options.prefillCliente;
+        currentModeloNome = options.prefillModeloNome || null;
     }
 
     if (!state.formData) {
@@ -733,24 +832,33 @@ export async function renderManutencaoFormPage(record, options) {
     // Modelo por cliente: Equipamento/Produto/Diluição que esse cliente já
     // costuma usar, salvos uma vez pra não digitar tudo de novo a cada
     // visita — Aferido nunca entra no modelo, é resultado de cada visita.
-    const findModeloForCliente = (cliente) => {
+    // Um cliente pode ter mais de um modelo salvo (nomes diferentes), daí a
+    // busca abaixo retornar uma lista em vez de um só.
+    const findModelosForCliente = (cliente) => {
         const key = String(cliente || '').trim().toLowerCase();
-        if (!key) return null;
-        return modelos.find((mo) => String(mo.cliente || '').trim().toLowerCase() === key) || null;
+        if (!key) return [];
+        return modelos.filter((mo) => String(mo.cliente || '').trim().toLowerCase() === key);
     };
 
-    document.getElementById('mnt-load-modelo').addEventListener('click', () => {
-        const clienteVal = document.getElementById('mnt-cliente').value.trim();
-        if (!clienteVal) { showToast('Informe o cliente primeiro.', true); return; }
-        const modelo = findModeloForCliente(clienteVal);
-        if (!modelo) { showToast(`Nenhum modelo salvo para "${clienteVal}" ainda.`, true); return; }
+    const applyModeloToForm = (modelo) => {
         const itensModelo = safeParseJson(modelo.itensTabela, []);
         if (!itensModelo.length) { showToast('O modelo salvo está vazio.', true); return; }
         const hasContent = collectItens(itensContainer).length > 0;
         if (hasContent && !confirm('Isso substitui as linhas já preenchidas na Tabela de Aferição. Continuar?')) return;
         itensContainer.innerHTML = itensModelo.map((i) => itemRowHtml({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao })).join('');
         bindItemRowRemove(itensContainer);
-        showToast('Modelo carregado.');
+        currentModeloNome = modelo.nome || null;
+        showToast(`Modelo "${modelo.nome || modelo.cliente}" carregado.`);
+    };
+
+    document.getElementById('mnt-load-modelo').addEventListener('click', async () => {
+        const clienteVal = document.getElementById('mnt-cliente').value.trim();
+        if (!clienteVal) { showToast('Informe o cliente primeiro.', true); return; }
+        const matches = findModelosForCliente(clienteVal);
+        if (!matches.length) { showToast(`Nenhum modelo salvo para "${clienteVal}" ainda.`, true); return; }
+        if (matches.length === 1) { applyModeloToForm(matches[0]); return; }
+        const chosen = await pickModeloFromMatches(matches);
+        if (chosen) applyModeloToForm(chosen);
     });
 
     document.getElementById('mnt-save-modelo').addEventListener('click', async (event) => {
@@ -758,14 +866,17 @@ export async function renderManutencaoFormPage(record, options) {
         if (!clienteVal) { showToast('Informe o cliente primeiro.', true); return; }
         const itensParaModelo = collectItens(itensContainer).map((i) => ({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao }));
         if (!itensParaModelo.length) { showToast('Preencha ao menos uma linha da tabela antes de salvar como modelo.', true); return; }
+        const nome = await promptModeloNome(currentModeloNome || clienteVal);
+        if (nome === null) return;
         const btn = event.currentTarget;
         setSaving(true, btn, 'Salvando...');
-        const result = await callAPI('saveManutencaoModelo', { cliente: clienteVal, itensTabela: JSON.stringify(itensParaModelo), user: state.currentUser });
+        const result = await callAPI('saveManutencaoModelo', { cliente: clienteVal, nome, itensTabela: JSON.stringify(itensParaModelo), user: state.currentUser });
         setSaving(false, btn);
         if (result.status === 'success') {
-            const idx = modelos.findIndex((mo) => String(mo.cliente || '').trim().toLowerCase() === clienteVal.toLowerCase());
+            const idx = modelos.findIndex((mo) => mo.id === result.modelo.id);
             if (idx >= 0) modelos[idx] = result.modelo; else modelos.push(result.modelo);
-            showToast(`Modelo salvo para "${clienteVal}".`);
+            currentModeloNome = result.modelo.nome || nome;
+            showToast(`Modelo "${result.modelo.nome || nome}" salvo.`);
         } else {
             showToast(result.message || 'Não foi possível salvar o modelo.', true);
         }

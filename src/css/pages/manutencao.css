@@ -40,6 +40,18 @@
     flex-shrink: 0;
 }
 
+.mnt-modelo-list-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.mnt-modelo-list-actions .mnt-modelo-delete-btn {
+    padding: 0.4rem 0.55rem;
+    line-height: 1;
+}
+
 /* Áreas nomeadas (não auto-fit) — cada campo fica sempre na mesma célula
    lógica, independente de quantas colunas cabem na largura disponível.
    Com auto-fit puro, o número de colunas mudava conforme a tela e os
