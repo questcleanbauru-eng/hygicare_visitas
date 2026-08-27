@@ -401,22 +401,17 @@
         border-radius: 0;
     }
     .mnt-afericao-table tbody td:first-child, .mnt-afericao-table tbody td:last-child { border-radius: 0; }
-    /* Um relatório curto (1 item, sem observação) só ocupava o topo da
-       folha, deixando o resto em branco solto — min-height = altura útil
-       da A4 (mesma conta de MNT_PAGE_HEIGHT_MM/MNT_PAGE_MARGIN_MM em
-       manutencao.js) + corpo como flex:1 gruda o rodapé na base da página
-       em vez de flutuar logo depois das assinaturas. Não afeta um
-       relatório longo: aí o conteúdo já passa da altura mínima sozinho, e
-       o auto-ajuste (mnt-compact-*) continua cuidando desse caso à parte. */
+    /* A tentativa de grudar o rodapé na base da página (min-height + flex +
+       overflow:visible) parece ter reintroduzido bem a "faixa fina e sólida
+       numa borda da página" que o comentário acima já descrevia — reverte
+       pra combinação testada (overflow:hidden, herdado da regra normal do
+       card, + border-radius:0 acima). Relatório curto volta a deixar
+       espaço em branco embaixo do rodapé em vez de esticar até a base —
+       pior estética, mas sem esse artefato. */
     .mnt-report {
         border: none;
         box-shadow: none;
-        overflow: visible;
-        min-height: calc(297mm - 24mm);
-        display: flex;
-        flex-direction: column;
     }
-    .mnt-report-body { flex: 1; }
     /* Nº e rodapé usam um cinza quase-branco só pra dar uma leve separação
        na tela (mnt-report-docnum/-footer, ver acima) — na folha impressa
        isso lia como uma "moldura" cinza ao redor do documento. Fundo
