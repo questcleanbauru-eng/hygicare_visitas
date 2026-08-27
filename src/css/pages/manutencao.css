@@ -281,6 +281,35 @@
 .mnt-afericao-table tbody td:first-child { border-radius: 8px 0 0 8px; }
 .mnt-afericao-table tbody td:last-child { border-radius: 0 8px 8px 0; }
 
+/* Numa tela de celular as 4 colunas com nowrap ficavam mais largas que a
+   tela — o wrapper "overflow-x:auto" (ver renderManutencaoDetailPage)
+   deixava rolar, mas sem nenhuma pista visual disso, então a última
+   coluna ("Aferido") parecia só cortada no meio da palavra. Deixa quebrar
+   linha em vez de rolar — mesma solução que a impressão já usa pra esse
+   problema (ver @media print abaixo). */
+@media (max-width: 639px) {
+    /* table-layout:auto (o padrão) ignora width:100% sempre que acha que o
+       conteúdo "precisa" de mais espaço — só quebra linha como último
+       recurso, e nesse meio-tempo empurra a tabela pra além do wrapper
+       (por isso o white-space:normal sozinho, acima, não bastava). Fixed
+       força cada coluna a respeitar a largura disponível de verdade. */
+    .mnt-afericao-table { table-layout: fixed; }
+    .mnt-afericao-table thead th, .mnt-afericao-table tbody td {
+        white-space: normal;
+        overflow-wrap: break-word;
+        padding: 6px 8px;
+    }
+    /* Colunas desiguais: Equipamento/Produto tendem a ter texto bem mais
+       longo que Diluição/Aferido — sem isso, 4 colunas iguais deixavam
+       pouco espaço até pra "EQUIPAMENTO"/"AFERIDO" (rótulos curtos), que
+       quebravam no meio da palavra. */
+    .mnt-afericao-table thead th:nth-child(1), .mnt-afericao-table tbody td:nth-child(1),
+    .mnt-afericao-table thead th:nth-child(2), .mnt-afericao-table tbody td:nth-child(2) { width: 27%; }
+    .mnt-afericao-table thead th:nth-child(3), .mnt-afericao-table tbody td:nth-child(3) { width: 22%; }
+    .mnt-afericao-table thead th:nth-child(4), .mnt-afericao-table tbody td:nth-child(4) { width: 24%; }
+    .mnt-afericao-table thead th { letter-spacing: 0; font-size: 9.5px; }
+}
+
 .mnt-afericao-empty {
     text-align: center;
     color: var(--text-muted);
