@@ -325,6 +325,50 @@ export function updateHeaderUI(user) {
 }
 
 
+// Esconde a barra inferior ao rolar pra baixo (mais espaço pra ler
+// lista/detalhe), mostra de novo ao rolar pra cima ou parar. Chamado uma
+// vez só no boot (main-content e bottom-nav são elementos persistentes,
+// só o conteúdo/innerHTML troca a cada navegação — não precisa reatar isso
+// a cada página). Só ativa no mobile: no desktop a barra vira sidebar
+// (position:static, ver dashboard.css), onde "esconder" não faz sentido —
+// tanto essa checagem quanto um `transform: none !important` lá garantem
+// que a sidebar nunca suma por engano.
+export function initBottomNavAutoHide() {
+    const main = document.getElementById('main-content');
+    const nav = document.getElementById('bottom-nav');
+    if (!main || !nav) return;
+
+    let lastScrollTop = main.scrollTop;
+    let stopTimer = null;
+    const isMobile = () => window.innerWidth < 1024;
+
+    main.addEventListener('scroll', () => {
+        if (!isMobile()) return;
+        const current = main.scrollTop;
+        const delta = current - lastScrollTop;
+
+        if (current <= 40) {
+            nav.classList.remove('nav-hidden');
+        } else if (delta > 6) {
+            nav.classList.add('nav-hidden');
+            lastScrollTop = current;
+        } else if (delta < -6) {
+            nav.classList.remove('nav-hidden');
+            lastScrollTop = current;
+        }
+
+        // Parou de rolar (sem novo evento por um instante) → mostra de novo,
+        // pra nunca deixar o usuário "preso" sem acesso à navegação.
+        clearTimeout(stopTimer);
+        stopTimer = setTimeout(() => nav.classList.remove('nav-hidden'), 800);
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+        if (!isMobile()) nav.classList.remove('nav-hidden');
+    });
+}
+
+
 export function initSidebarToggle() {
     const btn = document.getElementById('sidebar-toggle');
     if (!btn || btn.dataset.toggleBound) { return; }

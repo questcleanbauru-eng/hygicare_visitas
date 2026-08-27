@@ -216,7 +216,17 @@ input, textarea, select,
     z-index: var(--z-header);
     flex-shrink: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    transition: transform 0.25s ease;
 }
+
+/* Some ao rolar pra baixo (mais espaço pra ler a lista/detalhe), volta ao
+   rolar pra cima ou parar de rolar — ver initBottomNavAutoHide em ui.js.
+   Só no mobile: a media query de desktop abaixo (dashboard.css) troca
+   #bottom-nav pra position:static (vira sidebar), e nesse contexto
+   translateY empurraria o conteúdo pra debaixo dela em vez de esconder —
+   por isso essa regra é anulada explicitamente lá, além do próprio JS já
+   não adicionar a classe fora do mobile. */
+#bottom-nav.nav-hidden { transform: translateY(100%); }
 
 /* ── Menu extra (mobile) — itens que não cabem na barra de baixo, ex:
    Contratos e Relatório. Aberto pelo botão ☰ do cabeçalho. ── */

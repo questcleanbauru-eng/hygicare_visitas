@@ -279,8 +279,15 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
 
 export function renderDetailRow(label, value) {
     const icon = getFieldIcon(label);
+    // Texto curto (data, nome, "-") fica lado a lado com o rótulo, alinhado
+    // à direita — bom pra escanear uma lista de campo:valor. Um texto longo
+    // (observação, comentário) nesse mesmo layout fica com a "bandeira" do
+    // parágrafo do lado errado (alinhado à direita) e espremido na metade
+    // da largura da tela — em vez disso empilha o rótulo em cima e usa a
+    // largura inteira, alinhado à esquerda como texto normal.
+    const isLong = String(value || '').length > 40;
     return `
-        <div class="detail-row">
+        <div class="detail-row${isLong ? ' detail-row-block' : ''}">
             <span class="detail-label">${icon ? `<span class="detail-label-icon" aria-hidden="true">${icon}</span>` : ''}${escapeHtml(label)}</span>
             <strong class="detail-value">${escapeHtml(value || '-')}</strong>
         </div>

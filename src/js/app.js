@@ -2,7 +2,7 @@ import { API_URL, loadStoredUser, getDashboardData, initOfflineQueueSync, callAP
 import { escapeHtml } from './utils/format.js';
 import {
     registerServiceWorker, initOfflineBanner, initSessionExpiry, initNavHoverPrefetch,
-    renderNavigation, updateHeaderUI, initSidebarToggle, initSidebarTooltip
+    renderNavigation, updateHeaderUI, initSidebarToggle, initSidebarTooltip, initBottomNavAutoHide
 } from './utils/ui.js';
 import { renderLoginPage, renderForgotPasswordPage } from './pages/auth.js';
 import { renderDashboard, fillDashboard } from './pages/dashboard.js';
@@ -72,6 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initBackButton();
     initTabVisibilitySync();
     initSessionExpiry();
+    initBottomNavAutoHide();
     initNavHoverPrefetch();
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('.breadcrumb-link[data-page]');

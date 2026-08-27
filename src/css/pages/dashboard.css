@@ -367,6 +367,11 @@
         transition: width 0.22s cubic-bezier(0.4,0,0.2,1);
         overflow-y: auto;
         overflow-x: hidden;
+        /* O auto-hide ao rolar (base.css, .nav-hidden) é só pra barra fixa
+           do mobile — aqui ela é um item estático do grid (sidebar), então
+           translateY só a deslocaria por cima do conteúdo em vez de
+           escondê-la de verdade. */
+        transform: none !important;
     }
 
     /* Collapsed state: icons centered with tooltip */

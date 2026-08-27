@@ -993,6 +993,20 @@ textarea { resize: vertical; }
 
 .detail-row:last-child { border-bottom: none; }
 
+/* Campo de texto longo (Observação, Comentários...) — ver renderDetailRow */
+.detail-row-block {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+}
+
+.detail-row-block .detail-value {
+    text-align: left;
+    width: 100%;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
 .detail-label {
     font-size: 0.74rem;
     font-weight: 600;
