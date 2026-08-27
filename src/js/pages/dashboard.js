@@ -146,22 +146,17 @@ export function fillDashboard(mainContent, data, user) {
 
         ${(data.teamRanking && data.teamRanking.length > 0) ? `
         <p class="dash-section-heading" style="margin-top:1.5rem">Ranking do mês — Meta de visitas</p>
-        <div class="card" style="padding:0">
-            <div class="admin-user-table-wrap">
-                <table class="admin-user-table">
-                    <thead><tr><th>#</th><th>Vendedor</th><th>Meta</th><th>Realizado</th><th>Projeção</th><th>%</th></tr></thead>
-                    <tbody>
-                        ${data.teamRanking.map((r, i) => `<tr>
-                            <td data-label="#">${i + 1}º</td>
-                            <td data-label="Vendedor">${escapeHtml(r.vendedor)}</td>
-                            <td data-label="Meta">${r.meta > 0 ? r.meta : '-'}</td>
-                            <td data-label="Realizado">${r.realizado}</td>
-                            <td data-label="Projeção">${r.projecao}</td>
-                            <td data-label="%">${r.percentual !== null ? `<span class="metric-badge-urgent" style="background:${r.percentual >= 100 ? '#dcfce7' : r.percentual >= 60 ? '#fef3c7' : '#fee2e2'};color:${r.percentual >= 100 ? '#15803d' : r.percentual >= 60 ? '#b45309' : '#b91c1c'}">${r.percentual}%</span>` : '-'}</td>
-                        </tr>`).join('')}
-                    </tbody>
-                </table>
-            </div>
+        <div class="dash-team-table">
+            ${data.teamRanking.map((r, i) => `
+                <div class="dash-ranking-row" title="Projeção do mês: ${r.projecao} visitas">
+                    <span class="dash-ranking-rank${i < 3 ? ' dash-ranking-rank-' + (i + 1) : ''}">${i + 1}º</span>
+                    <span class="dash-team-name">${escapeHtml(r.vendedor)}</span>
+                    <span class="dash-ranking-figures">${r.realizado}${r.meta > 0 ? ` <span class="dash-ranking-meta">/ ${r.meta}</span>` : ''}</span>
+                    ${r.percentual !== null
+                        ? `<span class="dash-ranking-pct ${r.percentual >= 100 ? 'is-ok' : r.percentual >= 60 ? 'is-warn' : 'is-low'}">${r.percentual}%</span>`
+                        : '<span class="dash-ranking-pct is-neutral">sem meta</span>'}
+                </div>
+            `).join('')}
         </div>` : ''}
 
         <!-- Painéis de atividade recente -->

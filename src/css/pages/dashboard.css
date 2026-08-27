@@ -255,6 +255,53 @@
 
 .dash-team-count { font-size: 0.8rem; font-weight: 700; color: var(--primary); min-width: 20px; text-align: right; }
 
+/* ── Ranking mensal (Meta/Realizado/%) ────────────────────── */
+
+.dash-ranking-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.dash-ranking-rank {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    min-width: 1.6rem;
+    text-align: center;
+}
+
+.dash-ranking-rank-1 { color: #b45309; }
+.dash-ranking-rank-2 { color: #64748b; }
+.dash-ranking-rank-3 { color: #92400e; }
+
+.dash-ranking-figures {
+    margin-left: auto;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.dash-ranking-meta { font-weight: 500; color: var(--text-muted); }
+
+.dash-ranking-pct {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 3.2rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.dash-ranking-pct.is-ok      { background: #dcfce7; color: #15803d; }
+.dash-ranking-pct.is-warn    { background: #fef3c7; color: #b45309; }
+.dash-ranking-pct.is-low     { background: #fee2e2; color: #b91c1c; }
+.dash-ranking-pct.is-neutral { background: var(--bg); color: var(--text-muted); font-weight: 600; }
+
 @media (min-width: 900px)  { .dash-panels-grid { grid-template-columns: 1fr 1fr; } }
 
 @media (min-width: 1280px) { .dash-panels-grid { grid-template-columns: repeat(3, 1fr); } }
