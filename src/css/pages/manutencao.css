@@ -10,6 +10,36 @@
     line-height: 1.25;
 }
 
+/* Lista do modal "Modelos salvos" (ver openModelosSalvosModal em
+   manutencao.js) — uma linha por cliente com modelo cadastrado. */
+.mnt-modelo-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.mnt-modelo-list-row:last-child {
+    border-bottom: none;
+}
+
+.mnt-modelo-list-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.mnt-modelo-list-info strong {
+    overflow-wrap: break-word;
+}
+
+.mnt-modelo-use-btn {
+    flex-shrink: 0;
+}
+
 /* Áreas nomeadas (não auto-fit) — cada campo fica sempre na mesma célula
    lógica, independente de quantas colunas cabem na largura disponível.
    Com auto-fit puro, o número de colunas mudava conforme a tela e os

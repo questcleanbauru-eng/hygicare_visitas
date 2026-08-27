@@ -168,6 +168,7 @@ export function renderNavigation() {
     if (isDesktop) {
         const expanded = localStorage.getItem('sidebar_expanded') === '1';
         if (expanded) { bottomNav.classList.add('sidebar-expanded'); }
+        applySidebarWidthVar(expanded);
     }
 
     // Menu do mobile — itens que não cabem na barra de baixo (Contratos,
@@ -369,6 +370,21 @@ export function initBottomNavAutoHide() {
 }
 
 
+// #app usa CSS Grid pra reservar a coluna da sidebar no desktop
+// (grid-template-columns: var(--sidebar-w) 1fr, ver dashboard.css) — mas
+// --sidebar-w só era definida uma vez em :root (base.css), sempre com o
+// valor colapsado (64px), e nunca atualizada quando a sidebar expande pra
+// 220px (#bottom-nav.sidebar-expanded). Resultado: a barra crescia
+// visualmente mas a coluna do grid não acompanhava, e a sobra (220-64=156px)
+// ficava sobrepondo o início do #main-content (rótulos/campos cobertos) em
+// qualquer página que não fosse o Dashboard — só lá "funcionava por acaso"
+// porque nada mais tocava nessa variável mesmo. Atualiza a custom property
+// no :root nos dois pontos onde o estado expandido é decidido (restauração
+// do localStorage no carregamento, e o clique do próprio toggle).
+function applySidebarWidthVar(expanded) {
+    document.documentElement.style.setProperty('--sidebar-w', expanded ? 'var(--sidebar-expanded)' : 'var(--sidebar-collapsed)');
+}
+
 export function initSidebarToggle() {
     const btn = document.getElementById('sidebar-toggle');
     if (!btn || btn.dataset.toggleBound) { return; }
@@ -389,6 +405,7 @@ export function initSidebarToggle() {
         if (!nav) { return; }
         const expanded = nav.classList.toggle('sidebar-expanded');
         localStorage.setItem('sidebar_expanded', expanded ? '1' : '0');
+        applySidebarWidthVar(expanded);
     });
 
     document.getElementById('mobile-extra-overlay')?.addEventListener('click', closeMobileExtraMenu);

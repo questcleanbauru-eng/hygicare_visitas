@@ -279,7 +279,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
             await (await import('./pages/manutencao.js')).renderManutencaoDetailPage(options.id);
             break;
         case 'manutencao-new':
-            await (await import('./pages/manutencao.js')).renderManutencaoCreatePage();
+            await (await import('./pages/manutencao.js')).renderManutencaoCreatePage(options);
             break;
         case 'manutencao-edit':
             await (await import('./pages/manutencao.js')).renderManutencaoFormPage(options.manutencao || state.currentManutencao);

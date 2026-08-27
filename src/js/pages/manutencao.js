@@ -83,7 +83,10 @@ export function fillManutencaoContent(mainContent, manutencoes) {
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Manutenção</h2></div>
-                <button type="button" class="btn-add" id="btn-new-manutencao">+ Novo Relatório</button>
+                <div class="header-actions-group">
+                    <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
+                    <button type="button" class="btn-add" id="btn-new-manutencao">+ Novo Relatório</button>
+                </div>
             </div>
             <div class="empty-state">
                 <span class="empty-state-icon">🔧</span>
@@ -93,6 +96,7 @@ export function fillManutencaoContent(mainContent, manutencoes) {
         `;
         document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
         document.getElementById('btn-new-manutencao2')?.addEventListener('click', () => navigateTo('manutencao-new'));
+        document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
         return;
     }
 
@@ -104,7 +108,10 @@ export function fillManutencaoContent(mainContent, manutencoes) {
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
-            <button type="button" class="btn-add" id="btn-new-manutencao">+ Novo Relatório</button>
+            <div class="header-actions-group">
+                <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
+                <button type="button" class="btn-add" id="btn-new-manutencao">+ Novo Relatório</button>
+            </div>
         </div>
         <div class="search-bar-wrapper">
             <div class="search-bar-input-group">
@@ -214,7 +221,79 @@ export function fillManutencaoContent(mainContent, manutencoes) {
     });
 
     document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
+    document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
     renderFiltered();
+}
+
+// Lista os clientes que já têm um modelo de tabela de aferição salvo (ver
+// comentário acima de MODELOS_SHEET_NAME no backend — hoje é 1 modelo por
+// cliente, salvar de novo sobrescreve o anterior). Antes disso não existia
+// nenhum jeito de ver essa lista: só dava pra descobrir se um cliente tinha
+// modelo abrindo o formulário dele e clicando em "Carregar modelo".
+async function openModelosSalvosModal() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card" style="text-align:left;max-width:420px">
+            <h3 style="margin-top:0">📋 Modelos salvos</h3>
+            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Tabela de aferição já cadastrada por cliente — carregue com um clique num novo relatório.</p>
+            <input type="text" id="mnt-modelos-search" class="form-input" placeholder="Buscar cliente..." style="margin-bottom:0.75rem">
+            <div id="mnt-modelos-list" style="max-height:50vh;overflow-y:auto">
+                <p class="helper-text">Carregando...</p>
+            </div>
+            <div class="form-actions full-width" style="margin-top:1rem">
+                <button type="button" class="secondary-button" id="mnt-modelos-close">Fechar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#mnt-modelos-close').addEventListener('click', close);
+
+    const listEl = overlay.querySelector('#mnt-modelos-list');
+    let modelos = [];
+    try {
+        const result = await callAPI('getManutencaoModelos', { user: state.currentUser });
+        modelos = (result.status === 'success' ? result.modelos : []) || [];
+    } catch (error) {
+        listEl.innerHTML = `<p class="helper-text">Não foi possível carregar os modelos agora.</p>`;
+        return;
+    }
+    modelos.sort((a, b) => String(a.cliente || '').localeCompare(String(b.cliente || ''), 'pt-BR'));
+
+    const renderList = (filterText) => {
+        const filtered = filterText
+            ? modelos.filter((mo) => String(mo.cliente || '').toLowerCase().includes(filterText.toLowerCase()))
+            : modelos;
+        if (filtered.length === 0) {
+            listEl.innerHTML = `<p class="helper-text">${modelos.length === 0 ? 'Nenhum modelo salvo ainda. Salve um na tela de um relatório novo/edição.' : 'Nenhum cliente encontrado.'}</p>`;
+            return;
+        }
+        listEl.innerHTML = filtered.map((mo, idx) => {
+            const itens = safeParseJson(mo.itensTabela, []);
+            const originalIdx = modelos.indexOf(mo);
+            return `
+                <div class="mnt-modelo-list-row" data-idx="${originalIdx}">
+                    <div class="mnt-modelo-list-info">
+                        <strong>${escapeHtml(mo.cliente || '-')}</strong>
+                        <span class="helper-text">${itens.length} item(ns)${mo.atualizadoPor ? ` · atualizado por ${escapeHtml(mo.atualizadoPor)}` : ''}${mo.atualizadoEm ? ` em ${escapeHtml(mo.atualizadoEm)}` : ''}</span>
+                    </div>
+                    <button type="button" class="mini-button mnt-modelo-use-btn" data-idx="${originalIdx}">Usar</button>
+                </div>
+            `;
+        }).join('');
+        listEl.querySelectorAll('.mnt-modelo-use-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const mo = modelos[Number(btn.dataset.idx)];
+                if (!mo) return;
+                close();
+                navigateTo('manutencao-new', { prefillCliente: mo.cliente, prefillItens: mo.itensTabela });
+            });
+        });
+    };
+    renderList('');
+    overlay.querySelector('#mnt-modelos-search').addEventListener('input', (e) => renderList(e.target.value));
 }
 
 export async function renderManutencaoPage() {
@@ -521,12 +600,19 @@ function signaturePadToDataUrl(canvas) {
     return canvas.dataset.signed ? canvas.toDataURL('image/png') : '';
 }
 
-export async function renderManutencaoFormPage(record) {
+export async function renderManutencaoFormPage(record, options) {
     ensureManutencaoStyles();
     const mainContent = document.getElementById('main-content');
     const isEdit = Boolean(record && (record.Id || record.id));
     const m = isEdit ? normalizeManutencao(record) : normalizeManutencao({});
     const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+
+    // Vindo de "Usar" no modal de modelos salvos (ver openModelosSalvosModal)
+    // — pré-preenche cliente e a tabela de aferição só na criação, nunca
+    // sobrescrevendo uma edição em andamento.
+    if (!isEdit && options && options.prefillCliente) {
+        m.cliente = options.prefillCliente;
+    }
 
     if (!state.formData) {
         mainContent.innerHTML = `
@@ -552,7 +638,9 @@ export async function renderManutencaoFormPage(record) {
     const clientes = (fdResult.data && fdResult.data.clientes) || [];
     const modelos = (modelosResult.status === 'success' ? modelosResult.modelos : []) || [];
 
-    const itensIniciais = isEdit ? safeParseJson(m.itensTabela, []) : [];
+    const itensIniciais = isEdit
+        ? safeParseJson(m.itensTabela, [])
+        : (options && options.prefillItens ? safeParseJson(options.prefillItens, []) : []);
 
     mainContent.innerHTML = `
         <div class="page-header compact-header">
@@ -746,8 +834,8 @@ export async function renderManutencaoFormPage(record) {
     });
 }
 
-export async function renderManutencaoCreatePage() {
-    await renderManutencaoFormPage(null);
+export async function renderManutencaoCreatePage(options) {
+    await renderManutencaoFormPage(null, options);
 }
 
 export async function getManutencoes() {
