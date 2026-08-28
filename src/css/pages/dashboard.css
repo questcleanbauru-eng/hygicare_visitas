@@ -173,6 +173,55 @@
     border: 1px solid var(--warning-border);
 }
 
+/* Cabeçalho vira o botão de recolher/expandir. O card nasce com
+   .dash-cp-collapsed (ver dashboard.js) — só o cabeçalho + o contador
+   aparecem; a lista abre no clique. */
+.dash-cp-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0;
+    background: none;
+    border: none;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.dash-cp-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.dash-cp-count {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.3rem;
+    height: 1.3rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: var(--warning);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.dash-cp-chevron {
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    transition: transform 0.18s;
+}
+
+.dash-cp-collapsed .dash-cp-chevron { transform: rotate(-90deg); }
+.dash-cp-collapsed .recent-list { display: none; }
+.dash-cp-card:not(.dash-cp-collapsed) .dash-cp-toggle { margin-bottom: 0.6rem; }
+
 .dash-cp-report-btn {
     flex-shrink: 0;
 }
@@ -528,12 +577,14 @@
         gap: 0;
     }
 
-    /* Main content */
+    /* Main content — largura de leitura limitada e centralizada na coluna,
+       pra não esticar filtros/cards de ponta a ponta num monitor largo. */
     main {
         grid-column: 2;
         grid-row: 2;
-        max-width: none;
-        margin: 0;
+        width: 100%;
+        max-width: 1160px;
+        margin: 0 auto;
         padding: 1.75rem 2.5rem;
     }
 
@@ -562,7 +613,7 @@
 /* ── Responsive: wide desktop (≥ 1280px) ── */
 
 @media (min-width: 1280px) {
-    main { padding: 2rem 3rem; }
+    main { padding: 2rem 3rem; max-width: 1260px; }
     .dash-panels-grid { grid-template-columns: repeat(3, 1fr); }
     .visits-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

@@ -76,11 +76,13 @@ export function fillDashboard(mainContent, data, user) {
         </div>` : ''}
 
         ${(data.clientesPrincipaisPendentes && data.clientesPrincipaisPendentes.length > 0) ? `
-        <div class="dash-today-card dash-cp-card" style="margin-top:0.6rem">
-            <div class="section-title-row">
-                <h3 style="font-size:0.88rem;font-weight:700;margin:0">⭐ Clientes principais sem relatório este mês</h3>
-            </div>
-            <div class="recent-list">
+        <div class="dash-today-card dash-cp-card dash-cp-collapsed" id="dash-cp-card" style="margin-top:0.6rem">
+            <button type="button" class="dash-cp-toggle" id="dash-cp-toggle" aria-expanded="false" aria-controls="dash-cp-body">
+                <span class="dash-cp-title">⭐ Clientes principais sem relatório este mês</span>
+                <span class="dash-cp-count" aria-label="${data.clientesPrincipaisPendentes.length} pendente(s)">${data.clientesPrincipaisPendentes.length}</span>
+                <span class="dash-cp-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="recent-list" id="dash-cp-body">
                 ${data.clientesPrincipaisPendentes.map((c) => `
                     <div class="recent-item recent-item-proposal">
                         <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
@@ -238,6 +240,14 @@ export function fillDashboard(mainContent, data, user) {
     document.getElementById('radar-carteira-card')?.addEventListener('click', () => navigateTo('radar', { tab: 'meus-clientes' }));
     mainContent.querySelectorAll('.dash-cp-report-btn').forEach((btn) => {
         btn.addEventListener('click', () => navigateTo('manutencao-new', { prefillCliente: btn.dataset.cliente }));
+    });
+    // Card "Clientes principais" nasce recolhido — o número no cabeçalho é o
+    // ponto de atenção; o usuário abre quando quiser ver a lista.
+    document.getElementById('dash-cp-toggle')?.addEventListener('click', () => {
+        const card = document.getElementById('dash-cp-card');
+        if (!card) return;
+        const collapsed = card.classList.toggle('dash-cp-collapsed');
+        document.getElementById('dash-cp-toggle').setAttribute('aria-expanded', String(!collapsed));
     });
 
     // Refresh header notification dot after data loads
