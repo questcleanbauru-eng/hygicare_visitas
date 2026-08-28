@@ -734,6 +734,7 @@ export async function renderFunilCreatePage() {
     const cidades = (fdResult.data && fdResult.data.cidades) || [];
     const potenciais = (fdResult.data && fdResult.data.potenciaisCliente) || [];
     const areas = (fdResult.data && fdResult.data.areasAtuacao) || [];
+    const clientes = (fdResult.data && fdResult.data.clientes) || [];
     const aplicacoes = (fdResult.data && fdResult.data.aplicacoes) || [];
     const equipamentosList = (fdResult.data && fdResult.data.equipamentos) || [];
 
@@ -746,7 +747,10 @@ export async function renderFunilCreatePage() {
         <form id="funil-create-form" class="card form-card form-layout">
             <div class="form-group full-width">
                 <label for="fc-cliente">Cliente *</label>
-                <input type="text" id="fc-cliente" placeholder="Nome do cliente" required>
+                <div class="searchable-select">
+                    <input type="text" id="fc-cliente" placeholder="Busque ou digite o cliente" autocomplete="off" required>
+                    <div class="searchable-select-menu" id="fc-cliente-menu"></div>
+                </div>
             </div>
             <div class="form-group">
                 <label for="fc-cidade">Cidade</label>
@@ -836,6 +840,22 @@ export async function renderFunilCreatePage() {
         input: document.getElementById('fc-equipamentos'),
         menu: document.getElementById('fc-equipamentos-menu'),
         items: equipamentosList
+    });
+    // Escolher um cliente já cadastrado preenche cidade, foco e área de
+    // atuação sozinho — allowFreeText porque o funil também nasce de
+    // prospecção que ainda não tem cadastro.
+    initializeSearchableInput({
+        input: document.getElementById('fc-cliente'),
+        menu: document.getElementById('fc-cliente-menu'),
+        items: clientes.map((c) => c.nome).filter(Boolean),
+        allowFreeText: true,
+        onSelect: (value) => {
+            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+            if (!match) return;
+            if (match.cidade) document.getElementById('fc-cidade').value = match.cidade;
+            if (match.potencialCliente) document.getElementById('fc-foco').value = match.potencialCliente;
+            if (match.areaAtuacao) document.getElementById('fc-atuacao').value = match.areaAtuacao;
+        }
     });
 
     document.getElementById('back-funil-create').addEventListener('click', () => navigateTo('funil'));

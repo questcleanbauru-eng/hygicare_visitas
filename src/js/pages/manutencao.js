@@ -473,6 +473,7 @@ export async function renderManutencaoDetailPage(id) {
             <div class="header-actions-group">
                 ${m.cliente ? `<button type="button" class="mini-button" id="manutencao-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
                 <button type="button" class="mini-button" id="edit-manutencao">Editar</button>
+                <button type="button" class="mini-button" id="duplicate-manutencao" title="Novo relatório com os mesmos dados">Duplicar</button>
                 <button type="button" class="mini-button" id="print-manutencao" aria-label="Imprimir ou salvar em PDF" title="Imprimir ou salvar em PDF">📄 PDF</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-manutencao-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -544,6 +545,17 @@ export async function renderManutencaoDetailPage(id) {
     document.getElementById('back-manutencao').addEventListener('click', () => navigateTo('manutencao'));
     document.getElementById('manutencao-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: m.cliente }));
     document.getElementById('edit-manutencao').addEventListener('click', () => navigateTo('manutencao-edit', { manutencao: m }));
+    // "Duplicar": novo relatório já com cliente, cidade e a tabela de
+    // aferição (Equipamento/Produto/Diluição) deste; o "Aferido" de cada
+    // linha nasce em branco porque é resultado de cada visita.
+    document.getElementById('duplicate-manutencao')?.addEventListener('click', () => {
+        const itensBase = itens.map((i) => ({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao }));
+        navigateTo('manutencao-new', {
+            prefillCliente: m.cliente,
+            prefillCidade: m.cidade,
+            prefillItens: JSON.stringify(itensBase)
+        });
+    });
     document.getElementById('print-manutencao').addEventListener('click', () => {
         // O nome sugerido no diálogo "Salvar como PDF" vem do <title> da
         // página no momento do print — troca só pra essa hora e volta
@@ -710,6 +722,7 @@ export async function renderManutencaoFormPage(record, options) {
     let currentModeloNome = null;
     if (!isEdit && options && options.prefillCliente) {
         m.cliente = options.prefillCliente;
+        if (options.prefillCidade) m.cidade = options.prefillCidade;
         currentModeloNome = options.prefillModeloNome || null;
     }
 
@@ -814,7 +827,12 @@ export async function renderManutencaoFormPage(record, options) {
         input: document.getElementById('mnt-cliente'),
         menu: document.getElementById('mnt-cliente-menu'),
         items: clientes.map((c) => c.nome),
-        allowFreeText: true
+        allowFreeText: true,
+        // Escolher um cliente já cadastrado preenche a cidade sozinho.
+        onSelect: (value) => {
+            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+            if (match && match.cidade) document.getElementById('mnt-cidade').value = match.cidade;
+        }
     });
     initializeSearchableInput({
         input: document.getElementById('mnt-cidade'),

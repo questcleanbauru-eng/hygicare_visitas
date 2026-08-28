@@ -532,7 +532,7 @@ main {
 .mini-button-danger { color: var(--danger); background-color: var(--danger-bg); border-color: var(--danger-border); }
 .mini-button-danger:hover { background-color: #fecaca; }
 
-.header-actions-group { display: flex; align-items: center; gap: 0.4rem; }
+.header-actions-group { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.4rem; }
 
 /* .primary-button não tinha estilo base nenhum — só um ajuste de largura
    dentro de .modal-card — então renderizava com a aparência padrão cinza

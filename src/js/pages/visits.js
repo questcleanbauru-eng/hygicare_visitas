@@ -888,6 +888,25 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         ? (normalizedVisit ? normalizedVisit.vendedorGerente : state.currentUser.name) || ''
         : (state.currentUser.name || '');
 
+    // "Duplicar" (e prefills do Radar/Agendamento concluído) chegam como um
+    // objeto sem ID: não é edição, mas também não pode restaurar rascunho
+    // por cima do que o usuário pediu pra repetir.
+    const hasPrefill = !isEdit && Boolean(visit);
+    const visitDraftKey = 'apv_draft_visit_' + (state.currentUser && state.currentUser.email || '');
+    const VISIT_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+    const visitDraft = (!isEdit && !hasPrefill) ? (() => {
+        try {
+            const raw = JSON.parse(localStorage.getItem(visitDraftKey) || 'null');
+            if (raw && raw.savedAt && (Date.now() - raw.savedAt) < VISIT_DRAFT_MAX_AGE_MS && raw.fields) {
+                const f = raw.fields;
+                if (f.cliente || f.observacao || f.contato || (Array.isArray(f.tiposVisita) && f.tiposVisita.length)) {
+                    return raw;
+                }
+            }
+        } catch (e) {}
+        return null;
+    })() : null;
+
     mainContent.innerHTML = `
         <div class="page-header compact-header">
             <button type="button" class="mini-button" id="back-to-visits">Voltar</button>
@@ -986,7 +1005,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             <div class="form-group">
                 <label for="tipo-visita">Tipo da Visita${isEdit ? '' : ' (ate 3)'}</label>
                 <div class="searchable-select${isEdit ? '' : ' multi-select'}">
-                    <input type="text" id="tipo-visita" value="${escapeHtml(normalizedVisit ? normalizedVisit.tipoVisita : '')}" placeholder="${isEdit ? 'Pesquise o tipo da visita' : 'Pesquise e selecione ate 3 tipos'}" ${isEdit ? 'required' : ''} autocomplete="off">
+                    <input type="text" id="tipo-visita" value="${escapeHtml(isEdit && normalizedVisit ? normalizedVisit.tipoVisita : '')}" placeholder="${isEdit ? 'Pesquise o tipo da visita' : 'Pesquise e selecione ate 3 tipos'}" ${isEdit ? 'required' : ''} autocomplete="off">
                     <div class="searchable-select-menu" id="tipo-visita-menu"></div>
                 </div>
                 ${isEdit ? '' : '<div class="selected-types" id="selected-visit-types"></div>'}
@@ -1044,7 +1063,21 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     const tipoVisitaInput = document.getElementById('tipo-visita');
     const potentialFieldGroup = document.querySelector('.potential-field-group');
     const selectedTypesContainer = document.getElementById('selected-visit-types');
-    const selectedVisitTypes = isEdit && normalizedVisit && normalizedVisit.tipoVisita ? [normalizedVisit.tipoVisita] : [];
+    // Edição usa o tipo único já gravado (o multi-select fica desligado).
+    // Na criação, pré-seleciona os tipos vindos de um "Duplicar" ou de um
+    // rascunho restaurado — descartando o que não exista mais na lista.
+    // Fica seedado ANTES do initializeSearchableInput abaixo, que já
+    // renderiza os chips a partir deste array na inicialização.
+    let selectedVisitTypes = [];
+    if (isEdit && normalizedVisit && normalizedVisit.tipoVisita) {
+        selectedVisitTypes = [normalizedVisit.tipoVisita];
+    } else {
+        const availableTipos = new Set((formData.tiposVisita || []).map((item) => item.tipo));
+        const rawTipos = (normalizedVisit && normalizedVisit.tipoVisita)
+            ? String(normalizedVisit.tipoVisita).split(',').map((t) => t.trim())
+            : (visitDraft && Array.isArray(visitDraft.fields.tiposVisita) ? visitDraft.fields.tiposVisita : []);
+        selectedVisitTypes = rawTipos.filter((t) => t && availableTipos.has(t)).slice(0, 3);
+    }
 
     initializeSearchableInput({
         input: clienteSelect,
@@ -1246,22 +1279,87 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     }
 
     if (!isEdit) {
-        const draftKey = 'apv_draft_visit_' + (state.currentUser && state.currentUser.email || '');
-        const savedDraft = (() => { try { return JSON.parse(localStorage.getItem(draftKey) || 'null'); } catch(e) { return null; } })();
-        if (savedDraft) {
-            if (savedDraft.cliente) clienteInput.value = savedDraft.cliente;
-            if (savedDraft.observacao) document.getElementById('observacao').value = savedDraft.observacao;
+        const clearVisitDraft = () => { try { localStorage.removeItem(visitDraftKey); } catch (e) {} };
+
+        // Restaura o formulário INTEIRO (não só cliente/observação como antes)
+        // quando há um rascunho recente e o usuário não pediu um prefill
+        // específico — assim um reload do PWA ou uma saída sem querer no meio
+        // do preenchimento não perde nada. Os tipos já foram restaurados no
+        // seed de selectedVisitTypes lá em cima.
+        if (visitDraft && !hasPrefill) {
+            const f = visitDraft.fields;
+            // Prospecção + cliente cadastrado primeiro, pra o syncProspectionMode/
+            // fillClientData rodar sobre a base certa; os campos específicos do
+            // rascunho são reaplicados depois, preservando ajustes manuais.
+            if (f.prospeccao) {
+                const r = document.querySelector('input[name="prospeccao"][value="' + f.prospeccao + '"]');
+                if (r) { r.checked = true; }
+            }
+            if (f.clienteExistente) { clienteSelect.value = f.clienteExistente; }
+            syncProspectionMode();
+
+            if (f.cliente) { clienteInput.value = f.cliente; }
+            if (f.contato) { contatoInput.value = f.contato; }
+            if (f.dataVisita) {
+                dataVisitaInput.value = f.dataVisita;
+                const iso = formatInputDateFromDisplay(f.dataVisita);
+                if (iso) { dataVisitaPicker.value = iso; }
+            }
+            if (f.horario) { horarioInput.value = f.horario; horarioPicker.value = f.horario; }
+            if (f.cidade) { cidadeSelect.value = f.cidade; }
+            if (f.areaAtuacao) { areaSelect.value = f.areaAtuacao; }
+            if (f.potencialCliente) { potencialSelect.value = f.potencialCliente; }
+            if (f.veiculo) {
+                const vr = document.querySelector('input[name="veiculo"][value="' + f.veiculo + '"]');
+                if (vr) { vr.checked = true; }
+            }
+            if (f.observacao) {
+                const obsEl = document.getElementById('observacao');
+                if (obsEl) { obsEl.value = f.observacao; obsEl.dispatchEvent(new Event('input', { bubbles: true })); }
+            }
+
+            const when = (() => {
+                try { return new Date(visitDraft.savedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+                catch (e) { return ''; }
+            })();
+            const banner = document.createElement('div');
+            banner.id = 'visit-draft-banner';
+            banner.style.cssText = 'display:flex;align-items:center;gap:0.6rem;background:var(--primary-light);border:1px solid var(--border-focus);border-radius:8px;padding:0.55rem 0.75rem;margin-bottom:0.75rem;font-size:0.82rem;color:var(--primary-dark)';
+            banner.innerHTML = '<span style="flex:1">📝 Rascunho' + (when ? ' de ' + when : '') + ' restaurado.</span><button type="button" class="mini-button" id="visit-draft-discard">Descartar</button>';
+            const formEl = document.getElementById('visit-form');
+            formEl.insertBefore(banner, formEl.firstChild);
+            document.getElementById('visit-draft-discard').addEventListener('click', () => {
+                clearVisitDraft();
+                state.formDirty = false;
+                navigateTo('visit-new');
+            });
         }
-        const saveDraft = debounce(function() {
+
+        const saveDraft = debounce(function () {
             try {
-                localStorage.setItem(draftKey, JSON.stringify({
-                    cliente: clienteInput.value,
-                    observacao: document.getElementById('observacao')?.value || ''
+                localStorage.setItem(visitDraftKey, JSON.stringify({
+                    savedAt: Date.now(),
+                    fields: {
+                        prospeccao: prospeccaoSelect.value,
+                        clienteExistente: clienteSelect.value,
+                        cliente: clienteInput.value,
+                        contato: contatoInput.value,
+                        dataVisita: dataVisitaInput.value,
+                        horario: horarioInput.value,
+                        cidade: cidadeSelect.value,
+                        areaAtuacao: areaSelect.value,
+                        potencialCliente: potencialSelect.value,
+                        veiculo: document.querySelector('input[name="veiculo"]:checked')?.value || '',
+                        tiposVisita: selectedVisitTypes.slice(),
+                        observacao: document.getElementById('observacao')?.value || ''
+                    }
                 }));
-            } catch(e) {}
+            } catch (e) {}
         }, 800);
-        document.getElementById('visit-form').addEventListener('input', saveDraft);
-        document.getElementById('visit-form')._draftKey = draftKey;
+        const formEl = document.getElementById('visit-form');
+        formEl.addEventListener('input', saveDraft);
+        formEl.addEventListener('change', saveDraft);
+        formEl._draftKey = visitDraftKey;
     }
 
     document.getElementById('visit-form').addEventListener('submit', async (event) => {
@@ -1479,6 +1577,7 @@ export async function renderVisitDetailPage(id) {
             <div class="header-actions-group">
                 ${visit.cliente ? `<button type="button" class="mini-button" id="visit-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
                 <button type="button" class="mini-button" id="edit-visit">Editar</button>
+                <button type="button" class="mini-button" id="duplicate-visit" title="Nova visita com os mesmos dados">Duplicar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 </button>
@@ -1516,6 +1615,22 @@ export async function renderVisitDetailPage(id) {
         state.currentVisit = visit;
         state.inPlaceEditActive = true;
         renderVisitFormPage(visit);
+    });
+
+    // "Duplicar": abre uma Nova Visita já preenchida com os dados deste
+    // cliente. Data/Horário caem no padrão "agora" e a Observação nasce em
+    // branco — o objeto vai sem ID, então não é edição.
+    document.getElementById('duplicate-visit')?.addEventListener('click', () => {
+        navigateTo('visit-new', { prefill: {
+            prospeccao: visit.prospeccao,
+            cliente: visit.cliente,
+            contato: visit.contato,
+            cidade: visit.cidade,
+            areaAtuacao: visit.areaAtuacao,
+            potencialCliente: visit.potencialCliente,
+            tipoVisita: visit.tipoVisita,
+            veiculo: visit.veiculo
+        } });
     });
 
     document.getElementById('delete-visit')?.addEventListener('click', async (event) => {

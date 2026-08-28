@@ -706,6 +706,7 @@ export async function renderProposalCreatePage() {
     const fdResult = await ensureFormData();
     const cidades = (fdResult.data && fdResult.data.cidades) || [];
     const potenciais = (fdResult.data && fdResult.data.potenciaisCliente) || [];
+    const clientes = (fdResult.data && fdResult.data.clientes) || [];
 
     const dataLimite30 = new Date();
     dataLimite30.setDate(dataLimite30.getDate() + 30);
@@ -720,7 +721,10 @@ export async function renderProposalCreatePage() {
         <form id="proposal-create-form" class="card form-card form-layout">
             <div class="form-group full-width">
                 <label for="pc-cliente">Cliente *</label>
-                <input type="text" id="pc-cliente" placeholder="Nome do cliente" required>
+                <div class="searchable-select">
+                    <input type="text" id="pc-cliente" placeholder="Busque ou digite o cliente" autocomplete="off" required>
+                    <div class="searchable-select-menu" id="pc-cliente-menu"></div>
+                </div>
             </div>
             <div class="form-group">
                 <label for="pc-cidade">Cidade</label>
@@ -770,6 +774,21 @@ export async function renderProposalCreatePage() {
         input: document.getElementById('pc-foco'),
         menu: document.getElementById('pc-foco-menu'),
         items: potenciais
+    });
+    // Escolher um cliente já cadastrado preenche cidade e potencial sozinho
+    // — allowFreeText porque a proposta também vale pra quem ainda não tem
+    // cadastro (prospecção).
+    initializeSearchableInput({
+        input: document.getElementById('pc-cliente'),
+        menu: document.getElementById('pc-cliente-menu'),
+        items: clientes.map((c) => c.nome).filter(Boolean),
+        allowFreeText: true,
+        onSelect: (value) => {
+            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+            if (!match) return;
+            if (match.cidade) document.getElementById('pc-cidade').value = match.cidade;
+            if (match.potencialCliente) document.getElementById('pc-foco').value = match.potencialCliente;
+        }
     });
 
     document.getElementById('back-proposal-create').addEventListener('click', () => navigateTo('proposals'));
