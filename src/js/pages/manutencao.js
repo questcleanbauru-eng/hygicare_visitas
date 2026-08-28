@@ -805,6 +805,14 @@ export async function renderManutencaoFormPage(record, options) {
                 <div class="signature-pad-actions"><button type="button" class="mini-button" id="mnt-signature-cliente-clear">Limpar assinatura</button></div>
             </div>
 
+            ${isEdit ? '' : `
+            <div class="form-group full-width">
+                <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                    <input type="checkbox" id="mnt-gerar-visita" style="width:auto;accent-color:var(--primary)" checked>
+                    Registrar visita também (tipo "Manutenção")
+                </label>
+            </div>`}
+
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-manutencao">Cancelar</button>
                 <button type="submit" id="save-manutencao">Salvar Relatório</button>
@@ -918,6 +926,47 @@ export async function renderManutencaoFormPage(record, options) {
         const tecnicoVal = document.getElementById('mnt-tecnico').value.trim();
         const observacaoVal = document.getElementById('mnt-observacao').value.trim();
 
+        // Gera uma Visita "Manutenção" junto do relatório (checkbox marcado
+        // por padrão, só na criação). Best-effort: se a visita falhar — ex.:
+        // cliente sem Área de Atuação no cadastro, que o backend de Visitas
+        // exige — o relatório já foi salvo e não é revertido.
+        const gerarVisitaFromManutencao = async (reportId) => {
+            if (isEdit || !document.getElementById('mnt-gerar-visita')?.checked) return;
+            const norm = (s) => String(s || '').trim().toLowerCase();
+            const match = clientes.find((c) => norm(c.nome) === norm(clienteVal));
+            const now = new Date();
+            const p2 = (n) => String(n).padStart(2, '0');
+            const visitPayload = {
+                prospeccao: 'Nao',
+                vendedorGerente: tecnicoVal || state.currentUser?.name || '',
+                gerencia: state.currentUser?.gerencia || '',
+                dataVisita: `${p2(now.getDate())}/${p2(now.getMonth() + 1)}/${now.getFullYear()}`,
+                horario: `${p2(now.getHours())}:${p2(now.getMinutes())}`,
+                cliente: clienteVal,
+                contato: (match && match.contato) || '',
+                cidade: cidadeVal || (match && match.cidade) || '',
+                areaAtuacao: (match && match.areaAtuacao) || '',
+                potencialCliente: '',
+                tipoVisita: 'Manutenção',
+                tiposVisita: ['Manutenção'],
+                veiculo: 'Particular',
+                observacao: `Visita gerada automaticamente pelo Relatório de Manutenção${reportId ? ' Nº ' + reportId : ''}.`,
+                clienteId: (match && match.id) || '',
+                user: state.currentUser
+            };
+            try {
+                const r = await attemptOrQueue('createVisit', visitPayload, { entity: 'visits', tempId: 'temp_' + Date.now() + '_mv' });
+                if (r && (r.status === 'success' || r.status === 'queued')) {
+                    saveCache('visits', null);
+                    saveCache('visits_all', null);
+                } else {
+                    showToast('Relatório salvo. A visita automática não foi registrada: ' + ((r && r.message) || 'erro desconhecido') + '.', true);
+                }
+            } catch (e) {
+                showToast('Relatório salvo, mas a visita automática não pôde ser registrada. Registre manualmente se precisar.', true);
+            }
+        };
+
         const payload = {
             cliente: clienteVal, cidade: cidadeVal, tecnico: tecnicoVal,
             observacao: observacaoVal,
@@ -948,12 +997,16 @@ export async function renderManutencaoFormPage(record, options) {
             const tempId = 'temp_' + Date.now();
             const result = await attemptOrQueue('createManutencao', payload, { entity: 'manutencao', tempId });
             if (result && result.status === 'success') {
-                showToast('Relatório criado com sucesso.');
                 saveCache('manutencoes', null);
                 state.manutencoes = [];
+                showToast('Relatório criado com sucesso.');
+                // Depois do toast de sucesso — se a visita automática falhar,
+                // o aviso dela sobrescreve e fica visível.
+                await gerarVisitaFromManutencao(result.manutencao && result.manutencao.id);
                 navigateTo('manutencao');
             } else if (result && result.status === 'queued') {
                 showToast('Sem conexão — o relatório foi salvo no aparelho e será enviado quando a conexão voltar.');
+                await gerarVisitaFromManutencao(null);
                 navigateTo('manutencao');
             } else {
                 showToast((result && result.message) || 'Erro ao criar relatório.', true);
