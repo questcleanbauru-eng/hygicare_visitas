@@ -274,7 +274,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .radar-map-zoom-btn:hover {
@@ -349,7 +348,6 @@
     font-weight: 700;
     font-size: 0.82rem;
     border: 2px solid #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 /* Filtro de status (aba Buscar) — chips em vez de <select>: é o filtro

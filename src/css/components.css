@@ -155,18 +155,15 @@ textarea { resize: vertical; }
     justify-content: center;
     font-size: 0.84rem;
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.28);
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s;
 }
 
 .btn-add:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(37,99,235,0.35);
 }
 
 .btn-add:active {
     transform: scale(0.95);
-    box-shadow: 0 1px 6px rgba(37,99,235,0.2);
 }
 
 .btn-logout {
@@ -196,12 +193,10 @@ textarea { resize: vertical; }
 
 .form-actions button:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(37,99,235,0.32);
 }
 
 .form-actions button:active:not(:disabled) {
     transform: scale(0.97);
-    box-shadow: 0 1px 4px rgba(37,99,235,0.2);
 }
 
 .form-actions button:disabled {
@@ -231,7 +226,6 @@ textarea { resize: vertical; }
     position: relative;
     overflow: hidden;
     border: none;
-    box-shadow: 0 6px 24px rgba(30,58,138,0.28);
 }
 
 .welcome-card::before {
@@ -1151,7 +1145,7 @@ input[type="date"] {
     background: white;
     border-radius: 50%;
     transition: transform 0.2s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
 }
 
 .toggle-switch input:checked + .toggle-slider { background-color: var(--primary); }
@@ -1446,7 +1440,6 @@ input[type="date"] {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
 }
 
 #pending-sync-banner.visible { display: flex; }
@@ -1655,7 +1648,7 @@ input[type="date"] {
        de rolar dentro de si mesmo. */
     max-height: 100%;
     overflow-y: auto;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+    border: 1px solid var(--border);
     text-align: center;
 }
 
@@ -1833,7 +1826,6 @@ input[type="date"] {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.14);
     overflow: hidden;
     min-width: 148px;
 }
