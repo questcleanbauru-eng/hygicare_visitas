@@ -109,6 +109,24 @@ export async function callAPI(action, payload = {}) {
 // mais pesada do app (import de CSV grande) sem deixar travar pra sempre.
 const API_TIMEOUT_MS = 30000;
 
+// O backend responde 200 + {status:'error'} mesmo quando a sessão expira
+// (readSession/verifyUser lançam "Sessao expirada/invalida. Entre novamente."
+// ou "Usuario nao autenticado."). Sem tratar isso aqui, o app continua
+// "logado" com todas as telas em erro e um "Tentar novamente" que nunca
+// resolve. Detecta pela mensagem, limpa a sessão e volta pro login.
+function isSessionError(msg) {
+    const m = String(msg || '').toLowerCase();
+    return m.includes('entre novamente') || m.includes('nao autenticado') || m.includes('não autenticado');
+}
+
+let _sessionExpiredHandled = false;
+function handleSessionExpired() {
+    if (_sessionExpiredHandled) return;
+    _sessionExpiredHandled = true;
+    try { logout(); } catch (e) {}
+    try { showToast('Sua sessão expirou. Entre novamente.', true); } catch (e) {}
+}
+
 export async function _callAPIRaw(action, payload = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
@@ -135,6 +153,11 @@ export async function _callAPIRaw(action, payload = {}) {
     try { data = await response.json(); } catch (e) { throw new APIRequestError('Resposta invalida da API.', !response.ok); }
     if (!response.ok) {
         throw new APIRequestError(data.message || 'Erro na comunicacao com a API.', response.status >= 500);
+    }
+    if (action !== 'login' && action !== 'forgotPassword'
+        && data && data.status === 'error' && isSessionError(data.message)) {
+        handleSessionExpired();
+        throw new APIRequestError(data.message || 'Sessão expirada. Entre novamente.', false);
     }
     return data;
 }
@@ -426,6 +449,7 @@ export function logout() {
 
 
 export function persistUser(user) {
+    _sessionExpiredHandled = false;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
 }
 

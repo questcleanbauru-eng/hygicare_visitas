@@ -10,7 +10,18 @@ export function renderLoginPage() {
     if (_h) _h.style.display = 'none';
     if (_n) _n.style.display = 'none';
 
-    const mainContent = document.getElementById('main-content');
+    // Recria o #main-content: se caímos aqui por sessão expirada no meio de um
+    // carregamento, o .catch da busca em andamento (dashboard, listas…) ainda
+    // vai rodar — a maioria dos callers só re-renderiza se
+    // document.getElementById('main-content') for o mesmo nó que capturaram.
+    // Trocando o nó, essas guardas falham e ninguém escreve um "erro" por
+    // cima da tela de login.
+    let mainContent = document.getElementById('main-content');
+    if (mainContent) {
+        const fresh = mainContent.cloneNode(false);
+        mainContent.replaceWith(fresh);
+        mainContent = fresh;
+    }
     mainContent.style.cssText = 'max-width:none;margin:0;padding:0;overflow:hidden;';
 
     mainContent.innerHTML = `
