@@ -40,9 +40,23 @@ export async function renderReportPage() {
         import('./visits.js'), import('./proposals.js'), import('./funil.js')
     ]);
 
-    const [visitsRes, proposalsRes, funilRes] = await Promise.all([
-        visitsMod.getVisits(0), proposalsMod.getProposals(0), funilMod.getFunil(0)
-    ]);
+    // As 3 buscas do relatório pedem o histórico inteiro (dias:0) — pesadas.
+    // Em paralelo, numa função serverless fria, elas competem pelo tempo/cota
+    // do Sheets e alguma estoura o limite (erro "não foi possível carregar").
+    // Sequencial + 1 retry: cada uma pega o orçamento inteiro e ainda aquece
+    // o cache do servidor pra próxima.
+    const fetchWithRetry = async (fn, tries = 2) => {
+        let last = { status: 'error', message: 'Sem resposta do servidor.' };
+        for (let i = 0; i < tries; i++) {
+            try { last = await fn(); } catch (e) { last = { status: 'error', message: e && e.message }; }
+            if (last && last.status === 'success') return last;
+            if (i < tries - 1) await new Promise((r) => setTimeout(r, 1500));
+        }
+        return last;
+    };
+    const visitsRes = await fetchWithRetry(() => visitsMod.getVisits(0));
+    const proposalsRes = await fetchWithRetry(() => proposalsMod.getProposals(0));
+    const funilRes = await fetchWithRetry(() => funilMod.getFunil(0));
 
     state.reportPeriod = state.reportPeriod || 'mes-atual';
     state.reportCustomFrom = state.reportCustomFrom || '';
@@ -51,11 +65,17 @@ export async function renderReportPage() {
     if (visitsRes.status !== 'success' || proposalsRes.status !== 'success' || funilRes.status !== 'success') {
         // Não renderiza um relatório "zerado" quando a busca falhou de
         // verdade — daria a entender que não houve nenhuma atividade.
+        const falhas = [
+            visitsRes.status !== 'success' ? 'Visitas' : null,
+            proposalsRes.status !== 'success' ? 'Propostas' : null,
+            funilRes.status !== 'success' ? 'Funil' : null
+        ].filter(Boolean);
+        const motivo = String(visitsRes.message || proposalsRes.message || funilRes.message || '').trim();
         const body = document.getElementById('report-body');
         if (body) {
             body.innerHTML = `<div class="empty-state">
                 <span class="empty-state-icon">⚠️</span>
-                <p>Não foi possível carregar os dados do relatório.</p>
+                <p>Não foi possível carregar: ${falhas.join(', ')}.${motivo ? `<br><span class="helper-text">${escapeHtml(motivo)}</span>` : ''}</p>
                 <button type="button" class="secondary-button" id="report-retry-btn">Tentar novamente</button>
             </div>`;
             document.getElementById('report-retry-btn')?.addEventListener('click', () => navigateTo('report'));
