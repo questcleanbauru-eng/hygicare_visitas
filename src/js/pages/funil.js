@@ -79,7 +79,6 @@ export function fillFunilContent(mainContent, funil) {
                 <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
             </div>
             <div style="display:flex;gap:0.5rem">
-                <button type="button" class="mini-button" id="funil-view-toggle">${(localStorage.getItem('funil_view') === 'kanban') ? '📋 Lista' : '🗂️ Kanban'}</button>
                 <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
             </div>
         </div>
@@ -233,12 +232,6 @@ export function fillFunilContent(mainContent, funil) {
             return;
         }
 
-        if (localStorage.getItem('funil_view') === 'kanban') {
-            renderKanbanBoard(container, filtered);
-            wireFunilCardEvents(container);
-            return;
-        }
-
         const sorted = [...filtered].sort((a, b) => {
             const da = parseDisplayDate(a.data) || parseDisplayDate(a.atualizacao);
             const db = parseDisplayDate(b.data) || parseDisplayDate(b.atualizacao);
@@ -301,29 +294,6 @@ export function fillFunilContent(mainContent, funil) {
             pill.addEventListener('click', (e) => {
                 e.stopPropagation();
                 openFunilInlineStatusEditor(pill, pill.dataset.inlineFunilStatus, pill.dataset.currentStatus);
-            });
-        });
-
-        // Kanban: arrastar-e-soltar entre colunas (só existe quando renderKanbanBoard
-        // desenhou .funil-kanban-col — em modo lista essas queries só não acham nada).
-        container.querySelectorAll('.funil-kanban-card[draggable="true"]').forEach((card) => {
-            card.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', card.dataset.funilId);
-                card.classList.add('dragging');
-            });
-            card.addEventListener('dragend', () => card.classList.remove('dragging'));
-        });
-        container.querySelectorAll('.funil-kanban-col').forEach((col) => {
-            col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('drag-over'); });
-            col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
-            col.addEventListener('drop', (e) => {
-                e.preventDefault();
-                col.classList.remove('drag-over');
-                const funilId = e.dataTransfer.getData('text/plain');
-                const newStatus = col.dataset.status;
-                const item = funilData.find((f) => String(f.id) === funilId);
-                if (!item || item.status === newStatus) return;
-                applyFunilStatusChangeFromKanban(funilId, newStatus, renderFiltered);
             });
         });
     }
@@ -394,12 +364,6 @@ export function fillFunilContent(mainContent, funil) {
         } catch(e) {}
     });
 
-    document.getElementById('funil-view-toggle')?.addEventListener('click', (e) => {
-        const next = localStorage.getItem('funil_view') === 'kanban' ? 'list' : 'kanban';
-        try { localStorage.setItem('funil_view', next); } catch (err) {}
-        e.currentTarget.textContent = next === 'kanban' ? '📋 Lista' : '🗂️ Kanban';
-        renderFiltered();
-    });
     document.getElementById('btn-new-funil')?.addEventListener('click', () => navigateTo('funil-new'));
     document.getElementById('update-summary-btn')?.addEventListener('click', () => {
         if (confirm('Compartilhar o resumo de atualizações no WhatsApp e limpar a lista?')) {
@@ -564,91 +528,6 @@ function openFunilInlineStatusEditor(pill, funilId, currentStatus) {
     setTimeout(() => document.addEventListener('click', close, { once: true }), 0);
 }
 
-
-const KANBAN_COLUMNS = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'RETOMAR', 'CONCLUIDO', 'PERDIDO'];
-
-// Kanban do Funil: mesmas colunas do editor de status (openFunilInlineStatusEditor),
-// só que como quadro — cada card mantém os mesmos data-attributes do card de
-// lista (data-funil-id/-quick/-inline-funil-status) pra reaproveitar
-// wireFunilCardEvents sem duplicar a lógica de clique/toque.
-function renderKanbanBoard(container, filtered) {
-    const byStatus = {};
-    KANBAN_COLUMNS.forEach((s) => { byStatus[s] = []; });
-    filtered.forEach((f) => {
-        const s = KANBAN_COLUMNS.includes(f.status) ? f.status : 'IDENTIFICAR';
-        byStatus[s].push(f);
-    });
-
-    container.innerHTML = `
-        <div class="funil-kanban-board">
-            ${KANBAN_COLUMNS.map((status) => `
-                <div class="funil-kanban-col" data-status="${escapeHtml(status)}">
-                    <div class="funil-kanban-col-header">
-                        <span>${funilStatusIcon(status)} ${escapeHtml(status)}</span>
-                        <span class="funil-kanban-col-count">${byStatus[status].length}</span>
-                    </div>
-                    <div class="funil-kanban-col-body">
-                        ${byStatus[status].map((f) => `
-                            <div class="funil-kanban-card" draggable="true" data-funil-id="${escapeHtml(f.id)}">
-                                <strong>${escapeHtml(f.cliente || 'Cliente não informado')}</strong>
-                                <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}</span>
-                                ${f.vlMensal ? `<span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}
-                                <div class="funil-kanban-card-actions">
-                                    <span class="card-quick-edit-btn" role="button" tabindex="0" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
-                                    <span class="status-pill funil-status-${escapeHtml(status.toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(status)}" title="Mover para outro status" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(status)}">${escapeHtml(status)}</span>
-                                </div>
-                            </div>
-                        `).join('') || `<div class="empty-state empty-state-compact"><span class="empty-state-icon">📭</span><p>Vazio</p></div>`}
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-}
-
-// Mesma lógica de update otimista + attemptOrQueue + rollback já usada em
-// openFunilInlineStatusEditor, só que disparada pelo drop de uma coluna do
-// Kanban (id/status vêm do dataset do drop, não de um dropdown) — re-renderiza
-// via onDone (renderFiltered) em vez de patchar o pill direto na tela, porque
-// o card pode ter que "pular" de coluna, não só trocar de texto.
-function applyFunilStatusChangeFromKanban(funilId, newStatus, onDone) {
-    let motivoPerda;
-    if (newStatus === 'PERDIDO') {
-        motivoPerda = (prompt('Motivo da perda:') || '').trim();
-        if (!motivoPerda) return;
-    }
-    const idx = state.funil.findIndex((item) => String(item.id) === String(funilId));
-    const original = idx >= 0 ? { ...state.funil[idx] } : null;
-    const nowDisplay = formatDateForDisplay(new Date());
-    if (idx >= 0) {
-        state.funil[idx] = { ...state.funil[idx], status: newStatus, atualizacao: nowDisplay, ...(motivoPerda ? { motivoPerda } : {}) };
-        saveCache('funil', state.funil);
-    }
-    showToast('Status atualizado.');
-    if (onDone) onDone();
-
-    attemptOrQueue('updateFunil', { id: funilId, status: newStatus, ...(motivoPerda ? { motivoPerda } : {}), user: state.currentUser },
-        { entity: 'funil', tempId: String(funilId) })
-        .then((result) => {
-            const clienteNome = original ? (original.cliente || '') : '';
-            if (result && result.status === 'queued') {
-                if (idx >= 0) { state.funil[idx] = { ...state.funil[idx], _pending: true }; saveCache('funil', state.funil); }
-                showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                trackUpdate('funil', { id: funilId, cliente: clienteNome, status: newStatus });
-            } else if (!result || result.status !== 'success') {
-                if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
-                showToast((result && result.message) || 'Erro ao atualizar status.', true);
-                if (onDone) onDone();
-            } else {
-                trackUpdate('funil', { id: funilId, cliente: clienteNome, status: newStatus });
-            }
-        })
-        .catch(() => {
-            if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
-            showToast('Erro ao atualizar status.', true);
-            if (onDone) onDone();
-        });
-}
 
 
 export async function renderFunilPage() {
