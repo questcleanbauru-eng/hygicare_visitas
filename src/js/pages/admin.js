@@ -384,9 +384,9 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <div class="section-title-row"><h3 class="section-title">Importar dados (migração)</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <p class="helper-text" style="text-align:left;margin:0">
-                        Sobe os dados exportados do sistema antigo. Exporte cada aba como CSV e envie uma de
-                        cada vez. ID já cadastrado é pulado (ou atualizado, na base de clientes) — pode
-                        reenviar o mesmo arquivo sem duplicar. Só as colunas que o app usa são importadas.
+                        Sobe os dados exportados do sistema antigo (CSV ou Excel .xlsx), uma aba por vez.
+                        ID já cadastrado é pulado (ou atualizado, na base de clientes) — pode reenviar o
+                        mesmo arquivo sem duplicar. Só as colunas que o app usa são importadas.
                     </p>
                     <div class="form-group" style="max-width:280px;margin:0">
                         <label for="import-entidade" style="font-size:0.8rem;color:var(--text-muted-strong)">O que importar</label>
@@ -398,7 +398,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                             <option value="clientes">Base de clientes</option>
                         </select>
                     </div>
-                    <input type="file" id="import-file" accept=".csv,text/csv">
+                    <input type="file" id="import-file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
                     <button type="button" id="import-analisar" class="primary-button" style="align-self:flex-start" disabled>Analisar</button>
                     <div id="import-resultado"></div>
                 </div>
@@ -940,31 +940,48 @@ function bindImportarTab() {
     const resultado = document.getElementById('import-resultado');
     if (!entidadeSel || !fileInput || !analisarBtn || !resultado) return;
 
-    let csvText = '';
+    // Guarda o conteúdo do arquivo já no formato que o servidor espera:
+    // { csvText } pra CSV, { xlsxBase64 } pra Excel. Assim o "Confirmar"
+    // reenvia sem precisar reler o arquivo.
+    let fileData = null;
     const cfg = () => IMPORT_ENTIDADES[entidadeSel.value] || IMPORT_ENTIDADES['visitas-ativas'];
 
     entidadeSel.addEventListener('change', () => { resultado.innerHTML = ''; });
 
     fileInput.addEventListener('change', () => {
         resultado.innerHTML = '';
+        fileData = null;
+        analisarBtn.disabled = true;
         const file = fileInput.files && fileInput.files[0];
-        if (!file) { csvText = ''; analisarBtn.disabled = true; return; }
+        if (!file) return;
+        const isXlsx = /\.xlsx$/i.test(file.name) ||
+            file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         const reader = new FileReader();
-        reader.onload = () => { csvText = String(reader.result || ''); analisarBtn.disabled = !csvText.trim(); };
+        reader.onload = () => {
+            if (isXlsx) {
+                fileData = { xlsxBase64: arrayBufferToBase64(reader.result) };
+                analisarBtn.disabled = false;
+            } else {
+                const text = String(reader.result || '');
+                fileData = { csvText: text };
+                analisarBtn.disabled = !text.trim();
+            }
+        };
         reader.onerror = () => {
-            csvText = '';
+            fileData = null;
             analisarBtn.disabled = true;
             resultado.innerHTML = `<p class="error-message">Não foi possível ler o arquivo.</p>`;
         };
-        reader.readAsText(file, 'UTF-8');
+        if (isXlsx) reader.readAsArrayBuffer(file);
+        else reader.readAsText(file, 'UTF-8');
     });
 
     analisarBtn.addEventListener('click', async () => {
-        if (!csvText.trim()) return;
+        if (!fileData) return;
         const { action, extra } = cfg();
         setSaving(true, analisarBtn, 'Analisando...');
         resultado.innerHTML = '';
-        const res = await callAPI(action, { user: state.currentUser, ...extra, csvText, dryRun: true });
+        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: true });
         setSaving(false, analisarBtn);
         if (res.status !== 'success') {
             resultado.innerHTML = `<p class="error-message">${escapeHtml(res.message || 'Erro ao analisar o arquivo.')}</p>`;
@@ -1037,7 +1054,7 @@ function bindImportarTab() {
             vendedorMap[sel.dataset.de] = sel.value;
         });
         setSaving(true, btn, 'Importando...');
-        const res = await callAPI(action, { user: state.currentUser, ...extra, csvText, dryRun: false, vendedorMap });
+        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap });
         setSaving(false, btn);
         if (res.status !== 'success') {
             resultado.insertAdjacentHTML('beforeend', `<p class="error-message">${escapeHtml(res.message || 'Erro ao importar.')}</p>`);
@@ -1052,9 +1069,21 @@ function bindImportarTab() {
         `;
         showToast('Importação concluída.');
         fileInput.value = '';
-        csvText = '';
+        fileData = null;
         analisarBtn.disabled = true;
     }
+}
+
+// ArrayBuffer → base64, em blocos pra não estourar a pilha com
+// String.fromCharCode em arquivo grande.
+function arrayBufferToBase64(ab) {
+    const bytes = new Uint8Array(ab);
+    let bin = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(bin);
 }
 
 
