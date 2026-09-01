@@ -807,7 +807,7 @@ export async function renderFunilCreatePage() {
 }
 
 
-export async function renderFunilDetailPage(id) {
+export async function renderFunilDetailPage(id, _revalidated) {
     ensureStyles('funil');
     const mainContent = document.getElementById('main-content');
     // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
@@ -829,6 +829,20 @@ export async function renderFunilDetailPage(id) {
 
     const f = result.funil;
     state.currentFunil = f;
+
+    // Veio do cache local? Revalida na planilha em 2º plano (uma vez) — o
+    // sync incremental não traz edições feitas direto no Google Sheets, e
+    // era isso que deixava campos como "Comentários" desatualizados aqui.
+    if (existing && !_revalidated) {
+        callAPI('getFunilById', { id, user: state.currentUser }).then((fresh) => {
+            if (!fresh || fresh.status !== 'success' || !fresh.funil) return;
+            if (state.currentPage !== 'funil-detail') return;
+            if (JSON.stringify(fresh.funil) === JSON.stringify(f)) return;
+            const i = (state.funil || []).findIndex((x) => String(x.id) === String(id));
+            if (i >= 0) { state.funil[i] = fresh.funil; saveCache('funil', state.funil); }
+            renderFunilDetailPage(id, true);
+        }).catch(() => {});
+    }
 
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Funil', page: 'funil' }, { label: f.cliente || 'Oportunidade' }])}

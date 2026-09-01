@@ -16,13 +16,30 @@ const REFRESHABLE_PAGE_CACHE_KEYS = {
     admin: ['admin_data', 'admin_email']
 };
 
+// Nas telas de detalhe, Atualizar precisa também esvaziar a lista em
+// memória (state.<entidade>) — senão renderXDetailPage acha o registro no
+// cache e nunca busca do servidor. Sem a lista, ele cai no getXById(),
+// que aí sim vai à planilha (pega edição feita direto no Sheets).
+const DETAIL_PAGE_PARENT = {
+    'visit-detail':      { keys: ['visits', 'visits_all'],       stateKey: 'visits' },
+    'proposal-detail':   { keys: ['proposals', 'proposals_all'], stateKey: 'proposals' },
+    'funil-detail':      { keys: ['funil', 'funil_all'],         stateKey: 'funil' },
+    'contrato-detail':   { keys: ['contratos'],                  stateKey: 'contratos' },
+    'manutencao-detail': { keys: ['manutencoes'],                stateKey: 'manutencoes' }
+};
+
 function refreshCurrentPage() {
     const page = state.currentPage;
     if (!page) { return; }
-    const keys = REFRESHABLE_PAGE_CACHE_KEYS[page] || [];
     const btn = document.getElementById('header-refresh-btn');
     btn?.classList.add('spinning');
-    keys.forEach((k) => saveCache(k, null));
+    const detail = DETAIL_PAGE_PARENT[page];
+    if (detail) {
+        detail.keys.forEach((k) => saveCache(k, null));
+        state[detail.stateKey] = [];
+    } else {
+        (REFRESHABLE_PAGE_CACHE_KEYS[page] || []).forEach((k) => saveCache(k, null));
+    }
     Promise.resolve(navigateTo(page)).catch(() => {}).finally(() => btn?.classList.remove('spinning'));
 }
 
