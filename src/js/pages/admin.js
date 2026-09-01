@@ -384,9 +384,9 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <div class="section-title-row"><h3 class="section-title">Importar dados (migração)</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <p class="helper-text" style="text-align:left;margin:0">
-                        Sobe os relatórios exportados do sistema antigo. Exporte cada aba como CSV e envie
-                        uma de cada vez. IDs já existentes são pulados — pode reenviar o mesmo arquivo sem
-                        duplicar. Só as colunas que o app usa são importadas.
+                        Sobe os dados exportados do sistema antigo. Exporte cada aba como CSV e envie uma de
+                        cada vez. ID já cadastrado é pulado (ou atualizado, na base de clientes) — pode
+                        reenviar o mesmo arquivo sem duplicar. Só as colunas que o app usa são importadas.
                     </p>
                     <div class="form-group" style="max-width:280px;margin:0">
                         <label for="import-entidade" style="font-size:0.8rem;color:var(--text-muted-strong)">O que importar</label>
@@ -395,6 +395,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                             <option value="visitas-prospeccao">Visitas — Prospecção</option>
                             <option value="propostas">Propostas</option>
                             <option value="funil">Funil de vendas</option>
+                            <option value="clientes">Base de clientes</option>
                         </select>
                     </div>
                     <input type="file" id="import-file" accept=".csv,text/csv">
@@ -928,7 +929,8 @@ const IMPORT_ENTIDADES = {
     'visitas-ativas': { action: 'importVisitasLegacy', extra: { tipo: 'ativas' }, label: 'visita' },
     'visitas-prospeccao': { action: 'importVisitasLegacy', extra: { tipo: 'prospeccao' }, label: 'visita' },
     'propostas': { action: 'importPropostasLegacy', extra: {}, label: 'proposta' },
-    'funil': { action: 'importFunilLegacy', extra: {}, label: 'registro' }
+    'funil': { action: 'importFunilLegacy', extra: {}, label: 'registro' },
+    'clientes': { action: 'importClientesLegacy', extra: {}, label: 'cliente' }
 };
 
 function bindImportarTab() {
@@ -973,17 +975,37 @@ function bindImportarTab() {
 
     function renderImportAnalise(res) {
         const label = cfg().label;
+        const r = res.resumo || {};
         const naoRec = res.vendedoresNaoReconhecidos || [];
         const optionsHtml = ['<option value="__IGNORAR__">— deixar sem vendedor —</option>']
             .concat((res.vendedoresApp || []).map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`))
             .join('');
 
+        const cm = res.colunasMapeadas || {};
+        const cmRows = Object.keys(cm).map((k) => `
+            <tr>
+                <td style="padding:0.15rem 0.6rem 0.15rem 0;color:var(--text-muted-strong)">${escapeHtml(k)}</td>
+                <td style="padding:0.15rem 0">${cm[k]
+                    ? escapeHtml(cm[k])
+                    : '<span style="color:var(--danger)">não encontrada</span>'}</td>
+            </tr>`).join('');
+
         resultado.innerHTML = `
             <div class="card" style="padding:0.9rem;margin-top:0.85rem;background:var(--bg)">
-                <p style="margin:0 0 0.3rem"><strong>${res.resumo.novas}</strong> ${label}(s) nova(s)</p>
-                <p style="margin:0 0 0.3rem"><strong>${res.resumo.puladas}</strong> já existente(s) — serão puladas</p>
-                <p style="margin:0">${res.resumo.ignoradas} linha(s) sem cliente — ignoradas</p>
+                <p style="margin:0 0 0.3rem"><strong>${r.novas || 0}</strong> ${label}(s) novo(s)</p>
+                ${r.atualizadas ? `<p style="margin:0 0 0.3rem"><strong>${r.atualizadas}</strong> ${label}(s) a atualizar</p>` : ''}
+                ${r.puladas ? `<p style="margin:0 0 0.3rem"><strong>${r.puladas}</strong> já existente(s) — serão puladas</p>` : ''}
+                <p style="margin:0">${r.ignoradas || 0} linha(s) sem identificação — ignoradas</p>
             </div>
+            ${cmRows ? `
+                <div class="card" style="padding:0.9rem;margin-top:0.75rem">
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.5rem">Colunas reconhecidas no arquivo:</p>
+                    <table style="font-size:0.82rem;border-collapse:collapse"><tbody>${cmRows}</tbody></table>
+                    <p class="helper-text" style="text-align:left;margin:0.5rem 0 0">
+                        Alguma "não encontrada" que deveria existir? Me passa o nome exato dessa coluna no seu arquivo.
+                    </p>
+                </div>
+            ` : ''}
             ${naoRec.length ? `
                 <div class="card" style="padding:0.9rem;margin-top:0.75rem">
                     <p class="helper-text" style="text-align:left;margin:0 0 0.7rem">
@@ -1021,10 +1043,11 @@ function bindImportarTab() {
             resultado.insertAdjacentHTML('beforeend', `<p class="error-message">${escapeHtml(res.message || 'Erro ao importar.')}</p>`);
             return;
         }
+        const r = res.resumo || {};
         resultado.innerHTML = `
             <div class="card" style="padding:0.9rem;margin-top:0.85rem;background:var(--bg)">
-                <p style="margin:0 0 0.3rem">✅ <strong>${res.resumo.novas}</strong> ${label}(s) importada(s)</p>
-                <p style="margin:0">${res.resumo.puladas} pulada(s) · ${res.resumo.ignoradas} ignorada(s)</p>
+                <p style="margin:0 0 0.3rem">✅ <strong>${r.novas || 0}</strong> ${label}(s) novo(s)${r.atualizadas ? ` · <strong>${r.atualizadas}</strong> atualizado(s)` : ''}</p>
+                <p style="margin:0">${r.puladas || 0} pulada(s) · ${r.ignoradas || 0} ignorada(s)</p>
             </div>
         `;
         showToast('Importação concluída.');

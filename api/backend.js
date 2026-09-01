@@ -25,7 +25,9 @@ import {
     handleReservarRadarCliente, handleSetRadarClienteIndicacao,
     handleGetRadarCidadesAdmin, handleSetCidadeRestricao
 } from '../lib/handlers/radar.js';
-import { handleImportVisitasLegacy, handleImportPropostasLegacy, handleImportFunilLegacy } from '../lib/handlers/importacao.js';
+import {
+    handleImportVisitasLegacy, handleImportPropostasLegacy, handleImportFunilLegacy, handleImportClientesLegacy
+} from '../lib/handlers/importacao.js';
 import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList, handleGetHealthPanel } from '../lib/handlers/admin.js';
 import { handleGetFormData } from '../lib/handlers/formdata.js';
@@ -100,6 +102,7 @@ const HANDLERS = {
     importVisitasLegacy: handleImportVisitasLegacy,
     importPropostasLegacy: handleImportPropostasLegacy,
     importFunilLegacy: handleImportFunilLegacy,
+    importClientesLegacy: handleImportClientesLegacy,
     getDashboardData: handleGetDashboardData,
     getAdminData: handleGetAdminData,
     saveUser: handleSaveUser,
