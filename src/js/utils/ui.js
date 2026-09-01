@@ -3,28 +3,27 @@ import { escapeHtml, normalizeVisit, normalizeProposal, normalizeContrato, norma
 import { debounce, showToast } from './dom.js';
 import { ensureFormData, logout, saveCache } from '../api.js';
 
+// Chaves de cache (localStorage) que o botão Atualizar zera antes de
+// re-renderizar a página. Página que não está aqui ainda é atualizada —
+// só re-renderiza sem limpar cache local (ver `|| []` abaixo).
 const REFRESHABLE_PAGE_CACHE_KEYS = {
     dashboard: ['dashboard'],
     visits: ['visits', 'visits_all'],
     proposals: ['proposals', 'proposals_all'],
     funil: ['funil', 'funil_all'],
-    admin: ['admin_data', 'admin_email'],
-    // Radar não guarda cache em localStorage (o dado vive só em variável de
-    // módulo dentro de radar.js) — não tem chave pra zerar aqui, mas precisa
-    // constar no mapa (mesmo com lista vazia) senão refreshCurrentPage()
-    // simplesmente não faz nada nessa página (retorno antecipado por
-    // REFRESHABLE_PAGE_CACHE_KEYS[page] vir undefined).
-    radar: []
+    contratos: ['contratos'],
+    manutencao: ['manutencoes'],
+    admin: ['admin_data', 'admin_email']
 };
 
 function refreshCurrentPage() {
     const page = state.currentPage;
-    const keys = REFRESHABLE_PAGE_CACHE_KEYS[page];
-    if (!keys) { return; }
+    if (!page) { return; }
+    const keys = REFRESHABLE_PAGE_CACHE_KEYS[page] || [];
     const btn = document.getElementById('header-refresh-btn');
     btn?.classList.add('spinning');
     keys.forEach((k) => saveCache(k, null));
-    Promise.resolve(navigateTo(page)).finally(() => btn?.classList.remove('spinning'));
+    Promise.resolve(navigateTo(page)).catch(() => {}).finally(() => btn?.classList.remove('spinning'));
 }
 
 export let _installPrompt = null;
@@ -39,26 +38,51 @@ export function resetNavCache() {
 }
 
 const _loadedStyles = new Set();
+// Vão eager no index.html (ver build.js) — nunca carregar sob demanda.
+const EAGER_STYLES = new Set(['visits', 'proposals', 'funil']);
 
-export function ensureStyles(name, _isRetry) {
-    if (_loadedStyles.has(name)) return;
+export function ensureStyles(name, attempt) {
+    if (EAGER_STYLES.has(name) || _loadedStyles.has(name)) return;
     _loadedStyles.add(name);
     const manifest = (typeof window !== 'undefined' && window.__ASSET_MANIFEST__) || {};
-    const href = manifest['css/' + name] || `./${name}.css`;
+    const baseHref = manifest['css/' + name] || `./${name}.css`;
+    attempt = attempt || 1;
+    // Tentativas seguintes levam cache-buster: fura um cache do SW/HTTP que
+    // tenha guardado uma resposta ruim (o caso "carrega mas fica sem estilo"
+    // que nem o onerror pegava — onload dispara igual pra um 200 vazio).
+    const href = attempt === 1
+        ? baseHref
+        : baseHref + (baseHref.indexOf('?') > -1 ? '&' : '?') + 'r=' + attempt;
+
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = href;
-    link.onerror = () => {
-        // Sem isso, uma falha de rede passageira (ou o service worker ainda
-        // sem essa rota em cache) marcava _loadedStyles como "carregado" pra
-        // sempre, e a página ficava sem esse CSS até um F5 — exatamente o
-        // "às vezes o Funil perde o CSS" relatado. Tenta uma vez de novo
-        // depois de um instante; se falhar de novo, libera pra próxima
-        // navegação tentar sozinha (sem loop infinito aqui).
+
+    let settled = false;
+    const retry = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(watchdog);
         link.remove();
         _loadedStyles.delete(name);
-        if (!_isRetry) { setTimeout(() => ensureStyles(name, true), 800); }
+        // Até 3 novas tentativas com espera crescente; depois libera pra
+        // próxima navegação tentar de novo (sem loop infinito).
+        if (attempt < 4) setTimeout(() => ensureStyles(name, attempt + 1), 500 * attempt);
     };
+    link.onerror = retry;
+    link.onload = () => {
+        clearTimeout(watchdog);
+        // Confirma que as regras entraram — um SW com cache furado pode
+        // devolver 200 com corpo vazio, e aí o onload dispara "com sucesso".
+        try {
+            const sheet = [...document.styleSheets].find((s) => s.ownerNode === link);
+            if (sheet && (!sheet.cssRules || sheet.cssRules.length > 0)) { settled = true; return; }
+        } catch (e) { settled = true; return; /* mesma origem, não deve cair aqui */ }
+        retry();
+    };
+    // Rede pendurada (nem onload nem onerror): tenta de novo depois de 4s.
+    const watchdog = setTimeout(retry, 4000);
+
     document.head.appendChild(link);
 }
 

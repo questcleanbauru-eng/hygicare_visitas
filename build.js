@@ -105,10 +105,11 @@ async function runBuild() {
     }
 
     // CSS manifest consumed at runtime by ensureStyles() (utils/ui.js) for lazy page stylesheets.
+    // visits/proposals/funil saíram daqui: são pequenos (< 5KB somados) e as
+    // 3 páginas mais usadas no dia a dia — carregar sob demanda dava o bug
+    // recorrente "o Funil às vezes fica sem CSS". Agora vão eager no
+    // index.html (writeIndexHtml) e no precache do SW.
     const cssManifest = {
-        'css/visits': urls['css/visits'],
-        'css/proposals': urls['css/proposals'],
-        'css/funil': urls['css/funil'],
         'css/admin': urls['css/admin'],
         'css/report': urls['css/report'],
         'css/radar': urls['css/radar'],
@@ -131,7 +132,10 @@ function writeIndexHtml(urls, cssManifest, buildInfo) {
             `<link rel="stylesheet" href="${urls.base}">`,
             `<link rel="stylesheet" href="${urls.components}">`,
             `<link rel="stylesheet" href="${urls.login}">`,
-            `<link rel="stylesheet" href="${urls.dashboard}">`
+            `<link rel="stylesheet" href="${urls.dashboard}">`,
+            `<link rel="stylesheet" href="${urls['css/visits']}">`,
+            `<link rel="stylesheet" href="${urls['css/proposals']}">`,
+            `<link rel="stylesheet" href="${urls['css/funil']}">`
         ].join('\n    '))
         .replace('<link rel="manifest" href="manifest.json">', '<link rel="manifest" href="./manifest.webmanifest">')
         .replace('<span class="header-brand-name">App de Visitas</span>', [
@@ -159,7 +163,10 @@ function writeServiceWorker(urls, buildInfo) {
         urls.base,
         urls.components,
         urls.login,
-        urls.dashboard
+        urls.dashboard,
+        urls['css/visits'],
+        urls['css/proposals'],
+        urls['css/funil']
     ];
     sw = sw
         .replace('__CACHE_VERSION__', 'v' + buildInfo.build + '-' + buildInfo.builtAtMs)
