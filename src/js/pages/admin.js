@@ -200,6 +200,10 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                 Saúde
             </button>
+            <button type="button" class="admin-tab${activeAdminTab === 'importar' ? ' active' : ''}" data-tab="importar">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Importar
+            </button>
         </div>
 
         <!-- Tab: Usuários -->
@@ -372,6 +376,30 @@ function fillAdminContent(mainContent, data, emailConfig) {
         <!-- Tab: Saúde -->
         <div class="admin-tab-panel${activeAdminTab === 'saude' ? ' active' : ''} card" id="admin-tab-saude" style="padding:1rem">
             <div id="saude-content"><p class="helper-text">Carregando...</p></div>
+        </div>
+
+        <!-- Tab: Importar (migração) -->
+        <div class="admin-tab-panel${activeAdminTab === 'importar' ? ' active' : ''}" id="admin-tab-importar">
+            <div class="admin-section">
+                <div class="section-title-row"><h3 class="section-title">Importar visitas (migração)</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <p class="helper-text" style="text-align:left;margin:0">
+                        Sobe os relatórios exportados do sistema antigo pra aba de Visitas. Exporte cada aba
+                        (BASE e PROSPECÇÃO) como CSV e envie uma de cada vez. IDs já existentes são pulados —
+                        pode reenviar o mesmo arquivo sem duplicar. Só as colunas que o app usa são importadas.
+                    </p>
+                    <div class="form-group" style="max-width:260px;margin:0">
+                        <label for="import-visitas-tipo" style="font-size:0.8rem;color:var(--text-muted-strong)">Tipo do arquivo</label>
+                        <select id="import-visitas-tipo">
+                            <option value="ativas">Visitas ativas (BASE)</option>
+                            <option value="prospeccao">Prospecção</option>
+                        </select>
+                    </div>
+                    <input type="file" id="import-visitas-file" accept=".csv,text/csv">
+                    <button type="button" id="import-visitas-analisar" class="primary-button" style="align-self:flex-start" disabled>Analisar</button>
+                    <div id="import-visitas-resultado"></div>
+                </div>
+            </div>
         </div>
     `;
 
@@ -885,6 +913,114 @@ export function bindAdminEvents(data) {
             else { showToast(result.message || 'Não foi possível salvar.', true); }
         });
     });
+
+    bindImportarVisitasTab();
+}
+
+// Importação da base antiga → aba Visitas. Fluxo em 2 passos: "Analisar"
+// (dryRun no servidor) devolve o resumo + os vendedores do arquivo que não
+// bateram com o cadastro; a tela monta um de-para (select por nome) e
+// "Confirmar importação" reenvia o mesmo CSV (já no navegador, sem novo
+// upload) com o mapa preenchido.
+function bindImportarVisitasTab() {
+    const tipoSel = document.getElementById('import-visitas-tipo');
+    const fileInput = document.getElementById('import-visitas-file');
+    const analisarBtn = document.getElementById('import-visitas-analisar');
+    const resultado = document.getElementById('import-visitas-resultado');
+    if (!fileInput || !analisarBtn || !resultado) return;
+
+    let csvText = '';
+
+    fileInput.addEventListener('change', () => {
+        resultado.innerHTML = '';
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) { csvText = ''; analisarBtn.disabled = true; return; }
+        const reader = new FileReader();
+        reader.onload = () => { csvText = String(reader.result || ''); analisarBtn.disabled = !csvText.trim(); };
+        reader.onerror = () => {
+            csvText = '';
+            analisarBtn.disabled = true;
+            resultado.innerHTML = `<p class="error-message">Não foi possível ler o arquivo.</p>`;
+        };
+        reader.readAsText(file, 'UTF-8');
+    });
+
+    analisarBtn.addEventListener('click', async () => {
+        if (!csvText.trim()) return;
+        setSaving(true, analisarBtn, 'Analisando...');
+        resultado.innerHTML = '';
+        const res = await callAPI('importVisitasLegacy', {
+            user: state.currentUser, tipo: tipoSel.value, csvText, dryRun: true
+        });
+        setSaving(false, analisarBtn);
+        if (res.status !== 'success') {
+            resultado.innerHTML = `<p class="error-message">${escapeHtml(res.message || 'Erro ao analisar o arquivo.')}</p>`;
+            return;
+        }
+        renderImportAnalise(res);
+    });
+
+    function renderImportAnalise(res) {
+        const naoRec = res.vendedoresNaoReconhecidos || [];
+        const optionsHtml = ['<option value="__IGNORAR__">— deixar sem vendedor —</option>']
+            .concat((res.vendedoresApp || []).map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`))
+            .join('');
+
+        resultado.innerHTML = `
+            <div class="card" style="padding:0.9rem;margin-top:0.85rem;background:var(--bg)">
+                <p style="margin:0 0 0.3rem"><strong>${res.resumo.novas}</strong> visita(s) nova(s)</p>
+                <p style="margin:0 0 0.3rem"><strong>${res.resumo.puladas}</strong> já existente(s) — serão puladas</p>
+                <p style="margin:0">${res.resumo.ignoradas} linha(s) sem cliente — ignoradas</p>
+            </div>
+            ${naoRec.length ? `
+                <div class="card" style="padding:0.9rem;margin-top:0.75rem">
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.7rem">
+                        ${naoRec.length} vendedor(es) do arquivo não bateram com o cadastro. Diga quem é cada um
+                        (fica salvo pro próximo import):
+                    </p>
+                    <div class="import-vend-map">
+                        ${naoRec.map((v) => `
+                            <div class="import-vend-row">
+                                <span class="import-vend-name">${escapeHtml(v.nome)}<em>${v.linhas} linha(s)</em></span>
+                                <select data-de="${escapeHtml(v.nome)}">${optionsHtml}</select>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+            <button type="button" id="import-visitas-confirmar" class="primary-button" style="margin-top:0.85rem">
+                Confirmar importação
+            </button>
+        `;
+        document.getElementById('import-visitas-confirmar').addEventListener('click', confirmarImport);
+    }
+
+    async function confirmarImport() {
+        const btn = document.getElementById('import-visitas-confirmar');
+        const vendedorMap = {};
+        resultado.querySelectorAll('.import-vend-row select').forEach((sel) => {
+            vendedorMap[sel.dataset.de] = sel.value;
+        });
+        setSaving(true, btn, 'Importando...');
+        const res = await callAPI('importVisitasLegacy', {
+            user: state.currentUser, tipo: tipoSel.value, csvText, dryRun: false, vendedorMap
+        });
+        setSaving(false, btn);
+        if (res.status !== 'success') {
+            resultado.insertAdjacentHTML('beforeend', `<p class="error-message">${escapeHtml(res.message || 'Erro ao importar.')}</p>`);
+            return;
+        }
+        resultado.innerHTML = `
+            <div class="card" style="padding:0.9rem;margin-top:0.85rem;background:var(--bg)">
+                <p style="margin:0 0 0.3rem">✅ <strong>${res.resumo.novas}</strong> visita(s) importada(s)</p>
+                <p style="margin:0">${res.resumo.puladas} pulada(s) · ${res.resumo.ignoradas} ignorada(s)</p>
+            </div>
+        `;
+        showToast('Importação concluída.');
+        fileInput.value = '';
+        csvText = '';
+        analisarBtn.disabled = true;
+    }
 }
 
 
