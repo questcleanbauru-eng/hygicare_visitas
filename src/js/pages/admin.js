@@ -394,6 +394,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                             <option value="visitas-ativas">Visitas ativas (BASE)</option>
                             <option value="visitas-prospeccao">Visitas — Prospecção</option>
                             <option value="propostas">Propostas</option>
+                            <option value="funil">Funil de vendas</option>
                         </select>
                     </div>
                     <input type="file" id="import-file" accept=".csv,text/csv">
@@ -926,7 +927,8 @@ export function bindAdminEvents(data) {
 const IMPORT_ENTIDADES = {
     'visitas-ativas': { action: 'importVisitasLegacy', extra: { tipo: 'ativas' }, label: 'visita' },
     'visitas-prospeccao': { action: 'importVisitasLegacy', extra: { tipo: 'prospeccao' }, label: 'visita' },
-    'propostas': { action: 'importPropostasLegacy', extra: {}, label: 'proposta' }
+    'propostas': { action: 'importPropostasLegacy', extra: {}, label: 'proposta' },
+    'funil': { action: 'importFunilLegacy', extra: {}, label: 'registro' }
 };
 
 function bindImportarTab() {
