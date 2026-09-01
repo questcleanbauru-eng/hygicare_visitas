@@ -954,6 +954,13 @@ function bindImportarTab() {
         analisarBtn.disabled = true;
         const file = fileInput.files && fileInput.files[0];
         if (!file) return;
+        // .xls (Excel 97-2003, binário) é outro formato — o leitor só entende
+        // .xlsx e .csv. Avisa na hora em vez de deixar "Analisando..." travado.
+        if (/\.xls$/i.test(file.name) || /\.(xlsb|xlsm|ods)$/i.test(file.name)) {
+            resultado.innerHTML = `<p class="error-message">Formato <strong>${escapeHtml(file.name.split('.').pop().toUpperCase())}</strong> não suportado. No Excel, use <strong>Salvar Como → "Pasta de Trabalho do Excel (*.xlsx)"</strong> ou <strong>"CSV UTF-8"</strong> e envie esse arquivo.</p>`;
+            fileInput.value = '';
+            return;
+        }
         const isXlsx = /\.xlsx$/i.test(file.name) ||
             file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         const reader = new FileReader();
