@@ -465,6 +465,36 @@ export function initBottomNavAutoHide() {
 }
 
 
+// Some a barra de busca (.search-bar-wrapper, sticky no topo) ao rolar pra
+// baixo; volta ao rolar pra cima ou chegar perto do topo. Usada em Visitas,
+// Propostas e Funil. O #main-content persiste entre re-renders da página,
+// mas o .search-bar-wrapper é recriado — por isso o listener fica no main e
+// o anterior é removido a cada chamada.
+export function initSearchBarAutoHide() {
+    const main = document.getElementById('main-content');
+    if (!main) return;
+    const bar = main.querySelector('.search-bar-wrapper');
+    if (!bar) return;
+
+    if (main._searchAutoHide) { main.removeEventListener('scroll', main._searchAutoHide); }
+    let last = main.scrollTop;
+    const onScroll = () => {
+        const cur = main.scrollTop;
+        const delta = cur - last;
+        if (cur <= 50) {
+            bar.classList.remove('search-hidden');
+        } else if (delta > 8) {
+            bar.classList.add('search-hidden');
+        } else if (delta < -8) {
+            bar.classList.remove('search-hidden');
+        }
+        last = cur;
+    };
+    main._searchAutoHide = onScroll;
+    main.addEventListener('scroll', onScroll, { passive: true });
+}
+
+
 // #app usa CSS Grid pra reservar a coluna da sidebar no desktop
 // (grid-template-columns: var(--sidebar-w) 1fr, ver dashboard.css) — mas
 // --sidebar-w só era definida uma vez em :root (base.css), sempre com o

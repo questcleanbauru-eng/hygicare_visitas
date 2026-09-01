@@ -663,8 +663,8 @@
     .tile-wide { grid-column: 1 / -1; }
     .stat-card { min-height: 100px; }
 
-    /* Offset for no bottom nav */
-    .scroll-top-btn { bottom: 1.5rem; }
+    /* Offset for no bottom nav — e no canto direito, senão fica atrás da sidebar */
+    .scroll-top-btn { bottom: 1.5rem; left: auto; right: 1.5rem; }
     .toast          { bottom: 1.5rem; }
 }
 

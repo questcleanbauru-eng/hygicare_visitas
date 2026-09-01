@@ -11,7 +11,7 @@ import {
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
     loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters
 } from '../utils/dom.js';
-import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles } from '../utils/ui.js';
+import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
 
 export function fillProposalsContent(mainContent, proposals) {
@@ -454,6 +454,8 @@ export async function renderProposalsPage() {
         state.proposals = cachedProposals;
         fillProposalsContent(mainContent, state.proposals);
         addScrollTop();
+
+        initSearchBarAutoHide();
         initPullToRefresh(async () => {
             const r = await getProposals(state.proposalsScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'proposals') {
@@ -475,6 +477,8 @@ export async function renderProposalsPage() {
     state.proposals = result.proposals || [];
     fillProposalsContent(mainContent, state.proposals);
     addScrollTop();
+
+    initSearchBarAutoHide();
     initPullToRefresh(async () => {
             const r = await getProposals(state.proposalsScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'proposals') {

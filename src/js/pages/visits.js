@@ -14,7 +14,7 @@ import {
     loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
     buildIcsContent, downloadIcs, renderSavedFilters
 } from '../utils/dom.js';
-import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
+import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { getProposals } from './proposals.js';
 import { getFunil } from './funil.js';
 
@@ -378,6 +378,8 @@ export async function renderVisitsPage() {
         const visitsContent = document.getElementById('visits-content');
         if (visitsContent) { fillVisitsContent(visitsContent, state.visits); }
         addScrollTop();
+
+        initSearchBarAutoHide();
         initPullToRefresh(async () => {
             const r = await getVisits(state.visitsScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'visits') {
@@ -401,6 +403,8 @@ export async function renderVisitsPage() {
     state.visits = result.visits || [];
     fillVisitsContent(visitsContent, state.visits);
     addScrollTop();
+
+    initSearchBarAutoHide();
     initPullToRefresh(async () => {
             const r = await getVisits(state.visitsScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'visits') {

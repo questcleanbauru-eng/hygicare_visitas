@@ -11,7 +11,7 @@ import {
     showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addScrollTop,
     openExternal, initializeSearchableInput, renderYearChips, setSaving, renderSavedFilters
 } from '../utils/dom.js';
-import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles } from '../utils/ui.js';
+import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
 
 export function fillFunilContent(mainContent, funil) {
@@ -630,6 +630,8 @@ export async function renderFunilPage() {
         const overdueCountCached = state.funil.filter((f) => calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30).length;
         updateFunilBadge(overdueCountCached);
         addScrollTop();
+
+        initSearchBarAutoHide();
         initPullToRefresh(async () => {
             const r = await getFunil(state.funilScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'funil') {
@@ -668,6 +670,8 @@ export async function renderFunilPage() {
     }).length;
     updateFunilBadge(overdueCount);
     addScrollTop();
+
+    initSearchBarAutoHide();
     initPullToRefresh(async () => {
             const r = await getFunil(state.funilScope === 'all' ? 0 : undefined);
             if (r.status === 'success' && state.currentPage === 'funil') {
