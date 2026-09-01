@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyn
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
     formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml,
-    formatInputDateFromDisplay, formatDateFromDisplay
+    formatInputDateFromDisplay, formatDateFromDisplay, prependDatedNote
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, renderDetailRow, showToast, renderSimpleOptions,
@@ -571,8 +571,13 @@ export async function renderProposalFormPage(proposal) {
                 </select>
             </div>
             <div class="form-group full-width">
-                <label for="proposal-obs">Atualizar / OBS</label>
-                <textarea id="proposal-obs" rows="4" required>${escapeHtml(normalized.obs || '')}</textarea>
+                <label for="proposal-nova-anotacao">Nova anotação (opcional)</label>
+                <input type="text" id="proposal-nova-anotacao" placeholder="Ex.: cliente pediu revisão de preço">
+                <p class="helper-text" style="text-align:left;margin:0.25rem 0 0">Entra com a data de hoje no topo do histórico abaixo.</p>
+            </div>
+            <div class="form-group full-width">
+                <label for="proposal-obs">Observação (histórico)</label>
+                <textarea id="proposal-obs" rows="4">${escapeHtml(normalized.obs || '')}</textarea>
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-proposal">Cancelar</button>
@@ -603,7 +608,10 @@ export async function renderProposalFormPage(proposal) {
         setSaving(true, button, 'Salvando...');
 
         const newStatus = document.getElementById('proposal-status').value;
-        const newObs = document.getElementById('proposal-obs').value.trim();
+        const newObs = prependDatedNote(
+            document.getElementById('proposal-obs').value,
+            document.getElementById('proposal-nova-anotacao').value
+        );
         const proposalId = normalized.id;
 
         const adminFields = isAdminUser ? {
@@ -918,7 +926,12 @@ function openProposalQuickUpdateModal(p, onUpdated) {
                 <select id="pq-status">${renderSimpleOptions(['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'], p.status)}</select>
             </div>
             <div class="form-group full-width">
-                <label for="pq-obs">Atualizar / OBS</label>
+                <label for="pq-nova-anotacao">Nova anotação (opcional)</label>
+                <input type="text" id="pq-nova-anotacao" placeholder="Ex.: cliente pediu revisão de preço">
+                <p class="helper-text" style="text-align:left;margin:0.25rem 0 0">Entra com a data de hoje no topo do histórico abaixo.</p>
+            </div>
+            <div class="form-group full-width">
+                <label for="pq-obs">Observação (histórico)</label>
                 <textarea id="pq-obs" rows="4">${escapeHtml(p.obs || '')}</textarea>
             </div>
             <div class="form-actions full-width" style="display:flex;gap:0.5rem;margin-top:0.5rem">
@@ -934,7 +947,10 @@ function openProposalQuickUpdateModal(p, onUpdated) {
     overlay.querySelector('#pq-save').addEventListener('click', async () => {
         const btn = overlay.querySelector('#pq-save');
         const newStatus = overlay.querySelector('#pq-status').value;
-        const newObs = overlay.querySelector('#pq-obs').value.trim();
+        const newObs = prependDatedNote(
+            overlay.querySelector('#pq-obs').value,
+            overlay.querySelector('#pq-nova-anotacao').value
+        );
         setSaving(true, btn, 'Salvando...');
 
         const idx = state.proposals.findIndex((item) => String(item.Id || item.id) === String(p.id));

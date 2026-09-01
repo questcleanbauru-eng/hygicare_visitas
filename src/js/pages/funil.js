@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyn
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay,
-    funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR
+    funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR, prependDatedNote
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, showToast, renderSimpleOptions,
@@ -432,7 +432,12 @@ function openFunilQuickUpdateModal(f, onUpdated) {
                 <textarea id="fq-motivo-perda" rows="2" placeholder="Ex.: preço, concorrência, sem orçamento...">${escapeHtml(f.motivoPerda || '')}</textarea>
             </div>
             <div class="form-group full-width">
-                <label for="fq-comentarios">Comentários</label>
+                <label for="fq-nova-anotacao">Nova anotação (opcional)</label>
+                <input type="text" id="fq-nova-anotacao" placeholder="Ex.: cliente pediu mais prazo">
+                <p class="helper-text" style="text-align:left;margin:0.25rem 0 0">Entra com a data de hoje no topo do histórico abaixo.</p>
+            </div>
+            <div class="form-group full-width">
+                <label for="fq-comentarios">Comentários (histórico)</label>
                 <textarea id="fq-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(f.comentarios || '')}</textarea>
             </div>
             <div class="form-actions full-width" style="display:flex;gap:0.5rem;margin-top:0.5rem">
@@ -451,7 +456,10 @@ function openFunilQuickUpdateModal(f, onUpdated) {
     overlay.querySelector('#fq-save').addEventListener('click', async () => {
         const btn = overlay.querySelector('#fq-save');
         const newStatus = overlay.querySelector('#fq-status').value;
-        const newComentarios = overlay.querySelector('#fq-comentarios').value.trim();
+        const newComentarios = prependDatedNote(
+            overlay.querySelector('#fq-comentarios').value,
+            overlay.querySelector('#fq-nova-anotacao').value
+        );
         const newMotivoPerda = overlay.querySelector('#fq-motivo-perda').value.trim();
         if (newStatus === 'PERDIDO' && !newMotivoPerda) {
             showToast('Informe o motivo da perda.', true);
@@ -1111,7 +1119,12 @@ export async function renderFunilFormPage(funil) {
                 <input type="text" id="funil-inf" value="${escapeHtml(f.infImportantes || '')}" placeholder="Informações relevantes">
             </div>
             <div class="form-group full-width">
-                <label for="funil-comentarios">Comentários</label>
+                <label for="funil-nova-anotacao">Nova anotação (opcional)</label>
+                <input type="text" id="funil-nova-anotacao" placeholder="Ex.: cliente pediu mais prazo">
+                <p class="helper-text" style="text-align:left;margin:0.25rem 0 0">Entra com a data de hoje no topo do histórico abaixo.</p>
+            </div>
+            <div class="form-group full-width">
+                <label for="funil-comentarios">Comentários (histórico)</label>
                 <textarea id="funil-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(f.comentarios || '')}</textarea>
             </div>
             <div class="form-actions full-width">
@@ -1148,7 +1161,12 @@ export async function renderFunilFormPage(funil) {
                 <input type="text" id="funil-inf" value="${escapeHtml(f.infImportantes || '')}" placeholder="Informações relevantes">
             </div>
             <div class="form-group full-width">
-                <label for="funil-comentarios">Comentários</label>
+                <label for="funil-nova-anotacao">Nova anotação (opcional)</label>
+                <input type="text" id="funil-nova-anotacao" placeholder="Ex.: cliente pediu mais prazo">
+                <p class="helper-text" style="text-align:left;margin:0.25rem 0 0">Entra com a data de hoje no topo do histórico abaixo.</p>
+            </div>
+            <div class="form-group full-width">
+                <label for="funil-comentarios">Comentários (histórico)</label>
                 <textarea id="funil-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(f.comentarios || '')}</textarea>
             </div>
             <div class="form-actions full-width">
@@ -1180,7 +1198,10 @@ export async function renderFunilFormPage(funil) {
         const newFVl       = document.getElementById('funil-vl-mensal').value.trim();
         const newFConcl    = conclusaoValue ? formatDateFromDisplay(conclusaoValue) : '';
         const newFInf      = document.getElementById('funil-inf').value.trim();
-        const newFComent   = document.getElementById('funil-comentarios').value.trim();
+        const newFComent   = prependDatedNote(
+            document.getElementById('funil-comentarios').value,
+            document.getElementById('funil-nova-anotacao').value
+        );
 
         const adminFields = isAdminUser ? {
             cliente: document.getElementById('funil-cliente').value.trim(),

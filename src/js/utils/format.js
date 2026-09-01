@@ -122,6 +122,17 @@ export function formatDateForDisplay(date) {
     return `${day}/${month}/${year}`;
 }
 
+// Histórico datado em campo de texto livre (Comentários do Funil, Observação
+// da Proposta): prependa "DD/MM/AAAA – <nota>" ao conteúdo atual, mais
+// recente no topo. Nota vazia → devolve o conteúdo como está (só aparado).
+export function prependDatedNote(existing, note) {
+    const trimmedNote = String(note || '').trim();
+    const base = String(existing || '').trim();
+    if (!trimmedNote) return base;
+    const stamp = formatDateForDisplay(new Date());
+    return `${stamp} - ${trimmedNote}` + (base ? `\n${base}` : '');
+}
+
 
 export function formatTimeForInput(date) {
     return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
