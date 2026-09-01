@@ -134,6 +134,12 @@ export function renderNavigation() {
     const userName = user ? escapeHtml(user.name || user.nomeVendedor || '') : '';
     const userProfile = user ? escapeHtml(user.profile || '') : '';
 
+    const logoutBtnHtml = `
+        <button type="button" class="nav-logout-btn" id="nav-logout" title="Sair">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span class="nav-btn-label">Sair</span>
+        </button>`;
+
     const userInfoHtml = (user && isDesktop) ? `
         <div class="nav-user-info">
             <div class="nav-user-avatar"><span>${userInitial}</span></div>
@@ -141,6 +147,7 @@ export function renderNavigation() {
                 <strong>${userName}</strong>
                 <span>${userProfile}</span>
             </div>
+            ${logoutBtnHtml}
         </div>
     ` : '';
 
@@ -174,9 +181,20 @@ export function renderNavigation() {
     // Menu do mobile — itens que não cabem na barra de baixo (Contratos,
     // Relatório, Radar). Aberto pelo ☰ do cabeçalho (ver initSidebarToggle).
     const extraMenu = document.getElementById('mobile-extra-menu');
-    if (extraMenu && drawerItems.length) {
-        const heading = isDesktop ? '' : '<p class="mobile-extra-menu-heading">Mais opções</p>';
-        extraMenu.innerHTML = heading + drawerItems.map(navBtnHtml).join('');
+    if (extraMenu && !isDesktop) {
+        const heading = '<p class="mobile-extra-menu-heading">Mais opções</p>';
+        // "Sair" fica no fim da gaveta — no mobile essa é a única saída de
+        // logout (a bottom-nav não tem espaço; o header não tem menu).
+        extraMenu.innerHTML = heading + drawerItems.map(navBtnHtml).join('')
+            + '<div class="mobile-extra-menu-divider"></div>' + logoutBtnHtml;
+        extraMenu.querySelectorAll('[data-page]').forEach((button) => {
+            button.addEventListener('click', () => {
+                navigateTo(button.dataset.page);
+                closeMobileExtraMenu();
+            });
+        });
+    } else if (extraMenu && drawerItems.length) {
+        extraMenu.innerHTML = drawerItems.map(navBtnHtml).join('');
         extraMenu.querySelectorAll('[data-page]').forEach((button) => {
             button.addEventListener('click', () => {
                 navigateTo(button.dataset.page);
@@ -184,6 +202,8 @@ export function renderNavigation() {
             });
         });
     }
+
+    document.querySelectorAll('#nav-logout').forEach((btn) => btn.addEventListener('click', logout));
 }
 
 

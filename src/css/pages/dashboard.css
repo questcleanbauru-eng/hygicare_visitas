@@ -154,6 +154,66 @@
     box-shadow: var(--shadow-xs);
 }
 
+/* Atividade recente — painel único com abas (Visitas / Propostas / Funil) */
+
+.dash-activity {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 0.9rem 0.9rem;
+    box-shadow: var(--shadow-xs);
+}
+
+.dash-activity-tabs {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 0.2rem;
+    margin-bottom: 0.75rem;
+}
+
+.dash-activity-tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    padding: 0.5rem 0.4rem;
+    min-height: 40px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted-strong);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    transition: background 0.15s, color 0.15s;
+}
+
+.dash-activity-tab.is-active {
+    background: var(--surface);
+    color: var(--primary);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.dash-activity-tab-n {
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-radius: 999px;
+    padding: 0.02rem 0.4rem;
+}
+
+.dash-activity-pane[hidden] { display: none; }
+
+.dash-activity-more {
+    margin: 0.5rem 0 0;
+    width: 100%;
+    justify-content: center;
+}
+
 .dash-today-card {
     background: var(--primary-light);
     border: 1px solid #bfdbfe;

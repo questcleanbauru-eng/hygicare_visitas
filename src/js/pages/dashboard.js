@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { logout, loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
+import { loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, calculateDaysFromDisplayDate, visitTypeClass, parseDisplayDate } from '../utils/format.js';
 import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, checkOverdueNotification, checkClientesPrincipaisNotification } from '../utils/ui.js';
 import { showSuccessPopup } from '../utils/dom.js';
@@ -30,10 +30,9 @@ export function fillDashboard(mainContent, data, user) {
     mainContent.innerHTML = `
         <div class="page-header" style="margin-bottom:1rem">
             <div>
-                <h2>Dashboard</h2>
+                <h2>Início</h2>
                 <p class="page-subtitle" style="margin:0.15rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>
             </div>
-            <button id="logout-button" class="secondary-button" type="button" style="font-size:0.8rem;padding:0.42rem 0.85rem">Sair</button>
         </div>
 
         <!-- Ações rápidas -->
@@ -102,46 +101,38 @@ export function fillDashboard(mainContent, data, user) {
             <button class="metric-card metric-card-blue" data-nav="visits" type="button">
                 <span class="metric-label">Visitas na semana</span>
                 <strong class="metric-value">${data.weeklyVisits || 0}</strong>
-                <span class="metric-link">Ver todas →</span>
             </button>
             <button class="metric-card metric-card-green" data-nav="proposals" type="button">
                 <span class="metric-label">Propostas abertas</span>
                 <strong class="metric-value">${data.openProposals || 0}</strong>
-                <span class="metric-link">Em acompanhamento →</span>
             </button>
             <button class="metric-card metric-card-orange" data-nav="proposals" type="button">
                 <span class="metric-label">Propostas sem atualização</span>
                 <strong class="metric-value">${data.overdueProposals || 0}</strong>
-                <span class="metric-link">Pedem revisão →</span>
                 ${(data.overdueProposals || 0) > 0 ? '<span class="metric-badge-urgent">Ação necessária</span>' : ''}
             </button>
             <button class="metric-card metric-card-green" data-nav="funil" type="button">
                 <span class="metric-label">Funil ativo</span>
                 <strong class="metric-value">${data.funilAtivo || 0}</strong>
-                <span class="metric-link">Oportunidades em aberto →</span>
             </button>
             <button class="metric-card metric-card-orange" data-nav="funil" type="button">
                 <span class="metric-label">Funil sem atualização</span>
                 <strong class="metric-value">${data.overdueFunil || 0}</strong>
-                <span class="metric-link">Pedem atenção →</span>
                 ${(data.overdueFunil || 0) > 0 ? '<span class="metric-badge-urgent">Ação necessária</span>' : ''}
             </button>
             ${isAdminOrGerente ? `
             <button class="metric-card metric-card-blue" data-nav="visits" type="button">
                 <span class="metric-label">Visitas da equipe</span>
                 <strong class="metric-value">${data.teamWeeklyVisits || data.weeklyVisits || 0}</strong>
-                <span class="metric-link">Ver equipe →</span>
             </button>` : ''}
             ${data.canAccessRadar ? `
             <button class="metric-card metric-card-orange" id="radar-prospeccao-card" type="button">
                 <span class="metric-label">Radar — em prospecção</span>
                 <strong class="metric-value">${data.radarClientesProspeccao || 0}</strong>
-                <span class="metric-link">Meus clientes →</span>
             </button>
             <button class="metric-card metric-card-blue" id="radar-carteira-card" type="button">
                 <span class="metric-label">Radar — minha carteira</span>
                 <strong class="metric-value">${data.radarClientesCarteira || 0}</strong>
-                <span class="metric-link">Meus clientes →</span>
             </button>` : ''}
         </div>
 
@@ -179,28 +170,21 @@ export function fillDashboard(mainContent, data, user) {
             `).join('')}
         </div>` : ''}
 
-        <!-- Painéis de atividade recente -->
+        <!-- Atividade recente — um painel só, com abas -->
         <p class="dash-section-heading" style="margin-top:1.5rem">Atividade recente</p>
-        <div class="dash-panels-grid">
-            <div class="dash-panel">
-                <div class="section-title-row">
-                    <h3 style="font-size:0.88rem;font-weight:700;margin:0">Visitas — últimos 7 dias</h3>
-                    <button class="section-link-button" id="go-visits">Ver tudo</button>
-                </div>
-                ${renderRecentItems(recentVisits, 'Nenhuma visita recente.')}
+        <div class="dash-activity">
+            <div class="dash-activity-tabs" role="tablist">
+                <button type="button" class="dash-activity-tab is-active" data-act="visits">Visitas</button>
+                <button type="button" class="dash-activity-tab" data-act="proposals">Propostas${recentProposals.length ? ` <span class="dash-activity-tab-n">${recentProposals.length}</span>` : ''}</button>
+                <button type="button" class="dash-activity-tab" data-act="funil">Funil</button>
             </div>
-            <div class="dash-panel">
-                <div class="section-title-row">
-                    <h3 style="font-size:0.88rem;font-weight:700;margin:0">Propostas em atenção</h3>
-                    <button class="section-link-button" id="go-proposals">Ver tudo</button>
-                </div>
-                ${renderRecentItems(recentProposals, 'Nenhuma proposta em destaque.', true)}
+            <div class="dash-activity-pane is-active" data-pane="visits">
+                ${renderRecentItems(recentVisits, 'Nenhuma visita nos últimos 7 dias.')}
             </div>
-            <div class="dash-panel">
-                <div class="section-title-row">
-                    <h3 style="font-size:0.88rem;font-weight:700;margin:0">Funil de vendas</h3>
-                    <button class="section-link-button" id="go-funil">Ver tudo</button>
-                </div>
+            <div class="dash-activity-pane" data-pane="proposals" hidden>
+                ${renderRecentItems(recentProposals, 'Nenhuma proposta em atenção.', true)}
+            </div>
+            <div class="dash-activity-pane" data-pane="funil" hidden>
                 ${recentFunil.length === 0
                     ? '<p class="helper-text">Nenhuma oportunidade ativa.</p>'
                     : `<div class="recent-list">${recentFunil.map((f) => {
@@ -215,18 +199,35 @@ export function fillDashboard(mainContent, data, user) {
                     }).join('')}</div>`
                 }
             </div>
+            <button type="button" class="section-link-button dash-activity-more" id="go-activity">Ver tudo →</button>
         </div>
     `;
 
     document.getElementById('go-agenda').addEventListener('click',    () => navigateTo('calendar'));
     document.getElementById('go-agenda-retornos')?.addEventListener('click', () => navigateTo('calendar', { filter: 'retornos' }));
-    document.getElementById('go-visits').addEventListener('click',    () => navigateTo('visits'));
-    document.getElementById('go-proposals').addEventListener('click', () => navigateTo('proposals'));
-    document.getElementById('go-funil').addEventListener('click',     () => navigateTo('funil'));
+
+    // Abas da "Atividade recente" — troca de painel sem recarregar nada.
+    let activeAct = 'visits';
+    const actTabs  = mainContent.querySelectorAll('.dash-activity-tab');
+    const actPanes = mainContent.querySelectorAll('.dash-activity-pane');
+    actTabs.forEach((tab) => tab.addEventListener('click', () => {
+        activeAct = tab.dataset.act;
+        actTabs.forEach((t) => t.classList.toggle('is-active', t === tab));
+        actPanes.forEach((p) => {
+            const on = p.dataset.pane === activeAct;
+            p.classList.toggle('is-active', on);
+            p.hidden = !on;
+        });
+    }));
+    document.getElementById('go-activity').addEventListener('click', () => {
+        if (activeAct === 'visits') { navigateTo('visits'); return; }
+        state.navLoadAll = activeAct;
+        navigateTo(activeAct);
+    });
+
     document.getElementById('qa-new-visit').addEventListener('click',     () => navigateTo('visit-new'));
     document.getElementById('qa-new-proposal').addEventListener('click',  () => navigateTo('proposal-new'));
     document.getElementById('qa-new-funil').addEventListener('click',     () => navigateTo('funil-new'));
-    document.getElementById('logout-button').addEventListener('click', logout);
     mainContent.querySelectorAll('.metric-card[data-nav]').forEach((el) => {
         el.addEventListener('click', () => {
             const nav = el.dataset.nav;
