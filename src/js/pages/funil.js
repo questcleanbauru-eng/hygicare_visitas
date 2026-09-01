@@ -17,6 +17,13 @@ import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/upd
 export function fillFunilContent(mainContent, funil) {
     let funilData = funil || [];
     const isAdmGer = isAdminOrGerenteUser();
+    const isAdminUser = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
+    // Edição rápida (só admin, só desktop): lista à esquerda + painel de
+    // edição à direita, na mesma tela — atualiza um registro atrás do outro
+    // sem abrir/voltar. Estado persistido pra não resetar a cada navegação.
+    let quickEdit = isAdminUser && (() => { try { return localStorage.getItem('funil_quick_edit') === '1'; } catch (e) { return false; } })();
+    let qeSelectedId = null;
+    const qeActive = () => quickEdit && isAdminUser && window.innerWidth >= 1024;
 
     const newFunilDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."';
 
@@ -79,6 +86,7 @@ export function fillFunilContent(mainContent, funil) {
                 <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
             </div>
             <div style="display:flex;gap:0.5rem">
+                ${isAdminUser ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, um registro após o outro">⚡ Edição rápida</button>` : ''}
                 <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
             </div>
         </div>
@@ -246,7 +254,7 @@ export function fillFunilContent(mainContent, funil) {
             return groups;
         }, {});
 
-        container.innerHTML = Object.keys(byMonth).sort((a, b) => b.localeCompare(a)).map((key) => `
+        const groupsHtml = Object.keys(byMonth).sort((a, b) => b.localeCompare(a)).map((key) => `
             <section class="visit-month-group">
                 <div class="visit-month-header">
                     <h3>${escapeHtml(formatMonthKey(key))}</h3>
@@ -276,12 +284,78 @@ export function fillFunilContent(mainContent, funil) {
             </section>
         `).join('');
 
+        if (qeActive()) {
+            container.classList.add('qe-layout');
+            container.innerHTML = `
+                <div class="qe-list">${groupsHtml}</div>
+                <div class="qe-panel" id="qe-panel">
+                    <p class="helper-text" style="padding:1.25rem;text-align:left">Clique numa oportunidade da lista para editar aqui — o painel fica fixo, é só ir clicando de uma pra outra.</p>
+                </div>`;
+        } else {
+            container.classList.remove('qe-layout');
+            container.innerHTML = groupsHtml;
+        }
+
         wireFunilCardEvents(container);
+        if (qeActive() && qeSelectedId) { openFunilQuickPanel(qeSelectedId); }
     };
+
+    function openFunilQuickPanel(id) {
+        const panel = document.getElementById('qe-panel');
+        if (!panel) { return; }
+        const f = funilData.find((x) => String(x.id) === String(id));
+        if (!f) { return; }
+        qeSelectedId = String(id);
+        document.querySelectorAll('#funil-list-container .funil-card').forEach((c) => {
+            c.classList.toggle('qe-selected', c.dataset.funilId === qeSelectedId);
+        });
+        const STAT = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
+        panel.innerHTML = `
+            <div class="qe-panel-inner">
+                <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
+                <p class="helper-text" style="margin:0.15rem 0 0.85rem;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.atualizacao || f.data].filter(Boolean).join(' · '))}</p>
+                <label>Status</label>
+                <div class="qe-status-row">
+                    ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (f.status || '') ? ' is-active' : ''}" data-s="${s}">${s}</button>`).join('')}
+                </div>
+                <div id="qe-motivo-wrap" style="margin-top:0.7rem;display:${f.status === 'PERDIDO' ? '' : 'none'}">
+                    <label>Motivo da perda</label>
+                    <input type="text" id="qe-motivo" value="${escapeHtml(f.motivoPerda || '')}" placeholder="Ex.: preço, concorrência...">
+                </div>
+                <label style="margin-top:0.7rem">Comentários</label>
+                <textarea id="qe-coment" rows="8">${escapeHtml(withDatedNoteHeader(f.comentarios))}</textarea>
+                <button type="button" class="primary-button" id="qe-save" style="margin-top:0.7rem">Salvar</button>
+            </div>`;
+
+        let selStatus = f.status || 'IDENTIFICAR';
+        panel.querySelectorAll('.qe-status-btn').forEach((b) => b.addEventListener('click', () => {
+            selStatus = b.dataset.s;
+            panel.querySelectorAll('.qe-status-btn').forEach((x) => x.classList.toggle('is-active', x === b));
+            panel.querySelector('#qe-motivo-wrap').style.display = selStatus === 'PERDIDO' ? '' : 'none';
+        }));
+        const ta = panel.querySelector('#qe-coment');
+        const hl = datedNoteHeader().length;
+        setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
+
+        panel.querySelector('#qe-save').addEventListener('click', () => {
+            const motivo = (panel.querySelector('#qe-motivo')?.value || '').trim();
+            if (selStatus === 'PERDIDO' && !motivo) { showToast('Informe o motivo da perda.', true); return; }
+            const coment = stripEmptyDatedLine(ta.value);
+            setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
+            showToast('Salvo.');
+            applyFunilQuickPatch(f, { status: selStatus, comentarios: coment, motivoPerda: motivo }, () => {
+                funilData = state.funil;
+                renderFiltered();
+            });
+        });
+    }
 
     function wireFunilCardEvents(container) {
         container.querySelectorAll('[data-funil-id]').forEach((btn) => {
-            btn.addEventListener('click', () => navigateTo('funil-detail', { id: btn.dataset.funilId }));
+            btn.addEventListener('click', () => {
+                if (qeActive()) { openFunilQuickPanel(btn.dataset.funilId); return; }
+                navigateTo('funil-detail', { id: btn.dataset.funilId });
+            });
         });
         container.querySelectorAll('[data-funil-quick]').forEach((el) => {
             el.addEventListener('click', (e) => {
@@ -365,6 +439,13 @@ export function fillFunilContent(mainContent, funil) {
     });
 
     document.getElementById('btn-new-funil')?.addEventListener('click', () => navigateTo('funil-new'));
+    document.getElementById('qe-toggle')?.addEventListener('click', (e) => {
+        quickEdit = !quickEdit;
+        try { localStorage.setItem('funil_quick_edit', quickEdit ? '1' : '0'); } catch (err) {}
+        e.currentTarget.classList.toggle('is-on', quickEdit);
+        qeSelectedId = null;
+        renderFiltered();
+    });
     document.getElementById('update-summary-btn')?.addEventListener('click', () => {
         if (confirm('Compartilhar o resumo de atualizações no WhatsApp e limpar a lista?')) {
             shareSummaryAndClear();
@@ -418,7 +499,6 @@ function openFunilQuickUpdateModal(f, onUpdated) {
     const _fqHeadLen = datedNoteHeader().length;
     setTimeout(() => { _fqTa.focus(); _fqTa.setSelectionRange(_fqHeadLen, _fqHeadLen); }, 30);
     overlay.querySelector('#fq-save').addEventListener('click', async () => {
-        const btn = overlay.querySelector('#fq-save');
         const newStatus = overlay.querySelector('#fq-status').value;
         const newComentarios = stripEmptyDatedLine(overlay.querySelector('#fq-comentarios').value);
         const newMotivoPerda = overlay.querySelector('#fq-motivo-perda').value.trim();
@@ -426,44 +506,49 @@ function openFunilQuickUpdateModal(f, onUpdated) {
             showToast('Informe o motivo da perda.', true);
             return;
         }
-        setSaving(true, btn, 'Salvando...');
-
-        const idx = state.funil.findIndex((item) => String(item.id) === String(f.id));
-        const original = idx >= 0 ? { ...state.funil[idx] } : null;
-        const nowDisplay = formatDateForDisplay(new Date());
-        if (idx >= 0) {
-            state.funil[idx] = { ...state.funil[idx], status: newStatus, comentarios: newComentarios, motivoPerda: newMotivoPerda, atualizacao: nowDisplay };
-            saveCache('funil', state.funil);
-        }
         close();
         showToast('Funil atualizado com sucesso.');
         if (onUpdated) onUpdated();
-
-        attemptOrQueue('updateFunil', { id: f.id, status: newStatus, comentarios: newComentarios, motivoPerda: newMotivoPerda, user: state.currentUser },
-            { entity: 'funil', tempId: f.id })
-            .then((result) => {
-                if (result && result.status === 'success') {
-                    state.funil = state.funil.map((item) => String(item.id) === String(f.id) ? result.funil : item);
-                    saveCache('funil', state.funil);
-                    trackUpdate('funil', { id: f.id, cliente: f.cliente, status: newStatus });
-                    if (onUpdated) onUpdated();
-                } else if (result && result.status === 'queued') {
-                    if (idx >= 0) { state.funil[idx] = { ...state.funil[idx], _pending: true }; saveCache('funil', state.funil); }
-                    showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                    trackUpdate('funil', { id: f.id, cliente: f.cliente, status: newStatus });
-                    if (onUpdated) onUpdated();
-                } else {
-                    if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
-                    showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
-                    if (onUpdated) onUpdated();
-                }
-            })
-            .catch(() => {
-                if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
-                showToast('Erro ao salvar. Tente novamente.', true);
-                if (onUpdated) onUpdated();
-            });
+        applyFunilQuickPatch(f, { status: newStatus, comentarios: newComentarios, motivoPerda: newMotivoPerda }, onUpdated);
     });
+}
+
+// Update otimista + attemptOrQueue + rollback compartilhado entre o modal de
+// atualização rápida e o painel de edição rápida (split view do admin).
+function applyFunilQuickPatch(f, patch, onDone) {
+    const { status, comentarios, motivoPerda } = patch;
+    const idx = state.funil.findIndex((item) => String(item.id) === String(f.id));
+    const original = idx >= 0 ? { ...state.funil[idx] } : null;
+    const nowDisplay = formatDateForDisplay(new Date());
+    if (idx >= 0) {
+        state.funil[idx] = { ...state.funil[idx], status, comentarios, motivoPerda, atualizacao: nowDisplay };
+        saveCache('funil', state.funil);
+    }
+    if (onDone) onDone();
+
+    return attemptOrQueue('updateFunil', { id: f.id, status, comentarios, motivoPerda, user: state.currentUser },
+        { entity: 'funil', tempId: f.id })
+        .then((result) => {
+            if (result && result.status === 'success') {
+                state.funil = state.funil.map((item) => String(item.id) === String(f.id) ? result.funil : item);
+                saveCache('funil', state.funil);
+                trackUpdate('funil', { id: f.id, cliente: f.cliente, status });
+            } else if (result && result.status === 'queued') {
+                if (idx >= 0) { state.funil[idx] = { ...state.funil[idx], _pending: true }; saveCache('funil', state.funil); }
+                showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                trackUpdate('funil', { id: f.id, cliente: f.cliente, status });
+            } else {
+                if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
+                showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
+            }
+            if (onDone) onDone();
+            return result;
+        })
+        .catch(() => {
+            if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
+            showToast('Erro ao salvar. Tente novamente.', true);
+            if (onDone) onDone();
+        });
 }
 
 

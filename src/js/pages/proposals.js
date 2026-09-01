@@ -18,6 +18,11 @@ export function fillProposalsContent(mainContent, proposals) {
     let normalized = (proposals || []).map(normalizeProposal);
     const isAdmGer = isAdminOrGerenteUser();
     const isAdmin  = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+    // Edição rápida (só admin, só desktop): lista + painel de edição na mesma
+    // tela — atualiza uma proposta atrás da outra sem abrir/voltar.
+    let quickEdit = isAdmin && (() => { try { return localStorage.getItem('proposals_quick_edit') === '1'; } catch (e) { return false; } })();
+    let qeSelectedId = null;
+    const qeActive = () => quickEdit && isAdmin && window.innerWidth >= 1024;
 
     const newProposalDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de propostas."';
 
@@ -69,7 +74,10 @@ export function fillProposalsContent(mainContent, proposals) {
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Propostas</h2><p class="page-subtitle">${normalized.length} proposta(s)</p></div>
-            <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
+            <div style="display:flex;gap:0.5rem">
+                ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, uma proposta após a outra">⚡ Edição rápida</button>` : ''}
+                <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
+            </div>
         </div>
         <div class="search-bar-wrapper">
             <div class="search-bar-input-group">
@@ -230,7 +238,7 @@ export function fillProposalsContent(mainContent, proposals) {
             return groups;
         }, {});
 
-        container.innerHTML = Object.keys(byMonth).sort((a, b) => b.localeCompare(a)).map((key) => `
+        const groupsHtml = Object.keys(byMonth).sort((a, b) => b.localeCompare(a)).map((key) => `
             <section class="visit-month-group">
                 <div class="visit-month-header">
                     <h3>${escapeHtml(formatMonthKey(key))}</h3>
@@ -255,8 +263,23 @@ export function fillProposalsContent(mainContent, proposals) {
             </section>
         `).join('');
 
+        if (qeActive()) {
+            container.classList.add('qe-layout');
+            container.innerHTML = `
+                <div class="qe-list">${groupsHtml}</div>
+                <div class="qe-panel" id="qe-panel">
+                    <p class="helper-text" style="padding:1.25rem;text-align:left">Clique numa proposta da lista para editar aqui — o painel fica fixo, é só ir clicando de uma pra outra.</p>
+                </div>`;
+        } else {
+            container.classList.remove('qe-layout');
+            container.innerHTML = groupsHtml;
+        }
+
         container.querySelectorAll('[data-proposal-id]').forEach((btn) => {
-            btn.addEventListener('click', () => navigateTo('proposal-detail', { id: btn.dataset.proposalId }));
+            btn.addEventListener('click', () => {
+                if (qeActive()) { openProposalQuickPanel(btn.dataset.proposalId); return; }
+                navigateTo('proposal-detail', { id: btn.dataset.proposalId });
+            });
         });
         container.querySelectorAll('.status-pill-editable').forEach(pill => {
             pill.addEventListener('click', (e) => {
@@ -271,7 +294,52 @@ export function fillProposalsContent(mainContent, proposals) {
                 if (item) openProposalQuickUpdateModal(item, renderFiltered);
             });
         });
+
+        if (qeActive() && qeSelectedId) { openProposalQuickPanel(qeSelectedId); }
     };
+
+    function openProposalQuickPanel(id) {
+        const panel = document.getElementById('qe-panel');
+        if (!panel) { return; }
+        const p = normalized.find((x) => String(x.id) === String(id));
+        if (!p) { return; }
+        qeSelectedId = String(id);
+        document.querySelectorAll('#proposal-list-container .proposal-card').forEach((c) => {
+            c.classList.toggle('qe-selected', c.dataset.proposalId === qeSelectedId);
+        });
+        const STAT = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
+        panel.innerHTML = `
+            <div class="qe-panel-inner">
+                <strong class="qe-panel-title">${escapeHtml(p.cliente || 'Cliente')}</strong>
+                <p class="helper-text" style="margin:0.15rem 0 0.85rem;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.atualizacao].filter(Boolean).join(' · '))}</p>
+                <label>Status</label>
+                <div class="qe-status-row">
+                    ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (p.status || '') ? ' is-active' : ''}" data-s="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
+                </div>
+                <label style="margin-top:0.7rem">Atualizar / OBS</label>
+                <textarea id="qe-obs" rows="8">${escapeHtml(withDatedNoteHeader(p.obs))}</textarea>
+                <button type="button" class="primary-button" id="qe-save" style="margin-top:0.7rem">Salvar</button>
+            </div>`;
+
+        let selStatus = p.status || 'Enviada';
+        panel.querySelectorAll('.qe-status-btn').forEach((b) => b.addEventListener('click', () => {
+            selStatus = b.dataset.s;
+            panel.querySelectorAll('.qe-status-btn').forEach((x) => x.classList.toggle('is-active', x === b));
+        }));
+        const ta = panel.querySelector('#qe-obs');
+        const hl = datedNoteHeader().length;
+        setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
+
+        panel.querySelector('#qe-save').addEventListener('click', () => {
+            const obs = stripEmptyDatedLine(ta.value);
+            setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
+            showToast('Salvo.');
+            applyProposalQuickPatch(p, { status: selStatus, obs }, () => {
+                normalized = state.proposals.map(normalizeProposal);
+                renderFiltered();
+            });
+        });
+    }
 
     const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor',
         'pf-date-from', 'pf-date-to'];
@@ -339,6 +407,13 @@ export function fillProposalsContent(mainContent, proposals) {
     });
 
     document.getElementById('btn-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
+    document.getElementById('qe-toggle')?.addEventListener('click', (e) => {
+        quickEdit = !quickEdit;
+        try { localStorage.setItem('proposals_quick_edit', quickEdit ? '1' : '0'); } catch (err) {}
+        e.currentTarget.classList.toggle('is-on', quickEdit);
+        qeSelectedId = null;
+        renderFiltered();
+    });
     document.getElementById('proposals-csv-btn')?.addEventListener('click', () => {
         downloadCSV(normalized, 'propostas.csv', [
             { key: 'data', label: 'Data' },
@@ -937,58 +1012,61 @@ function openProposalQuickUpdateModal(p, onUpdated) {
     const _pqHeadLen = datedNoteHeader().length;
     setTimeout(() => { _pqTa.focus(); _pqTa.setSelectionRange(_pqHeadLen, _pqHeadLen); }, 30);
     overlay.querySelector('#pq-save').addEventListener('click', async () => {
-        const btn = overlay.querySelector('#pq-save');
         const newStatus = overlay.querySelector('#pq-status').value;
         const newObs = stripEmptyDatedLine(overlay.querySelector('#pq-obs').value);
-        setSaving(true, btn, 'Salvando...');
-
-        const idx = state.proposals.findIndex((item) => String(item.Id || item.id) === String(p.id));
-        const original = idx >= 0 ? { ...state.proposals[idx] } : null;
-        const nowDisplay = formatDateForDisplay(new Date());
-        if (idx >= 0) {
-            state.proposals[idx] = {
-                ...state.proposals[idx],
-                status: newStatus, Status: newStatus,
-                obs: newObs, Obs: newObs,
-                atualizacao: nowDisplay, Atualizacao: nowDisplay
-            };
-            saveCache('proposals', state.proposals);
-        }
-        // `p` é o objeto normalizado usado pela lista (normalized.find(...)
-        // em quem chamou este modal) — uma referência separada da que fica
-        // em state.proposals (normalizeProposal cria cópias novas via map).
-        // Sem mutar `p` também, onUpdated() (renderFiltered) redesenharia a
-        // partir da cópia antiga e o card não mudaria.
-        p.status = newStatus;
-        p.obs = newObs;
-        p.atualizacao = nowDisplay;
-        p.atrasada = false;
         close();
         showToast('Proposta atualizada.');
         if (onUpdated) onUpdated();
-
-        attemptOrQueue('updateProposal', { id: p.id, status: newStatus, obs: newObs, user: state.currentUser },
-            { entity: 'proposals', tempId: p.id })
-            .then((result) => {
-                if (result && result.status === 'success') {
-                    trackUpdate('proposals', { id: p.id, cliente: p.cliente, status: newStatus });
-                } else if (result && result.status === 'queued') {
-                    if (idx >= 0) { state.proposals[idx] = { ...state.proposals[idx], _pending: true }; saveCache('proposals', state.proposals); }
-                    showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                    trackUpdate('proposals', { id: p.id, cliente: p.cliente, status: newStatus });
-                    if (onUpdated) onUpdated();
-                } else {
-                    if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
-                    showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
-                    if (onUpdated) onUpdated();
-                }
-            })
-            .catch(() => {
-                if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
-                showToast('Erro ao salvar. Tente novamente.', true);
-                if (onUpdated) onUpdated();
-            });
+        applyProposalQuickPatch(p, { status: newStatus, obs: newObs }, onUpdated);
     });
+}
+
+// Update otimista + attemptOrQueue + rollback compartilhado entre o modal de
+// atualização rápida e o painel de edição rápida (split view do admin).
+function applyProposalQuickPatch(p, patch, onDone) {
+    const { status, obs } = patch;
+    const idx = state.proposals.findIndex((item) => String(item.Id || item.id) === String(p.id));
+    const original = idx >= 0 ? { ...state.proposals[idx] } : null;
+    const nowDisplay = formatDateForDisplay(new Date());
+    if (idx >= 0) {
+        state.proposals[idx] = {
+            ...state.proposals[idx],
+            status, Status: status,
+            obs, Obs: obs,
+            atualizacao: nowDisplay, Atualizacao: nowDisplay
+        };
+        saveCache('proposals', state.proposals);
+    }
+    // `p` é o objeto normalizado da lista (referência separada da de
+    // state.proposals) — mutar aqui também pra o re-render pegar o novo valor.
+    p.status = status;
+    p.obs = obs;
+    p.atualizacao = nowDisplay;
+    p.atrasada = false;
+    if (onDone) onDone();
+
+    return attemptOrQueue('updateProposal', { id: p.id, status, obs, user: state.currentUser },
+        { entity: 'proposals', tempId: p.id })
+        .then((result) => {
+            if (result && result.status === 'success') {
+                trackUpdate('proposals', { id: p.id, cliente: p.cliente, status });
+            } else if (result && result.status === 'queued') {
+                if (idx >= 0) { state.proposals[idx] = { ...state.proposals[idx], _pending: true }; saveCache('proposals', state.proposals); }
+                showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                trackUpdate('proposals', { id: p.id, cliente: p.cliente, status });
+                if (onDone) onDone();
+            } else {
+                if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
+                showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
+                if (onDone) onDone();
+            }
+            return result;
+        })
+        .catch(() => {
+            if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
+            showToast('Erro ao salvar. Tente novamente.', true);
+            if (onDone) onDone();
+        });
 }
 
 

@@ -1956,3 +1956,73 @@ input[type="date"] {
 @media print {
     .report-kpi-row, .report-bar-row, .report-top-row { break-inside: avoid; }
 }
+
+/* ── Edição rápida (split: lista + painel de edição), admin/desktop ──
+   Usada em Funil e Propostas. Fica em components.css (carregado sempre)
+   pra valer nas duas páginas sem duplicar. */
+
+.qe-toggle.is-on {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.qe-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 380px) 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+.qe-list { min-width: 0; }
+
+.qe-panel {
+    position: sticky;
+    top: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: calc(100vh - 130px);
+    overflow-y: auto;
+}
+
+.qe-panel-inner { padding: 1rem 1.1rem 1.2rem; display: flex; flex-direction: column; }
+
+.qe-panel-title { font-size: 1rem; }
+
+.qe-panel-inner label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted-strong);
+    margin-bottom: 0.3rem;
+}
+
+.qe-panel-inner textarea,
+.qe-panel-inner input[type="text"] { width: 100%; }
+
+.qe-status-row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+.qe-status-btn {
+    flex: 1 1 30%;
+    min-width: 88px;
+    padding: 0.55rem 0.4rem;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--text-muted-strong);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.qe-status-btn.is-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.proposal-card.qe-selected { outline: 2px solid var(--primary); outline-offset: -1px; }
+
+@media (max-width: 1023px) {
+    .qe-toggle { display: none; }
+    .qe-layout { display: block; }
+    .qe-panel { display: none; }
+}
