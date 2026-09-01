@@ -37,11 +37,12 @@ export function renderLoginPage() {
                     </div>
                     <p class="login-brand-tagline">Gerencie visitas e propostas com eficiência</p>
                     <ul class="login-brand-benefits">
-                        <li>✓ Acompanhe visitas em tempo real</li>
-                        <li>✓ Propostas organizadas e rastreadas</li>
-                        <li>✓ Funil de vendas integrado</li>
+                        <li><span class="lbb-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Acompanhe visitas em tempo real</li>
+                        <li><span class="lbb-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Propostas organizadas e rastreadas</li>
+                        <li><span class="lbb-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Funil de vendas integrado</li>
                     </ul>
                 </div>
+                <p class="login-brand-foot">Hygicare · Gestão comercial</p>
             </div>
             <div class="login-form-col">
                 <div class="login-mobile-logo">
@@ -86,6 +87,7 @@ export function renderLoginPage() {
                             <span id="login-btn-spinner" class="login-spinner" style="display:none"></span>
                         </button>
                     </form>
+                    <p class="login-help">Problemas para entrar? Fale com o administrador.</p>
                 </div>
             </div>
         </div>
