@@ -123,14 +123,28 @@ export function formatDateForDisplay(date) {
 }
 
 // Histórico datado em campo de texto livre (Comentários do Funil, Observação
-// da Proposta): prependa "DD/MM/AAAA – <nota>" ao conteúdo atual, mais
-// recente no topo. Nota vazia → devolve o conteúdo como está (só aparado).
-export function prependDatedNote(existing, note) {
-    const trimmedNote = String(note || '').trim();
+// da Proposta). Ao abrir a edição, o campo já vem com "DD/MM/AAAA - " no
+// topo; o usuário só digita o que mudou. Estas duas funções montam esse
+// cabeçalho e limpam a linha caso ele não escreva nada.
+
+export function datedNoteHeader() {
+    return `${formatDateForDisplay(new Date())} - `;
+}
+
+// Prefixo pra abrir a edição: linha do dia + histórico existente embaixo.
+export function withDatedNoteHeader(existing) {
     const base = String(existing || '').trim();
-    if (!trimmedNote) return base;
-    const stamp = formatDateForDisplay(new Date());
-    return `${stamp} - ${trimmedNote}` + (base ? `\n${base}` : '');
+    return datedNoteHeader() + (base ? `\n${base}` : '');
+}
+
+// Ao salvar: se a primeira linha ficou só "DD/MM/AAAA - " (nada digitado),
+// remove — senão sobraria uma linha vazia no histórico.
+export function stripEmptyDatedLine(value) {
+    const lines = String(value || '').split('\n');
+    if (lines.length && /^\d{2}\/\d{2}\/\d{4}\s*-\s*$/.test(lines[0])) {
+        lines.shift();
+    }
+    return lines.join('\n').trim();
 }
 
 
