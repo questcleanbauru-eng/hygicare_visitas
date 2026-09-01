@@ -83,7 +83,7 @@ input, textarea, select,
 }
 
 .header-version-tag {
-    font-size: 0.62rem;
+    font-size: 0.7rem;
     font-weight: 600;
     color: var(--text-muted);
     background: var(--bg);
@@ -301,7 +301,7 @@ input, textarea, select,
     border: none;
     background: transparent;
     color: var(--text-muted);
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 500;
     cursor: pointer;
     display: flex;
@@ -594,9 +594,16 @@ main {
     background: transparent;
     color: var(--primary);
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    padding: 0.2rem 0;
+    /* Alvo de toque de 44px sem esticar a linha: a altura vem do padding
+       vertical + line-height, e o negativo no eixo horizontal recolhe a
+       folga pra não desalinhar da borda do card. */
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.2rem 0.5rem;
+    margin-right: -0.5rem;
     cursor: pointer;
 }
 

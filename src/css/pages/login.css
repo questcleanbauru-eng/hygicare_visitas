@@ -216,7 +216,8 @@
     padding: 20px 2.8rem 6px 2.6rem;
     border: 1.5px solid #E2E8F0;
     border-radius: 10px;
-    font-size: 0.95rem;
+    /* 16px: abaixo disso o iOS dá zoom ao focar. */
+    font-size: 16px;
     background: #fff;
     color: var(--text);
     transition: border-color 0.15s, box-shadow 0.15s;
@@ -489,13 +490,13 @@
         align-items: flex-start;
     }
 
-    .welcome-eyebrow  { font-size: 0.65rem; }
+    .welcome-eyebrow  { font-size: 0.72rem; }
     .welcome-card h3  { font-size: 0.96rem; }
-    .welcome-support  { margin-top: 0.35rem; font-size: 0.73rem; }
+    .welcome-support  { margin-top: 0.35rem; font-size: 0.78rem; }
     .welcome-meta     { margin-top: 0.42rem; gap: 0.28rem; }
 
     .welcome-meta-pill,
-    .profile-badge    { font-size: 0.66rem; padding: 0.2rem 0.5rem; }
+    .profile-badge    { font-size: 0.72rem; padding: 0.2rem 0.5rem; }
 
     .info-card-row strong { text-align: left; }
 
@@ -511,7 +512,8 @@
 
     input, select, textarea {
         padding: 0.64rem 0.72rem;
-        font-size: 0.9rem;
+        /* NÃO baixar de 16px — abaixo disso o iOS dá zoom ao focar o campo. */
+        font-size: 16px;
     }
 
     .date-picker-button {
@@ -613,7 +615,7 @@
     }
 
     .stat-card { padding: 0.85rem 0.9rem; }
-    .stat-label { font-size: 0.65rem; }
+    .stat-label { font-size: 0.72rem; }
     .stat-value { font-size: 1.4rem; }
 
     /* Alvos de toque maiores */
@@ -633,7 +635,7 @@
     .admin-stat { padding: 0.7rem 0.6rem; gap: 0.5rem; flex-direction: column; align-items: flex-start; }
     .admin-stat-icon { width: 32px; height: 32px; }
     .admin-stat-num { font-size: 1.35rem; }
-    .admin-stat-lbl { font-size: 0.62rem; }
+    .admin-stat-lbl { font-size: 0.7rem; }
 
     /* Tabela usuários → cards no mobile */
     .admin-user-table thead { display: none; }

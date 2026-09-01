@@ -78,7 +78,9 @@ textarea {
     background-color: var(--surface);
     color: var(--text);
     font: inherit;
-    font-size: 0.92rem;
+    /* 16px fixo: abaixo disso o iOS dá zoom automático na página ao focar o
+       campo e não volta sozinho. Vale pra desktop também (fica legível). */
+    font-size: 16px;
     transition: border-color 0.15s, box-shadow 0.15s;
     outline: none;
 }
