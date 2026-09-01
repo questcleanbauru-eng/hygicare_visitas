@@ -6,7 +6,8 @@ import {
     formatDateForDisplay, formatDateForInput, formatTimeForInput, formatInputDateFromDisplay,
     formatDateFieldValue, normalizeDisplayDateValue, formatTimeFieldValue, normalizeTimeValue,
     normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
-    calculateDaysFromDisplayDate
+    calculateDaysFromDisplayDate,
+    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, initializeSearchableInput, renderDetailRow,
@@ -17,6 +18,64 @@ import {
 import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { getProposals } from './proposals.js';
 import { getFunil } from './funil.js';
+
+// Update otimista + attemptOrQueue + rollback pro painel de edição rápida
+// (split view do admin). Só a Observação é editável aqui; o resto do
+// payload vem do próprio registro (o servidor exige os campos obrigatórios).
+function applyVisitQuickPatch(v, patch, onDone) {
+    const payload = {
+        id: v.id,
+        prospeccao: v.prospeccao || 'Nao',
+        vendedorGerente: v.vendedorGerente || state.currentUser.name,
+        gerencia: v.gerencia || state.currentUser.gerencia,
+        dataVisita: v.dataVisita,
+        horario: v.horario,
+        cliente: v.cliente,
+        contato: v.contato || '',
+        cidade: v.cidade,
+        areaAtuacao: v.areaAtuacao,
+        potencialCliente: v.potencialCliente || '',
+        tipoVisita: v.tipoVisita,
+        tiposVisita: [v.tipoVisita].filter(Boolean),
+        veiculo: v.veiculo || 'Particular',
+        observacao: patch.observacao,
+        user: state.currentUser
+    };
+    const idx = state.visits.findIndex((x) => String(x.ID || x.id) === String(v.id));
+    const original = idx >= 0 ? { ...state.visits[idx] } : null;
+    const updated = normalizeVisit({
+        ID: v.id, 'Prospecção': payload.prospeccao, 'Vendedor/Gerente': payload.vendedorGerente,
+        'Data da Visita': payload.dataVisita, 'Horário': payload.horario, 'Cliente': payload.cliente,
+        'Contato': payload.contato, 'Cidade': payload.cidade, 'Área de Atuação': payload.areaAtuacao,
+        'Potencial do Cliente': payload.potencialCliente, 'Tipo da Visita': payload.tipoVisita,
+        'Gerência': payload.gerencia, 'Qual o Veículo?': payload.veiculo, 'Observação': payload.observacao
+    });
+    if (idx >= 0) { state.visits[idx] = updated; saveCache('visits', state.visits); }
+    v.observacao = patch.observacao;
+    if (onDone) onDone();
+
+    return attemptOrQueue('updateVisit', payload, { entity: 'visits', tempId: payload.id })
+        .then((res) => {
+            if (res && res.status === 'success') {
+                const real = normalizeVisit(res.visit || payload);
+                state.visits = state.visits.map((x) => String(x.ID || x.id) === String(v.id) ? real : x);
+                saveCache('visits', state.visits);
+            } else if (res && res.status === 'queued') {
+                if (idx >= 0) { state.visits[idx] = { ...updated, _pending: true }; saveCache('visits', state.visits); }
+                showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+            } else {
+                if (idx >= 0 && original) { state.visits[idx] = original; saveCache('visits', state.visits); }
+                showToast((res && res.message) || 'Erro ao salvar. Tente novamente.', true);
+            }
+            if (onDone) onDone();
+            return res;
+        })
+        .catch(() => {
+            if (idx >= 0 && original) { state.visits[idx] = original; saveCache('visits', state.visits); }
+            showToast('Erro ao salvar. Tente novamente.', true);
+            if (onDone) onDone();
+        });
+}
 
 export function fillVisitsContent(container, visits) {
     let normalizedVisits = (visits || [])
@@ -66,6 +125,13 @@ export function fillVisitsContent(container, visits) {
     const availableCities  = Array.from(new Set(normalizedVisits.map((v) => v.cidade).filter(Boolean))).sort();
     const isAdmGer         = isAdminOrGerenteUser();
     const isAdmin          = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+    // Edição rápida (só admin, só desktop): lista + painel de Observação na
+    // mesma tela — anota uma visita atrás da outra sem abrir/voltar. qeActive
+    // relê o localStorage a cada chamada pra o toggle valer sem re-render.
+    const qeStored = () => { try { return localStorage.getItem('visits_quick_edit') === '1'; } catch (e) { return false; } };
+    const quickEdit = isAdmin && qeStored();
+    const qeActive = () => isAdmin && window.innerWidth >= 1024 && qeStored();
+    let qeSelectedId = null;
     const availableVendors = isAdmGer
         ? Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort()
         : [];
@@ -76,6 +142,7 @@ export function fillVisitsContent(container, visits) {
                 <span class="search-bar-icon">🔍</span>
                 <input type="text" id="visit-filter-search" placeholder="Buscar cliente, contato ou cidade..." class="form-input">
             </div>
+            ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="visits-qe-toggle" title="Anotar na mesma tela, uma visita após a outra">⚡ Edição rápida</button>` : ''}
             ${isAdmin ? `<button type="button" class="csv-export-btn" id="visits-csv-btn" title="Exportar CSV">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v13M8 11l4 4 4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
                 CSV
@@ -232,7 +299,7 @@ export function fillVisitsContent(container, visits) {
         }
 
         const visitsByMonth = groupVisitsByMonth(filteredVisits);
-        visitsListContainer.innerHTML = Object.keys(visitsByMonth).sort((firstKey, secondKey) => secondKey.localeCompare(firstKey)).map((monthKey) => `
+        const groupsHtml = Object.keys(visitsByMonth).sort((firstKey, secondKey) => secondKey.localeCompare(firstKey)).map((monthKey) => `
             <section class="visit-month-group">
                 <div class="visit-month-header">
                     <h3>${escapeHtml(formatMonthKey(monthKey))}</h3>
@@ -262,8 +329,23 @@ export function fillVisitsContent(container, visits) {
             </section>
         `).join('');
 
+        if (qeActive()) {
+            visitsListContainer.classList.add('qe-layout');
+            visitsListContainer.innerHTML = `
+                <div class="qe-list">${groupsHtml}</div>
+                <div class="qe-panel" id="qe-panel">
+                    <p class="helper-text" style="padding:1.25rem;text-align:left">Clique numa visita da lista para anotar aqui — o painel fica fixo, é só ir clicando de uma pra outra.</p>
+                </div>`;
+        } else {
+            visitsListContainer.classList.remove('qe-layout');
+            visitsListContainer.innerHTML = groupsHtml;
+        }
+
         visitsListContainer.querySelectorAll('[data-visit-id]').forEach((button) => {
-            button.addEventListener('click', () => navigateTo('visit-detail', { id: button.dataset.visitId }));
+            button.addEventListener('click', () => {
+                if (qeActive()) { openVisitQuickPanel(button.dataset.visitId); return; }
+                navigateTo('visit-detail', { id: button.dataset.visitId });
+            });
         });
         visitsListContainer.querySelectorAll('[data-share-id]').forEach((btn) => {
             btn.addEventListener('click', (e) => {
@@ -272,7 +354,40 @@ export function fillVisitsContent(container, visits) {
                 if (v) shareVisit(v);
             });
         });
+
+        if (qeActive() && qeSelectedId) { openVisitQuickPanel(qeSelectedId); }
     };
+
+    function openVisitQuickPanel(id) {
+        const panel = document.getElementById('qe-panel');
+        if (!panel) { return; }
+        const v = normalizedVisits.find((x) => String(x.id) === String(id));
+        if (!v) { return; }
+        qeSelectedId = String(id);
+        document.querySelectorAll('#visits-list-container .visit-card').forEach((c) => {
+            c.classList.toggle('qe-selected', c.dataset.visitId === qeSelectedId);
+        });
+        panel.innerHTML = `
+            <div class="qe-panel-inner">
+                <strong class="qe-panel-title">${escapeHtml(v.cliente || 'Cliente')}</strong>
+                <p class="helper-text" style="margin:0.15rem 0 0.85rem;text-align:left">${escapeHtml([v.tipoVisita, v.cidade, v.dataVisita].filter(Boolean).join(' · '))}</p>
+                <label>Observação</label>
+                <textarea id="qe-obs" rows="9">${escapeHtml(withDatedNoteHeader(v.observacao))}</textarea>
+                <button type="button" class="primary-button" id="qe-save" style="margin-top:0.7rem">Salvar</button>
+            </div>`;
+        const ta = panel.querySelector('#qe-obs');
+        const hl = datedNoteHeader().length;
+        setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
+        panel.querySelector('#qe-save').addEventListener('click', () => {
+            const obs = stripEmptyDatedLine(ta.value);
+            setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
+            showToast('Salvo.');
+            applyVisitQuickPatch(v, { observacao: obs }, () => {
+                normalizedVisits = (state.visits || []).map(normalizeVisit).sort((a, b) => compareVisitsByDateDesc(a, b));
+                renderFilteredVisits();
+            });
+        });
+    }
 
     const _visitFilterIds = ['visit-filter-search', 'visit-filter-type', 'visit-filter-city', 'visit-filter-prospeccao',
         'visit-filter-period', 'visit-filter-vendor', 'visit-filter-date-from', 'visit-filter-date-to'];
@@ -296,6 +411,13 @@ export function fillVisitsContent(container, visits) {
 
     renderSavedFilters(document.getElementById('visit-saved-filters'), 'visits', _visitFilterIds, (values) => {
         _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
+        renderFilteredVisits();
+    });
+
+    document.getElementById('visits-qe-toggle')?.addEventListener('click', (e) => {
+        try { localStorage.setItem('visits_quick_edit', qeStored() ? '0' : '1'); } catch (err) {}
+        e.currentTarget.classList.toggle('is-on', qeStored());
+        qeSelectedId = null;
         renderFilteredVisits();
     });
 

@@ -2032,7 +2032,8 @@ input[type="date"] {
 
 .qe-status-btn.is-active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
-.proposal-card.qe-selected { outline: 2px solid var(--primary); outline-offset: -1px; }
+.proposal-card.qe-selected,
+.visit-card.qe-selected { outline: 2px solid var(--primary); outline-offset: -1px; }
 
 @media (max-width: 1023px) {
     .qe-toggle { display: none; }
@@ -2065,3 +2066,15 @@ input[type="date"] {
     text-overflow: ellipsis;
 }
 .qe-layout .alert-text { display: none; }
+
+/* Visitas no modo rápido: cada card numa linha só, sem o botão de compartilhar */
+.qe-layout .visit-card-wrap { display: block; }
+.qe-layout .visit-share-btn { display: none; }
+.qe-layout .visit-card { padding: 0.5rem 0.7rem; }
+.qe-layout .visit-card-body { margin-top: 0.12rem; font-size: 0.71rem; flex-wrap: nowrap; overflow: hidden; }
+.qe-layout .visit-card-body span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.qe-layout .visit-date { font-size: 0.7rem; }
