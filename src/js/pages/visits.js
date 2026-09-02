@@ -77,6 +77,10 @@ function applyVisitQuickPatch(v, patch, onDone) {
         });
 }
 
+// Referência pro render da lista de Visitas já filtrada — setada por
+// fillVisitsContent, chamada pelo toggle "Edição rápida" no cabeçalho.
+let _visitsRenderFiltered = null;
+
 export function fillVisitsContent(container, visits) {
     let normalizedVisits = (visits || [])
         .map((visit) => normalizeVisit(visit))
@@ -142,7 +146,6 @@ export function fillVisitsContent(container, visits) {
                 <span class="search-bar-icon">🔍</span>
                 <input type="text" id="visit-filter-search" placeholder="Buscar cliente, contato ou cidade..." class="form-input">
             </div>
-            ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="visits-qe-toggle" title="Anotar na mesma tela, uma visita após a outra">⚡ Edição rápida</button>` : ''}
             ${isAdmin ? `<button type="button" class="csv-export-btn" id="visits-csv-btn" title="Exportar CSV">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v13M8 11l4 4 4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
                 CSV
@@ -337,6 +340,7 @@ export function fillVisitsContent(container, visits) {
                     <p class="helper-text" style="padding:1.25rem;text-align:left">Clique numa visita da lista para anotar aqui — o painel fica fixo, é só ir clicando de uma pra outra.</p>
                 </div>`;
         } else {
+            qeSelectedId = null;
             visitsListContainer.classList.remove('qe-layout');
             visitsListContainer.innerHTML = groupsHtml;
         }
@@ -414,12 +418,9 @@ export function fillVisitsContent(container, visits) {
         renderFilteredVisits();
     });
 
-    document.getElementById('visits-qe-toggle')?.addEventListener('click', (e) => {
-        try { localStorage.setItem('visits_quick_edit', qeStored() ? '0' : '1'); } catch (err) {}
-        e.currentTarget.classList.toggle('is-on', qeStored());
-        qeSelectedId = null;
-        renderFilteredVisits();
-    });
+    // Exposto pro toggle "Edição rápida" que fica no cabeçalho da página
+    // (renderVisitsPage) — de lá não dá pra chamar esta closure direto.
+    _visitsRenderFiltered = renderFilteredVisits;
 
     document.getElementById('visits-csv-btn')?.addEventListener('click', () => {
         downloadCSV(normalizedVisits, 'visitas.csv', [
@@ -482,17 +483,28 @@ export async function renderVisitsPage() {
     const cachedAll = (Array.isArray(cachedAllRaw) && cachedAllRaw.length > 0) ? cachedAllRaw : null;
     const cached3m  = (Array.isArray(cached3mRaw) && cached3mRaw.length > 0) ? cached3mRaw : null;
     const cachedVisits = cachedAll || cached3m;
+    const vpIsAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+    const vpQeOn = vpIsAdmin && (() => { try { return localStorage.getItem('visits_quick_edit') === '1'; } catch (e) { return false; } })();
     mainContent.innerHTML = `
         <div class="page-header">
             <div>
                 <h2>Visitas</h2>
                 <p class="page-subtitle">Historico e registro de visitas</p>
             </div>
-            <button class="btn-add" id="btn-new-visit" type="button">+ Nova Visita</button>
+            <div style="display:flex;gap:0.5rem">
+                ${vpIsAdmin ? `<button type="button" class="mini-button qe-toggle${vpQeOn ? ' is-on' : ''}" id="visits-qe-toggle" title="Anotar na mesma tela, uma visita após a outra">⚡ Edição rápida</button>` : ''}
+                <button class="btn-add" id="btn-new-visit" type="button">+ Nova Visita</button>
+            </div>
         </div>
         <div id="visits-content">${cachedVisits ? '' : loadingState('📋', 'Carregando suas visitas...')}</div>
     `;
     document.getElementById('btn-new-visit').addEventListener('click', () => navigateTo('visit-new'));
+    document.getElementById('visits-qe-toggle')?.addEventListener('click', (e) => {
+        const on = (() => { try { return localStorage.getItem('visits_quick_edit') === '1'; } catch (err) { return false; } })();
+        try { localStorage.setItem('visits_quick_edit', on ? '0' : '1'); } catch (err) {}
+        e.currentTarget.classList.toggle('is-on', !on);
+        _visitsRenderFiltered?.();
+    });
 
     if (cachedVisits) {
         state.visitsScope = cachedAll ? 'all' : '3m';
