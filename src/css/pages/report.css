@@ -47,8 +47,10 @@
     justify-content: space-between;
     gap: 0.5rem;
     margin-bottom: 0.85rem;
+    flex-wrap: wrap;
 }
 .report-section-head h3 { margin: 0; }
+.report-section-actions { display: flex; gap: 0.4rem; }
 
 .report-table-wrap {
     overflow-x: auto;
@@ -106,4 +108,13 @@
        branco. Aplica só nas linhas curtas, que aí sim nunca devem partir
        ao meio. */
     .report-section { box-shadow: none; border: 1px solid #ccc; }
+
+    /* PDF de uma seção só (botão "PDF" no cabeçalho da seção) — esconde as
+       demais enquanto data-print-scope está setado no <body>. */
+    [data-print-scope="propostas"] .report-section-visitas,
+    [data-print-scope="propostas"] .report-section-funil,
+    [data-print-scope="funil"] .report-section-visitas,
+    [data-print-scope="funil"] .report-section-propostas {
+        display: none;
+    }
 }

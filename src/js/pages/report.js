@@ -7,6 +7,19 @@ function formatMoney(value) {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+// Imprime a página inteira (scope vazio) ou só uma seção — o CSS
+// @media print esconde as demais quando body[data-print-scope] está setado.
+function printReport(scope) {
+    if (scope) { document.body.dataset.printScope = scope; }
+    const cleanup = () => {
+        delete document.body.dataset.printScope;
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    setTimeout(cleanup, 3000); // fallback: nem todo navegador dispara afterprint
+    window.print();
+}
+
 // Probabilidade de fechamento por estágio do funil — usada no forecast
 // ponderado (Vl Mensal × probabilidade).
 const FUNIL_PROB = { IDENTIFICAR: 0.10, RETOMAR: 0.15, PROPOSTA: 0.30, NEGOCIAR: 0.60, CONCLUIDO: 1, PERDIDO: 0 };
@@ -27,6 +40,16 @@ function sumBy(items, keyFn, valFn) {
         acc[k] = (acc[k] || 0) + (valFn(it) || 0);
     });
     return Object.entries(acc).sort((a, b) => b[1] - a[1]);
+}
+
+// Pega as N maiores entradas de um countBy e agrupa o resto numa linha
+// "Outras (X)" — pra listas por cidade/tipo não ficarem gigantes.
+function topN(entries, n = 8, restLabel = 'Outras') {
+    if (entries.length <= n + 1) return entries;
+    const top = entries.slice(0, n);
+    const rest = entries.slice(n);
+    const restSum = rest.reduce((s, e) => s + e[1], 0);
+    return [...top, [`${restLabel} (${rest.length})`, restSum]];
 }
 
 function reportTable(headers, rows) {
@@ -62,7 +85,7 @@ export async function renderReportPage() {
         </div>
         <div id="report-body">${loadingState('📊', 'Carregando relatório...')}</div>
     `;
-    document.getElementById('report-download-pdf').addEventListener('click', () => window.print());
+    document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
 
     const isAdmGer = isAdminOrGerenteUser();
     const [visitsMod, proposalsMod, funilMod] = await Promise.all([
@@ -279,22 +302,25 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             </div>` : ''}
         </div>
 
-        <div class="report-section">
+        <div class="report-section report-section-visitas">
             <h3>📋 Visitas</h3>
             <div class="report-kpi-row">
                 <div class="report-kpi"><strong>${visits.length}</strong><span>Total no período</span></div>
             </div>
-            ${visitsByType.length ? `<p class="report-subtitle">Por tipo</p><div class="report-bar-list">${visitsByType.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
-            ${isAdmGer && visitsByVendor.length ? `<p class="report-subtitle">Por vendedor</p><div class="report-bar-list">${visitsByVendor.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
-            ${visitsByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${visitsByCidade.map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
+            ${visitsByType.length ? `<p class="report-subtitle">Por tipo (principais)</p><div class="report-bar-list">${topN(visitsByType, 10).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
+            ${isAdmGer && visitsByVendor.length ? `<p class="report-subtitle">Por vendedor</p><div class="report-bar-list">${topN(visitsByVendor, 15).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
+            ${visitsByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(visitsByCidade, 8).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
             ${topClientesVisitas.length ? `<p class="report-subtitle">Top 5 clientes com mais visitas</p><div class="report-top-list">${topClientesVisitas.map(([cliente, total], i) => reportTopRow(i, cliente, total)).join('')}</div>` : ''}
             ${topTiposComCliente.length ? `<p class="report-subtitle">Top 5 tipos de visita — cliente mais frequente</p><div class="report-top-list">${topTiposComCliente.map((t, i) => reportTopRow(i, titleCase(t.tipo) + (t.cliente ? ` — ${t.cliente}` : ''), t.clienteCount)).join('')}</div>` : ''}
         </div>
 
-        <div class="report-section">
+        <div class="report-section report-section-propostas">
             <div class="report-section-head">
                 <h3>📄 Propostas</h3>
-                <button type="button" class="mini-button no-print" id="csv-propostas">📥 CSV detalhado</button>
+                <div class="report-section-actions no-print">
+                    <button type="button" class="mini-button" id="pdf-propostas">📄 PDF</button>
+                    <button type="button" class="mini-button" id="csv-propostas">📥 CSV</button>
+                </div>
             </div>
             <div class="report-kpi-row">
                 <div class="report-kpi"><strong>${proposals.length}</strong><span>Total no período</span></div>
@@ -306,8 +332,8 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 propByVendor.map((r) => [escapeHtml(r.vend), r.total, r.abertas, r.atrasadas, r.ganhas, r.perdidas, r.conv + '%'])
             )}` : ''}
             ${proposalsByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${proposalsByStatus.map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
-            ${propByFoco.length ? `<p class="report-subtitle">Por linha de produto (foco)</p><div class="report-bar-list">${propByFoco.slice(0, 12).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
-            ${proposalsByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${proposalsByCidade.slice(0, 12).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
+            ${propByFoco.length ? `<p class="report-subtitle">Por linha de produto (foco)</p><div class="report-bar-list">${topN(propByFoco, 10).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
+            ${proposalsByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(proposalsByCidade, 8).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
             ${propAging.length ? `<p class="report-subtitle">Propostas paradas (sem atualização &gt;30d)</p>${reportTable(
                 ['Cliente', 'Vendedor', 'Status', 'Dias parado', 'Data limite'],
                 propAging.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), p.diasAtraso || 0, escapeHtml(p.dataLimite || '-')])
@@ -318,10 +344,13 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             )}` : ''}
         </div>
 
-        <div class="report-section">
+        <div class="report-section report-section-funil">
             <div class="report-section-head">
                 <h3>📊 Funil</h3>
-                <button type="button" class="mini-button no-print" id="csv-funil">📥 CSV detalhado</button>
+                <div class="report-section-actions no-print">
+                    <button type="button" class="mini-button" id="pdf-funil">📄 PDF</button>
+                    <button type="button" class="mini-button" id="csv-funil">📥 CSV</button>
+                </div>
             </div>
             <div class="report-kpi-row">
                 <div class="report-kpi"><strong>${funilAtivo.length}</strong><span>Ativas no período</span></div>
@@ -335,9 +364,9 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             )}` : ''}
             ${funilByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${funilByStatus.map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
             ${funMotivoPerda.length ? `<p class="report-subtitle">Motivo da perda</p><div class="report-bar-list">${funMotivoPerda.map(([k, v]) => reportBar(k, v, funMotivoPerda.reduce((s, x) => s + x[1], 0))).join('')}</div>` : ''}
-            ${funPorAtuacao.length ? `<p class="report-subtitle">Por atuação</p><div class="report-bar-list">${funPorAtuacao.slice(0, 12).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
-            ${funPorAplicacao.length ? `<p class="report-subtitle">Por aplicação</p><div class="report-bar-list">${funPorAplicacao.slice(0, 12).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
-            ${funilByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${funilByCidade.slice(0, 12).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+            ${funPorAtuacao.length ? `<p class="report-subtitle">Por atuação</p><div class="report-bar-list">${topN(funPorAtuacao, 10).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+            ${funPorAplicacao.length ? `<p class="report-subtitle">Por aplicação</p><div class="report-bar-list">${topN(funPorAplicacao, 10).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+            ${funilByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(funilByCidade, 8).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
             ${funFechamento.length ? `<p class="report-subtitle">Previsão de fechamento (conclusão nos próximos 45 dias)</p>${reportTable(
                 ['Cliente', 'Vendedor', 'Status', 'Vl Mensal', 'Conclusão'],
                 funFechamento.map((f) => [escapeHtml(titleCase(f.cliente)), escapeHtml(titleCase(f.vendedor)), escapeHtml(f.status || '-'), formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.conclusao || '-')])
@@ -353,6 +382,8 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     });
 
     const _stamp = new Date().toISOString().slice(0, 10);
+    document.getElementById('pdf-propostas')?.addEventListener('click', () => printReport('propostas'));
+    document.getElementById('pdf-funil')?.addEventListener('click', () => printReport('funil'));
     document.getElementById('csv-propostas')?.addEventListener('click', () => {
         const rows = proposals
             .slice()
