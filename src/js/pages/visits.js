@@ -1665,7 +1665,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             }
             // Oferece jogar esse cliente no Funil de Vendas na sequência.
             if (payload.cliente && state.canCreateProposalFunil &&
-                confirm(`Adicionar "${payload.cliente}" ao Funil de Vendas?`)) {
+                await showAddToFunilModal(payload.cliente)) {
                 state.funilPrefill = {
                     cliente: payload.cliente,
                     cidade: payload.cidade || '',
@@ -2067,6 +2067,28 @@ export function showScheduleReturnModal(visit) {
                 }
             });
         });
+    });
+}
+
+
+// Mesmo estilo do "Agendar retorno" — modal do app, não confirm() nativo.
+export function showAddToFunilModal(clienteNome) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card">
+                <div style="font-size:2rem;margin-bottom:0.75rem">📊</div>
+                <h3>Adicionar ao Funil?</h3>
+                <p>Criar uma oportunidade no Funil de Vendas para <strong>${escapeHtml(clienteNome || 'este cliente')}</strong>?</p>
+                <button type="button" id="modal-funil-yes" class="primary-button">Sim, adicionar</button>
+                <button type="button" id="modal-funil-no" class="secondary-button">Agora não</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        const done = (val) => { overlay.remove(); resolve(val); };
+        overlay.querySelector('#modal-funil-no').addEventListener('click', () => done(false));
+        overlay.querySelector('#modal-funil-yes').addEventListener('click', () => done(true));
     });
 }
 
