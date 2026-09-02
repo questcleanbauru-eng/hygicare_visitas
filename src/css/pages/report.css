@@ -45,6 +45,22 @@
 
 .report-custom-range .form-group { flex: 1; min-width: 140px; }
 
+.report-status-filter { margin-top: 0.75rem; }
+.report-status-hint { font-weight: 400; color: var(--text-muted); font-size: 0.78rem; }
+
+.report-status-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+}
+
+.report-status-chips .mini-button.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
 .report-section {
     background: var(--surface);
     border: 1px solid var(--border);

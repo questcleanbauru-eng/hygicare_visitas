@@ -174,8 +174,8 @@ export async function renderReportPage() {
     state.reportPeriod = state.reportPeriod || 'mes-atual';
     state.reportCustomFrom = state.reportCustomFrom || '';
     state.reportCustomTo = state.reportCustomTo || '';
-    state.reportPropStatus = state.reportPropStatus || '';
-    state.reportFunilStatus = state.reportFunilStatus || '';
+    if (!Array.isArray(state.reportPropStatus)) { state.reportPropStatus = []; }
+    if (!Array.isArray(state.reportFunilStatus)) { state.reportFunilStatus = []; }
     state.reportCollapsedSections = state.reportCollapsedSections || [];
 
     if (visitsRes.status !== 'success' || proposalsRes.status !== 'success' || funilRes.status !== 'success') {
@@ -213,8 +213,8 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
     const gerencia = state.reportGerencia || '';
     const area = state.reportArea || '';
-    const propStatus = state.reportPropStatus || '';
-    const funilStatus = state.reportFunilStatus || '';
+    const propStatus = Array.isArray(state.reportPropStatus) ? state.reportPropStatus : [];
+    const funilStatus = Array.isArray(state.reportFunilStatus) ? state.reportFunilStatus : [];
 
     // Opções vêm do conjunto INTEIRO (sem filtro de período), pra não ficar
     // reordenando/sumindo do dropdown conforme o usuário troca o período.
@@ -243,10 +243,10 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     const visits = allVisits.filter((v) => inRange(parseDisplayDate(v.dataVisita), start, end)
         && (!gerencia || titleCase(v.gerencia) === gerencia) && (!area || titleCase(v.areaAtuacao) === area));
     const proposals = allProposals.filter((p) => inRange(parseDisplayDate(p.data), start, end)
-        && (!gerencia || titleCase(p.gerencia) === gerencia) && (!propStatus || p.status === propStatus));
+        && (!gerencia || titleCase(p.gerencia) === gerencia) && (!propStatus.length || propStatus.includes(p.status)));
     const funil = allFunil.filter((f) => inRange(parseDisplayDate(f.data), start, end)
         && (!gerencia || titleCase(f.gerencia) === gerencia) && (!area || titleCase(f.atuacao) === area)
-        && (!funilStatus || f.status === funilStatus));
+        && (!funilStatus.length || funilStatus.includes(f.status)));
 
     const visitsByType = countBy(visits, (v) => v.tipoVisita);
     const visitsByVendor = countBy(visits, (v) => titleCase(v.vendedorGerente));
@@ -375,22 +375,20 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                     </select>
                 </div>
             </div>` : ''}
-            <div class="report-custom-range">
-                <div class="form-group">
-                    <label for="report-prop-status">Status da proposta</label>
-                    <select id="report-prop-status">
-                        <option value="">Todos</option>
-                        ${propStatusDisponiveis.map((s) => `<option value="${escapeHtml(s)}" ${propStatus === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
-                    </select>
+            ${propStatusDisponiveis.length ? `
+            <div class="form-group report-status-filter">
+                <label>Status da proposta <span class="report-status-hint">(pode marcar vários)</span></label>
+                <div class="report-status-chips" data-status-group="prop">
+                    ${propStatusDisponiveis.map((s) => `<button type="button" class="mini-button${propStatus.includes(s) ? ' active' : ''}" data-status="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
                 </div>
-                <div class="form-group">
-                    <label for="report-funil-status">Status do funil</label>
-                    <select id="report-funil-status">
-                        <option value="">Todos</option>
-                        ${funilStatusDisponiveis.map((s) => `<option value="${escapeHtml(s)}" ${funilStatus === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
-                    </select>
+            </div>` : ''}
+            ${funilStatusDisponiveis.length ? `
+            <div class="form-group report-status-filter">
+                <label>Status do funil <span class="report-status-hint">(pode marcar vários)</span></label>
+                <div class="report-status-chips" data-status-group="funil">
+                    ${funilStatusDisponiveis.map((s) => `<button type="button" class="mini-button${funilStatus.includes(s) ? ' active' : ''}" data-status="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
                 </div>
-            </div>
+            </div>` : ''}
         </div>
 
         <div class="report-jump-nav no-print">
@@ -587,13 +585,16 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         state.reportArea = e.target.value;
         renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
     });
-    document.getElementById('report-prop-status')?.addEventListener('change', (e) => {
-        state.reportPropStatus = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
-    });
-    document.getElementById('report-funil-status')?.addEventListener('change', (e) => {
-        state.reportFunilStatus = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+    body.querySelectorAll('.report-status-chips').forEach((group) => {
+        const stateKey = group.dataset.statusGroup === 'prop' ? 'reportPropStatus' : 'reportFunilStatus';
+        group.querySelectorAll('button[data-status]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const set = new Set(state[stateKey] || []);
+                set.has(btn.dataset.status) ? set.delete(btn.dataset.status) : set.add(btn.dataset.status);
+                state[stateKey] = Array.from(set);
+                renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+            });
+        });
     });
 
     body.querySelectorAll('.report-section-toggle').forEach((btn) => {
