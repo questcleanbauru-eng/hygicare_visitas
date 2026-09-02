@@ -407,7 +407,10 @@ export function fillVisitsContent(container, visits) {
                 return;
             }
             const isText = _visitTextFilterIds.has(id);
-            element.addEventListener(isText ? 'input' : 'change', isText ? _debouncedVisitFilter : renderFilteredVisits);
+            if (isText) { element.addEventListener('input', _debouncedVisitFilter); }
+            // 'change' pega tanto os <select> quanto o clique numa opção do
+            // searchable-select (Vendedor/Cidade/Tipo), que só dispara 'change'.
+            element.addEventListener('change', renderFilteredVisits);
         });
 
     document.getElementById('visit-filters-clear')?.addEventListener('click', () => {

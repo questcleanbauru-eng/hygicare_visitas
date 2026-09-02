@@ -389,8 +389,11 @@ export function fillFunilContent(mainContent, funil) {
     const _debouncedFunilFilter = debounce(renderFiltered, 250);
     _funilFilterIds.forEach((id) => {
         const el = document.getElementById(id);
-        const isText = _funilTextFilterIds.has(id);
-        el?.addEventListener(isText ? 'input' : 'change', isText ? _debouncedFunilFilter : renderFiltered);
+        if (!el) return;
+        if (_funilTextFilterIds.has(id)) { el.addEventListener('input', _debouncedFunilFilter); }
+        // 'change' cobre <select> e o clique numa opção do searchable-select
+        // (Status/Cidade/Vendedor), que só dispara 'change'.
+        el.addEventListener('change', renderFiltered);
     });
 
     renderSavedFilters(document.getElementById('funil-saved-filters'), 'funil', _funilFilterIds, (values) => {

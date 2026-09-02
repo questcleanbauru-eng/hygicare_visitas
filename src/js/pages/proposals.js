@@ -357,8 +357,12 @@ export function fillProposalsContent(mainContent, proposals) {
     const _proposalTextFilterIds = new Set(['pf-search', 'pf-status', 'pf-cidade', 'pf-vendor']);
     const _debouncedProposalFilter = debounce(renderFiltered, 250);
     _proposalFilterIds.forEach((id) => {
-        const isText = _proposalTextFilterIds.has(id);
-        document.getElementById(id)?.addEventListener(isText ? 'input' : 'change', isText ? _debouncedProposalFilter : renderFiltered);
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (_proposalTextFilterIds.has(id)) { el.addEventListener('input', _debouncedProposalFilter); }
+        // 'change' cobre <select> e o clique numa opção do searchable-select
+        // (Status/Cidade/Vendedor), que só dispara 'change'.
+        el.addEventListener('change', renderFiltered);
     });
 
     document.getElementById('proposal-filter-clear')?.addEventListener('click', () => {
