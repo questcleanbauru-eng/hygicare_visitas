@@ -20,6 +20,26 @@ function printReport(scope) {
     window.print();
 }
 
+// Gera um PDF só com o conteúdo passado (tabelas detalhadas por vendedor),
+// sem renderizar isso tudo na tela. Monta um container fora de tela, marca
+// body[data-print-scope="detalhe"] (o CSS esconde o resto) e imprime.
+function printDetalhe(title, subtitle, innerHtml) {
+    document.getElementById('report-detail-print')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'report-detail-print';
+    wrap.innerHTML = `<div class="rdp-head"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(subtitle)}</p></div>${innerHtml}`;
+    document.body.appendChild(wrap);
+    document.body.dataset.printScope = 'detalhe';
+    const cleanup = () => {
+        wrap.remove();
+        delete document.body.dataset.printScope;
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    setTimeout(cleanup, 3000);
+    window.print();
+}
+
 // Probabilidade de fechamento por estágio do funil — usada no forecast
 // ponderado (Vl Mensal × probabilidade).
 const FUNIL_PROB = { IDENTIFICAR: 0.10, RETOMAR: 0.15, PROPOSTA: 0.30, NEGOCIAR: 0.60, CONCLUIDO: 1, PERDIDO: 0 };
@@ -343,6 +363,13 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             </div>` : ''}
         </div>
 
+        <div class="report-jump-nav no-print">
+            <span>Ir para:</span>
+            <button type="button" class="mini-button" data-jump="visitas">📋 Visitas</button>
+            <button type="button" class="mini-button" data-jump="propostas">📄 Propostas</button>
+            <button type="button" class="mini-button" data-jump="funil">📊 Funil</button>
+        </div>
+
         <div class="report-section report-section-visitas">
             <h3>📋 Visitas</h3>
             <div class="report-kpi-row">
@@ -359,7 +386,8 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             <div class="report-section-head">
                 <h3>📄 Propostas</h3>
                 <div class="report-section-actions no-print">
-                    <button type="button" class="mini-button" id="pdf-propostas">📄 PDF</button>
+                    <button type="button" class="mini-button" id="pdf-propostas">📄 Resumo</button>
+                    ${isAdmGer ? '<button type="button" class="mini-button" id="pdf-det-propostas">📄 Por vendedor</button>' : ''}
                     <button type="button" class="mini-button" id="csv-propostas">📥 CSV</button>
                 </div>
             </div>
@@ -383,29 +411,14 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 ['Cliente', 'Vendedor', 'Status', 'Data limite'],
                 propVencendo.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), escapeHtml(p.dataLimite || '-')])
             )}` : ''}
-            ${isAdmGer && proposals.length ? `<p class="report-subtitle">Detalhado por vendedor</p>${groupedVendorTables(
-                proposals,
-                (p) => p.vendedor,
-                (p) => p.data,
-                ['Data', 'Cliente', 'Foco', 'Produtos', 'Cidade', 'Status', 'Atualização', 'Tempo proposta'],
-                (p) => [
-                    escapeHtml(p.data || '-'),
-                    escapeHtml(titleCase(p.cliente) || '-'),
-                    escapeHtml(p.foco || '-'),
-                    escapeHtml(p.produtos || '-'),
-                    escapeHtml(titleCase(p.cidade) || '-'),
-                    escapeHtml(p.status || '-'),
-                    escapeHtml(p.atualizacao || '-'),
-                    escapeHtml(formatAge(p.data))
-                ]
-            )}` : ''}
         </div>
 
         <div class="report-section report-section-funil">
             <div class="report-section-head">
                 <h3>📊 Funil</h3>
                 <div class="report-section-actions no-print">
-                    <button type="button" class="mini-button" id="pdf-funil">📄 PDF</button>
+                    <button type="button" class="mini-button" id="pdf-funil">📄 Resumo</button>
+                    ${isAdmGer ? '<button type="button" class="mini-button" id="pdf-det-funil">📄 Por vendedor</button>' : ''}
                     <button type="button" class="mini-button" id="csv-funil">📥 CSV</button>
                 </div>
             </div>
@@ -428,23 +441,6 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 ['Cliente', 'Vendedor', 'Status', 'Vl Mensal', 'Conclusão'],
                 funFechamento.map((f) => [escapeHtml(titleCase(f.cliente)), escapeHtml(titleCase(f.vendedor)), escapeHtml(f.status || '-'), formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.conclusao || '-')])
             )}` : ''}
-            ${isAdmGer && funil.length ? `<p class="report-subtitle">Detalhado por vendedor</p>${groupedVendorTables(
-                funil,
-                (f) => f.vendedor,
-                (f) => f.data,
-                ['Data', 'Cliente', 'Foco', 'Atuação', 'Cidade', 'Status', 'Vl Mensal', 'Atualização', 'Tempo no funil'],
-                (f) => [
-                    escapeHtml(f.data || '-'),
-                    escapeHtml(titleCase(f.cliente) || '-'),
-                    escapeHtml(f.foco || '-'),
-                    escapeHtml(titleCase(f.atuacao) || '-'),
-                    escapeHtml(titleCase(f.cidade) || '-'),
-                    escapeHtml(f.status || '-'),
-                    formatMoney(parseCurrencyBR(f.vlMensal)),
-                    escapeHtml(f.atualizacao || '-'),
-                    escapeHtml(formatAge(f.data))
-                ]
-            )}` : ''}
         </div>
     `;
 
@@ -458,6 +454,38 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     const _stamp = new Date().toISOString().slice(0, 10);
     document.getElementById('pdf-propostas')?.addEventListener('click', () => printReport('propostas'));
     document.getElementById('pdf-funil')?.addEventListener('click', () => printReport('funil'));
+
+    body.querySelectorAll('[data-jump]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            document.querySelector(`.report-section-${btn.dataset.jump}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    document.getElementById('pdf-det-propostas')?.addEventListener('click', () => {
+        if (!proposals.length) { showToast('Nenhuma proposta no período.', true); return; }
+        printDetalhe('Propostas — detalhado por vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${proposals.length} proposta(s)`, groupedVendorTables(
+            proposals, (p) => p.vendedor, (p) => p.data,
+            ['Data', 'Cliente', 'Foco', 'Produtos', 'Cidade', 'Status', 'Atualização', 'Tempo proposta'],
+            (p) => [
+                escapeHtml(p.data || '-'), escapeHtml(titleCase(p.cliente) || '-'), escapeHtml(p.foco || '-'),
+                escapeHtml(p.produtos || '-'), escapeHtml(titleCase(p.cidade) || '-'), escapeHtml(p.status || '-'),
+                escapeHtml(p.atualizacao || '-'), escapeHtml(formatAge(p.data))
+            ]
+        ));
+    });
+    document.getElementById('pdf-det-funil')?.addEventListener('click', () => {
+        if (!funil.length) { showToast('Nenhuma oportunidade no período.', true); return; }
+        printDetalhe('Funil — detalhado por vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${funil.length} oportunidade(s)`, groupedVendorTables(
+            funil, (f) => f.vendedor, (f) => f.data,
+            ['Data', 'Cliente', 'Foco', 'Atuação', 'Cidade', 'Status', 'Vl Mensal', 'Atualização', 'Tempo no funil'],
+            (f) => [
+                escapeHtml(f.data || '-'), escapeHtml(titleCase(f.cliente) || '-'), escapeHtml(f.foco || '-'),
+                escapeHtml(titleCase(f.atuacao) || '-'), escapeHtml(titleCase(f.cidade) || '-'), escapeHtml(f.status || '-'),
+                formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.atualizacao || '-'), escapeHtml(formatAge(f.data))
+            ]
+        ));
+    });
     document.getElementById('csv-propostas')?.addEventListener('click', () => {
         const rows = proposals
             .slice()

@@ -5,6 +5,25 @@
     margin-bottom: 1rem;
 }
 
+/* Atalhos pro topo de cada seção */
+.report-jump-nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+}
+
+.report-jump-nav > span {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* Container do PDF "detalhado por vendedor" — não aparece na tela, só na
+   impressão (o conteúdo é montado na hora do clique, não fica no DOM). */
+#report-detail-print { display: none; }
+
 .report-period-buttons {
     display: flex;
     flex-wrap: wrap;
@@ -151,3 +170,48 @@
         display: none;
     }
 }
+
+/* ── PDF "detalhado por vendedor" — compacto, sem desperdício de folha ── */
+@media print {
+    body[data-print-scope="detalhe"] > *:not(#report-detail-print) { display: none !important; }
+
+    #report-detail-print {
+        display: block;
+        font-size: 8.5px;
+        line-height: 1.25;
+        color: #000;
+    }
+    #report-detail-print .rdp-head { margin-bottom: 6px; }
+    #report-detail-print .rdp-head h2 { margin: 0 0 1px; font-size: 12px; }
+    #report-detail-print .rdp-head p { margin: 0; font-size: 8px; color: #555; }
+
+    #report-detail-print .report-group { margin: 5px 0 3px; }
+    #report-detail-print .report-group-head {
+        font-size: 9px;
+        margin-bottom: 1px;
+        break-after: avoid;
+        color: #000;
+    }
+    #report-detail-print .report-group-head span {
+        border: none;
+        background: none;
+        padding: 0;
+        color: #555;
+    }
+    #report-detail-print .report-table-wrap { overflow: visible; margin: 0; }
+    #report-detail-print .report-table { font-size: 8px; }
+    #report-detail-print .report-table thead { display: table-header-group; }
+    #report-detail-print .report-table th,
+    #report-detail-print .report-table td {
+        padding: 1.5px 4px;
+        white-space: normal;
+        word-break: break-word;
+    }
+    #report-detail-print .report-table th {
+        background: #eee;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
+@page { margin: 10mm; }
