@@ -880,34 +880,46 @@ textarea { resize: vertical; }
 
 /* Radio pills */
 
-.radio-group { display: flex; gap: 0.5rem; }
+.radio-group { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
+/* Chip compacto: o radio nativo fica escondido (renderizava enorme no
+   mobile e herdava o min-height:44px global dos inputs), o próprio pill
+   vira o alvo de toque. */
 .radio-pill {
+    position: relative;
     display: inline-flex;
-    flex: 1;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
-    padding: 0.55rem 0.95rem;
+    min-height: 38px;
+    padding: 0.45rem 1rem;
     border: 1.5px solid var(--border);
-    border-radius: 10px;
+    border-radius: 8px;
     background: var(--surface);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
+    color: var(--text);
     cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
     transition: border-color 0.15s, background-color 0.15s, color 0.15s;
 }
+
+.radio-pill span { line-height: 1; }
 
 .radio-pill:has(input:checked) {
     border-color: var(--primary);
     background-color: #eff6ff;
     color: var(--primary);
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .radio-pill input {
-    width: auto;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
     margin: 0;
-    accent-color: var(--primary);
+    opacity: 0;
+    pointer-events: none;
 }
 
 /* Date/time pickers */
