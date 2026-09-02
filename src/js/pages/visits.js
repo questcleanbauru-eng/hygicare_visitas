@@ -377,11 +377,15 @@ export function fillVisitsContent(container, visits) {
                 <p class="helper-text" style="margin:0.15rem 0 0.85rem;text-align:left">${escapeHtml([v.tipoVisita, v.cidade, v.dataVisita].filter(Boolean).join(' · '))}</p>
                 <label>Observação</label>
                 <textarea id="qe-obs" rows="9">${escapeHtml(withDatedNoteHeader(v.observacao))}</textarea>
-                <button type="button" class="primary-button" id="qe-save" style="margin-top:0.7rem">Salvar</button>
+                <div style="display:flex;gap:0.5rem;margin-top:0.7rem">
+                    <button type="button" class="primary-button" id="qe-save" style="flex:2">Salvar</button>
+                    <button type="button" class="secondary-button" id="qe-full" style="flex:1" title="Abrir a edição completa desta visita">Editar tudo</button>
+                </div>
             </div>`;
         const ta = panel.querySelector('#qe-obs');
         const hl = datedNoteHeader().length;
         setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
+        panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('visit-edit', { visit: v }));
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const obs = stripEmptyDatedLine(ta.value);
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');

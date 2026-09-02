@@ -324,7 +324,10 @@ export function fillFunilContent(mainContent, funil) {
                 </div>
                 <label style="margin-top:0.7rem">Comentários</label>
                 <textarea id="qe-coment" rows="8">${escapeHtml(withDatedNoteHeader(f.comentarios))}</textarea>
-                <button type="button" class="primary-button" id="qe-save" style="margin-top:0.7rem">Salvar</button>
+                <div style="display:flex;gap:0.5rem;margin-top:0.7rem">
+                    <button type="button" class="primary-button" id="qe-save" style="flex:2">Salvar</button>
+                    <button type="button" class="secondary-button" id="qe-full" style="flex:1" title="Abrir a edição completa desta oportunidade">Editar tudo</button>
+                </div>
             </div>`;
 
         let selStatus = f.status || 'IDENTIFICAR';
@@ -336,6 +339,8 @@ export function fillFunilContent(mainContent, funil) {
         const ta = panel.querySelector('#qe-coment');
         const hl = datedNoteHeader().length;
         setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
+
+        panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const motivo = (panel.querySelector('#qe-motivo')?.value || '').trim();

@@ -318,7 +318,10 @@ export function fillProposalsContent(mainContent, proposals) {
                 </div>
                 <label style="margin-top:0.7rem">Atualizar / OBS</label>
                 <textarea id="qe-obs" rows="8">${escapeHtml(withDatedNoteHeader(p.obs))}</textarea>
-                <button type="button" class="primary-button" id="qe-save" style="margin-top:0.7rem">Salvar</button>
+                <div style="display:flex;gap:0.5rem;margin-top:0.7rem">
+                    <button type="button" class="primary-button" id="qe-save" style="flex:2">Salvar</button>
+                    <button type="button" class="secondary-button" id="qe-full" style="flex:1" title="Abrir a edição completa desta proposta">Editar tudo</button>
+                </div>
             </div>`;
 
         let selStatus = p.status || 'Enviada';
@@ -329,6 +332,8 @@ export function fillProposalsContent(mainContent, proposals) {
         const ta = panel.querySelector('#qe-obs');
         const hl = datedNoteHeader().length;
         setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
+
+        panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('proposal-edit', { proposal: p }));
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const obs = stripEmptyDatedLine(ta.value);

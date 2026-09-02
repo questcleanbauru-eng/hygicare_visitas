@@ -476,10 +476,18 @@ export function initSearchBarAutoHide() {
     const bar = main.querySelector('.search-bar-wrapper');
     if (!bar) return;
 
-    if (main._searchAutoHide) { main.removeEventListener('scroll', main._searchAutoHide); }
-    let last = main.scrollTop;
+    // O container que rola muda entre mobile (#main-content) e desktop
+    // (às vezes a própria janela) — pega o maior scrollTop dos candidatos.
+    const scrollPos = () => Math.max(
+        main.scrollTop || 0,
+        window.scrollY || 0,
+        (document.documentElement && document.documentElement.scrollTop) || 0
+    );
+    if (main._searchAutoHideCleanup) { main._searchAutoHideCleanup(); }
+
+    let last = scrollPos();
     const onScroll = () => {
-        const cur = main.scrollTop;
+        const cur = scrollPos();
         const delta = cur - last;
         if (cur <= 50) {
             bar.classList.remove('search-hidden');
@@ -490,8 +498,12 @@ export function initSearchBarAutoHide() {
         }
         last = cur;
     };
-    main._searchAutoHide = onScroll;
     main.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+    main._searchAutoHideCleanup = () => {
+        main.removeEventListener('scroll', onScroll);
+        window.removeEventListener('scroll', onScroll);
+    };
 }
 
 
