@@ -1,10 +1,39 @@
 import { state, navigateTo } from '../app.js';
-import { escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, normalizeVisit, normalizeProposal, titleCase, parseCurrencyBR } from '../utils/format.js';
-import { loadingState, showToast } from '../utils/dom.js';
+import { escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, normalizeVisit, normalizeProposal, titleCase, parseCurrencyBR, calculateDaysFromDisplayDate } from '../utils/format.js';
+import { loadingState, showToast, downloadCSV } from '../utils/dom.js';
 import { ensureStyles, renderBreadcrumb } from '../utils/ui.js';
 
 function formatMoney(value) {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+// Probabilidade de fechamento por estágio do funil — usada no forecast
+// ponderado (Vl Mensal × probabilidade).
+const FUNIL_PROB = { IDENTIFICAR: 0.10, RETOMAR: 0.15, PROPOSTA: 0.30, NEGOCIAR: 0.60, CONCLUIDO: 1, PERDIDO: 0 };
+
+function propStatusKind(status) {
+    const s = String(status || '').trim().toLowerCase();
+    if (['ganhamos', 'ganho', 'concluido', 'concluído'].includes(s)) return 'ganha';
+    if (['perdido', 'perdida'].includes(s)) return 'perdida';
+    return 'aberta';
+}
+
+// Soma um número por chave (vendedor, status, etc.) e devolve linhas
+// ordenadas por valor desc.
+function sumBy(items, keyFn, valFn) {
+    const acc = {};
+    items.forEach((it) => {
+        const k = keyFn(it) || '-';
+        acc[k] = (acc[k] || 0) + (valFn(it) || 0);
+    });
+    return Object.entries(acc).sort((a, b) => b[1] - a[1]);
+}
+
+function reportTable(headers, rows) {
+    return `<div class="report-table-wrap"><table class="report-table">
+        <thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td${i === 0 ? '' : ' class="num"'}>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>`;
 }
 
 function countBy(items, keyFn) {
@@ -155,6 +184,58 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         return String(f.ativo || '').toLowerCase() === 'sim' && dias && (new Date() - dias) / 86400000 > 30;
     }).length;
 
+    // ── Agregados por vendedor / extras (Propostas) ──────────────────────
+    const propForecastN = (p) => propStatusKind(p.status) === 'aberta' ? 1 : 0;
+    const propVendors = Array.from(new Set(proposals.map((p) => titleCase(p.vendedor) || '-')));
+    const propByVendor = propVendors.map((vend) => {
+        const list = proposals.filter((p) => (titleCase(p.vendedor) || '-') === vend);
+        const abertas = list.filter((p) => propStatusKind(p.status) === 'aberta').length;
+        const ganhas = list.filter((p) => propStatusKind(p.status) === 'ganha').length;
+        const perdidas = list.filter((p) => propStatusKind(p.status) === 'perdida').length;
+        const atrasadas = list.filter((p) => p.atrasada).length;
+        const fechadas = ganhas + perdidas;
+        const conv = fechadas ? Math.round((ganhas / fechadas) * 100) : 0;
+        return { vend, total: list.length, abertas, atrasadas, ganhas, perdidas, conv };
+    }).sort((a, b) => b.abertas - a.abertas);
+    const propByFoco = countBy(proposals, (p) => titleCase(p.foco));
+    const propAging = proposals.filter((p) => p.atrasada)
+        .sort((a, b) => (b.diasAtraso || 0) - (a.diasAtraso || 0)).slice(0, 15);
+    const propVencendo = proposals.filter((p) => {
+        if (propStatusKind(p.status) !== 'aberta') return false;
+        const dl = parseDisplayDate(p.dataLimite);
+        if (!dl) return false;
+        const dias = (dl - new Date()) / 86400000;
+        return dias >= -3 && dias <= 15;
+    }).sort((a, b) => (parseDisplayDate(a.dataLimite) || 0) - (parseDisplayDate(b.dataLimite) || 0));
+
+    // ── Agregados por vendedor / extras (Funil) ──────────────────────────
+    const funForecast = (f) => parseCurrencyBR(f.vlMensal) * (FUNIL_PROB[String(f.status || '').toUpperCase()] ?? 0.1);
+    const funVendors = Array.from(new Set(funil.map((f) => titleCase(f.vendedor) || '-')));
+    const funByVendor = funVendors.map((vend) => {
+        const list = funil.filter((f) => (titleCase(f.vendedor) || '-') === vend);
+        const ativas = list.filter((f) => String(f.ativo || '').toLowerCase() === 'sim');
+        const st = (name) => ativas.filter((f) => String(f.status || '').toUpperCase() === name).length;
+        const vlAtivo = ativas.reduce((s, f) => s + parseCurrencyBR(f.vlMensal), 0);
+        const fc = list.reduce((s, f) => s + (String(f.ativo || '').toLowerCase() === 'sim' ? funForecast(f) : 0), 0);
+        return {
+            vend, ativas: ativas.length,
+            identificar: st('IDENTIFICAR'), proposta: st('PROPOSTA'), negociar: st('NEGOCIAR'), retomar: st('RETOMAR'),
+            concluidas: list.filter((f) => String(f.status || '').toUpperCase() === 'CONCLUIDO').length,
+            perdidas: list.filter((f) => String(f.status || '').toUpperCase() === 'PERDIDO').length,
+            vlAtivo, forecast: fc
+        };
+    }).sort((a, b) => b.vlAtivo - a.vlAtivo);
+    const funForecastTotal = funilAtivo.reduce((s, f) => s + funForecast(f), 0);
+    const funMotivoPerda = countBy(funil.filter((f) => String(f.status || '').toUpperCase() === 'PERDIDO'), (f) => f.motivoPerda || 'Não informado');
+    const funPorAtuacao = countBy(funil, (f) => titleCase(f.atuacao));
+    const funPorAplicacao = countBy(funil, (f) => titleCase(f.aplicacao));
+    const funFechamento = funilAtivo.filter((f) => {
+        const c = parseDisplayDate(f.conclusao);
+        if (!c) return false;
+        const dias = (c - new Date()) / 86400000;
+        return dias >= -3 && dias <= 45;
+    }).sort((a, b) => (parseDisplayDate(a.conclusao) || 0) - (parseDisplayDate(b.conclusao) || 0));
+
     const periodLabel = {
         'semana-atual': 'Semana atual',
         'mes-atual': 'Mês atual',
@@ -211,25 +292,56 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         </div>
 
         <div class="report-section">
-            <h3>📄 Propostas</h3>
+            <div class="report-section-head">
+                <h3>📄 Propostas</h3>
+                <button type="button" class="mini-button no-print" id="csv-propostas">📥 CSV detalhado</button>
+            </div>
             <div class="report-kpi-row">
                 <div class="report-kpi"><strong>${proposals.length}</strong><span>Total no período</span></div>
                 <div class="report-kpi"><strong>${conversao}%</strong><span>Taxa de conversão</span></div>
-                <div class="report-kpi report-kpi-alert"><strong>${proposalsAtrasadas}</strong><span>Atrasadas</span></div>
+                <div class="report-kpi report-kpi-alert"><strong>${proposalsAtrasadas}</strong><span>Atrasadas &gt;30d</span></div>
             </div>
+            ${isAdmGer && propByVendor.length ? `<p class="report-subtitle">Por vendedor</p>${reportTable(
+                ['Vendedor', 'Total', 'Abertas', 'Atrasadas', 'Ganhas', 'Perdidas', 'Conv. %'],
+                propByVendor.map((r) => [escapeHtml(r.vend), r.total, r.abertas, r.atrasadas, r.ganhas, r.perdidas, r.conv + '%'])
+            )}` : ''}
             ${proposalsByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${proposalsByStatus.map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
-            ${proposalsByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${proposalsByCidade.map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
+            ${propByFoco.length ? `<p class="report-subtitle">Por linha de produto (foco)</p><div class="report-bar-list">${propByFoco.slice(0, 12).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
+            ${proposalsByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${proposalsByCidade.slice(0, 12).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
+            ${propAging.length ? `<p class="report-subtitle">Propostas paradas (sem atualização &gt;30d)</p>${reportTable(
+                ['Cliente', 'Vendedor', 'Status', 'Dias parado', 'Data limite'],
+                propAging.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), p.diasAtraso || 0, escapeHtml(p.dataLimite || '-')])
+            )}` : ''}
+            ${propVencendo.length ? `<p class="report-subtitle">Vencendo (data limite nos próximos 15 dias)</p>${reportTable(
+                ['Cliente', 'Vendedor', 'Status', 'Data limite'],
+                propVencendo.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), escapeHtml(p.dataLimite || '-')])
+            )}` : ''}
         </div>
 
         <div class="report-section">
-            <h3>📊 Funil</h3>
+            <div class="report-section-head">
+                <h3>📊 Funil</h3>
+                <button type="button" class="mini-button no-print" id="csv-funil">📥 CSV detalhado</button>
+            </div>
             <div class="report-kpi-row">
                 <div class="report-kpi"><strong>${funilAtivo.length}</strong><span>Ativas no período</span></div>
-                <div class="report-kpi"><strong>${formatMoney(funilValorTotal)}</strong><span>Valor em pipeline</span></div>
+                <div class="report-kpi"><strong>${formatMoney(funilValorTotal)}</strong><span>Vl Mensal em pipeline</span></div>
+                <div class="report-kpi"><strong>${formatMoney(funForecastTotal)}</strong><span>Forecast ponderado</span></div>
                 <div class="report-kpi report-kpi-alert"><strong>${funilAtrasado}</strong><span>Sem atualização &gt;30d</span></div>
             </div>
+            ${isAdmGer && funByVendor.length ? `<p class="report-subtitle">Por vendedor</p>${reportTable(
+                ['Vendedor', 'Ativas', 'Identif.', 'Proposta', 'Negociar', 'Retomar', 'Concl.', 'Perd.', 'Vl Mensal', 'Forecast'],
+                funByVendor.map((r) => [escapeHtml(r.vend), r.ativas, r.identificar, r.proposta, r.negociar, r.retomar, r.concluidas, r.perdidas, formatMoney(r.vlAtivo), formatMoney(r.forecast)])
+            )}` : ''}
             ${funilByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${funilByStatus.map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
-            ${funilByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${funilByCidade.map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+            ${funMotivoPerda.length ? `<p class="report-subtitle">Motivo da perda</p><div class="report-bar-list">${funMotivoPerda.map(([k, v]) => reportBar(k, v, funMotivoPerda.reduce((s, x) => s + x[1], 0))).join('')}</div>` : ''}
+            ${funPorAtuacao.length ? `<p class="report-subtitle">Por atuação</p><div class="report-bar-list">${funPorAtuacao.slice(0, 12).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+            ${funPorAplicacao.length ? `<p class="report-subtitle">Por aplicação</p><div class="report-bar-list">${funPorAplicacao.slice(0, 12).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+            ${funilByCidade.length ? `<p class="report-subtitle">Por cidade</p><div class="report-bar-list">${funilByCidade.slice(0, 12).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+            ${funFechamento.length ? `<p class="report-subtitle">Previsão de fechamento (conclusão nos próximos 45 dias)</p>${reportTable(
+                ['Cliente', 'Vendedor', 'Status', 'Vl Mensal', 'Conclusão'],
+                funFechamento.map((f) => [escapeHtml(titleCase(f.cliente)), escapeHtml(titleCase(f.vendedor)), escapeHtml(f.status || '-'), formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.conclusao || '-')])
+            )}` : ''}
         </div>
     `;
 
@@ -238,6 +350,52 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             state.reportPeriod = btn.dataset.period;
             renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
         });
+    });
+
+    const _stamp = new Date().toISOString().slice(0, 10);
+    document.getElementById('csv-propostas')?.addEventListener('click', () => {
+        const rows = proposals
+            .slice()
+            .sort((a, b) => (parseDisplayDate(b.data) || 0) - (parseDisplayDate(a.data) || 0))
+            .map((p) => ({
+                data: p.data || '', vendedor: titleCase(p.vendedor), gerencia: titleCase(p.gerencia),
+                cliente: titleCase(p.cliente), cidade: titleCase(p.cidade), foco: p.foco || '', produtos: p.produtos || '',
+                status: p.status || '', situacao: propStatusKind(p.status),
+                atualizacao: p.atualizacao || '', diasSemAtualizacao: calculateDaysFromDisplayDate(p.atualizacao || p.data || ''),
+                atrasada: p.atrasada ? 'Sim' : 'Não', dataLimite: p.dataLimite || '', email: p.email || ''
+            }));
+        if (!rows.length) { showToast('Nenhuma proposta no período.', true); return; }
+        downloadCSV(rows, `propostas-${_stamp}.csv`, [
+            { key: 'data', label: 'Data' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
+            { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'foco', label: 'Foco' },
+            { key: 'produtos', label: 'Produtos' }, { key: 'status', label: 'Status' }, { key: 'situacao', label: 'Situação' },
+            { key: 'atualizacao', label: 'Última atualização' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
+            { key: 'atrasada', label: 'Atrasada' }, { key: 'dataLimite', label: 'Data limite' }, { key: 'email', label: 'E-mail' }
+        ]);
+    });
+    document.getElementById('csv-funil')?.addEventListener('click', () => {
+        const rows = funil
+            .slice()
+            .sort((a, b) => (parseDisplayDate(b.data) || 0) - (parseDisplayDate(a.data) || 0))
+            .map((f) => ({
+                data: f.data || '', vendedor: titleCase(f.vendedor), gerencia: titleCase(f.gerencia),
+                cliente: titleCase(f.cliente), cidade: titleCase(f.cidade), status: f.status || '',
+                ativo: f.ativo || '', foco: f.foco || '', atuacao: f.atuacao || '', aplicacao: f.aplicacao || '',
+                equipamentos: f.equipamentos || '', vlMensal: parseCurrencyBR(f.vlMensal),
+                forecast: Math.round(funForecast(f) * 100) / 100,
+                atualizacao: f.atualizacao || '', diasSemAtualizacao: calculateDaysFromDisplayDate(f.atualizacao || f.data || ''),
+                conclusao: f.conclusao || '', motivoPerda: f.motivoPerda || ''
+            }));
+        if (!rows.length) { showToast('Nenhuma oportunidade no período.', true); return; }
+        downloadCSV(rows, `funil-${_stamp}.csv`, [
+            { key: 'data', label: 'Data' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
+            { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'status', label: 'Status' },
+            { key: 'ativo', label: 'Ativo' }, { key: 'foco', label: 'Foco' }, { key: 'atuacao', label: 'Atuação' },
+            { key: 'aplicacao', label: 'Aplicação' }, { key: 'equipamentos', label: 'Equipamentos' },
+            { key: 'vlMensal', label: 'Vl Mensal (R$)' }, { key: 'forecast', label: 'Forecast ponderado (R$)' },
+            { key: 'atualizacao', label: 'Última atualização' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
+            { key: 'conclusao', label: 'Conclusão prevista' }, { key: 'motivoPerda', label: 'Motivo da perda' }
+        ]);
     });
     document.getElementById('report-date-from')?.addEventListener('change', (e) => {
         state.reportCustomFrom = e.target.value;

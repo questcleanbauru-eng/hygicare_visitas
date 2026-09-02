@@ -41,6 +41,52 @@
     margin: 0 0 0.85rem;
 }
 
+.report-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+}
+.report-section-head h3 { margin: 0; }
+
+.report-table-wrap {
+    overflow-x: auto;
+    margin: 0.35rem 0 0.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.report-table th,
+.report-table td {
+    padding: 0.4rem 0.55rem;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    text-align: left;
+}
+
+.report-table th {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted-strong);
+    background: var(--bg);
+}
+
+.report-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.report-table tbody tr:last-child td { border-bottom: none; }
+
+@media print {
+    .report-table th { background: #f1f5f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .report-table-wrap { overflow-x: visible; }
+    .report-table { font-size: 0.68rem; }
+}
+
 /* KPI tiles (.report-kpi-row/.report-kpi) e barras proporcionais
    (.report-bar-*) moveram pra components.css — são um "visual de
    relatório" reaproveitado pelo Radar (Panorama) também, não mais
