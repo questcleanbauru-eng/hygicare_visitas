@@ -2,6 +2,29 @@
 
 .visit-form-layout .form-group { margin-bottom: 0.3rem; }
 
+/* Nova/Editar Visita: formulário numa coluna só, campos empilhados
+   (o padrão .form-layout vira 2 colunas em ≥640px, e .form-row-pair
+   sempre põe 2 lado a lado — aqui força tudo pra 1). */
+.visit-form-layout.form-layout { grid-template-columns: 1fr; }
+.visit-form-layout .form-row-pair { grid-template-columns: 1fr; }
+
+/* Prospecção (Sim/Não) e Veículo mais compactos: rótulo na mesma linha
+   das opções, sem ocupar uma linha inteira só pro título. */
+.visit-form-layout .form-group:has(#prospeccao-group),
+.visit-form-layout .form-group:has(#veiculo-group) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+}
+.visit-form-layout .form-group:has(#prospeccao-group) > label,
+.visit-form-layout .form-group:has(#veiculo-group) > label {
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+.visit-form-layout #prospeccao-group,
+.visit-form-layout #veiculo-group { gap: 0.4rem; flex-wrap: wrap; }
+
 /* ── Field inline error ───────────────────────────────────── */.visit-card-wrap {
     position: relative;
     display: flex;

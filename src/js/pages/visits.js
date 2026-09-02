@@ -1052,9 +1052,6 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         </div>
         <form id="visit-form" class="card form-card form-layout visit-form-layout">
             <input type="hidden" id="visit-id" value="${escapeHtml(normalizedVisit ? normalizedVisit.id : '')}">
-            ${!isEdit ? `<div class="form-group full-width" id="geo-checkin-status" style="margin-bottom:-0.5rem">
-                <span id="geo-checkin-text" class="helper-text">📍 Obtendo localização...</span>
-            </div>` : ''}
             <div class="form-group full-width">
                 <label>Prospecção</label>
                 <div class="radio-group" id="prospeccao-group">
@@ -1391,31 +1388,6 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     });
     syncProspectionMode();
 
-    // Check-in por geolocalização: melhor-esforço, só em Nova Visita (numa
-    // edição o vendedor pode nem estar mais no local) — nunca bloqueia o
-    // envio do formulário, só anexa lat/lng se o navegador conceder a
-    // permissão a tempo de o usuário terminar de preencher e salvar.
-    let _capturedGeo = null;
-    if (!isEdit) {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    _capturedGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    const el = document.getElementById('geo-checkin-text');
-                    if (el) el.textContent = '📍 Localização registrada';
-                },
-                () => {
-                    const el = document.getElementById('geo-checkin-text');
-                    if (el) el.textContent = '📍 Localização não disponível (opcional)';
-                },
-                { timeout: 10000, maximumAge: 60000 }
-            );
-        } else {
-            const el = document.getElementById('geo-checkin-text');
-            if (el) el.textContent = '📍 Localização não suportada neste navegador';
-        }
-    }
-
     if (!isEdit) {
         const clearVisitDraft = () => { try { localStorage.removeItem(visitDraftKey); } catch (e) {} };
 
@@ -1541,8 +1513,10 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 const selectedClient = state.formData.clientes.find((item) => String(item.nome || '').trim().toLowerCase() === String(clienteSelect.value || '').trim().toLowerCase());
                 return selectedClient ? selectedClient.id : '';
             })(),
-            latitude: _capturedGeo ? _capturedGeo.lat : '',
-            longitude: _capturedGeo ? _capturedGeo.lng : '',
+            // Sem geolocalização: cria vazio; numa edição, omite (undefined some
+            // no JSON) pra não apagar lat/lng que já exista no registro.
+            latitude: isEdit ? undefined : '',
+            longitude: isEdit ? undefined : '',
             user: state.currentUser
         };
 
