@@ -340,27 +340,13 @@ textarea { resize: vertical; }
 
 /* Search bar always visible + sticky */
 
+/* Rola junto com o conteúdo (igual ao card de filtros logo abaixo) — não
+   fica fixo no topo nem some sozinho. */
 .search-bar-wrapper {
-    position: sticky;
-    top: 0;
-    z-index: var(--z-sticky);
     background: var(--bg);
     padding-top: 0.25rem;
     padding-bottom: 0.35rem;
     margin-bottom: 0.25rem;
-    max-height: 220px;
-    overflow: hidden;
-    transition: max-height 0.26s ease, opacity 0.2s ease, padding 0.26s ease, margin 0.26s ease;
-}
-
-/* Recolhida ao rolar pra baixo (ver initSearchBarAutoHide) */
-.search-bar-wrapper.search-hidden {
-    max-height: 0;
-    opacity: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-bottom: 0;
-    pointer-events: none;
 }
 
 /* A lupa é posicionada relativa a este grupo (só o input), não ao

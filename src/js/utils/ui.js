@@ -465,46 +465,11 @@ export function initBottomNavAutoHide() {
 }
 
 
-// Some a barra de busca (.search-bar-wrapper, sticky no topo) ao rolar pra
-// baixo; volta ao rolar pra cima ou chegar perto do topo. Usada em Visitas,
-// Propostas e Funil. O #main-content persiste entre re-renders da página,
-// mas o .search-bar-wrapper é recriado — por isso o listener fica no main e
-// o anterior é removido a cada chamada.
-export function initSearchBarAutoHide() {
-    const main = document.getElementById('main-content');
-    if (!main) return;
-    const bar = main.querySelector('.search-bar-wrapper');
-    if (!bar) return;
-
-    // O container que rola muda entre mobile (#main-content) e desktop
-    // (às vezes a própria janela) — pega o maior scrollTop dos candidatos.
-    const scrollPos = () => Math.max(
-        main.scrollTop || 0,
-        window.scrollY || 0,
-        (document.documentElement && document.documentElement.scrollTop) || 0
-    );
-    if (main._searchAutoHideCleanup) { main._searchAutoHideCleanup(); }
-
-    let last = scrollPos();
-    const onScroll = () => {
-        const cur = scrollPos();
-        const delta = cur - last;
-        if (cur <= 50) {
-            bar.classList.remove('search-hidden');
-        } else if (delta > 8) {
-            bar.classList.add('search-hidden');
-        } else if (delta < -8) {
-            bar.classList.remove('search-hidden');
-        }
-        last = cur;
-    };
-    main.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('scroll', onScroll, { passive: true });
-    main._searchAutoHideCleanup = () => {
-        main.removeEventListener('scroll', onScroll);
-        window.removeEventListener('scroll', onScroll);
-    };
-}
+// (Removido) A barra de busca antes ficava fixa no topo e sumia sozinha ao
+// rolar — agora ela rola junto com o conteúdo (igual ao card de filtros),
+// então não precisa mais de nenhuma lógica de scroll. Mantido como no-op
+// pra não quebrar os imports/chamadas existentes.
+export function initSearchBarAutoHide() {}
 
 
 // #app usa CSS Grid pra reservar a coluna da sidebar no desktop
