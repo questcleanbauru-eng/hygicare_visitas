@@ -69,7 +69,23 @@
     flex-wrap: wrap;
 }
 .report-section-head h3 { margin: 0; }
-.report-section-actions { display: flex; gap: 0.4rem; }
+.report-section-actions { display: flex; gap: 0.4rem; align-items: center; }
+
+.report-section-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    line-height: 1;
+    padding: 0.3rem 0.5rem;
+    transition: transform 0.15s, background 0.15s;
+}
+.report-section-toggle:hover { background: var(--bg); }
+.report-section.is-collapsed .report-section-toggle { transform: rotate(-90deg); }
+.report-section.is-collapsed .report-section-body { display: none; }
+.report-section.is-collapsed .report-section-head { margin-bottom: 0; }
 
 .report-table-wrap {
     overflow-x: auto;
@@ -160,6 +176,8 @@
        branco. Aplica só nas linhas curtas, que aí sim nunca devem partir
        ao meio. */
     .report-section { box-shadow: none; border: 1px solid #ccc; }
+    /* Recolher é só pra navegar na tela — no PDF mostra tudo. */
+    .report-section.is-collapsed .report-section-body { display: block; }
 
     /* PDF de uma seção só (botão "PDF" no cabeçalho da seção) — esconde as
        demais enquanto data-print-scope está setado no <body>. */

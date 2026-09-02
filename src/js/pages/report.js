@@ -174,6 +174,9 @@ export async function renderReportPage() {
     state.reportPeriod = state.reportPeriod || 'mes-atual';
     state.reportCustomFrom = state.reportCustomFrom || '';
     state.reportCustomTo = state.reportCustomTo || '';
+    state.reportPropStatus = state.reportPropStatus || '';
+    state.reportFunilStatus = state.reportFunilStatus || '';
+    state.reportCollapsedSections = state.reportCollapsedSections || [];
 
     if (visitsRes.status !== 'success' || proposalsRes.status !== 'success' || funilRes.status !== 'success') {
         // Não renderiza um relatório "zerado" quando a busca falhou de
@@ -210,6 +213,8 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
     const gerencia = state.reportGerencia || '';
     const area = state.reportArea || '';
+    const propStatus = state.reportPropStatus || '';
+    const funilStatus = state.reportFunilStatus || '';
 
     // Opções vêm do conjunto INTEIRO (sem filtro de período), pra não ficar
     // reordenando/sumindo do dropdown conforme o usuário troca o período.
@@ -222,6 +227,8 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     const areasDisponiveis = Array.from(new Set([
         ...allVisits.map((v) => v.areaAtuacao), ...allFunil.map((f) => f.atuacao)
     ].map((a) => titleCase(a)).filter(Boolean))).sort();
+    const propStatusDisponiveis = Array.from(new Set(allProposals.map((p) => p.status).filter(Boolean))).sort();
+    const funilStatusDisponiveis = Array.from(new Set(allFunil.map((f) => f.status).filter(Boolean))).sort();
 
     const period = state.reportPeriod;
     let start = null, end = null;
@@ -236,9 +243,10 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     const visits = allVisits.filter((v) => inRange(parseDisplayDate(v.dataVisita), start, end)
         && (!gerencia || titleCase(v.gerencia) === gerencia) && (!area || titleCase(v.areaAtuacao) === area));
     const proposals = allProposals.filter((p) => inRange(parseDisplayDate(p.data), start, end)
-        && (!gerencia || titleCase(p.gerencia) === gerencia));
+        && (!gerencia || titleCase(p.gerencia) === gerencia) && (!propStatus || p.status === propStatus));
     const funil = allFunil.filter((f) => inRange(parseDisplayDate(f.data), start, end)
-        && (!gerencia || titleCase(f.gerencia) === gerencia) && (!area || titleCase(f.atuacao) === area));
+        && (!gerencia || titleCase(f.gerencia) === gerencia) && (!area || titleCase(f.atuacao) === area)
+        && (!funilStatus || f.status === funilStatus));
 
     const visitsByType = countBy(visits, (v) => v.tipoVisita);
     const visitsByVendor = countBy(visits, (v) => titleCase(v.vendedorGerente));
@@ -327,6 +335,12 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         'personalizado': 'Período personalizado'
     }[period] || 'Mês atual';
 
+    // Seções recolhíveis (setinha no cabeçalho) — o estado fica em memória
+    // enquanto a tela existe.
+    const collapsedSet = new Set(state.reportCollapsedSections || []);
+    const secOpen = (key) => !collapsedSet.has(key);
+    const secToggle = (key) => `<button type="button" class="report-section-toggle no-print" aria-label="Recolher/expandir seção" aria-expanded="${secOpen(key) ? 'true' : 'false'}">▾</button>`;
+
     body.innerHTML = `
         <div class="report-print-header">
             <h2>Relatório de KPIs — ${escapeHtml(periodLabel)}</h2>
@@ -361,6 +375,22 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                     </select>
                 </div>
             </div>` : ''}
+            <div class="report-custom-range">
+                <div class="form-group">
+                    <label for="report-prop-status">Status da proposta</label>
+                    <select id="report-prop-status">
+                        <option value="">Todos</option>
+                        ${propStatusDisponiveis.map((s) => `<option value="${escapeHtml(s)}" ${propStatus === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="report-funil-status">Status do funil</label>
+                    <select id="report-funil-status">
+                        <option value="">Todos</option>
+                        ${funilStatusDisponiveis.map((s) => `<option value="${escapeHtml(s)}" ${funilStatus === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
         </div>
 
         <div class="report-jump-nav no-print">
@@ -370,8 +400,12 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             <button type="button" class="mini-button" data-jump="funil">📊 Funil</button>
         </div>
 
-        <div class="report-section report-section-visitas">
-            <h3>📋 Visitas</h3>
+        <div class="report-section report-section-visitas${secOpen('visitas') ? '' : ' is-collapsed'}" data-section-key="visitas">
+            <div class="report-section-head">
+                <h3>📋 Visitas</h3>
+                <div class="report-section-actions no-print">${secToggle('visitas')}</div>
+            </div>
+            <div class="report-section-body">
             <div class="report-kpi-row">
                 <div class="report-kpi"><strong>${visits.length}</strong><span>Total no período</span></div>
             </div>
@@ -380,17 +414,20 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             ${visitsByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(visitsByCidade, 8).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
             ${topClientesVisitas.length ? `<p class="report-subtitle">Top 5 clientes com mais visitas</p><div class="report-top-list">${topClientesVisitas.map(([cliente, total], i) => reportTopRow(i, cliente, total)).join('')}</div>` : ''}
             ${topTiposComCliente.length ? `<p class="report-subtitle">Top 5 tipos de visita — cliente mais frequente</p><div class="report-top-list">${topTiposComCliente.map((t, i) => reportTopRow(i, titleCase(t.tipo) + (t.cliente ? ` — ${t.cliente}` : ''), t.clienteCount)).join('')}</div>` : ''}
+            </div>
         </div>
 
-        <div class="report-section report-section-propostas">
+        <div class="report-section report-section-propostas${secOpen('propostas') ? '' : ' is-collapsed'}" data-section-key="propostas">
             <div class="report-section-head">
                 <h3>📄 Propostas</h3>
                 <div class="report-section-actions no-print">
                     <button type="button" class="mini-button" id="pdf-propostas">📄 Resumo</button>
                     ${isAdmGer ? '<button type="button" class="mini-button" id="pdf-det-propostas">📄 Por vendedor</button>' : ''}
                     <button type="button" class="mini-button" id="csv-propostas">📥 CSV</button>
+                    ${secToggle('propostas')}
                 </div>
             </div>
+            <div class="report-section-body">
             <div class="report-kpi-row">
                 <div class="report-kpi"><strong>${proposals.length}</strong><span>Total no período</span></div>
                 <div class="report-kpi"><strong>${conversao}%</strong><span>Taxa de conversão</span></div>
@@ -411,17 +448,20 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 ['Cliente', 'Vendedor', 'Status', 'Data limite'],
                 propVencendo.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), escapeHtml(p.dataLimite || '-')])
             )}` : ''}
+            </div>
         </div>
 
-        <div class="report-section report-section-funil">
+        <div class="report-section report-section-funil${secOpen('funil') ? '' : ' is-collapsed'}" data-section-key="funil">
             <div class="report-section-head">
                 <h3>📊 Funil</h3>
                 <div class="report-section-actions no-print">
                     <button type="button" class="mini-button" id="pdf-funil">📄 Resumo</button>
                     ${isAdmGer ? '<button type="button" class="mini-button" id="pdf-det-funil">📄 Por vendedor</button>' : ''}
                     <button type="button" class="mini-button" id="csv-funil">📥 CSV</button>
+                    ${secToggle('funil')}
                 </div>
             </div>
+            <div class="report-section-body">
             <div class="report-kpi-row">
                 <div class="report-kpi"><strong>${funilAtivo.length}</strong><span>Ativas no período</span></div>
                 <div class="report-kpi"><strong>${formatMoney(funilValorTotal)}</strong><span>Vl Mensal em pipeline</span></div>
@@ -441,6 +481,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 ['Cliente', 'Vendedor', 'Status', 'Vl Mensal', 'Conclusão'],
                 funFechamento.map((f) => [escapeHtml(titleCase(f.cliente)), escapeHtml(titleCase(f.vendedor)), escapeHtml(f.status || '-'), formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.conclusao || '-')])
             )}` : ''}
+            </div>
         </div>
     `;
 
@@ -545,6 +586,28 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     document.getElementById('report-area')?.addEventListener('change', (e) => {
         state.reportArea = e.target.value;
         renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+    });
+    document.getElementById('report-prop-status')?.addEventListener('change', (e) => {
+        state.reportPropStatus = e.target.value;
+        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+    });
+    document.getElementById('report-funil-status')?.addEventListener('change', (e) => {
+        state.reportFunilStatus = e.target.value;
+        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+    });
+
+    body.querySelectorAll('.report-section-toggle').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const sec = btn.closest('.report-section');
+            const collapsed = sec.classList.toggle('is-collapsed');
+            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            const key = sec.dataset.sectionKey;
+            if (key) {
+                const set = new Set(state.reportCollapsedSections || []);
+                collapsed ? set.add(key) : set.delete(key);
+                state.reportCollapsedSections = Array.from(set);
+            }
+        });
     });
 }
 
