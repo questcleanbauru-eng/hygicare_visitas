@@ -571,7 +571,9 @@ export async function renderProposalDetailPage(id) {
         setSaving(true, btn, 'Apagando...');
         const result = await callAPI('deleteProposal', { id: proposal.id, user: state.currentUser });
         if (result && result.status === 'success') {
-            state.proposals = state.proposals.filter((p) => String(p.id) !== String(proposal.id));
+            // state.proposals guarda itens crus do servidor (chave Id)
+            // misturados com criados localmente (chave id) — checa as duas.
+            state.proposals = state.proposals.filter((p) => String(p.Id || p.id) !== String(proposal.id));
             saveCache('proposals', state.proposals);
             showToast('Proposta apagada.');
             navigateTo('proposals');

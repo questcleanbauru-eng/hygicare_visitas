@@ -1783,7 +1783,10 @@ export async function renderVisitDetailPage(id) {
         setSaving(true, btn, 'Apagando...');
         const result = await callAPI('deleteVisit', { id: visit.id, user: state.currentUser });
         if (result && result.status === 'success') {
-            state.visits = state.visits.filter((v) => String(v.id) !== String(visit.id));
+            // state.visits guarda itens crus do servidor (chave ID) misturados
+            // com criados localmente (chave id) — precisa checar as duas, senão
+            // a visita apagada continua na lista até o refresh de fundo.
+            state.visits = state.visits.filter((v) => String(v.ID || v.id) !== String(visit.id));
             saveCache('visits', state.visits);
             showToast('Visita apagada.');
             navigateTo('visits');
