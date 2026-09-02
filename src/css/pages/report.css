@@ -81,12 +81,45 @@
 
 .report-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
+.report-table-flat th,
+.report-table-flat td { text-align: left; }
+
 .report-table tbody tr:last-child td { border-bottom: none; }
+
+/* Detalhado por vendedor: nome do vendedor como cabeçalho + tabela abaixo */
+.report-group { margin: 0.75rem 0 0.5rem; }
+
+.report-group-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0.15rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-muted-strong);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.report-group-head span {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.05rem 0.45rem;
+    text-transform: none;
+    letter-spacing: 0;
+}
 
 @media print {
     .report-table th { background: #f1f5f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .report-table-wrap { overflow-x: visible; }
     .report-table { font-size: 0.68rem; }
+    .report-table-flat th,
+    .report-table-flat td { white-space: normal; word-break: break-word; }
+    .report-group-head { break-after: avoid; }
 }
 
 /* KPI tiles (.report-kpi-row/.report-kpi) e barras proporcionais

@@ -59,6 +59,47 @@ function reportTable(headers, rows) {
     </table></div>`;
 }
 
+// Idade a partir de uma data dd/mm/aaaa → "0 ano(s), 6 mês(es) e 29 dia(s)".
+function formatAge(dateStr) {
+    const d = parseDisplayDate(dateStr);
+    if (!d) return '-';
+    const now = new Date();
+    let months = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+    let days = now.getDate() - d.getDate();
+    if (days < 0) {
+        months -= 1;
+        days += new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    }
+    if (months < 0) return '-';
+    return `${Math.floor(months / 12)} ano(s), ${months % 12} mês(es) e ${days} dia(s)`;
+}
+
+// Igual ao reportTable, mas alinha tudo à esquerda (tabela de detalhe com
+// muitas colunas de texto — DATA/CLIENTE/FOCO/… — onde alinhar à direita
+// fica ilegível).
+function reportTableFlat(headers, rows) {
+    return `<div class="report-table-wrap"><table class="report-table report-table-flat">
+        <thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+// Tabela detalhada agrupada por vendedor: um cabeçalho + tabela por grupo.
+function groupedVendorTables(items, vendedorOf, dateOf, headers, rowOf) {
+    const groups = {};
+    items.forEach((it) => {
+        const k = titleCase(vendedorOf(it)) || 'Sem vendedor';
+        (groups[k] = groups[k] || []).push(it);
+    });
+    return Object.keys(groups).sort((a, b) => a.localeCompare(b, 'pt-BR')).map((vend) => {
+        const list = groups[vend].slice().sort((a, b) => (parseDisplayDate(dateOf(a)) || 0) - (parseDisplayDate(dateOf(b)) || 0));
+        return `<div class="report-group">
+            <h4 class="report-group-head">${escapeHtml(vend)} <span>${list.length}</span></h4>
+            ${reportTableFlat(headers, list.map(rowOf))}
+        </div>`;
+    }).join('');
+}
+
 function countBy(items, keyFn) {
     const counts = {};
     items.forEach((item) => {
@@ -342,6 +383,22 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 ['Cliente', 'Vendedor', 'Status', 'Data limite'],
                 propVencendo.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), escapeHtml(p.dataLimite || '-')])
             )}` : ''}
+            ${isAdmGer && proposals.length ? `<p class="report-subtitle">Detalhado por vendedor</p>${groupedVendorTables(
+                proposals,
+                (p) => p.vendedor,
+                (p) => p.data,
+                ['Data', 'Cliente', 'Foco', 'Produtos', 'Cidade', 'Status', 'Atualização', 'Tempo proposta'],
+                (p) => [
+                    escapeHtml(p.data || '-'),
+                    escapeHtml(titleCase(p.cliente) || '-'),
+                    escapeHtml(p.foco || '-'),
+                    escapeHtml(p.produtos || '-'),
+                    escapeHtml(titleCase(p.cidade) || '-'),
+                    escapeHtml(p.status || '-'),
+                    escapeHtml(p.atualizacao || '-'),
+                    escapeHtml(formatAge(p.data))
+                ]
+            )}` : ''}
         </div>
 
         <div class="report-section report-section-funil">
@@ -370,6 +427,23 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             ${funFechamento.length ? `<p class="report-subtitle">Previsão de fechamento (conclusão nos próximos 45 dias)</p>${reportTable(
                 ['Cliente', 'Vendedor', 'Status', 'Vl Mensal', 'Conclusão'],
                 funFechamento.map((f) => [escapeHtml(titleCase(f.cliente)), escapeHtml(titleCase(f.vendedor)), escapeHtml(f.status || '-'), formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.conclusao || '-')])
+            )}` : ''}
+            ${isAdmGer && funil.length ? `<p class="report-subtitle">Detalhado por vendedor</p>${groupedVendorTables(
+                funil,
+                (f) => f.vendedor,
+                (f) => f.data,
+                ['Data', 'Cliente', 'Foco', 'Atuação', 'Cidade', 'Status', 'Vl Mensal', 'Atualização', 'Tempo no funil'],
+                (f) => [
+                    escapeHtml(f.data || '-'),
+                    escapeHtml(titleCase(f.cliente) || '-'),
+                    escapeHtml(f.foco || '-'),
+                    escapeHtml(titleCase(f.atuacao) || '-'),
+                    escapeHtml(titleCase(f.cidade) || '-'),
+                    escapeHtml(f.status || '-'),
+                    formatMoney(parseCurrencyBR(f.vlMensal)),
+                    escapeHtml(f.atualizacao || '-'),
+                    escapeHtml(formatAge(f.data))
+                ]
             )}` : ''}
         </div>
     `;
