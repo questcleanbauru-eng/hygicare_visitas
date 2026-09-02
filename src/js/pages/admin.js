@@ -606,73 +606,77 @@ export function bindAdminEvents(data) {
     });
 
     document.getElementById('btn-new-user').addEventListener('click', () => {
-        if (document.getElementById('uif-new-row')) {
-            document.getElementById('uif-new-row').querySelector('.uif-nome').focus();
+        if (document.querySelector('.uif-modal-overlay')) {
+            document.querySelector('.uif-modal-overlay .uif-nome').focus();
             return;
         }
-        const tbody = document.querySelector('.admin-user-table tbody');
-        const tr = document.createElement('tr');
-        tr.id = 'uif-new-row';
-        tr.innerHTML = `<td colspan="5" class="uif-cell uif-cell-new">
-            <div class="uif-header">
-                <div class="user-avatar-initials" style="background:#e2e8f0;color:#64748b;font-size:1rem">+</div>
-                <span class="uif-title">Novo Usuário</span>
-            </div>
-            <div class="uif-grid">
-                <div class="uif-field">
-                    <label>Nome</label>
-                    <input type="text" class="uif-nome" placeholder="Nome completo">
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay uif-modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card modal-card-wide uif-modal">
+                <div class="uif-header">
+                    <div class="user-avatar-initials" style="background:#e2e8f0;color:#64748b;font-size:1rem">+</div>
+                    <span class="uif-title">Novo Usuário</span>
                 </div>
-                <div class="uif-field">
-                    <label>E-mail</label>
-                    <input type="email" class="uif-email" placeholder="email@empresa.com">
+                <div class="uif-grid">
+                    <div class="uif-field">
+                        <label>Nome</label>
+                        <input type="text" class="uif-nome" placeholder="Nome completo">
+                    </div>
+                    <div class="uif-field">
+                        <label>E-mail</label>
+                        <input type="email" class="uif-email" placeholder="email@empresa.com">
+                    </div>
+                    <div class="uif-field">
+                        <label>Senha <span class="uif-req">*</span></label>
+                        <input type="password" class="uif-senha" placeholder="••••••••" autocomplete="new-password">
+                    </div>
+                    <div class="uif-field">
+                        <label>Região</label>
+                        <input type="text" class="uif-gerencia" placeholder="Região">
+                    </div>
+                    <div class="uif-field">
+                        <label>Cargo</label>
+                        <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Admin'], '')}</select>
+                    </div>
+                    <div class="uif-field">
+                        <label>Meta mensal (visitas)</label>
+                        <input type="number" class="uif-meta" min="0" placeholder="Ex.: 40">
+                    </div>
+                    ${renderPermFieldsHtml({})}
                 </div>
-                <div class="uif-field">
-                    <label>Senha <span class="uif-req">*</span></label>
-                    <input type="password" class="uif-senha" placeholder="••••••••" autocomplete="new-password">
+                <div class="uif-actions">
+                    <button type="button" class="uif-cancel">Cancelar</button>
+                    <button type="button" class="uif-save">Criar Usuário</button>
                 </div>
-                <div class="uif-field">
-                    <label>Região</label>
-                    <input type="text" class="uif-gerencia" placeholder="Região">
-                </div>
-                <div class="uif-field">
-                    <label>Cargo</label>
-                    <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Admin'], '')}</select>
-                </div>
-                <div class="uif-field">
-                    <label>Meta mensal (visitas)</label>
-                    <input type="number" class="uif-meta" min="0" placeholder="Ex.: 40">
-                </div>
-                ${renderPermFieldsHtml({})}
-            </div>
-            <div class="uif-actions">
-                <button type="button" class="uif-cancel">Cancelar</button>
-                <button type="button" class="uif-save">Criar Usuário</button>
-            </div>
-        </td>`;
-        tbody.appendChild(tr);
-        tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        tr.querySelector('.uif-nome').focus();
+            </div>`;
+        document.body.appendChild(overlay);
+        const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+        const onKey = (e) => { if (e.key === 'Escape') close(); };
+        document.addEventListener('keydown', onKey);
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('.uif-nome').focus();
 
-        tr.querySelector('.uif-cancel').addEventListener('click', () => tr.remove());
-        tr.querySelector('.uif-save').addEventListener('click', async () => {
-            const senha = tr.querySelector('.uif-senha').value.trim();
+        overlay.querySelector('.uif-cancel').addEventListener('click', close);
+        overlay.querySelector('.uif-save').addEventListener('click', async () => {
+            const senha = overlay.querySelector('.uif-senha').value.trim();
             if (!senha) { showToast('Informe a senha para o novo usuário.', true); return; }
             if (senha.length < 6) { showToast('A senha precisa ter pelo menos 6 caracteres.', true); return; }
-            const saveBtn = tr.querySelector('.uif-save');
+            const saveBtn = overlay.querySelector('.uif-save');
             setSaving(true, saveBtn, 'Criando...');
             const result = await saveUser({
                 originalEmail: '',
-                emailLogin: tr.querySelector('.uif-email').value.trim(),
-                nomeVendedor: tr.querySelector('.uif-nome').value.trim(),
+                emailLogin: overlay.querySelector('.uif-email').value.trim(),
+                nomeVendedor: overlay.querySelector('.uif-nome').value.trim(),
                 senha,
-                gerencia: tr.querySelector('.uif-gerencia').value.trim(),
-                perfil: tr.querySelector('.uif-perfil').value,
-                metaVisitasMes: tr.querySelector('.uif-meta').value.trim(),
-                ...readPermFieldsValue(tr)
+                gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
+                perfil: overlay.querySelector('.uif-perfil').value,
+                metaVisitasMes: overlay.querySelector('.uif-meta').value.trim(),
+                ...readPermFieldsValue(overlay)
             });
             if (result.status === 'success') {
                 showToast('Usuário criado.');
+                close();
                 renderAdminPage();
             } else {
                 showToast(result.message || 'Não foi possível criar.', true);

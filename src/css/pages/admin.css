@@ -629,9 +629,18 @@
 
 .uif-save:disabled { opacity: 0.65; cursor: not-allowed; }
 
-.uif-cell-new { background: #f0f7ff; border-top: 2px dashed #bfdbfe; }
-
 .uif-req { color: #dc2626; }
+
+/* Novo Usuário como modal (mesmo padrão de "Agendar retorno" / "Adicionar
+   ao Funil") — abre centralizado, sem precisar rolar até o fim da lista. */
+.uif-modal { text-align: left; }
+.uif-modal .uif-header { margin-bottom: 0.85rem; }
+.uif-modal .uif-grid { grid-template-columns: 1fr 1fr; margin-bottom: 1rem; }
+.uif-modal .uif-actions { justify-content: flex-end; }
+
+@media (max-width: 480px) {
+    .uif-modal .uif-grid { grid-template-columns: 1fr; }
+}
 
 /* Notification table */
 

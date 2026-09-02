@@ -1708,6 +1708,9 @@ input[type="date"] {
     text-align: center;
 }
 
+/* Variante larga — formulários com grid de campos (ex.: Novo Usuário) */
+.modal-card-wide { max-width: 560px; }
+
 .modal-card h3 {
     margin: 0 0 0.5rem;
     font-size: 1rem;
