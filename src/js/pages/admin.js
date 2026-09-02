@@ -296,6 +296,17 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 </div>
             </div>
             <div class="admin-section" style="margin-bottom:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">Nova Visita</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-visita-multi-tipo" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.visita_multi_tipo) ? 'checked' : ''}>
+                        Permitir escolher até 3 tipos por visita (cria uma visita separada para cada tipo)
+                    </label>
+                    <p class="helper-text" style="text-align:left;margin:0">Desligado: cada registro envia só 1 tipo de visita. Ligado: o vendedor pode marcar até 3 tipos de uma vez.</p>
+                    <button type="button" id="save-visita-multi-tipo" class="primary-button" style="align-self:flex-start">Salvar</button>
+                </div>
+            </div>
+            <div class="admin-section" style="margin-bottom:1.25rem">
                 <div class="section-title-row"><h3 class="section-title">Permissões</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
@@ -811,6 +822,17 @@ export function bindAdminEvents(data) {
             saveCache('visits', null);
             saveCache('proposals', null);
             saveCache('funil', null);
+        } else {
+            showToast(result.message || 'Não foi possível salvar.', true);
+        }
+    });
+
+    document.getElementById('save-visita-multi-tipo')?.addEventListener('click', async () => {
+        const ligado = document.getElementById('config-visita-multi-tipo').checked;
+        const result = await saveEmailConfig({ visita_multi_tipo: ligado ? 'true' : 'false' });
+        if (result.status === 'success') {
+            showToast('Configuração salva.');
+            if (state.formData) { state.formData.multiTipoVisita = ligado; }
         } else {
             showToast(result.message || 'Não foi possível salvar.', true);
         }

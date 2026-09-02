@@ -1029,6 +1029,9 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     // editar visita de outro vendedor sem sobrescrever o dono original).
     // Outros perfis continuam travados no próprio nome, como sempre foi.
     const isAdminUser = String(state.currentUser.profile || '').trim().toLowerCase() === 'admin';
+    // Nova Visita: escolher até 3 tipos (cria 1 visita por tipo) só quando o
+    // admin liga o toggle em Configurações. Desligado (padrão) = 1 tipo.
+    const allowMultiTipo = !isEdit && formData.multiTipoVisita === true;
     const currentVendedorGerente = isAdminUser
         ? (normalizedVisit ? normalizedVisit.vendedorGerente : state.currentUser.name) || ''
         : (state.currentUser.name || '');
@@ -1150,13 +1153,13 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 </div>
             </div>
             <div class="form-group">
-                <label for="tipo-visita">Tipo da Visita${isEdit ? '' : ' (ate 3)'}</label>
-                <div class="searchable-select${isEdit ? '' : ' multi-select'}">
-                    <input type="text" id="tipo-visita" value="${escapeHtml(isEdit && normalizedVisit ? normalizedVisit.tipoVisita : '')}" placeholder="${isEdit ? 'Pesquise o tipo da visita' : 'Pesquise e selecione ate 3 tipos'}" ${isEdit ? 'required' : ''} autocomplete="off">
+                <label for="tipo-visita">Tipo da Visita${allowMultiTipo ? ' (até 3)' : ''}</label>
+                <div class="searchable-select${allowMultiTipo ? ' multi-select' : ''}">
+                    <input type="text" id="tipo-visita" value="${escapeHtml(isEdit && normalizedVisit ? normalizedVisit.tipoVisita : '')}" placeholder="${allowMultiTipo ? 'Pesquise e selecione até 3 tipos' : 'Pesquise o tipo da visita'}" ${allowMultiTipo ? '' : 'required'} autocomplete="off">
                     <div class="searchable-select-menu" id="tipo-visita-menu"></div>
                 </div>
-                ${isEdit ? '' : '<div class="selected-types" id="selected-visit-types"></div>'}
-                ${isEdit ? '' : '<p class="field-helper-text">Cada tipo selecionado cria uma visita separada com os mesmos dados.</p>'}
+                ${allowMultiTipo ? '<div class="selected-types" id="selected-visit-types"></div>' : ''}
+                ${allowMultiTipo ? '<p class="field-helper-text">Cada tipo selecionado cria uma visita separada com os mesmos dados.</p>' : ''}
             </div>
             <div class="form-group full-width">
                 <label>Qual o Veículo?</label>
@@ -1223,7 +1226,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         const rawTipos = (normalizedVisit && normalizedVisit.tipoVisita)
             ? String(normalizedVisit.tipoVisita).split(',').map((t) => t.trim())
             : (visitDraft && Array.isArray(visitDraft.fields.tiposVisita) ? visitDraft.fields.tiposVisita : []);
-        selectedVisitTypes = rawTipos.filter((t) => t && availableTipos.has(t)).slice(0, 3);
+        selectedVisitTypes = rawTipos.filter((t) => t && availableTipos.has(t)).slice(0, allowMultiTipo ? 3 : 1);
     }
 
     initializeSearchableInput({
@@ -1258,15 +1261,20 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         input: tipoVisitaInput,
         menu: document.getElementById('tipo-visita-menu'),
         items: formData.tiposVisita.map((item) => item.tipo),
-        multiSelect: !isEdit,
+        multiSelect: allowMultiTipo,
         maxSelections: 3,
         selectedItems: selectedVisitTypes,
         selectedContainer: selectedTypesContainer,
         selectionLabel: 'tipo',
         onSelectionChange: (items) => {
-            tipoVisitaInput.value = isEdit ? (items[0] || '') : '';
+            tipoVisitaInput.value = allowMultiTipo ? '' : (items[0] || '');
         }
     });
+    // Modo 1 tipo (edição, ou criação com o toggle desligado): restaura o
+    // valor vindo de "Duplicar"/rascunho no próprio input.
+    if (!allowMultiTipo && !isEdit && selectedVisitTypes[0] && !tipoVisitaInput.value) {
+        tipoVisitaInput.value = selectedVisitTypes[0];
+    }
 
     const syncProspectionMode = () => {
         const isProspection = prospeccaoSelect.value === 'Sim';
@@ -1524,8 +1532,8 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             cidade: cidadeSelect.value,
             areaAtuacao: areaSelect.value,
             potencialCliente: prospeccaoSelect.value === 'Sim' ? potencialSelect.value : '',
-            tipoVisita: isEdit ? tipoVisitaInput.value : '',
-            tiposVisita: isEdit ? [tipoVisitaInput.value].filter(Boolean) : selectedVisitTypes.slice(),
+            tipoVisita: allowMultiTipo ? '' : tipoVisitaInput.value,
+            tiposVisita: allowMultiTipo ? selectedVisitTypes.slice() : [tipoVisitaInput.value].filter(Boolean),
             veiculo: document.querySelector('input[name="veiculo"]:checked')?.value || 'Particular',
             observacao: document.getElementById('observacao').value.trim(),
             clienteId: (() => {
