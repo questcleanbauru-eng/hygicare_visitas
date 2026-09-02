@@ -1,6 +1,6 @@
-.visit-form-layout { gap: 0.6rem; }
+.visit-form-layout { gap: 0.5rem; }
 
-.visit-form-layout .form-group { margin-bottom: 0.3rem; }
+.visit-form-layout .form-group { margin-bottom: 0; }
 
 /* Nova/Editar Visita: formulário numa coluna só, campos empilhados
    (o padrão .form-layout vira 2 colunas em ≥640px, e .form-row-pair

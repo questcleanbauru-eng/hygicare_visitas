@@ -679,9 +679,47 @@ textarea { resize: vertical; }
 }
 
 /* Formulários que ficam sempre numa coluna só (campos empilhados, "como
-   formulário mesmo") — Nova/Editar Visita, Funil e Proposta. */
+   formulário mesmo") — Nova/Editar Visita, Funil e Proposta. Também
+   compactos: menos respiro entre campos pra caber o máximo na tela. */
 .form-layout.form-layout-stack { grid-template-columns: 1fr; }
 .form-layout-stack .form-row-pair { grid-template-columns: 1fr; }
+
+.form-layout.form-layout-stack,
+.visit-form-layout {
+    gap: 0.5rem;
+}
+.form-layout-stack .form-group,
+.visit-form-layout .form-group {
+    margin-bottom: 0;
+}
+.form-layout-stack .form-group label,
+.visit-form-layout .form-group label {
+    margin-bottom: 0.15rem;
+    font-size: 0.8rem;
+}
+.form-layout-stack .form-row-pair,
+.visit-form-layout .form-row-pair {
+    gap: 0.5rem;
+}
+/* Campos um pouco mais baixos (16px de fonte fica, senão o iOS dá zoom) */
+.form-layout-stack input,
+.form-layout-stack select,
+.form-layout-stack .searchable-select input,
+.visit-form-layout input,
+.visit-form-layout select,
+.visit-form-layout .searchable-select input {
+    min-height: 42px;
+    padding: 0.5rem 0.7rem;
+}
+.form-layout-stack textarea,
+.visit-form-layout textarea {
+    min-height: 60px;
+    padding: 0.5rem 0.7rem;
+}
+.form-layout-stack .field-helper-text,
+.visit-form-layout .field-helper-text {
+    margin-top: 0.15rem;
+}
 
 .full-width { grid-column: 1 / -1; }
 
