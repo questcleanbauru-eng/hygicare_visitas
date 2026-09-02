@@ -678,6 +678,11 @@ textarea { resize: vertical; }
     .form-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* Formulários que ficam sempre numa coluna só (campos empilhados, "como
+   formulário mesmo") — Nova/Editar Visita, Funil e Proposta. */
+.form-layout.form-layout-stack { grid-template-columns: 1fr; }
+.form-layout-stack .form-row-pair { grid-template-columns: 1fr; }
+
 .full-width { grid-column: 1 / -1; }
 
 .form-row-pair {

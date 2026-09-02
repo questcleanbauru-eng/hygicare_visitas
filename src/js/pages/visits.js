@@ -1081,8 +1081,13 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             </div>
 
             <div class="form-group ${isAdminUser ? '' : 'readonly-group'} full-width">
-                <label for="vendedor-gerente">Vendedor / Gerente${isAdminUser ? ' (editável só para Admin)' : ''}</label>
-                <input type="text" id="vendedor-gerente" value="${escapeHtml(currentVendedorGerente)}" ${isAdminUser ? '' : 'readonly'}>
+                <label for="vendedor-gerente">Vendedor / Gerente${isAdminUser ? ' (Admin pode registrar por outro)' : ''}</label>
+                ${isAdminUser ? `
+                <div class="searchable-select">
+                    <input type="text" id="vendedor-gerente" value="${escapeHtml(currentVendedorGerente)}" placeholder="Escolha o vendedor ou gerente" autocomplete="off">
+                    <div class="searchable-select-menu" id="vendedor-gerente-menu"></div>
+                </div>` : `
+                <input type="text" id="vendedor-gerente" value="${escapeHtml(currentVendedorGerente)}" readonly>`}
             </div>
             <div class="form-row-pair full-width">
                 <div class="form-group">
@@ -1235,6 +1240,13 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         menu: document.getElementById('potencial-cliente-menu'),
         items: formData.potenciaisCliente
     });
+    if (isAdminUser && document.getElementById('vendedor-gerente-menu')) {
+        initializeSearchableInput({
+            input: document.getElementById('vendedor-gerente'),
+            menu: document.getElementById('vendedor-gerente-menu'),
+            items: (formData.vendedores || []).map((v) => v.nome).filter(Boolean)
+        });
+    }
     initializeSearchableInput({
         input: tipoVisitaInput,
         menu: document.getElementById('tipo-visita-menu'),
@@ -1650,6 +1662,19 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 // Renomear botão "Desfazer" para "Nova Visita"
                 const _toastBtn = document.getElementById('app-toast')?.querySelector('.toast-undo-btn');
                 if (_toastBtn) _toastBtn.textContent = '+ Nova Visita';
+            }
+            // Oferece jogar esse cliente no Funil de Vendas na sequência.
+            if (payload.cliente && state.canCreateProposalFunil &&
+                confirm(`Adicionar "${payload.cliente}" ao Funil de Vendas?`)) {
+                state.funilPrefill = {
+                    cliente: payload.cliente,
+                    cidade: payload.cidade || '',
+                    foco: payload.potencialCliente || '',
+                    atuacao: payload.areaAtuacao || ''
+                };
+                setSaving(false, saveButton);
+                await navigateTo('funil-new');
+                return;
             }
             await navigateTo('visits');
         } else {

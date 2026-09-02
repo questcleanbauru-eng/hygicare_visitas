@@ -717,7 +717,7 @@ export async function renderFunilCreatePage() {
             <h2>Novo Funil</h2>
             <span></span>
         </div>
-        <form id="funil-create-form" class="card form-card form-layout">
+        <form id="funil-create-form" class="card form-card form-layout form-layout-stack">
             <div class="form-group full-width">
                 <label for="fc-cliente">Cliente *</label>
                 <div class="searchable-select">
@@ -830,6 +830,16 @@ export async function renderFunilCreatePage() {
             if (match.areaAtuacao) document.getElementById('fc-atuacao').value = match.areaAtuacao;
         }
     });
+
+    // Prefill vindo do "Adicionar ao Funil?" depois de salvar uma Visita.
+    if (state.funilPrefill) {
+        const pf = state.funilPrefill;
+        state.funilPrefill = null;
+        if (pf.cliente) document.getElementById('fc-cliente').value = pf.cliente;
+        if (pf.cidade) document.getElementById('fc-cidade').value = pf.cidade;
+        if (pf.foco) document.getElementById('fc-foco').value = pf.foco;
+        if (pf.atuacao) document.getElementById('fc-atuacao').value = pf.atuacao;
+    }
 
     document.getElementById('back-funil-create').addEventListener('click', () => navigateTo('funil'));
     document.getElementById('cancel-funil-create').addEventListener('click', () => navigateTo('funil'));
@@ -1020,7 +1030,7 @@ export async function renderFunilFormPage(funil) {
             <h2>Atualizar Funil</h2>
         </div>
         ${isAdminUser ? `
-        <form id="funil-form" class="card form-card form-layout">
+        <form id="funil-form" class="card form-card form-layout form-layout-stack">
             <input type="hidden" id="funil-id" value="${escapeHtml(f.id)}">
             <div class="form-group full-width">
                 <label for="funil-cliente">Cliente</label>
@@ -1114,7 +1124,7 @@ export async function renderFunilFormPage(funil) {
                 <div class="funil-readonly-row"><span>Cidade</span><strong>${escapeHtml(f.cidade || '-')}</strong></div>
             </div>
         </div>
-        <form id="funil-form" class="card form-card form-layout">
+        <form id="funil-form" class="card form-card form-layout form-layout-stack">
             <input type="hidden" id="funil-id" value="${escapeHtml(f.id)}">
             <div class="form-group full-width">
                 <label for="funil-status">Status</label>

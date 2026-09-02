@@ -593,7 +593,7 @@ export async function renderProposalFormPage(proposal) {
             <button type="button" class="mini-button" id="back-proposal-detail">Voltar</button>
             <h2>Atualizar Proposta</h2>
         </div>
-        <form id="proposal-form" class="card form-card form-layout">
+        <form id="proposal-form" class="card form-card form-layout form-layout-stack">
             <input type="hidden" id="proposal-id" value="${escapeHtml(normalized.id)}">
             ${isAdminUser ? `
             <div class="form-group full-width">
@@ -798,7 +798,7 @@ export async function renderProposalCreatePage() {
             <h2>Nova Proposta</h2>
             <span></span>
         </div>
-        <form id="proposal-create-form" class="card form-card form-layout">
+        <form id="proposal-create-form" class="card form-card form-layout form-layout-stack">
             <div class="form-group full-width">
                 <label for="pc-cliente">Cliente *</label>
                 <div class="searchable-select">
