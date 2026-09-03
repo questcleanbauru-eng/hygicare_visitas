@@ -1054,6 +1054,10 @@ function bindImportarTab() {
         const linhas = res.linhas || [];
         const perLinha = linhas.length > 0 && !res.linhasTruncadas;
         const vendDatalist = `<datalist id="import-vend-dl">${(res.vendedoresApp || []).map((n) => `<option value="${escapeHtml(n)}"></option>`).join('')}</datalist>`;
+        const potenciais = res.potenciaisCliente || [];
+        const focoOptions = (sel) => ['<option value="">—</option>']
+            .concat(potenciais.map((p) => `<option value="${escapeHtml(p)}"${String(p).toLowerCase() === String(sel || '').toLowerCase() ? ' selected' : ''}>${escapeHtml(p)}</option>`))
+            .join('');
 
         const cm = res.colunasMapeadas || {};
         const cmRows = Object.keys(cm).map((k) => `
@@ -1091,7 +1095,7 @@ function bindImportarTab() {
                     <div class="import-rows-wrap">
                         <table class="import-rows">
                             <thead><tr>
-                                <th>Data</th><th>Vendedor</th><th>Cliente</th><th>Produtos</th><th>Foco</th><th></th>
+                                <th>Data</th><th>Vendedor</th><th>Cliente</th><th>Produtos</th><th>Foco</th><th>Potencial do Cliente</th><th></th>
                             </tr></thead>
                             <tbody>
                                 ${linhas.map((l) => `
@@ -1101,6 +1105,7 @@ function bindImportarTab() {
                                     <td>${escapeHtml(l.cliente || '')}</td>
                                     <td>${escapeHtml(l.produtos || '')}</td>
                                     <td>${escapeHtml(l.foco || '')}</td>
+                                    <td><select class="il-foco">${focoOptions(l.foco)}</select></td>
                                     <td><button type="button" class="il-skip mini-button">Não importar</button></td>
                                 </tr>`).join('')}
                             </tbody>
@@ -1171,14 +1176,17 @@ function bindImportarTab() {
             if (sel.dataset.de !== undefined) vendedorMap[sel.dataset.de] = sel.value;
             if (sel.dataset.cli !== undefined) clienteVendedorMap[sel.dataset.cli] = sel.value;
         });
+        const linhaFocoMap = {};
         resultado.querySelectorAll('tr[data-linha-row]').forEach((tr) => {
             const n = tr.dataset.linhaRow;
+            const foco = tr.querySelector('.il-foco')?.value || '';
+            if (foco) linhaFocoMap[n] = foco;
             if (tr.classList.contains('is-skipped')) { linhaMap[n] = '__DESCARTAR__'; return; }
             const v = (tr.querySelector('.il-vend').value || '').trim();
             linhaMap[n] = v || '__IGNORAR__';
         });
         setSaving(true, btn, 'Importando...');
-        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap, linhaMap });
+        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap, linhaMap, linhaFocoMap });
         setSaving(false, btn);
         if (res.status !== 'success') {
             resultado.insertAdjacentHTML('beforeend', `<p class="error-message">${escapeHtml(res.message || 'Erro ao importar.')}</p>`);
