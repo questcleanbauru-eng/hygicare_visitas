@@ -879,6 +879,9 @@
     z-index: 1;
 }
 .import-rows td.ir-data { white-space: nowrap; }
+.import-rows .ir-check { width: 34px; text-align: center; }
+.import-rows .ir-check input { width: 16px; height: 16px; cursor: pointer; }
+.import-rows tbody tr:has(.il-check:checked) td { background: #eff6ff; }
 .import-rows .il-vend { width: 100%; min-width: 120px; min-height: 34px; padding: 0.25rem 0.4rem; font-size: 0.8rem; }
 .import-rows .il-foco,
 .import-rows .il-cidade { width: 100%; min-width: 130px; min-height: 34px; font-size: 0.8rem; }

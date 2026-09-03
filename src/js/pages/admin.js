@@ -1092,29 +1092,40 @@ function bindImportarTab() {
             ` : ''}
             ${perLinha ? `
                 <div class="card" style="padding:0.9rem;margin-top:0.75rem">
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">
+                        Marque as linhas (coluna da esquerda) e use "Aplicar" — vale só pras marcadas.
+                        Sem nenhuma marcada, aplica a todas.
+                    </p>
                     <div class="import-rows-bulk">
-                        <span>Aplicar vendedor a todas:</span>
+                        <span>Vendedor:</span>
                         <input type="text" id="import-bulk-vend" list="import-vend-dl" placeholder="Nome do vendedor">
                         <button type="button" class="mini-button" id="import-bulk-apply">Aplicar</button>
                     </div>
                     <div class="import-rows-bulk">
-                        <span>Aplicar foco a todas:</span>
+                        <span>Potencial:</span>
                         <select id="import-bulk-foco">${focoOptions('')}</select>
                         <button type="button" class="mini-button" id="import-bulk-foco-apply">Aplicar</button>
                     </div>
                     <div class="import-rows-bulk">
-                        <span>Aplicar cidade a todas:</span>
+                        <span>Cidade:</span>
                         <select id="import-bulk-cidade">${cidadeOptions('')}</select>
                         <button type="button" class="mini-button" id="import-bulk-cidade-apply">Aplicar</button>
+                    </div>
+                    <div class="import-rows-bulk">
+                        <span>Marcadas:</span>
+                        <button type="button" class="mini-button" id="import-bulk-skip">Não importar</button>
+                        <button type="button" class="mini-button" id="import-bulk-unskip">Importar</button>
                     </div>
                     <div class="import-rows-wrap">
                         <table class="import-rows">
                             <thead><tr>
+                                <th class="ir-check"><input type="checkbox" id="il-check-all" aria-label="Marcar todas"></th>
                                 <th>Data</th><th>Vendedor</th><th>Cliente</th><th>Produtos</th><th>Foco</th><th>Potencial do Cliente</th><th>Cidade</th><th></th>
                             </tr></thead>
                             <tbody>
                                 ${linhas.map((l) => `
                                 <tr data-linha-row="${l.n}">
+                                    <td class="ir-check"><input type="checkbox" class="il-check" aria-label="Marcar linha"></td>
                                     <td class="ir-data">${escapeHtml(l.data || '')}</td>
                                     <td><input type="text" class="il-vend" list="import-vend-dl" value="${escapeHtml(l.vendedorSugerido || l.vendedorArquivo || '')}" placeholder="—"></td>
                                     <td>${escapeHtml(l.cliente || '')}</td>
@@ -1168,25 +1179,52 @@ function bindImportarTab() {
             </button>
         `;
         document.getElementById('import-confirmar').addEventListener('click', confirmarImport);
+
+        const setRowSkipped = (tr, skipped) => {
+            tr.classList.toggle('is-skipped', skipped);
+            const b = tr.querySelector('.il-skip');
+            if (b) b.textContent = skipped ? 'Importar' : 'Não importar';
+            const v = tr.querySelector('.il-vend');
+            if (v) v.disabled = skipped;
+        };
         resultado.querySelectorAll('.il-skip').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const tr = btn.closest('[data-linha-row]');
-                const skipped = tr.classList.toggle('is-skipped');
-                btn.textContent = skipped ? 'Importar' : 'Não importar';
-                tr.querySelector('.il-vend').disabled = skipped;
+                setRowSkipped(tr, !tr.classList.contains('is-skipped'));
             });
+        });
+
+        // Alvo dos botões "Aplicar": linhas marcadas; se nenhuma marcada, todas
+        // as que ainda vão ser importadas.
+        const alvoRows = () => {
+            const marcadas = Array.from(resultado.querySelectorAll('tr[data-linha-row] .il-check:checked'))
+                .map((c) => c.closest('[data-linha-row]'));
+            if (marcadas.length) return marcadas;
+            return Array.from(resultado.querySelectorAll('tr[data-linha-row]:not(.is-skipped)'));
+        };
+
+        document.getElementById('il-check-all')?.addEventListener('change', (e) => {
+            resultado.querySelectorAll('tr[data-linha-row] .il-check').forEach((c) => { c.checked = e.target.checked; });
         });
         document.getElementById('import-bulk-apply')?.addEventListener('click', () => {
             const v = document.getElementById('import-bulk-vend').value.trim();
-            resultado.querySelectorAll('tr[data-linha-row]:not(.is-skipped) .il-vend').forEach((inp) => { inp.value = v; });
+            alvoRows().forEach((tr) => { const el = tr.querySelector('.il-vend'); if (el) el.value = v; });
         });
         document.getElementById('import-bulk-foco-apply')?.addEventListener('click', () => {
             const v = document.getElementById('import-bulk-foco').value;
-            resultado.querySelectorAll('tr[data-linha-row]:not(.is-skipped) .il-foco').forEach((sel) => { sel.value = v; });
+            alvoRows().forEach((tr) => { const el = tr.querySelector('.il-foco'); if (el) el.value = v; });
         });
         document.getElementById('import-bulk-cidade-apply')?.addEventListener('click', () => {
             const v = document.getElementById('import-bulk-cidade').value;
-            resultado.querySelectorAll('tr[data-linha-row]:not(.is-skipped) .il-cidade').forEach((sel) => { sel.value = v; });
+            alvoRows().forEach((tr) => { const el = tr.querySelector('.il-cidade'); if (el) el.value = v; });
+        });
+        document.getElementById('import-bulk-skip')?.addEventListener('click', () => {
+            const marcadas = Array.from(resultado.querySelectorAll('tr[data-linha-row] .il-check:checked')).map((c) => c.closest('[data-linha-row]'));
+            (marcadas.length ? marcadas : Array.from(resultado.querySelectorAll('tr[data-linha-row]'))).forEach((tr) => setRowSkipped(tr, true));
+        });
+        document.getElementById('import-bulk-unskip')?.addEventListener('click', () => {
+            const marcadas = Array.from(resultado.querySelectorAll('tr[data-linha-row] .il-check:checked')).map((c) => c.closest('[data-linha-row]'));
+            (marcadas.length ? marcadas : Array.from(resultado.querySelectorAll('tr[data-linha-row]'))).forEach((tr) => setRowSkipped(tr, false));
         });
     }
 
