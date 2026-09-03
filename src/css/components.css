@@ -1913,6 +1913,8 @@ input[type="date"] {
     vertical-align: middle;
 }
 .card-in-funil:hover, .card-in-funil:active { background: #dcfce7; }
+.card-in-funil-alert { color: #b91c1c; }
+.card-in-funil-alert:hover, .card-in-funil-alert:active { background: #fee2e2; }
 .qe-layout .card-in-funil { display: none; }
 
 .qe-info {
