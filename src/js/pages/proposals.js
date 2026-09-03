@@ -528,6 +528,7 @@ export async function renderProposalDetailPage(id) {
             <h2>Detalhes da Proposta</h2>
             <div class="header-actions-group">
                 ${proposal.cliente ? `<button type="button" class="mini-button" id="proposal-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
+                ${proposal.cliente && state.canCreateProposalFunil ? `<button type="button" class="mini-button" id="proposal-to-funil" title="Adicionar este cliente ao Funil de Vendas">📊 Ao Funil</button>` : ''}
                 <button type="button" class="mini-button" id="edit-proposal">Editar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-proposal-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -561,6 +562,15 @@ export async function renderProposalDetailPage(id) {
     document.getElementById('back-proposals').addEventListener('click', () => navigateTo('proposals'));
     document.getElementById('edit-proposal').addEventListener('click', () => navigateTo('proposal-edit', { proposal }));
     document.getElementById('proposal-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: proposal.cliente }));
+    document.getElementById('proposal-to-funil')?.addEventListener('click', () => {
+        state.funilPrefill = {
+            cliente: proposal.cliente || '',
+            cidade: proposal.cidade || '',
+            foco: proposal.foco || '',
+            atuacao: ''
+        };
+        navigateTo('funil-new');
+    });
     document.getElementById('share-proposal-whatsapp').addEventListener('click', () => {
         const text = `*Proposta - ${proposal.cliente}*\nStatus: ${proposal.status}\nFoco: ${proposal.foco || '-'}\nCidade: ${proposal.cidade || '-'}\nÚltima atualização: ${proposal.atualizacao || '-'}\nObs: ${proposal.obs || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
