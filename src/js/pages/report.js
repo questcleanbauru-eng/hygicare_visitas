@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, normalizeVisit, normalizeProposal, titleCase, parseCurrencyBR, calculateDaysFromDisplayDate } from '../utils/format.js';
-import { loadingState, showToast, downloadCSV } from '../utils/dom.js';
+import { loadingState, showToast, downloadCSV, initializeSearchableInput } from '../utils/dom.js';
 import { ensureStyles, renderBreadcrumb } from '../utils/ui.js';
 
 function formatMoney(value) {
@@ -377,17 +377,21 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             </div>` : ''}
             ${propStatusDisponiveis.length ? `
             <div class="form-group report-status-filter">
-                <label>Status da proposta <span class="report-status-hint">(pode marcar vários)</span></label>
-                <div class="report-status-chips" data-status-group="prop">
-                    ${propStatusDisponiveis.map((s) => `<button type="button" class="mini-button${propStatus.includes(s) ? ' active' : ''}" data-status="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
+                <label for="report-prop-status">Status da proposta <span class="report-status-hint">(marque um ou mais)</span></label>
+                <div class="searchable-select">
+                    <input type="text" id="report-prop-status" placeholder="Todos" autocomplete="off">
+                    <div class="searchable-select-menu" id="report-prop-status-menu"></div>
                 </div>
+                <div class="selected-types" id="report-prop-status-selected" style="margin-top:0.3rem"></div>
             </div>` : ''}
             ${funilStatusDisponiveis.length ? `
             <div class="form-group report-status-filter">
-                <label>Status do funil <span class="report-status-hint">(pode marcar vários)</span></label>
-                <div class="report-status-chips" data-status-group="funil">
-                    ${funilStatusDisponiveis.map((s) => `<button type="button" class="mini-button${funilStatus.includes(s) ? ' active' : ''}" data-status="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
+                <label for="report-funil-status">Status do funil <span class="report-status-hint">(marque um ou mais)</span></label>
+                <div class="searchable-select">
+                    <input type="text" id="report-funil-status" placeholder="Todos" autocomplete="off">
+                    <div class="searchable-select-menu" id="report-funil-status-menu"></div>
                 </div>
+                <div class="selected-types" id="report-funil-status-selected" style="margin-top:0.3rem"></div>
             </div>` : ''}
         </div>
 
@@ -585,17 +589,26 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         state.reportArea = e.target.value;
         renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
     });
-    body.querySelectorAll('.report-status-chips').forEach((group) => {
-        const stateKey = group.dataset.statusGroup === 'prop' ? 'reportPropStatus' : 'reportFunilStatus';
-        group.querySelectorAll('button[data-status]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const set = new Set(state[stateKey] || []);
-                set.has(btn.dataset.status) ? set.delete(btn.dataset.status) : set.add(btn.dataset.status);
-                state[stateKey] = Array.from(set);
+    const initReportStatusFilter = (id, items, stateKey) => {
+        if (!document.getElementById(id)) return;
+        const arr = Array.isArray(state[stateKey]) ? state[stateKey] : [];
+        initializeSearchableInput({
+            input: document.getElementById(id),
+            menu: document.getElementById(id + '-menu'),
+            items,
+            multiSelect: true,
+            maxSelections: 99,
+            selectedItems: arr,
+            selectedContainer: document.getElementById(id + '-selected'),
+            selectionLabel: 'status',
+            onSelectionChange: () => {
+                state[stateKey] = arr.slice();
                 renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
-            });
+            }
         });
-    });
+    };
+    initReportStatusFilter('report-prop-status', propStatusDisponiveis, 'reportPropStatus');
+    initReportStatusFilter('report-funil-status', funilStatusDisponiveis, 'reportFunilStatus');
 
     body.querySelectorAll('.report-section-toggle').forEach((btn) => {
         btn.addEventListener('click', () => {
