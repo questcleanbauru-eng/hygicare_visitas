@@ -880,7 +880,8 @@
 }
 .import-rows td.ir-data { white-space: nowrap; }
 .import-rows .il-vend { width: 100%; min-width: 120px; min-height: 34px; padding: 0.25rem 0.4rem; font-size: 0.8rem; }
-.import-rows .il-foco { width: 100%; min-width: 130px; min-height: 34px; font-size: 0.8rem; }
+.import-rows .il-foco,
+.import-rows .il-cidade { width: 100%; min-width: 130px; min-height: 34px; font-size: 0.8rem; }
 .import-rows .il-skip { white-space: nowrap; }
 .import-rows tr.is-skipped td { opacity: 0.45; }
 .import-rows tr.is-skipped td:not(:last-child) { text-decoration: line-through; }

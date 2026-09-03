@@ -1055,9 +1055,12 @@ function bindImportarTab() {
         const perLinha = linhas.length > 0 && !res.linhasTruncadas;
         const vendDatalist = `<datalist id="import-vend-dl">${(res.vendedoresApp || []).map((n) => `<option value="${escapeHtml(n)}"></option>`).join('')}</datalist>`;
         const potenciais = res.potenciaisCliente || [];
-        const focoOptions = (sel) => ['<option value="">—</option>']
-            .concat(potenciais.map((p) => `<option value="${escapeHtml(p)}"${String(p).toLowerCase() === String(sel || '').toLowerCase() ? ' selected' : ''}>${escapeHtml(p)}</option>`))
+        const cidades = res.cidadesApp || [];
+        const listOptions = (arr, sel) => ['<option value="">—</option>']
+            .concat(arr.map((p) => `<option value="${escapeHtml(p)}"${String(p).toLowerCase() === String(sel || '').toLowerCase() ? ' selected' : ''}>${escapeHtml(p)}</option>`))
             .join('');
+        const focoOptions = (sel) => listOptions(potenciais, sel);
+        const cidadeOptions = (sel) => listOptions(cidades, sel);
 
         const cm = res.colunasMapeadas || {};
         const cmRows = Object.keys(cm).map((k) => `
@@ -1092,10 +1095,20 @@ function bindImportarTab() {
                         <input type="text" id="import-bulk-vend" list="import-vend-dl" placeholder="Nome do vendedor">
                         <button type="button" class="mini-button" id="import-bulk-apply">Aplicar</button>
                     </div>
+                    <div class="import-rows-bulk">
+                        <span>Aplicar foco a todas:</span>
+                        <select id="import-bulk-foco">${focoOptions('')}</select>
+                        <button type="button" class="mini-button" id="import-bulk-foco-apply">Aplicar</button>
+                    </div>
+                    <div class="import-rows-bulk">
+                        <span>Aplicar cidade a todas:</span>
+                        <select id="import-bulk-cidade">${cidadeOptions('')}</select>
+                        <button type="button" class="mini-button" id="import-bulk-cidade-apply">Aplicar</button>
+                    </div>
                     <div class="import-rows-wrap">
                         <table class="import-rows">
                             <thead><tr>
-                                <th>Data</th><th>Vendedor</th><th>Cliente</th><th>Produtos</th><th>Foco</th><th>Potencial do Cliente</th><th></th>
+                                <th>Data</th><th>Vendedor</th><th>Cliente</th><th>Produtos</th><th>Foco</th><th>Potencial do Cliente</th><th>Cidade</th><th></th>
                             </tr></thead>
                             <tbody>
                                 ${linhas.map((l) => `
@@ -1106,6 +1119,7 @@ function bindImportarTab() {
                                     <td>${escapeHtml(l.produtos || '')}</td>
                                     <td>${escapeHtml(l.foco || '')}</td>
                                     <td><select class="il-foco">${focoOptions(l.foco)}</select></td>
+                                    <td><select class="il-cidade">${cidadeOptions(l.cidade)}</select></td>
                                     <td><button type="button" class="il-skip mini-button">Não importar</button></td>
                                 </tr>`).join('')}
                             </tbody>
@@ -1164,6 +1178,14 @@ function bindImportarTab() {
             const v = document.getElementById('import-bulk-vend').value.trim();
             resultado.querySelectorAll('tr[data-linha-row]:not(.is-skipped) .il-vend').forEach((inp) => { inp.value = v; });
         });
+        document.getElementById('import-bulk-foco-apply')?.addEventListener('click', () => {
+            const v = document.getElementById('import-bulk-foco').value;
+            resultado.querySelectorAll('tr[data-linha-row]:not(.is-skipped) .il-foco').forEach((sel) => { sel.value = v; });
+        });
+        document.getElementById('import-bulk-cidade-apply')?.addEventListener('click', () => {
+            const v = document.getElementById('import-bulk-cidade').value;
+            resultado.querySelectorAll('tr[data-linha-row]:not(.is-skipped) .il-cidade').forEach((sel) => { sel.value = v; });
+        });
     }
 
     async function confirmarImport() {
@@ -1177,16 +1199,19 @@ function bindImportarTab() {
             if (sel.dataset.cli !== undefined) clienteVendedorMap[sel.dataset.cli] = sel.value;
         });
         const linhaFocoMap = {};
+        const linhaCidadeMap = {};
         resultado.querySelectorAll('tr[data-linha-row]').forEach((tr) => {
             const n = tr.dataset.linhaRow;
             const foco = tr.querySelector('.il-foco')?.value || '';
             if (foco) linhaFocoMap[n] = foco;
+            const cidade = tr.querySelector('.il-cidade')?.value || '';
+            if (cidade) linhaCidadeMap[n] = cidade;
             if (tr.classList.contains('is-skipped')) { linhaMap[n] = '__DESCARTAR__'; return; }
             const v = (tr.querySelector('.il-vend').value || '').trim();
             linhaMap[n] = v || '__IGNORAR__';
         });
         setSaving(true, btn, 'Importando...');
-        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap, linhaMap, linhaFocoMap });
+        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap, linhaMap, linhaFocoMap, linhaCidadeMap });
         setSaving(false, btn);
         if (res.status !== 'success') {
             resultado.insertAdjacentHTML('beforeend', `<p class="error-message">${escapeHtml(res.message || 'Erro ao importar.')}</p>`);
