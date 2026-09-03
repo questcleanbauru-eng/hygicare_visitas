@@ -1043,6 +1043,7 @@ function bindImportarTab() {
         const label = cfg().label;
         const r = res.resumo || {};
         const naoRec = res.vendedoresNaoReconhecidos || [];
+        const semVend = res.clientesSemVendedor || [];
         const optionsHtml = ['<option value="__IGNORAR__">— deixar sem vendedor —</option>']
             .concat((res.vendedoresApp || []).map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`))
             .join('');
@@ -1088,6 +1089,22 @@ function bindImportarTab() {
                     </div>
                 </div>
             ` : ''}
+            ${semVend.length ? `
+                <div class="card" style="padding:0.9rem;margin-top:0.75rem">
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.7rem">
+                        ${semVend.length} cliente(s) sem vendedor no arquivo. Escolha o vendedor de cada um
+                        (as linhas herdam a gerência desse vendedor):
+                    </p>
+                    <div class="import-vend-map">
+                        ${semVend.map((c) => `
+                            <div class="import-vend-row">
+                                <span class="import-vend-name">${escapeHtml(c.cliente)}<em>${c.linhas} linha(s)</em></span>
+                                <select data-cli="${escapeHtml(c.cliente)}">${optionsHtml}</select>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
             <button type="button" id="import-confirmar" class="primary-button" style="margin-top:0.85rem">
                 Confirmar importação
             </button>
@@ -1099,11 +1116,13 @@ function bindImportarTab() {
         const btn = document.getElementById('import-confirmar');
         const { action, extra, label } = cfg();
         const vendedorMap = {};
+        const clienteVendedorMap = {};
         resultado.querySelectorAll('.import-vend-row select').forEach((sel) => {
-            vendedorMap[sel.dataset.de] = sel.value;
+            if (sel.dataset.de !== undefined) vendedorMap[sel.dataset.de] = sel.value;
+            if (sel.dataset.cli !== undefined) clienteVendedorMap[sel.dataset.cli] = sel.value;
         });
         setSaving(true, btn, 'Importando...');
-        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap });
+        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap });
         setSaving(false, btn);
         if (res.status !== 'success') {
             resultado.insertAdjacentHTML('beforeend', `<p class="error-message">${escapeHtml(res.message || 'Erro ao importar.')}</p>`);
