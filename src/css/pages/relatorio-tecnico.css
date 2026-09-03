@@ -1,0 +1,183 @@
+/* ── Chips Sim/Não/N/A e opções (formulário) ─────────────────────────── */
+.rt-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.rt-chips .radio-pill {
+    border: 1.5px solid var(--border);
+    background: #fff;
+    color: var(--text-muted-strong);
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.rt-chips .radio-pill.is-checked {
+    border-color: var(--primary);
+    background: #eff6ff;
+    color: var(--primary);
+}
+
+.rt-section-title {
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted-strong);
+    background: var(--bg);
+    border-left: 3px solid var(--primary);
+    padding: 0.45rem 0.6rem;
+    margin: 0.9rem 0 0.2rem;
+    border-radius: 4px;
+}
+
+/* ── Tabela "produtos aferidos" editável ─────────────────────────────── */
+.rt-tab-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 0.8fr 0.8fr auto;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+    align-items: center;
+}
+
+.rt-tab-row input {
+    width: 100%;
+    min-height: 40px;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.85rem;
+}
+
+.rt-tab-del {
+    border: none;
+    background: #fee2e2;
+    color: #b91c1c;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 560px) {
+    .rt-tab-row { grid-template-columns: 1fr 1fr; }
+    .rt-tab-del { grid-column: 2; justify-self: end; }
+}
+
+/* ── Modal de modelos ───────────────────────────────────────────────── */
+.rt-modelo-list { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.5rem 0 1rem; text-align: left; }
+.rt-modelo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.7rem;
+}
+.rt-modelo-item strong { display: block; font-size: 0.88rem; }
+.rt-modelo-item span { font-size: 0.76rem; color: var(--text-muted); }
+.rt-modelo-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.mini-button.danger { color: #b91c1c; border-color: #fecaca; }
+
+/* ── Relatório (visualização + PDF) ─────────────────────────────────── */
+.rt-report {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-top: 0.5rem;
+    color: #0f172a;
+    font-size: 0.85rem;
+}
+
+.rt-title {
+    text-align: center;
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    padding: 0.5rem;
+    border: 1px solid #1e3a8a;
+    background: #1e3a8a;
+    color: #fff;
+    margin-bottom: 0.75rem;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.rt-band {
+    font-weight: 800;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: #1e3a8a;
+    color: #fff;
+    padding: 0.35rem 0.55rem;
+    margin: 0.7rem 0 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.rt-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 40%) 1fr;
+    border: 1px solid var(--border);
+    border-top: none;
+}
+.rt-row:first-of-type { border-top: 1px solid var(--border); }
+.rt-row-label {
+    font-weight: 700;
+    color: #1e3a8a;
+    background: #f1f5f9;
+    padding: 0.4rem 0.55rem;
+    border-right: 1px solid var(--border);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+.rt-row-value { padding: 0.4rem 0.55rem; white-space: pre-wrap; }
+.rt-sign-line { min-height: 2.2rem; }
+
+.rt-freetext {
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 0.5rem 0.55rem;
+    white-space: pre-wrap;
+}
+
+.rt-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+}
+.rt-table th,
+.rt-table td {
+    border: 1px solid var(--border);
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+}
+.rt-table th {
+    background: #f1f5f9;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+@media (max-width: 560px) {
+    .rt-row { grid-template-columns: 1fr; }
+    .rt-row-label { border-right: none; border-bottom: 1px solid var(--border); }
+}
+
+@media print {
+    .no-print { display: none !important; }
+    .rt-report { border: none; padding: 0; font-size: 9pt; }
+    .rt-row { break-inside: avoid; }
+    .rt-band, .rt-title { break-after: avoid; }
+    .rt-table { break-inside: auto; }
+    .rt-table tr { break-inside: avoid; }
+}
+
+@page { size: A4; margin: 12mm 14mm; }

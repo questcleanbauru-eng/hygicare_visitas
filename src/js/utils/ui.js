@@ -13,6 +13,7 @@ const REFRESHABLE_PAGE_CACHE_KEYS = {
     funil: ['funil', 'funil_all'],
     contratos: ['contratos'],
     manutencao: ['manutencoes'],
+    'relatorio-tecnico': ['relatoriosTecnicos'],
     admin: ['admin_data', 'admin_email']
 };
 
@@ -25,7 +26,8 @@ const DETAIL_PAGE_PARENT = {
     'proposal-detail':   { keys: ['proposals', 'proposals_all'], stateKey: 'proposals' },
     'funil-detail':      { keys: ['funil', 'funil_all'],         stateKey: 'funil' },
     'contrato-detail':   { keys: ['contratos'],                  stateKey: 'contratos' },
-    'manutencao-detail': { keys: ['manutencoes'],                stateKey: 'manutencoes' }
+    'manutencao-detail': { keys: ['manutencoes'],                stateKey: 'manutencoes' },
+    'relatorio-tecnico-detail': { keys: ['relatoriosTecnicos'], stateKey: 'relatoriosTecnicos' }
 };
 
 function refreshCurrentPage() {
@@ -579,7 +581,8 @@ export function isNavActive(navId) {
         return ['contratos', 'contrato-new', 'contrato-detail', 'contrato-edit'].includes(state.currentPage);
     }
     if (navId === 'manutencao') {
-        return ['manutencao', 'manutencao-new', 'manutencao-detail', 'manutencao-edit'].includes(state.currentPage);
+        return ['manutencao', 'manutencao-new', 'manutencao-detail', 'manutencao-edit',
+            'relatorio-tecnico', 'relatorio-tecnico-new', 'relatorio-tecnico-detail', 'relatorio-tecnico-edit'].includes(state.currentPage);
     }
     return state.currentPage === navId;
 }

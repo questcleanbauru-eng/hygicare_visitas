@@ -28,6 +28,11 @@ import {
 import {
     handleImportVisitasLegacy, handleImportPropostasLegacy, handleImportFunilLegacy, handleImportClientesLegacy
 } from '../lib/handlers/importacao.js';
+import {
+    handleGetRelatoriosTecnicos, handleGetRelatorioTecnicoById, handleCreateRelatorioTecnico,
+    handleUpdateRelatorioTecnico, handleDeleteRelatorioTecnico,
+    handleGetRelatorioTecnicoModelos, handleSaveRelatorioTecnicoModelo, handleDeleteRelatorioTecnicoModelo
+} from '../lib/handlers/relatorioTecnico.js';
 import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSaveNotificationConfig, handleSaveLookupList, handleGetHealthPanel } from '../lib/handlers/admin.js';
 import { handleGetFormData } from '../lib/handlers/formdata.js';
@@ -118,6 +123,14 @@ const HANDLERS = {
     getManutencao: handleGetManutencao,
     getAuditoria: handleGetAuditoria,
     getHealthPanel: handleGetHealthPanel,
+    getRelatoriosTecnicos: handleGetRelatoriosTecnicos,
+    getRelatorioTecnicoById: handleGetRelatorioTecnicoById,
+    createRelatorioTecnico: handleCreateRelatorioTecnico,
+    updateRelatorioTecnico: handleUpdateRelatorioTecnico,
+    deleteRelatorioTecnico: handleDeleteRelatorioTecnico,
+    getRelatorioTecnicoModelos: handleGetRelatorioTecnicoModelos,
+    saveRelatorioTecnicoModelo: handleSaveRelatorioTecnicoModelo,
+    deleteRelatorioTecnicoModelo: handleDeleteRelatorioTecnicoModelo,
     ping: async () => ({ status: 'ok' })
 };
 

@@ -155,7 +155,7 @@ export function initTabVisibilitySync() {
 }
 
 
-export const _FORM_PAGES = new Set(['visit-new','visit-edit','proposal-new','proposal-edit','funil-new','funil-edit','contrato-new','contrato-edit','manutencao-new','manutencao-edit']);
+export const _FORM_PAGES = new Set(['visit-new','visit-edit','proposal-new','proposal-edit','funil-new','funil-edit','contrato-new','contrato-edit','manutencao-new','manutencao-edit','relatorio-tecnico-new','relatorio-tecnico-edit']);
 
 
 export async function navigateTo(page, options = {}, _fromPop = false) {
@@ -284,6 +284,18 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'manutencao-edit':
             await (await import('./pages/manutencao.js')).renderManutencaoFormPage(options.manutencao || state.currentManutencao);
             break;
+        case 'relatorio-tecnico':
+            await (await import('./pages/relatorioTecnico.js')).renderRelatorioTecnicoPage();
+            break;
+        case 'relatorio-tecnico-detail':
+            await (await import('./pages/relatorioTecnico.js')).renderRelatorioTecnicoDetailPage(options.id);
+            break;
+        case 'relatorio-tecnico-new':
+            await (await import('./pages/relatorioTecnico.js')).renderRelatorioTecnicoCreatePage(options);
+            break;
+        case 'relatorio-tecnico-edit':
+            await (await import('./pages/relatorioTecnico.js')).renderRelatorioTecnicoFormPage(options.relatorio || state.currentRelatorioTecnico);
+            break;
         case 'radar':
             await (await import('./pages/radar.js')).renderRadarPage(options);
             break;
@@ -307,6 +319,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         'funil':     ['funil-detail', 'funil-edit'],
         'contratos': ['contrato-detail', 'contrato-edit'],
         'manutencao': ['manutencao-detail', 'manutencao-edit'],
+        'relatorio-tecnico': ['relatorio-tecnico-detail', 'relatorio-tecnico-edit'],
     };
     if (_scrollParentMap[page] && _scrollParentMap[page].includes(_prevPage) && state.scrollPositions[page] > 0) {
         const savedY = state.scrollPositions[page];

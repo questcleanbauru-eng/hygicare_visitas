@@ -22,7 +22,8 @@ const ENTRY_POINTS = [
     { in: path.join(__dirname, 'src/css/pages/admin.css'), out: 'css/admin' },
     { in: path.join(__dirname, 'src/css/pages/report.css'), out: 'css/report' },
     { in: path.join(__dirname, 'src/css/pages/radar.css'), out: 'css/radar' },
-    { in: path.join(__dirname, 'src/css/pages/manutencao.css'), out: 'css/manutencao' }
+    { in: path.join(__dirname, 'src/css/pages/manutencao.css'), out: 'css/manutencao' },
+    { in: path.join(__dirname, 'src/css/pages/relatorio-tecnico.css'), out: 'css/relatorio-tecnico' }
 ];
 
 function rimraf(dir) {
@@ -113,7 +114,8 @@ async function runBuild() {
         'css/admin': urls['css/admin'],
         'css/report': urls['css/report'],
         'css/radar': urls['css/radar'],
-        'css/manutencao': urls['css/manutencao']
+        'css/manutencao': urls['css/manutencao'],
+        'css/relatorio-tecnico': urls['css/relatorio-tecnico']
     };
 
     const buildInfo = getBuildInfo();
