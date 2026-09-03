@@ -1896,6 +1896,27 @@ input[type="date"] {
 .card-to-funil-btn:hover, .card-to-funil-btn:active { background: var(--bg); }
 .qe-layout .card-to-funil-btn { display: none; }
 
+.qe-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin: 0 0 0.9rem;
+    padding: 0.5rem 0.65rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.83rem;
+    line-height: 1.35;
+    text-align: left;
+}
+.qe-info > div { display: flex; gap: 0.4rem; }
+.qe-info span {
+    flex-shrink: 0;
+    min-width: 64px;
+    font-weight: 700;
+    color: var(--text-muted-strong);
+}
+
 .inline-status-editor {
     background: var(--surface);
     border: 1px solid var(--border);

@@ -319,7 +319,11 @@ export function fillProposalsContent(mainContent, proposals) {
         panel.innerHTML = `
             <div class="qe-panel-inner">
                 <strong class="qe-panel-title">${escapeHtml(p.cliente || 'Cliente')}</strong>
-                <p class="helper-text" style="margin:0.15rem 0 0.85rem;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.atualizacao].filter(Boolean).join(' · '))}</p>
+                <p class="helper-text" style="margin:0.15rem 0 0.6rem;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.atualizacao].filter(Boolean).join(' · '))}</p>
+                <div class="qe-info">
+                    <div><span>Foco</span>${escapeHtml(p.foco || '-')}</div>
+                    <div><span>Produtos</span>${escapeHtml(p.produtos || '-')}</div>
+                </div>
                 <label>Status</label>
                 <div class="qe-status-row">
                     ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (p.status || '') ? ' is-active' : ''}" data-s="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
@@ -1021,7 +1025,11 @@ function openProposalQuickUpdateModal(p, onUpdated) {
     overlay.innerHTML = `
         <div class="modal-card" style="text-align:left">
             <h3 style="margin-top:0">Atualizar — ${escapeHtml(p.cliente || 'Cliente')}</h3>
-            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Data da atualização: <strong>${escapeHtml(formatDateForDisplay(new Date()))}</strong></p>
+            <p class="helper-text" style="margin:-0.4rem 0 0.7rem">Data da atualização: <strong>${escapeHtml(formatDateForDisplay(new Date()))}</strong></p>
+            <div class="qe-info">
+                <div><span>Foco</span>${escapeHtml(p.foco || '-')}</div>
+                <div><span>Produtos</span>${escapeHtml(p.produtos || '-')}</div>
+            </div>
             <div class="form-group full-width">
                 <label for="pq-status">Status</label>
                 <select id="pq-status">${renderSimpleOptions(['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'], p.status)}</select>
