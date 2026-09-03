@@ -160,7 +160,14 @@ export function renderLoginPage() {
                 }
                 state.currentUser = { ...result.userData, accessToken: result.accessToken };
                 persistUser(state.currentUser);
-                await maybeOfferPinSetup(result.userData.email || emailValue);
+                const acctEmail = result.userData.email || emailValue;
+                if (result.hasPin) {
+                    // A conta já tem PIN (criado em outro aparelho) — só
+                    // registra neste pra próxima vez já abrir no teclado de PIN.
+                    if (isPinSupported()) setPinEmail(acctEmail);
+                } else {
+                    await maybeOfferPinSetup(acctEmail);
+                }
                 await navigateTo('dashboard');
                 return;
             }
