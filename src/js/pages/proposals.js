@@ -105,9 +105,10 @@ export function fillProposalsContent(mainContent, proposals) {
                 <div class="form-group">
                     <label for="pf-status">${filterLabelHtml('Status')}</label>
                     <div class="searchable-select">
-                        <input type="text" id="pf-status" placeholder="Todos" autocomplete="off">
+                        <input type="text" id="pf-status" placeholder="Todos (marque um ou mais)" autocomplete="off">
                         <div class="searchable-select-menu" id="pf-status-menu"></div>
                     </div>
+                    <div class="selected-types" id="pf-status-selected" style="margin-top:0.3rem"></div>
                 </div>
                 <div class="form-group">
                     <label for="pf-cidade">${filterLabelHtml('Cidade')}</label>
@@ -175,9 +176,12 @@ export function fillProposalsContent(mainContent, proposals) {
 
     // Lembra os filtros entre navegações (ex.: ir pro Funil e voltar).
     state.proposalFilters = state.proposalFilters || {};
+    // Status: multi-seleção (array de valores). Os demais são texto simples.
+    const _pfStatusSel = Array.isArray(state.proposalFilters.statusMulti) ? state.proposalFilters.statusMulti.slice() : [];
     const persistProposalFilters = () => {
-        ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor', 'pf-date-from', 'pf-date-to']
+        ['pf-search', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor', 'pf-date-from', 'pf-date-to']
             .forEach((id) => { const el = document.getElementById(id); if (el) state.proposalFilters[id] = el.value; });
+        state.proposalFilters.statusMulti = _pfStatusSel.slice();
     };
 
     const renderFiltered = async () => {
@@ -201,7 +205,6 @@ export function fillProposalsContent(mainContent, proposals) {
             }
         }
         const search    = document.getElementById('pf-search')?.value.trim().toLowerCase() || '';
-        const status    = document.getElementById('pf-status')?.value || '';
         const cidade    = document.getElementById('pf-cidade')?.value || '';
         const atrasada  = document.getElementById('pf-atrasada')?.value || '';
         const period    = document.getElementById('pf-period')?.value || '';
@@ -212,7 +215,7 @@ export function fillProposalsContent(mainContent, proposals) {
 
         const filtered = normalized.filter((p) => {
             const matchSearch   = !search  || [p.cliente, p.cidade, p.obs, p.vendedor, p.foco].some((v) => String(v || '').toLowerCase().includes(search));
-            const matchStatus   = !status  || p.status === status;
+            const matchStatus   = !_pfStatusSel.length || _pfStatusSel.includes(p.status);
             const matchCidade   = !cidade  || p.cidade === cidade;
             const matchAtrasada = !atrasada || (atrasada === 'sim' ? p.atrasada : !p.atrasada);
             const matchVendor   = !vendor  || p.vendedor === vendor;
@@ -366,9 +369,20 @@ export function fillProposalsContent(mainContent, proposals) {
         });
     }
 
-    const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor',
+    const _proposalFilterIds = ['pf-search', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor',
         'pf-date-from', 'pf-date-to'];
-    initializeSearchableInput({ input: document.getElementById('pf-status'), menu: document.getElementById('pf-status-menu'), items: availableStatuses });
+    const initStatusFilter = () => initializeSearchableInput({
+        input: document.getElementById('pf-status'),
+        menu: document.getElementById('pf-status-menu'),
+        items: availableStatuses,
+        multiSelect: true,
+        maxSelections: 99,
+        selectedItems: _pfStatusSel,
+        selectedContainer: document.getElementById('pf-status-selected'),
+        selectionLabel: 'status',
+        onSelectionChange: () => renderFiltered()
+    });
+    initStatusFilter();
     initializeSearchableInput({ input: document.getElementById('pf-cidade'), menu: document.getElementById('pf-cidade-menu'), items: availableCities });
     if (isAdmGer) {
         initializeSearchableInput({ input: document.getElementById('pf-vendor'), menu: document.getElementById('pf-vendor-menu'), items: availableVendors });
@@ -380,7 +394,7 @@ export function fillProposalsContent(mainContent, proposals) {
         if (el && state.proposalFilters[id]) el.value = state.proposalFilters[id];
     });
 
-    const _proposalTextFilterIds = new Set(['pf-search', 'pf-status', 'pf-cidade', 'pf-vendor']);
+    const _proposalTextFilterIds = new Set(['pf-search', 'pf-cidade', 'pf-vendor']);
     const _debouncedProposalFilter = debounce(renderFiltered, 250);
     _proposalFilterIds.forEach((id) => {
         const el = document.getElementById(id);
@@ -393,6 +407,11 @@ export function fillProposalsContent(mainContent, proposals) {
 
     document.getElementById('proposal-filter-clear')?.addEventListener('click', () => {
         _proposalFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        _pfStatusSel.length = 0;
+        const pfStatusInput = document.getElementById('pf-status');
+        if (pfStatusInput) pfStatusInput.value = '';
+        const pfStatusSelEl = document.getElementById('pf-status-selected');
+        if (pfStatusSelEl) pfStatusSelEl.innerHTML = '';
         state.proposalFilters = {};
         state.proposalsYearFilter = null;
         renderFiltered();
@@ -433,7 +452,14 @@ export function fillProposalsContent(mainContent, proposals) {
                 saveCache('proposals_all', state.proposals);
                 normalized = state.proposals.map(normalizeProposal);
                 document.querySelector('.scope-banner')?.remove();
-                initializeSearchableInput({ input: document.getElementById('pf-status'), menu: document.getElementById('pf-status-menu'), items: Array.from(new Set(normalized.map((p) => p.status).filter(Boolean))) });
+                initializeSearchableInput({
+                    input: document.getElementById('pf-status'),
+                    menu: document.getElementById('pf-status-menu'),
+                    items: Array.from(new Set(normalized.map((p) => p.status).filter(Boolean))),
+                    multiSelect: true, maxSelections: 99, selectedItems: _pfStatusSel,
+                    selectedContainer: document.getElementById('pf-status-selected'),
+                    selectionLabel: 'status', onSelectionChange: () => renderFiltered()
+                });
                 initializeSearchableInput({ input: document.getElementById('pf-cidade'), menu: document.getElementById('pf-cidade-menu'), items: Array.from(new Set(normalized.map((p) => p.cidade).filter(Boolean))).sort() });
                 if (isAdmGer) initializeSearchableInput({ input: document.getElementById('pf-vendor'), menu: document.getElementById('pf-vendor-menu'), items: Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort() });
                 renderFiltered();
