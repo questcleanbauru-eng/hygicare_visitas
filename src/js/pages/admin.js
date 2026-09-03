@@ -1058,11 +1058,11 @@ function bindImportarTab() {
         const vendDatalist = `<datalist id="import-vend-dl">${(res.vendedoresApp || []).map((n) => `<option value="${escapeHtml(n)}"></option>`).join('')}</datalist>`;
         const potenciais = res.potenciaisCliente || [];
         const cidades = res.cidadesApp || [];
+        const cidadeDatalist = `<datalist id="import-cidade-dl">${cidades.map((c) => `<option value="${escapeHtml(c)}"></option>`).join('')}</datalist>`;
         const listOptions = (arr, sel) => ['<option value="">—</option>']
             .concat(arr.map((p) => `<option value="${escapeHtml(p)}"${String(p).toLowerCase() === String(sel || '').toLowerCase() ? ' selected' : ''}>${escapeHtml(p)}</option>`))
             .join('');
         const focoOptions = (sel) => listOptions(potenciais, sel);
-        const cidadeOptions = (sel) => listOptions(cidades, sel);
 
         const cm = res.colunasMapeadas || {};
         const cmRows = Object.keys(cm).map((k) => `
@@ -1108,7 +1108,7 @@ function bindImportarTab() {
                     </div>
                     <div class="import-rows-bulk">
                         <span>Cidade:</span>
-                        <select id="import-bulk-cidade">${cidadeOptions('')}</select>
+                        <input type="text" id="import-bulk-cidade" list="import-cidade-dl" placeholder="Cidade">
                         <button type="button" class="mini-button" id="import-bulk-cidade-apply">Aplicar</button>
                     </div>
                     <div class="import-rows-bulk">
@@ -1132,13 +1132,14 @@ function bindImportarTab() {
                                     <td>${escapeHtml(l.produtos || '')}</td>
                                     <td>${escapeHtml(l.foco || '')}</td>
                                     <td><select class="il-foco">${focoOptions(l.foco)}</select></td>
-                                    <td><select class="il-cidade">${cidadeOptions(l.cidade)}</select></td>
+                                    <td><input type="text" class="il-cidade" list="import-cidade-dl" value="${escapeHtml(l.cidade || '')}" placeholder="—"></td>
                                     <td><button type="button" class="il-skip mini-button">Não importar</button></td>
                                 </tr>`).join('')}
                             </tbody>
                         </table>
                     </div>
                     ${vendDatalist}
+                    ${cidadeDatalist}
                 </div>
             ` : `
                 ${naoRec.length ? `
@@ -1245,7 +1246,7 @@ function bindImportarTab() {
             const n = tr.dataset.linhaRow;
             const foco = tr.querySelector('.il-foco')?.value || '';
             if (foco) linhaFocoMap[n] = foco;
-            const cidade = tr.querySelector('.il-cidade')?.value || '';
+            const cidade = (tr.querySelector('.il-cidade')?.value || '').trim();
             if (cidade) linhaCidadeMap[n] = cidade;
             if (tr.classList.contains('is-skipped')) { linhaMap[n] = '__DESCARTAR__'; return; }
             const v = (tr.querySelector('.il-vend').value || '').trim();
@@ -1262,7 +1263,7 @@ function bindImportarTab() {
                 tr.classList.remove('row-invalid');
                 if (tr.classList.contains('is-skipped')) return;
                 const vend = (tr.querySelector('.il-vend').value || '').trim();
-                const cidade = tr.querySelector('.il-cidade')?.value || '';
+                const cidade = (tr.querySelector('.il-cidade')?.value || '').trim();
                 const foco = tr.querySelector('.il-foco')?.value || '';
                 const ok = vendSet.has(vend.toLowerCase()) && cidade && foco;
                 if (!ok) {
