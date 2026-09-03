@@ -173,7 +173,15 @@ export function fillProposalsContent(mainContent, proposals) {
         filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
     });
 
+    // Lembra os filtros entre navegações (ex.: ir pro Funil e voltar).
+    state.proposalFilters = state.proposalFilters || {};
+    const persistProposalFilters = () => {
+        ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor', 'pf-date-from', 'pf-date-to']
+            .forEach((id) => { const el = document.getElementById(id); if (el) state.proposalFilters[id] = el.value; });
+    };
+
     const renderFiltered = async () => {
+        persistProposalFilters();
         const dateFromCheck = document.getElementById('pf-date-from')?.value || '';
         if (state.proposalsScope !== 'all' && dateFromCheck) {
             const cutoffDias = new Date();
@@ -366,6 +374,12 @@ export function fillProposalsContent(mainContent, proposals) {
         initializeSearchableInput({ input: document.getElementById('pf-vendor'), menu: document.getElementById('pf-vendor-menu'), items: availableVendors });
     }
 
+    // Restaura os filtros lembrados da última visita a esta tela.
+    _proposalFilterIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && state.proposalFilters[id]) el.value = state.proposalFilters[id];
+    });
+
     const _proposalTextFilterIds = new Set(['pf-search', 'pf-status', 'pf-cidade', 'pf-vendor']);
     const _debouncedProposalFilter = debounce(renderFiltered, 250);
     _proposalFilterIds.forEach((id) => {
@@ -379,6 +393,7 @@ export function fillProposalsContent(mainContent, proposals) {
 
     document.getElementById('proposal-filter-clear')?.addEventListener('click', () => {
         _proposalFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        state.proposalFilters = {};
         state.proposalsYearFilter = null;
         renderFiltered();
         updateYearChips();
