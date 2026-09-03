@@ -250,6 +250,7 @@ export function fillProposalsContent(mainContent, proposals) {
                             <strong>
                                 <span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-proposal-quick="${escapeHtml(p.id)}">⚡</span>
+                                ${state.canCreateProposalFunil && p.cliente ? `<span class="card-to-funil-btn" role="button" tabindex="0" aria-label="Adicionar ao Funil de Vendas" title="Adicionar ao Funil de Vendas" data-proposal-funil="${escapeHtml(p.id)}" data-cliente="${escapeHtml(p.cliente || '')}" data-cidade="${escapeHtml(p.cidade || '')}" data-foco="${escapeHtml(p.foco || '')}">📊</span>` : ''}
                             </strong>
                             ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
                         </div>
@@ -292,6 +293,13 @@ export function fillProposalsContent(mainContent, proposals) {
                 e.stopPropagation();
                 const item = normalized.find((p) => String(p.id) === el.dataset.proposalQuick);
                 if (item) openProposalQuickUpdateModal(item, renderFiltered);
+            });
+        });
+        container.querySelectorAll('[data-proposal-funil]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.funilPrefill = { cliente: el.dataset.cliente || '', cidade: el.dataset.cidade || '', foco: el.dataset.foco || '', atuacao: '' };
+                navigateTo('funil-new');
             });
         });
 

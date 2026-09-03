@@ -1881,6 +1881,21 @@ input[type="date"] {
 
 .card-quick-edit-btn:hover, .card-quick-edit-btn:active { background: var(--bg); }
 
+.card-to-funil-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-left: 0.1rem;
+    border-radius: 50%;
+    font-size: 0.78rem;
+    cursor: pointer;
+    vertical-align: middle;
+}
+.card-to-funil-btn:hover, .card-to-funil-btn:active { background: var(--bg); }
+.qe-layout .card-to-funil-btn { display: none; }
+
 .inline-status-editor {
     background: var(--surface);
     border: 1px solid var(--border);
