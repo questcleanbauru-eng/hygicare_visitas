@@ -1,7 +1,12 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, persistUser } from '../api.js';
 import { escapeHtml } from '../utils/format.js';
-import { setSaving } from '../utils/dom.js';
+import { setSaving, showToast } from '../utils/dom.js';
+import { isPinSupported, hasPinSetup, pinEmail, clearPin, setupPin, unlockWithPin } from '../utils/pin.js';
+
+// Quando true, renderLoginPage pula a tela de PIN e mostra e-mail+senha
+// (link "Entrar com e-mail e senha"). É consumido a cada render.
+let _forceFullLogin = false;
 
 export function renderLoginPage() {
     // Ensure header and nav are hidden — called both via navigateTo and directly on first load
@@ -23,6 +28,14 @@ export function renderLoginPage() {
         mainContent = fresh;
     }
     mainContent.style.cssText = 'max-width:none;margin:0;padding:0;overflow:hidden;';
+
+    // Tela de PIN (acesso rápido, por aparelho) — a menos que o usuário tenha
+    // pedido "entrar com e-mail e senha".
+    if (!_forceFullLogin && isPinSupported() && hasPinSetup()) {
+        renderPinUnlockPage(mainContent);
+        return;
+    }
+    _forceFullLogin = false;
 
     mainContent.innerHTML = `
         <div class="login-split">
@@ -120,10 +133,12 @@ export function renderLoginPage() {
         spinner.style.display = '';
         errorBox.style.display = 'none';
 
+        const emailValue = document.getElementById('login-email').value.trim();
+        const passwordValue = passInput.value;
         try {
             const result = await callAPI('login', {
-                email: document.getElementById('login-email').value,
-                password: passInput.value
+                email: emailValue,
+                password: passwordValue
             });
             if (result.status === 'success') {
                 if (String(result.userData.profile || '').trim().toLowerCase() !== 'admin') {
@@ -139,6 +154,7 @@ export function renderLoginPage() {
                 }
                 state.currentUser = { ...result.userData, accessToken: result.accessToken };
                 persistUser(state.currentUser);
+                await maybeOfferPinSetup(emailValue, passwordValue);
                 await navigateTo('dashboard');
                 return;
             }
@@ -155,6 +171,199 @@ export function renderLoginPage() {
     });
 
     document.getElementById('forgot-password').addEventListener('click', () => navigateTo('forgot-password'));
+}
+
+
+function maskEmailForPin(email) {
+    const s = String(email || '');
+    const at = s.indexOf('@');
+    if (at <= 1) return s;
+    return s[0] + '•••' + s.slice(at);
+}
+
+const _WEAK_PINS = new Set(['0000', '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999', '1234', '2345', '3456', '4567', '5678', '6789', '0123', '4321', '9876', '1212', '1010']);
+
+// Tela de "Entrar com PIN" — substitui e-mail+senha quando há PIN salvo neste
+// aparelho. Decifra as credenciais e chama o mesmo login de sempre.
+function renderPinUnlockPage(mainContent) {
+    _forceFullLogin = false;
+    mainContent.innerHTML = `
+        <div class="login-form-col" style="min-height:100vh">
+            <div class="login-mobile-logo">
+                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                <span class="lml-name">App de Visitas</span>
+                <span class="lml-tag">Acesso rápido</span>
+            </div>
+            <div class="login-form-card">
+                <h1 class="login-heading">Digite seu PIN</h1>
+                <p class="login-subheading">${escapeHtml(maskEmailForPin(pinEmail()))}</p>
+                <form id="pin-form" novalidate>
+                    <input type="password" id="pin-input" class="login-pin-input" inputmode="numeric"
+                        autocomplete="off" maxlength="4" pattern="[0-9]*" placeholder="····" aria-label="PIN de 4 dígitos">
+                    <div id="pin-error-box" class="login-error-msg" style="display:none" role="alert">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span id="pin-error-text"></span>
+                    </div>
+                    <button type="submit" id="pin-button" class="login-submit-btn">
+                        <span id="pin-btn-label">Entrar</span>
+                        <span id="pin-btn-spinner" class="login-spinner" style="display:none"></span>
+                    </button>
+                </form>
+                <div class="login-forgot-row" style="flex-direction:column;gap:0.35rem;margin-top:1rem;align-items:center">
+                    <button type="button" class="login-forgot-link" id="pin-use-password">Entrar com e-mail e senha</button>
+                    <button type="button" class="login-forgot-link" id="pin-other-account">Entrar com outra conta</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const input = document.getElementById('pin-input');
+    const btn = document.getElementById('pin-button');
+    const label = document.getElementById('pin-btn-label');
+    const spinner = document.getElementById('pin-btn-spinner');
+    const errBox = document.getElementById('pin-error-box');
+    const errText = document.getElementById('pin-error-text');
+    const setBusy = (busy) => {
+        btn.disabled = busy;
+        label.style.display = busy ? 'none' : '';
+        spinner.style.display = busy ? '' : 'none';
+    };
+    const showErr = (msg) => { errText.textContent = msg; errBox.style.display = 'flex'; };
+    setTimeout(() => input.focus(), 60);
+
+    input.addEventListener('input', () => {
+        const clean = input.value.replace(/\D/g, '').slice(0, 4);
+        if (clean !== input.value) input.value = clean;
+        errBox.style.display = 'none';
+        if (clean.length === 4) {
+            if (typeof document.getElementById('pin-form').requestSubmit === 'function') {
+                document.getElementById('pin-form').requestSubmit();
+            } else {
+                document.getElementById('pin-form').dispatchEvent(new Event('submit', { cancelable: true }));
+            }
+        }
+    });
+
+    document.getElementById('pin-use-password').addEventListener('click', () => {
+        _forceFullLogin = true;
+        renderLoginPage();
+    });
+    document.getElementById('pin-other-account').addEventListener('click', () => {
+        clearPin();
+        _forceFullLogin = true;
+        renderLoginPage();
+    });
+
+    document.getElementById('pin-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const pin = input.value.replace(/\D/g, '');
+        if (pin.length !== 4) { showErr('Digite os 4 dígitos do PIN.'); return; }
+        setBusy(true);
+        errBox.style.display = 'none';
+
+        let creds;
+        try {
+            creds = await unlockWithPin(pin);
+        } catch (err) {
+            setBusy(false);
+            input.value = '';
+            if (err && err.code === 'locked') {
+                showErr('Muitas tentativas. Entre com e-mail e senha.');
+                setTimeout(() => { _forceFullLogin = true; renderLoginPage(); }, 1600);
+            } else if (err && err.code === 'wrong') {
+                showErr(`PIN incorreto. ${err.remaining} tentativa(s) antes de bloquear.`);
+                input.focus();
+            } else {
+                showErr('Não foi possível validar o PIN. Entre com e-mail e senha.');
+                setTimeout(() => { _forceFullLogin = true; renderLoginPage(); }, 1600);
+            }
+            return;
+        }
+
+        try {
+            const result = await callAPI('login', { email: creds.email, password: creds.password });
+            if (result.status === 'success') {
+                if (String(result.userData.profile || '').trim().toLowerCase() !== 'admin') {
+                    const manut = await callAPI('getManutencao', {}).catch(() => null);
+                    if (manut?.ativa) {
+                        showErr(manut.mensagem || 'Sistema em manutenção. Voltamos em breve.');
+                        setBusy(false);
+                        return;
+                    }
+                }
+                state.currentUser = { ...result.userData, accessToken: result.accessToken };
+                persistUser(state.currentUser);
+                await navigateTo('dashboard');
+                return;
+            }
+            // Credenciais recusadas: senha provavelmente mudou no servidor.
+            clearPin();
+            setBusy(false);
+            showErr('Sua senha mudou. Entre com e-mail e senha.');
+            setTimeout(() => { _forceFullLogin = true; renderLoginPage(); }, 1800);
+        } catch (error) {
+            setBusy(false);
+            showErr('Não foi possível conectar ao servidor.');
+        }
+    });
+}
+
+// Depois de um login completo bem-sucedido: oferece criar um PIN neste
+// aparelho. Resolve sempre (criado ou pulado).
+export function maybeOfferPinSetup(email, password) {
+    return new Promise((resolve) => {
+        if (!isPinSupported() || hasPinSetup() || !email || !password) { resolve(); return; }
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card">
+                <div style="font-size:2rem;margin-bottom:0.5rem">🔒</div>
+                <h3>Criar um PIN de acesso rápido?</h3>
+                <p>Neste aparelho você passa a entrar só com um PIN de 4 dígitos, sem digitar e-mail e senha toda vez.</p>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="pin-new">PIN (4 dígitos)</label>
+                    <input type="password" id="pin-new" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="····">
+                </div>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="pin-new2">Repita o PIN</label>
+                    <input type="password" id="pin-new2" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="····">
+                </div>
+                <div id="pin-setup-err" class="login-error-msg" style="display:none"><span id="pin-setup-err-text"></span></div>
+                <button type="button" id="pin-setup-save" class="primary-button">Salvar PIN</button>
+                <button type="button" id="pin-setup-skip" class="secondary-button">Agora não</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        const done = () => { overlay.remove(); resolve(); };
+        const errText = overlay.querySelector('#pin-setup-err-text');
+        const errBox = overlay.querySelector('#pin-setup-err');
+        const showErr = (m) => { errText.textContent = m; errBox.style.display = 'flex'; };
+        overlay.querySelectorAll('#pin-new, #pin-new2').forEach((el) => {
+            el.addEventListener('input', () => {
+                el.value = el.value.replace(/\D/g, '').slice(0, 4);
+                errBox.style.display = 'none';
+            });
+        });
+        overlay.querySelector('#pin-setup-skip').addEventListener('click', done);
+        overlay.querySelector('#pin-setup-save').addEventListener('click', async () => {
+            const a = overlay.querySelector('#pin-new').value;
+            const b = overlay.querySelector('#pin-new2').value;
+            if (!/^\d{4}$/.test(a)) { showErr('O PIN precisa ter 4 dígitos.'); return; }
+            if (a !== b) { showErr('Os dois PINs não são iguais.'); return; }
+            if (_WEAK_PINS.has(a)) { showErr('Esse PIN é fácil demais. Escolha outro.'); return; }
+            const saveBtn = overlay.querySelector('#pin-setup-save');
+            setSaving(true, saveBtn, 'Salvando...');
+            try {
+                await setupPin(a, email, password);
+                showToast('PIN criado. Da próxima vez, entre só com o PIN.');
+            } catch (e) {
+                showToast('Não foi possível salvar o PIN neste aparelho.', true);
+            }
+            done();
+        });
+    });
 }
 
 
