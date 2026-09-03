@@ -631,6 +631,21 @@
 
 .uif-req { color: #dc2626; }
 
+.uif-pin-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin: 0.25rem 0 0.75rem;
+    padding: 0.55rem 0.7rem;
+    background: #F8FAFC;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    color: var(--text-muted-strong);
+}
+
 /* Novo Usuário como modal (mesmo padrão de "Agendar retorno" / "Adicionar
    ao Funil") — abre centralizado, sem precisar rolar até o fim da lista. */
 .uif-modal { text-align: left; }

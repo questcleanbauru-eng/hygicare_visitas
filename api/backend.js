@@ -1,6 +1,6 @@
 import { checkRateLimit } from '../lib/common.js';
 import { readSession } from '../lib/security.js';
-import { handleLogin, handleForgotPassword } from '../lib/handlers/auth.js';
+import { handleLogin, handleForgotPassword, handleLoginWithPin, handleSetupPin, handleRemovePin } from '../lib/handlers/auth.js';
 import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit } from '../lib/handlers/visits.js';
 import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal } from '../lib/handlers/proposals.js';
 import {
@@ -49,6 +49,9 @@ function getBearerToken(req) {
 
 const HANDLERS = {
     login: handleLogin,
+    loginWithPin: handleLoginWithPin,
+    setupPin: handleSetupPin,
+    removePin: handleRemovePin,
     forgotPassword: handleForgotPassword,
     getVisits: handleGetVisits,
     getVisitById: handleGetVisitById,
@@ -129,7 +132,7 @@ export default async function handler(req, res) {
         const action = body.action;
         const payload = body.payload || {};
 
-        if (action !== 'ping' && action !== 'login' && action !== 'forgotPassword') {
+        if (action !== 'ping' && action !== 'login' && action !== 'loginWithPin' && action !== 'forgotPassword') {
             const session = readSession(getBearerToken(req));
             payload.user = session;
             const rlEmail = session.email;

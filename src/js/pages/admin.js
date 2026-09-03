@@ -744,6 +744,10 @@ export function bindAdminEvents(data) {
                     </div>
                     ${renderPermFieldsHtml(perms)}
                 </div>
+                <div class="uif-pin-row">
+                    <span>PIN de acesso rápido: <strong>${user.hasPin ? 'ativo' : 'não cadastrado'}</strong></span>
+                    ${user.hasPin ? '<button type="button" class="mini-button uif-pin-remove">Remover PIN</button>' : ''}
+                </div>
                 <div class="uif-actions">
                     <button type="button" class="uif-cancel">Cancelar</button>
                     <button type="button" class="uif-save">Salvar</button>
@@ -751,6 +755,18 @@ export function bindAdminEvents(data) {
             </td>`;
 
             row.querySelector('.uif-cancel').addEventListener('click', () => renderAdminPage());
+            row.querySelector('.uif-pin-remove')?.addEventListener('click', async (ev) => {
+                const b = ev.currentTarget;
+                b.disabled = true;
+                const r = await callAPI('removePin', { email }).catch(() => null);
+                if (r && r.status === 'success') {
+                    showToast('PIN removido.');
+                    renderAdminPage();
+                } else {
+                    showToast((r && r.message) || 'Não foi possível remover o PIN.', true);
+                    b.disabled = false;
+                }
+            });
             row.querySelector('.uif-save').addEventListener('click', async () => {
                 const senhaEdit = row.querySelector('.uif-senha').value.trim();
                 if (senhaEdit && senhaEdit.length < 6) { showToast('A senha precisa ter pelo menos 6 caracteres.', true); return; }
