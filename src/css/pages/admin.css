@@ -836,3 +836,50 @@
     flex: 1 1 200px;
     min-width: 0;
 }
+
+/* ── Revisão linha a linha da importação ─────────────────────────────── */
+.import-rows-bulk {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--text-muted-strong);
+}
+.import-rows-bulk input { flex: 1 1 180px; min-width: 0; min-height: 38px; }
+
+.import-rows-wrap {
+    max-height: 58vh;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.import-rows {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+.import-rows th,
+.import-rows td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: middle;
+}
+.import-rows thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted-strong);
+    z-index: 1;
+}
+.import-rows td.ir-data { white-space: nowrap; }
+.import-rows .il-vend { width: 100%; min-width: 120px; min-height: 34px; padding: 0.25rem 0.4rem; font-size: 0.8rem; }
+.import-rows .il-skip { white-space: nowrap; }
+.import-rows tr.is-skipped td { opacity: 0.45; }
+.import-rows tr.is-skipped td:not(:last-child) { text-decoration: line-through; }

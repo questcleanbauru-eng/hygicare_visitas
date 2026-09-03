@@ -1051,6 +1051,10 @@ function bindImportarTab() {
             .concat((res.vendedoresApp || []).map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`))
             .join('');
 
+        const linhas = res.linhas || [];
+        const perLinha = linhas.length > 0 && !res.linhasTruncadas;
+        const vendDatalist = `<datalist id="import-vend-dl">${(res.vendedoresApp || []).map((n) => `<option value="${escapeHtml(n)}"></option>`).join('')}</datalist>`;
+
         const cm = res.colunasMapeadas || {};
         const cmRows = Object.keys(cm).map((k) => `
             <tr>
@@ -1077,43 +1081,84 @@ function bindImportarTab() {
                     </p>
                 </div>
             ` : ''}
-            ${naoRec.length ? `
+            ${perLinha ? `
                 <div class="card" style="padding:0.9rem;margin-top:0.75rem">
-                    <p class="helper-text" style="text-align:left;margin:0 0 0.7rem">
-                        ${naoRec.length} vendedor(es) do arquivo não bateram com o cadastro. Diga quem é cada um
-                        (fica salvo pro próximo import):
-                    </p>
-                    <div class="import-vend-map">
-                        ${naoRec.map((v) => `
-                            <div class="import-vend-row">
-                                <span class="import-vend-name">${escapeHtml(v.nome)}<em>${v.linhas} linha(s)</em></span>
-                                <select data-de="${escapeHtml(v.nome)}">${optionsHtml}</select>
-                            </div>
-                        `).join('')}
+                    <div class="import-rows-bulk">
+                        <span>Aplicar vendedor a todas:</span>
+                        <input type="text" id="import-bulk-vend" list="import-vend-dl" placeholder="Nome do vendedor">
+                        <button type="button" class="mini-button" id="import-bulk-apply">Aplicar</button>
                     </div>
-                </div>
-            ` : ''}
-            ${semVend.length ? `
-                <div class="card" style="padding:0.9rem;margin-top:0.75rem">
-                    <p class="helper-text" style="text-align:left;margin:0 0 0.7rem">
-                        ${semVend.length} cliente(s) sem vendedor no arquivo. Escolha o vendedor de cada um
-                        (as linhas herdam a gerência desse vendedor):
-                    </p>
-                    <div class="import-vend-map">
-                        ${semVend.map((c) => `
-                            <div class="import-vend-row">
-                                <span class="import-vend-name">${escapeHtml(c.cliente)}<em>${c.linhas} linha(s)</em></span>
-                                <select data-cli="${escapeHtml(c.cliente)}">${optionsHtml}</select>
-                            </div>
-                        `).join('')}
+                    <div class="import-rows-wrap">
+                        <table class="import-rows">
+                            <thead><tr>
+                                <th>Data</th><th>Vendedor</th><th>Cliente</th><th>Produtos</th><th>Foco</th><th></th>
+                            </tr></thead>
+                            <tbody>
+                                ${linhas.map((l) => `
+                                <tr data-linha-row="${l.n}">
+                                    <td class="ir-data">${escapeHtml(l.data || '')}</td>
+                                    <td><input type="text" class="il-vend" list="import-vend-dl" value="${escapeHtml(l.vendedorSugerido || l.vendedorArquivo || '')}" placeholder="—"></td>
+                                    <td>${escapeHtml(l.cliente || '')}</td>
+                                    <td>${escapeHtml(l.produtos || '')}</td>
+                                    <td>${escapeHtml(l.foco || '')}</td>
+                                    <td><button type="button" class="il-skip mini-button">Não importar</button></td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
                     </div>
+                    ${vendDatalist}
                 </div>
-            ` : ''}
+            ` : `
+                ${naoRec.length ? `
+                    <div class="card" style="padding:0.9rem;margin-top:0.75rem">
+                        <p class="helper-text" style="text-align:left;margin:0 0 0.7rem">
+                            ${naoRec.length} vendedor(es) do arquivo não bateram com o cadastro. Diga quem é cada um
+                            (fica salvo pro próximo import):
+                        </p>
+                        <div class="import-vend-map">
+                            ${naoRec.map((v) => `
+                                <div class="import-vend-row">
+                                    <span class="import-vend-name">${escapeHtml(v.nome)}<em>${v.linhas} linha(s)</em></span>
+                                    <select data-de="${escapeHtml(v.nome)}">${optionsHtml}</select>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                ${semVend.length ? `
+                    <div class="card" style="padding:0.9rem;margin-top:0.75rem">
+                        <p class="helper-text" style="text-align:left;margin:0 0 0.7rem">
+                            ${semVend.length} cliente(s) sem vendedor no arquivo. Escolha o vendedor de cada um
+                            (as linhas herdam a gerência desse vendedor):
+                        </p>
+                        <div class="import-vend-map">
+                            ${semVend.map((c) => `
+                                <div class="import-vend-row">
+                                    <span class="import-vend-name">${escapeHtml(c.cliente)}<em>${c.linhas} linha(s)</em></span>
+                                    <select data-cli="${escapeHtml(c.cliente)}">${optionsHtml}</select>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            `}
             <button type="button" id="import-confirmar" class="primary-button" style="margin-top:0.85rem">
                 Confirmar importação
             </button>
         `;
         document.getElementById('import-confirmar').addEventListener('click', confirmarImport);
+        resultado.querySelectorAll('.il-skip').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const tr = btn.closest('[data-linha-row]');
+                const skipped = tr.classList.toggle('is-skipped');
+                btn.textContent = skipped ? 'Importar' : 'Não importar';
+                tr.querySelector('.il-vend').disabled = skipped;
+            });
+        });
+        document.getElementById('import-bulk-apply')?.addEventListener('click', () => {
+            const v = document.getElementById('import-bulk-vend').value.trim();
+            resultado.querySelectorAll('tr[data-linha-row]:not(.is-skipped) .il-vend').forEach((inp) => { inp.value = v; });
+        });
     }
 
     async function confirmarImport() {
@@ -1121,12 +1166,19 @@ function bindImportarTab() {
         const { action, extra, label } = cfg();
         const vendedorMap = {};
         const clienteVendedorMap = {};
+        const linhaMap = {};
         resultado.querySelectorAll('.import-vend-row select').forEach((sel) => {
             if (sel.dataset.de !== undefined) vendedorMap[sel.dataset.de] = sel.value;
             if (sel.dataset.cli !== undefined) clienteVendedorMap[sel.dataset.cli] = sel.value;
         });
+        resultado.querySelectorAll('tr[data-linha-row]').forEach((tr) => {
+            const n = tr.dataset.linhaRow;
+            if (tr.classList.contains('is-skipped')) { linhaMap[n] = '__DESCARTAR__'; return; }
+            const v = (tr.querySelector('.il-vend').value || '').trim();
+            linhaMap[n] = v || '__IGNORAR__';
+        });
         setSaving(true, btn, 'Importando...');
-        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap });
+        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap, linhaMap });
         setSaving(false, btn);
         if (res.status !== 'success') {
             resultado.insertAdjacentHTML('beforeend', `<p class="error-message">${escapeHtml(res.message || 'Erro ao importar.')}</p>`);
