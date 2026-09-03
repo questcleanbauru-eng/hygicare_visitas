@@ -885,3 +885,7 @@
 .import-rows .il-skip { white-space: nowrap; }
 .import-rows tr.is-skipped td { opacity: 0.45; }
 .import-rows tr.is-skipped td:not(:last-child) { text-decoration: line-through; }
+.import-rows tr.row-invalid td { background: #fef2f2; }
+.import-rows tr.row-invalid .il-vend,
+.import-rows tr.row-invalid .il-cidade,
+.import-rows tr.row-invalid .il-foco { border-color: #ef4444; }

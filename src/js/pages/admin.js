@@ -986,6 +986,7 @@ function bindImportarTab() {
     // { csvText } pra CSV, { xlsxBase64 } pra Excel. Assim o "Confirmar"
     // reenvia sem precisar reler o arquivo.
     let fileData = null;
+    let lastAnalise = null;
     const cfg = () => IMPORT_ENTIDADES[entidadeSel.value] || IMPORT_ENTIDADES['visitas-ativas'];
 
     entidadeSel.addEventListener('change', () => { resultado.innerHTML = ''; });
@@ -1040,6 +1041,7 @@ function bindImportarTab() {
     });
 
     function renderImportAnalise(res) {
+        lastAnalise = res;
         const label = cfg().label;
         const r = res.resumo || {};
         const naoRec = res.vendedoresNaoReconhecidos || [];
@@ -1200,7 +1202,8 @@ function bindImportarTab() {
         });
         const linhaFocoMap = {};
         const linhaCidadeMap = {};
-        resultado.querySelectorAll('tr[data-linha-row]').forEach((tr) => {
+        const rowsPerLinha = Array.from(resultado.querySelectorAll('tr[data-linha-row]'));
+        rowsPerLinha.forEach((tr) => {
             const n = tr.dataset.linhaRow;
             const foco = tr.querySelector('.il-foco')?.value || '';
             if (foco) linhaFocoMap[n] = foco;
@@ -1210,6 +1213,33 @@ function bindImportarTab() {
             const v = (tr.querySelector('.il-vend').value || '').trim();
             linhaMap[n] = v || '__IGNORAR__';
         });
+
+        // Não envia se alguma linha que vai ser importada está sem vendedor
+        // válido, sem cidade ou sem potencial. (Marque "Não importar" ou preencha.)
+        if (rowsPerLinha.length) {
+            const vendSet = new Set((lastAnalise?.vendedoresApp || []).map((x) => x.trim().toLowerCase()));
+            let invalidas = 0;
+            let primeira = null;
+            rowsPerLinha.forEach((tr) => {
+                tr.classList.remove('row-invalid');
+                if (tr.classList.contains('is-skipped')) return;
+                const vend = (tr.querySelector('.il-vend').value || '').trim();
+                const cidade = tr.querySelector('.il-cidade')?.value || '';
+                const foco = tr.querySelector('.il-foco')?.value || '';
+                const ok = vendSet.has(vend.toLowerCase()) && cidade && foco;
+                if (!ok) {
+                    tr.classList.add('row-invalid');
+                    invalidas++;
+                    if (!primeira) primeira = tr;
+                }
+            });
+            if (invalidas) {
+                showToast(`${invalidas} linha(s) sem vendedor da lista, cidade ou potencial. Preencha ou marque "Não importar".`, true);
+                primeira?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+        }
+
         setSaving(true, btn, 'Importando...');
         const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap, linhaMap, linhaFocoMap, linhaCidadeMap });
         setSaving(false, btn);
