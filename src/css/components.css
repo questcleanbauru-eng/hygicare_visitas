@@ -1900,6 +1900,21 @@ input[type="date"] {
 .card-to-funil-btn:hover, .card-to-funil-btn:active { background: var(--bg); }
 .qe-layout .card-to-funil-btn { display: none; }
 
+.card-in-funil {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-left: 0.1rem;
+    border-radius: 50%;
+    font-size: 0.78rem;
+    cursor: pointer;
+    vertical-align: middle;
+}
+.card-in-funil:hover, .card-in-funil:active { background: #dcfce7; }
+.qe-layout .card-in-funil { display: none; }
+
 .qe-info {
     display: flex;
     flex-direction: column;

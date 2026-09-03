@@ -14,6 +14,26 @@ import {
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
 
+// ── "Cliente já está no Funil?" ──────────────────────────────────────────
+const _funilKey = (name) => String(name || '').trim().toLowerCase();
+
+// Carrega o Funil uma vez (best-effort) só pra checar duplicidade no botão
+// "Ao Funil". Se falhar, o botão segue funcionando como "adicionar".
+async function ensureFunilForDedup() {
+    if (Array.isArray(state.funil) && state.funil.length) return;
+    try {
+        const { getFunil } = await import('./funil.js');
+        const r = await getFunil(0);
+        if (r && r.status === 'success') state.funil = r.funil || state.funil || [];
+    } catch (e) { /* best-effort */ }
+}
+
+function funilItemForCliente(cliente) {
+    const k = _funilKey(cliente);
+    if (!k) return null;
+    return (state.funil || []).find((f) => _funilKey(f.cliente || f.Cliente) === k) || null;
+}
+
 export function fillProposalsContent(mainContent, proposals) {
     let normalized = (proposals || []).map(normalizeProposal);
     const isAdmGer = isAdminOrGerenteUser();
@@ -261,7 +281,12 @@ export function fillProposalsContent(mainContent, proposals) {
                             <strong>
                                 <span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-proposal-quick="${escapeHtml(p.id)}">⚡</span>
-                                ${state.canCreateProposalFunil && p.cliente ? `<span class="card-to-funil-btn" role="button" tabindex="0" aria-label="Adicionar ao Funil de Vendas" title="Adicionar ao Funil de Vendas" data-proposal-funil="${escapeHtml(p.id)}" data-cliente="${escapeHtml(p.cliente || '')}" data-cidade="${escapeHtml(p.cidade || '')}" data-foco="${escapeHtml(p.foco || '')}">📊</span>` : ''}
+                                ${state.canCreateProposalFunil && p.cliente ? (() => {
+                                    const _fi = funilItemForCliente(p.cliente);
+                                    return _fi
+                                        ? `<span class="card-in-funil" role="button" tabindex="0" aria-label="Cliente já está no Funil de Vendas" title="Já está no Funil de Vendas — abrir" data-funil-id="${escapeHtml(String(_fi.id || _fi.Id || ''))}">✅</span>`
+                                        : `<span class="card-to-funil-btn" role="button" tabindex="0" aria-label="Adicionar ao Funil de Vendas" title="Adicionar ao Funil de Vendas" data-proposal-funil="${escapeHtml(p.id)}" data-cliente="${escapeHtml(p.cliente || '')}" data-cidade="${escapeHtml(p.cidade || '')}" data-foco="${escapeHtml(p.foco || '')}">📊</span>`;
+                                })() : ''}
                             </strong>
                             ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
                         </div>
@@ -311,6 +336,14 @@ export function fillProposalsContent(mainContent, proposals) {
                 e.stopPropagation();
                 state.funilPrefill = { cliente: el.dataset.cliente || '', cidade: el.dataset.cidade || '', foco: el.dataset.foco || '', atuacao: '' };
                 navigateTo('funil-new');
+            });
+        });
+        container.querySelectorAll('[data-funil-id]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = el.dataset.funilId;
+                if (id) navigateTo('funil-detail', { id });
+                else navigateTo('funil');
             });
         });
 
@@ -494,6 +527,14 @@ export function fillProposalsContent(mainContent, proposals) {
     });
     renderFiltered();
 
+    // Carrega o Funil em 2º plano só pra marcar os clientes que já estão
+    // nele (botão ✅). Re-renderiza a lista quando chegar.
+    if (state.canCreateProposalFunil && (!Array.isArray(state.funil) || !state.funil.length)) {
+        ensureFunilForDedup().then(() => {
+            if (state.currentPage === 'proposals') renderFiltered();
+        });
+    }
+
     const overdueCount = normalized.filter((p) => p.atrasada).length;
     updateProposalsBadge(overdueCount);
 }
@@ -571,6 +612,9 @@ export async function renderProposalDetailPage(id) {
     const proposal = normalizeProposal(result.proposal);
     state.currentProposal = proposal;
 
+    if (state.canCreateProposalFunil) { await ensureFunilForDedup(); }
+    const funilDoCliente = funilItemForCliente(proposal.cliente);
+
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Propostas', page: 'proposals' }, { label: proposal.cliente || 'Proposta' }])}
         <div class="page-header compact-header">
@@ -581,7 +625,9 @@ export async function renderProposalDetailPage(id) {
             <h2>Detalhes da Proposta</h2>
             <div class="header-actions-group">
                 ${proposal.cliente ? `<button type="button" class="mini-button" id="proposal-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
-                ${proposal.cliente && state.canCreateProposalFunil ? `<button type="button" class="mini-button" id="proposal-to-funil" title="Adicionar este cliente ao Funil de Vendas">📊 Ao Funil</button>` : ''}
+                ${proposal.cliente && state.canCreateProposalFunil ? (funilDoCliente
+                    ? `<button type="button" class="mini-button" id="proposal-in-funil" title="Este cliente já está no Funil de Vendas — abrir">✅ No Funil</button>`
+                    : `<button type="button" class="mini-button" id="proposal-to-funil" title="Adicionar este cliente ao Funil de Vendas">📊 Ao Funil</button>`) : ''}
                 <button type="button" class="mini-button" id="edit-proposal">Editar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="share-proposal-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -623,6 +669,11 @@ export async function renderProposalDetailPage(id) {
             atuacao: ''
         };
         navigateTo('funil-new');
+    });
+    document.getElementById('proposal-in-funil')?.addEventListener('click', () => {
+        const id = funilDoCliente && (funilDoCliente.id || funilDoCliente.Id);
+        if (id) navigateTo('funil-detail', { id: String(id) });
+        else navigateTo('funil');
     });
     document.getElementById('share-proposal-whatsapp').addEventListener('click', () => {
         const text = `*Proposta - ${proposal.cliente}*\nStatus: ${proposal.status}\nFoco: ${proposal.foco || '-'}\nCidade: ${proposal.cidade || '-'}\nÚltima atualização: ${proposal.atualizacao || '-'}\nObs: ${proposal.obs || '-'}`;
