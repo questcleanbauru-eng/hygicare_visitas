@@ -1957,7 +1957,22 @@ input[type="date"] {
     min-width: 64px;
     font-weight: 700;
     color: var(--text-muted-strong);
+    align-self: center;
 }
+
+.qe-info-edit > div { align-items: center; }
+.qe-info-edit input {
+    flex: 1;
+    min-width: 0;
+    min-height: 30px;
+    padding: 0.15rem 0.45rem;
+    font-size: 0.83rem;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: #fff;
+    color: var(--text);
+}
+.qe-info-edit input:focus { border-color: var(--primary); outline: none; }
 
 .inline-status-editor {
     background: var(--surface);

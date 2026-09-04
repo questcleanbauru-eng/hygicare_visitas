@@ -314,11 +314,11 @@ export function fillFunilContent(mainContent, funil) {
             <div class="qe-panel-inner">
                 <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
                 <p class="helper-text" style="margin:0.15rem 0 0.6rem;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.atualizacao || f.data].filter(Boolean).join(' · '))}</p>
-                <div class="qe-info">
-                    <div><span>Cidade</span>${escapeHtml(f.cidade || '-')}</div>
-                    <div><span>Foco</span>${escapeHtml(f.foco || '-')}</div>
-                    <div><span>Atuação</span>${escapeHtml(f.atuacao || '-')}</div>
-                    <div><span>Aplicação</span>${escapeHtml(f.aplicacao || '-')}</div>
+                <div class="qe-info qe-info-edit">
+                    <div><span>Cidade</span><input type="text" id="qe-cidade" value="${escapeHtml(f.cidade || '')}"></div>
+                    <div><span>Foco</span><input type="text" id="qe-foco" value="${escapeHtml(f.foco || '')}"></div>
+                    <div><span>Atuação</span><input type="text" id="qe-atuacao" value="${escapeHtml(f.atuacao || '')}"></div>
+                    <div><span>Aplicação</span><input type="text" id="qe-aplicacao" value="${escapeHtml(f.aplicacao || '')}"></div>
                 </div>
                 <label>Status</label>
                 <div class="qe-status-row">
@@ -352,9 +352,13 @@ export function fillFunilContent(mainContent, funil) {
             const motivo = (panel.querySelector('#qe-motivo')?.value || '').trim();
             if (selStatus === 'PERDIDO' && !motivo) { showToast('Informe o motivo da perda.', true); return; }
             const coment = stripEmptyDatedLine(ta.value);
+            const cidade = panel.querySelector('#qe-cidade')?.value.trim();
+            const foco = panel.querySelector('#qe-foco')?.value.trim();
+            const atuacao = panel.querySelector('#qe-atuacao')?.value.trim();
+            const aplicacao = panel.querySelector('#qe-aplicacao')?.value.trim();
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
-            applyFunilQuickPatch(f, { status: selStatus, comentarios: coment, motivoPerda: motivo }, () => {
+            applyFunilQuickPatch(f, { status: selStatus, comentarios: coment, motivoPerda: motivo, cidade, foco, atuacao, aplicacao }, () => {
                 funilData = state.funil;
                 renderFiltered();
             });
@@ -536,17 +540,24 @@ function openFunilQuickUpdateModal(f, onUpdated) {
 // Update otimista + attemptOrQueue + rollback compartilhado entre o modal de
 // atualização rápida e o painel de edição rápida (split view do admin).
 function applyFunilQuickPatch(f, patch, onDone) {
-    const { status, comentarios, motivoPerda } = patch;
+    const { status, comentarios, motivoPerda, cidade, foco, atuacao, aplicacao } = patch;
     const idx = state.funil.findIndex((item) => String(item.id) === String(f.id));
     const original = idx >= 0 ? { ...state.funil[idx] } : null;
     const nowDisplay = formatDateForDisplay(new Date());
+    // Cidade/Foco/Atuação/Aplicação só chegam preenchidos quando o painel
+    // tinha os campos (admin) — undefined não sobrescreve o que já tinha.
+    const camposLivres = {};
+    if (cidade !== undefined) camposLivres.cidade = cidade;
+    if (foco !== undefined) camposLivres.foco = foco;
+    if (atuacao !== undefined) camposLivres.atuacao = atuacao;
+    if (aplicacao !== undefined) camposLivres.aplicacao = aplicacao;
     if (idx >= 0) {
-        state.funil[idx] = { ...state.funil[idx], status, comentarios, motivoPerda, atualizacao: nowDisplay };
+        state.funil[idx] = { ...state.funil[idx], status, comentarios, motivoPerda, ...camposLivres, atualizacao: nowDisplay };
         saveCache('funil', state.funil);
     }
     if (onDone) onDone();
 
-    return attemptOrQueue('updateFunil', { id: f.id, status, comentarios, motivoPerda, user: state.currentUser },
+    return attemptOrQueue('updateFunil', { id: f.id, status, comentarios, motivoPerda, ...camposLivres, user: state.currentUser },
         { entity: 'funil', tempId: f.id })
         .then((result) => {
             if (result && result.status === 'success') {
