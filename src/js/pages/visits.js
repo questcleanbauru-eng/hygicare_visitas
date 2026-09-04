@@ -10,7 +10,7 @@ import {
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine
 } from '../utils/format.js';
 import {
-    debounce, downloadCSV, initializeSearchableInput, renderDetailRow,
+    debounce, downloadCSV, initializeSearchableInput, renderDetailRow, actionIcon,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
     loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
     buildIcsContent, downloadIcs, renderSavedFilters
@@ -1727,13 +1727,13 @@ export async function renderVisitDetailPage(id) {
             <button type="button" class="mini-button" id="back-visits">Voltar</button>
             <h2>Detalhes da Visita</h2>
             <div class="header-actions-group">
-                ${visit.cliente ? `<button type="button" class="mini-button" id="visit-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
+                ${visit.cliente ? `<button type="button" class="mini-button mini-button-icon" id="visit-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
                 <button type="button" class="mini-button" id="edit-visit">Editar</button>
                 <button type="button" class="mini-button" id="duplicate-visit" title="Nova visita com os mesmos dados">Duplicar</button>
-                <button type="button" class="mini-button mini-button-whatsapp" id="share-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
+                <button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="share-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 </button>
-                ${state.canDelete ? '<button type="button" class="mini-button mini-button-danger" id="delete-visit" aria-label="Apagar" title="Apagar">🗑️</button>' : ''}
+                ${state.canDelete ? `<button type="button" class="mini-button mini-button-icon mini-button-danger" id="delete-visit" aria-label="Apagar" title="Apagar">${actionIcon('trash')}</button>` : ''}
             </div>
         </div>
         <div class="card detail-card">
@@ -1753,7 +1753,7 @@ export async function renderVisitDetailPage(id) {
             ${renderDetailRow('Observação', visit.observacao || '-')}
             ${visit.latitude && visit.longitude ? `
             <div class="detail-row">
-                <span class="detail-label">📍 Check-in</span>
+                <span class="detail-label"><span class="detail-label-icon" aria-hidden="true">${actionIcon('pin', 13)}</span>Check-in</span>
                 <button type="button" class="mini-button" id="visit-map-link">Ver no mapa</button>
             </div>` : ''}
         </div>

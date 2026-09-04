@@ -1038,10 +1038,10 @@ textarea { resize: vertical; }
 
 .detail-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.45rem 0.85rem;
+    padding: 0.55rem 1rem;
     border-bottom: 1px solid var(--border);
 }
 
@@ -1062,11 +1062,12 @@ textarea { resize: vertical; }
 }
 
 .detail-label {
-    font-size: 0.74rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 500;
     color: var(--text-muted-strong);
     flex-shrink: 0;
     min-width: 96px;
+    line-height: 1.4;
 }
 
 .detail-label-icon {
@@ -1081,10 +1082,30 @@ textarea { resize: vertical; }
 .detail-label-icon svg { display: block; }
 
 .detail-value {
-    font-size: 0.85rem;
-    font-weight: 500;
+    font-size: 0.9rem;
+    font-weight: 600;
     color: var(--text);
     text-align: right;
+    /* Sem isso, um valor sem espaços (e-mail longo, cidade composta) que não
+       cabe era cortado silenciosamente pelo overflow:hidden do .detail-card. */
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+
+/* Telas bem estreitas: empilha rótulo e valor (label em cima, valor embaixo
+   à esquerda). Resolve de uma vez toda colisão de label longo × valor
+   ("Área de Atuação", "Potencial do Cliente", "Enviar Aviso de vencimento"...). */
+@media (max-width: 400px) {
+    .detail-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
+    }
+    .detail-value {
+        text-align: left;
+        width: 100%;
+    }
 }
 
 /* Input auto-filled from client data */
@@ -1874,9 +1895,9 @@ input[type="date"] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    margin-left: 0.2rem;
+    width: 28px;
+    height: 28px;
+    margin-left: 0.35rem;
     border-radius: 50%;
     font-size: 0.78rem;
     cursor: pointer;
@@ -1889,9 +1910,9 @@ input[type="date"] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    margin-left: 0.1rem;
+    width: 28px;
+    height: 28px;
+    margin-left: 0.35rem;
     border-radius: 50%;
     font-size: 0.78rem;
     cursor: pointer;
@@ -1904,9 +1925,9 @@ input[type="date"] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    margin-left: 0.1rem;
+    width: 28px;
+    height: 28px;
+    margin-left: 0.35rem;
     border-radius: 50%;
     font-size: 0.78rem;
     cursor: pointer;

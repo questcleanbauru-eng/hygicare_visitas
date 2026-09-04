@@ -2,7 +2,7 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
 import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, contratoSituacaoIcon, filterLabelHtml } from '../utils/format.js';
 import {
-    debounce, initializeSearchableInput, renderDetailRow, showToast,
+    debounce, initializeSearchableInput, renderDetailRow, actionIcon, showToast,
     loadingState, skeletonDetail, addScrollTop, openExternal, setSaving
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
@@ -245,10 +245,10 @@ export async function renderContratoDetailPage(id) {
             </button>
             <h2>Detalhes do Contrato</h2>
             <div class="header-actions-group">
-                ${contrato.cliente ? `<button type="button" class="mini-button" id="contrato-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
+                ${contrato.cliente ? `<button type="button" class="mini-button mini-button-icon" id="contrato-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
                 <button type="button" class="mini-button" id="edit-contrato">Editar</button>
-                ${contrato.anexo ? '<button type="button" class="mini-button mini-button-whatsapp" id="ver-anexo-contrato" aria-label="Ver PDF do contrato" title="Ver PDF do contrato">📄</button>' : ''}
-                ${state.canDelete ? '<button type="button" class="mini-button mini-button-danger" id="delete-contrato" aria-label="Apagar" title="Apagar">🗑️</button>' : ''}
+                ${contrato.anexo ? `<button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="ver-anexo-contrato" aria-label="Ver PDF do contrato" title="Ver PDF do contrato">${actionIcon('file')}</button>` : ''}
+                ${state.canDelete ? `<button type="button" class="mini-button mini-button-icon mini-button-danger" id="delete-contrato" aria-label="Apagar" title="Apagar">${actionIcon('trash')}</button>` : ''}
             </div>
         </div>
         ${contrato.vencido ? `

@@ -7,7 +7,7 @@ import {
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine
 } from '../utils/format.js';
 import {
-    debounce, downloadCSV, renderDetailRow, showToast, renderSimpleOptions,
+    debounce, downloadCSV, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
     loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters
 } from '../utils/dom.js';
@@ -637,15 +637,15 @@ export async function renderProposalDetailPage(id) {
             </button>
             <h2>Detalhes da Proposta</h2>
             <div class="header-actions-group">
-                ${proposal.cliente ? `<button type="button" class="mini-button" id="proposal-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
+                ${proposal.cliente ? `<button type="button" class="mini-button mini-button-icon" id="proposal-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
                 ${proposal.cliente && state.canCreateProposalFunil ? (funilDoCliente
-                    ? `<button type="button" class="mini-button ${funilAlerta ? 'mini-button-danger' : ''}" id="proposal-in-funil" title="Já no Funil${funilStatusTxt ? ' (' + funilStatusTxt + ')' : ''} — abrir">${funilAlerta ? '⚠️' : '✅'} No Funil${funilAlerta && funilStatusTxt ? ' · ' + funilStatusTxt : ''}</button>`
-                    : `<button type="button" class="mini-button" id="proposal-to-funil" title="Adicionar este cliente ao Funil de Vendas">📊 Ao Funil</button>`) : ''}
+                    ? `<button type="button" class="mini-button ${funilAlerta ? 'mini-button-danger' : ''}" id="proposal-in-funil" title="Já no Funil${funilStatusTxt ? ' (' + funilStatusTxt + ')' : ''} — abrir">${actionIcon(funilAlerta ? 'alert' : 'check', 15)} No Funil${funilAlerta && funilStatusTxt ? ' · ' + funilStatusTxt : ''}</button>`
+                    : `<button type="button" class="mini-button" id="proposal-to-funil" title="Adicionar este cliente ao Funil de Vendas">${actionIcon('funnel', 15)} Ao Funil</button>`) : ''}
                 <button type="button" class="mini-button" id="edit-proposal">Editar</button>
-                <button type="button" class="mini-button mini-button-whatsapp" id="share-proposal-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
+                <button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="share-proposal-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 </button>
-                ${state.canDelete ? '<button type="button" class="mini-button mini-button-danger" id="delete-proposal" aria-label="Apagar" title="Apagar">🗑️</button>' : ''}
+                ${state.canDelete ? `<button type="button" class="mini-button mini-button-icon mini-button-danger" id="delete-proposal" aria-label="Apagar" title="Apagar">${actionIcon('trash')}</button>` : ''}
             </div>
         </div>
         ${proposal.atrasada ? `

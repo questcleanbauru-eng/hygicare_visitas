@@ -2,7 +2,7 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
 import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase } from '../utils/format.js';
 import {
-    debounce, initializeSearchableInput, showToast,
+    debounce, initializeSearchableInput, showToast, actionIcon,
     skeletonList, skeletonDetail, addScrollTop, setSaving, openExternal
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
@@ -474,14 +474,14 @@ export async function renderManutencaoDetailPage(id) {
             <button type="button" class="mini-button" id="back-manutencao">Voltar</button>
             <h2>Detalhes do Relatório</h2>
             <div class="header-actions-group">
-                ${m.cliente ? `<button type="button" class="mini-button" id="manutencao-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">👤</button>` : ''}
+                ${m.cliente ? `<button type="button" class="mini-button mini-button-icon" id="manutencao-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
                 <button type="button" class="mini-button" id="edit-manutencao">Editar</button>
                 <button type="button" class="mini-button" id="duplicate-manutencao" title="Novo relatório com os mesmos dados">Duplicar</button>
-                <button type="button" class="mini-button" id="print-manutencao" aria-label="Imprimir ou salvar em PDF" title="Imprimir ou salvar em PDF">📄 PDF</button>
-                <button type="button" class="mini-button mini-button-whatsapp" id="share-manutencao-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
+                <button type="button" class="mini-button" id="print-manutencao" aria-label="Imprimir ou salvar em PDF" title="Imprimir ou salvar em PDF">${actionIcon('file', 15)} PDF</button>
+                <button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="share-manutencao-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 </button>
-                ${state.canDelete ? '<button type="button" class="mini-button mini-button-danger" id="delete-manutencao" aria-label="Apagar" title="Apagar">🗑️</button>' : ''}
+                ${state.canDelete ? `<button type="button" class="mini-button mini-button-icon mini-button-danger" id="delete-manutencao" aria-label="Apagar" title="Apagar">${actionIcon('trash')}</button>` : ''}
             </div>
         </div>
         ${m.pendenteAprovacao === 'Sim' ? `

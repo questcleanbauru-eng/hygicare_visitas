@@ -277,6 +277,28 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
 }
 
 
+// Ícones de ação (grupo do cabeçalho de detalhe: Cliente 360°, Apagar, "Ao
+// Funil"...). SVG stroke em currentColor, não emoji — os emojis renderizavam
+// multicoloridos, com baseline/tamanho variáveis e sem herdar a cor do botão
+// (azul/verde/vermelho da variante). 16px pra bater com o ícone do WhatsApp
+// que já era SVG; mesmo viewBox/stroke-width do conjunto do menu (ui.js).
+const ACTION_ICON_PATHS = {
+    user:   '<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+    trash:  '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>',
+    funnel: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
+    check:  '<circle cx="12" cy="12" r="10"/><polyline points="8 12.5 11 15.5 16 9"/>',
+    alert:  '<path d="M12 3 21 19H3z"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    pin:    '<path d="M12 22s7-6.1 7-12a7 7 0 0 0-14 0c0 5.9 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',
+    file:   '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>'
+};
+
+export function actionIcon(name, size = 16) {
+    const p = ACTION_ICON_PATHS[name];
+    if (!p) { return ''; }
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+}
+
+
 export function renderDetailRow(label, value) {
     const icon = getFieldIcon(label);
     // Texto curto (data, nome, "-") fica lado a lado com o rótulo, alinhado
@@ -285,7 +307,12 @@ export function renderDetailRow(label, value) {
     // parágrafo do lado errado (alinhado à direita) e espremido na metade
     // da largura da tela — em vez disso empilha o rótulo em cima e usa a
     // largura inteira, alinhado à esquerda como texto normal.
-    const isLong = String(value || '').length > 40;
+    // Também empilha quando o rótulo é longo ("Potencial do Cliente",
+    // "Enviar Aviso de vencimento") e o valor não é trivialmente curto: nesse
+    // caso, lado a lado numa tela de 375-430px, o valor ficava sem espaço.
+    // (Abaixo de 400px o CSS já empilha tudo — isso cobre a faixa acima.)
+    const v = String(value || '');
+    const isLong = v.length > 24 || (String(label).length > 14 && v.length > 12);
     return `
         <div class="detail-row${isLong ? ' detail-row-block' : ''}">
             <span class="detail-label">${icon ? `<span class="detail-label-icon" aria-hidden="true">${icon}</span>` : ''}${escapeHtml(label)}</span>

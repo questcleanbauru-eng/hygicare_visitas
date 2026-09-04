@@ -101,8 +101,8 @@ input, textarea, select,
 @media (max-width: 374px) { .header-version-tag { display: none; } }
 
 .sidebar-toggle-btn {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border: none;
     background: transparent;
     color: var(--text-muted);
@@ -157,8 +157,8 @@ input, textarea, select,
 }
 
 .header-notif-btn {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border: none;
     background: transparent;
     color: var(--text-muted);
@@ -371,6 +371,21 @@ input, textarea, select,
 
 .nav-btn:active:not(.active) { transform: scale(0.9); }
 
+/* Rótulo do item da barra inferior: uma linha só, com reticências se não
+   couber — sem isso, "Propostas" quebrava em 2 linhas em aparelhos estreitos
+   (6 itens p/ admin em 320px) e deixava os botões com alturas diferentes. */
+.nav-btn-label {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 360px) {
+    .nav-btn { font-size: 0.66rem; }
+    .nav-icon { width: 40px; }
+}
+
 :root {
     --primary:        #2563eb;
     --primary-dark:   #1e3a8a;
@@ -551,7 +566,16 @@ main {
     border: none;
     background: rgba(255,255,255,0.15);
     border-radius: 8px;
-    padding: 0.52rem 1rem;
+    /* Alvo de toque de 44px (padrão iOS/Android): a altura vem do min-height
+       + inline-flex centralizando o conteúdo; padding vertical menor pra não
+       crescer além disso. Vale pra todo mini-button (Voltar, Limpar, Ocultar,
+       grupo de ações do cabeçalho de detalhe...). */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    min-height: 44px;
+    padding: 0.4rem 0.9rem;
     color: var(--primary);
     font-size: 0.85rem;
     font-weight: 600;
@@ -560,6 +584,8 @@ main {
     transition: background-color 0.15s, border-color 0.15s;
 }
 
+.mini-button svg { flex-shrink: 0; }
+
 /* Variantes de cor pro grupo de ações do cabeçalho (Editar/WhatsApp/Apagar
    lado a lado) — mesmo tamanho do .mini-button, só muda a cor. */
 .mini-button-whatsapp { color: var(--success); background-color: var(--success-bg); border-color: var(--success-border); }
@@ -567,7 +593,31 @@ main {
 .mini-button-danger { color: var(--danger); background-color: var(--danger-bg); border-color: var(--danger-border); }
 .mini-button-danger:hover { background-color: #fecaca; }
 
-.header-actions-group { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.4rem; }
+.header-actions-group { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.5rem; }
+
+/* Botões só-ícone (Cliente 360°, WhatsApp, Apagar, PDF...): 44x44 quadrado. */
+.mini-button-icon {
+    min-width: 44px;
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+}
+
+/* Cabeçalho de detalhe em telas estreitas: em vez de espremer o grupo de
+   ações numa coluna à direita (título esmagado, botões em 4-5 linhas), o
+   grupo desce pra uma segunda linha em largura total. Escopo via :has() pra
+   não afetar os cabeçalhos de formulário (Voltar + título + <span> vazio). */
+@media (max-width: 480px) {
+    .page-header.compact-header:has(.header-actions-group) { flex-wrap: wrap; }
+    .page-header.compact-header:has(.header-actions-group) h2 {
+        flex: 1 1 auto;
+        text-align: left;
+    }
+    .page-header.compact-header .header-actions-group {
+        flex: 1 0 100%;
+        justify-content: flex-start;
+        margin-top: 0.4rem;
+    }
+}
 
 /* .primary-button não tinha estilo base nenhum — só um ajuste de largura
    dentro de .modal-card — então renderizava com a aparência padrão cinza
@@ -644,9 +694,9 @@ main {
     background-color: var(--surface);
     color: var(--text);
     border-radius: var(--radius-sm);
-    width: 42px;
-    min-width: 42px;
-    height: 42px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
     font-size: 1rem;
     cursor: pointer;
     transition: background-color 0.15s;
