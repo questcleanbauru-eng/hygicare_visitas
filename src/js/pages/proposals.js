@@ -996,7 +996,7 @@ export async function renderProposalCreatePage() {
             </div>
             <div class="form-group full-width">
                 <label for="pc-obs">Observações</label>
-                <textarea id="pc-obs" rows="4" placeholder="Detalhes da proposta"></textarea>
+                <textarea id="pc-obs" rows="4" placeholder="Detalhes da proposta">${escapeHtml(withDatedNoteHeader(''))}</textarea>
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-proposal-create">Cancelar</button>
@@ -1031,6 +1031,14 @@ export async function renderProposalCreatePage() {
         }
     });
 
+    // Observações já abre com "dd/mm/aaaa - " (igual à edição rápida) — só
+    // posiciona o cursor depois do cabeçalho pra quando o campo ganhar foco.
+    {
+        const pcObs = document.getElementById('pc-obs');
+        const pcHeadLen = datedNoteHeader().length;
+        try { pcObs.setSelectionRange(pcHeadLen, pcHeadLen); } catch (e) {}
+    }
+
     document.getElementById('back-proposal-create').addEventListener('click', () => navigateTo('proposals'));
     document.getElementById('cancel-proposal-create').addEventListener('click', () => navigateTo('proposals'));
 
@@ -1044,7 +1052,7 @@ export async function renderProposalCreatePage() {
         const focoVal     = document.getElementById('pc-foco').value.trim();
         const produtosVal = document.getElementById('pc-produtos').value.trim();
         const statusVal   = document.getElementById('pc-status').value;
-        const obsVal      = document.getElementById('pc-obs').value.trim();
+        const obsVal      = stripEmptyDatedLine(document.getElementById('pc-obs').value);
 
         const tempPId = 'temp_' + Date.now();
         const nowPDisplay = formatDateForDisplay(new Date());

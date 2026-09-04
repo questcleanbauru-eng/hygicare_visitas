@@ -834,7 +834,7 @@ export async function renderFunilCreatePage() {
             </div>
             <div class="form-group full-width">
                 <label for="fc-comentarios">Comentários</label>
-                <textarea id="fc-comentarios" rows="4" placeholder="Observações e próximos passos"></textarea>
+                <textarea id="fc-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(withDatedNoteHeader(''))}</textarea>
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-funil-create">Cancelar</button>
@@ -885,6 +885,14 @@ export async function renderFunilCreatePage() {
         }
     });
 
+    // Comentários já abre com "dd/mm/aaaa - " (igual à edição rápida) — só
+    // posiciona o cursor depois do cabeçalho pra quando o campo ganhar foco.
+    {
+        const fcComentarios = document.getElementById('fc-comentarios');
+        const fcHeadLen = datedNoteHeader().length;
+        try { fcComentarios.setSelectionRange(fcHeadLen, fcHeadLen); } catch (e) {}
+    }
+
     // Prefill vindo do "Adicionar ao Funil?" depois de salvar uma Visita.
     if (state.funilPrefill) {
         const pf = state.funilPrefill;
@@ -915,7 +923,7 @@ export async function renderFunilCreatePage() {
             vlMensal:       document.getElementById('fc-vl-mensal').value.trim(),
             conclusao:      conclusaoValue ? formatDateFromDisplay(conclusaoValue) : '',
             infImportantes: document.getElementById('fc-inf').value.trim(),
-            comentarios:    document.getElementById('fc-comentarios').value.trim(),
+            comentarios:    stripEmptyDatedLine(document.getElementById('fc-comentarios').value),
         };
 
         const tempFCId = 'temp_' + Date.now();
