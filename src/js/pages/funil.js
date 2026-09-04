@@ -300,7 +300,7 @@ export function fillFunilContent(mainContent, funil) {
         if (qeActive() && qeSelectedId) { openFunilQuickPanel(qeSelectedId); }
     };
 
-    function openFunilQuickPanel(id) {
+    async function openFunilQuickPanel(id) {
         const panel = document.getElementById('qe-panel');
         if (!panel) { return; }
         const f = funilData.find((x) => String(x.id) === String(id));
@@ -309,16 +309,34 @@ export function fillFunilContent(mainContent, funil) {
         document.querySelectorAll('#funil-list-container .funil-card').forEach((c) => {
             c.classList.toggle('qe-selected', c.dataset.funilId === qeSelectedId);
         });
+        // Best-effort: se o formData ainda não tiver sido carregado nesta
+        // sessão, os campos abaixo caem pra input de texto simples (sem
+        // travar o painel numa espera).
+        const fd = state.formData || (await ensureFormData().then((r) => r.data).catch(() => null));
+        const listaCidades = (fd && fd.cidades) || [];
+        const listaFoco = (fd && fd.potenciaisCliente) || [];
+        const listaAtuacao = (fd && fd.areasAtuacao) || [];
+        const listaAplicacao = (fd && fd.aplicacoes) || [];
+        if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
+
+        const searchField = (label, id, value) => `
+            <div><span>${label}</span>
+                <div class="searchable-select">
+                    <input type="text" id="${id}" value="${escapeHtml(value || '')}" autocomplete="off">
+                    <div class="searchable-select-menu" id="${id}-menu"></div>
+                </div>
+            </div>`;
+
         const STAT = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
         panel.innerHTML = `
             <div class="qe-panel-inner">
                 <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
                 <p class="helper-text" style="margin:0.15rem 0 0.6rem;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.atualizacao || f.data].filter(Boolean).join(' · '))}</p>
                 <div class="qe-info qe-info-edit">
-                    <div><span>Cidade</span><input type="text" id="qe-cidade" value="${escapeHtml(f.cidade || '')}"></div>
-                    <div><span>Foco</span><input type="text" id="qe-foco" value="${escapeHtml(f.foco || '')}"></div>
-                    <div><span>Atuação</span><input type="text" id="qe-atuacao" value="${escapeHtml(f.atuacao || '')}"></div>
-                    <div><span>Aplicação</span><input type="text" id="qe-aplicacao" value="${escapeHtml(f.aplicacao || '')}"></div>
+                    ${searchField('Cidade', 'qe-cidade', f.cidade)}
+                    ${searchField('Foco', 'qe-foco', f.foco)}
+                    ${searchField('Atuação', 'qe-atuacao', f.atuacao)}
+                    ${searchField('Aplicação', 'qe-aplicacao', f.aplicacao)}
                 </div>
                 <label>Status</label>
                 <div class="qe-status-row">
@@ -335,6 +353,11 @@ export function fillFunilContent(mainContent, funil) {
                     <button type="button" class="secondary-button" id="qe-full" style="flex:1" title="Abrir a edição completa desta oportunidade">Editar tudo</button>
                 </div>
             </div>`;
+
+        initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
+        initializeSearchableInput({ input: panel.querySelector('#qe-foco'), menu: panel.querySelector('#qe-foco-menu'), items: listaFoco, allowFreeText: true });
+        initializeSearchableInput({ input: panel.querySelector('#qe-atuacao'), menu: panel.querySelector('#qe-atuacao-menu'), items: listaAtuacao, allowFreeText: true });
+        initializeSearchableInput({ input: panel.querySelector('#qe-aplicacao'), menu: panel.querySelector('#qe-aplicacao-menu'), items: listaAplicacao, allowFreeText: true });
 
         let selStatus = f.status || 'IDENTIFICAR';
         panel.querySelectorAll('.qe-status-btn').forEach((b) => b.addEventListener('click', () => {

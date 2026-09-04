@@ -1961,9 +1961,9 @@ input[type="date"] {
 }
 
 .qe-info-edit > div { align-items: center; }
+.qe-info-edit .searchable-select { flex: 1; min-width: 0; position: relative; }
 .qe-info-edit input {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
     min-height: 30px;
     padding: 0.15rem 0.45rem;
     font-size: 0.83rem;
@@ -1971,6 +1971,7 @@ input[type="date"] {
     border-radius: 5px;
     background: #fff;
     color: var(--text);
+    box-sizing: border-box;
 }
 .qe-info-edit input:focus { border-color: var(--primary); outline: none; }
 
