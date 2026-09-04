@@ -2209,6 +2209,7 @@ input[type="date"] {
 /* Visitas no modo rápido: cada card numa linha só, sem o botão de compartilhar */
 .qe-layout .visit-card-wrap { display: block; }
 .qe-layout .visit-share-btn { display: none; }
+.qe-layout .visit-card-actions { display: none; }
 .qe-layout .visit-card { padding: 0.5rem 0.7rem; }
 .qe-layout .visit-card-body { margin-top: 0.12rem; font-size: 0.71rem; flex-wrap: nowrap; overflow: hidden; }
 .qe-layout .visit-card-body span {

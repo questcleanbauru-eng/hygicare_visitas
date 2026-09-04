@@ -33,14 +33,22 @@
 
 .visit-card-wrap .visit-card {
     flex: 1;
-    padding-right: 2.8rem;
+    padding-right: 4.4rem;
 }
 
-.visit-share-btn {
+.visit-card-actions {
     position: absolute;
-    right: 0.5rem;
+    right: 0.25rem;
     top: 50%;
     transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.05rem;
+    z-index: 1;
+}
+
+.visit-share-btn,
+.visit-funil-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -50,11 +58,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 0.85rem;
     transition: background 0.15s, color 0.15s;
-    z-index: 1;
 }
 
-.visit-share-btn:hover { background: #e0e7ff; color: var(--primary); }
+.visit-share-btn:hover, .visit-funil-btn:hover { background: #e0e7ff; color: var(--primary); }
+.visit-funil-btn.is-in-funil:hover { background: #dcfce7; }
+.visit-funil-btn.is-alert { color: #b91c1c; }
+.visit-funil-btn.is-alert:hover { background: #fee2e2; }
 
 .visit-card {
     background-color: var(--surface);

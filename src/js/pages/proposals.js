@@ -13,34 +13,7 @@ import {
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
-
-// ── "Cliente já está no Funil?" ──────────────────────────────────────────
-const _funilKey = (name) => String(name || '').trim().toLowerCase();
-
-// Carrega o Funil uma vez (best-effort) só pra checar duplicidade no botão
-// "Ao Funil". Se falhar, o botão segue funcionando como "adicionar".
-async function ensureFunilForDedup() {
-    if (Array.isArray(state.funil) && state.funil.length) return;
-    try {
-        const { getFunil } = await import('./funil.js');
-        const r = await getFunil(0);
-        if (r && r.status === 'success') state.funil = r.funil || state.funil || [];
-    } catch (e) { /* best-effort */ }
-}
-
-// Considera "já está no funil" quando bate cliente E foco.
-function funilItemForProposta(cliente, foco) {
-    const kc = _funilKey(cliente);
-    if (!kc) return null;
-    const kf = _funilKey(foco);
-    return (state.funil || []).find((f) =>
-        _funilKey(f.cliente || f.Cliente) === kc && _funilKey(f.foco || f.Foco) === kf) || null;
-}
-
-// Funil "em alerta" (Perdido ou Retomar) → indicador em vermelho.
-function funilEmAlerta(item) {
-    return /PERDID|RETOMAR/i.test(String((item && (item.status || item.Status)) || ''));
-}
+import { ensureFunilForDedup, funilItemFor as funilItemForProposta, funilEmAlerta } from '../utils/funilLink.js';
 
 export function fillProposalsContent(mainContent, proposals) {
     let normalized = (proposals || []).map(normalizeProposal);

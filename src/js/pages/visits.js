@@ -16,6 +16,7 @@ import {
     buildIcsContent, downloadIcs, renderSavedFilters
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
+import { ensureFunilForDedup, funilItemFor, funilEmAlerta } from '../utils/funilLink.js';
 import { getProposals } from './proposals.js';
 import { getFunil } from './funil.js';
 
@@ -323,9 +324,20 @@ export function fillVisitsContent(container, visits) {
                                     ${isAdmGer && visit.vendedorGerente ? `<span style="color:var(--primary);font-weight:600">${escapeHtml(visit.vendedorGerente)}</span>` : ''}
                                 </div>
                             </button>
-                            <button class="visit-share-btn" type="button" data-share-id="${escapeHtml(visit.id)}" title="Compartilhar" aria-label="Compartilhar visita">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                            </button>
+                            <div class="visit-card-actions">
+                                ${state.canCreateProposalFunil && visit.cliente ? (() => {
+                                    const _fi = funilItemFor(visit.cliente, visit.potencialCliente);
+                                    if (!_fi) {
+                                        return `<button class="visit-funil-btn" type="button" data-visit-funil="${escapeHtml(visit.id)}" data-cliente="${escapeHtml(visit.cliente || '')}" data-cidade="${escapeHtml(visit.cidade || '')}" data-foco="${escapeHtml(visit.potencialCliente || '')}" data-atuacao="${escapeHtml(visit.areaAtuacao || '')}" title="Adicionar ao Funil de Vendas" aria-label="Adicionar ao Funil de Vendas">📊</button>`;
+                                    }
+                                    const _alerta = funilEmAlerta(_fi);
+                                    const _st = escapeHtml(String(_fi.status || _fi.Status || ''));
+                                    return `<button class="visit-funil-btn is-in-funil${_alerta ? ' is-alert' : ''}" type="button" data-funil-id="${escapeHtml(String(_fi.id || _fi.Id || ''))}" title="No Funil${_st ? ' (' + _st + ')' : ''} — abrir" aria-label="Cliente já está no Funil de Vendas">${_alerta ? '⚠️' : '✅'}</button>`;
+                                })() : ''}
+                                <button class="visit-share-btn" type="button" data-share-id="${escapeHtml(visit.id)}" title="Compartilhar" aria-label="Compartilhar visita">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                                </button>
+                            </div>
                         </div>
                     `).join('')}
                 </div>
@@ -356,6 +368,21 @@ export function fillVisitsContent(container, visits) {
                 e.stopPropagation();
                 const v = (state.visits || []).map(normalizeVisit).find(x => String(x.id) === btn.dataset.shareId);
                 if (v) shareVisit(v);
+            });
+        });
+        visitsListContainer.querySelectorAll('[data-visit-funil]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.funilPrefill = { cliente: btn.dataset.cliente || '', cidade: btn.dataset.cidade || '', foco: btn.dataset.foco || '', atuacao: btn.dataset.atuacao || '' };
+                navigateTo('funil-new');
+            });
+        });
+        visitsListContainer.querySelectorAll('[data-funil-id]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.funilId;
+                if (id) navigateTo('funil-detail', { id });
+                else navigateTo('funil');
             });
         });
 
@@ -479,6 +506,14 @@ export function fillVisitsContent(container, visits) {
     });
 
     renderFilteredVisits();
+
+    // Carrega o Funil em 2º plano só pra marcar os clientes que já estão
+    // nele (ícone ✅/⚠️ no card). Re-renderiza a lista quando chegar.
+    if (state.canCreateProposalFunil && (!Array.isArray(state.funil) || !state.funil.length)) {
+        ensureFunilForDedup().then(() => {
+            if (state.currentPage === 'visits') renderFilteredVisits();
+        });
+    }
 }
 
 
