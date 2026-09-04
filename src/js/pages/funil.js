@@ -313,7 +313,13 @@ export function fillFunilContent(mainContent, funil) {
         panel.innerHTML = `
             <div class="qe-panel-inner">
                 <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
-                <p class="helper-text" style="margin:0.15rem 0 0.85rem;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.atualizacao || f.data].filter(Boolean).join(' · '))}</p>
+                <p class="helper-text" style="margin:0.15rem 0 0.6rem;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.atualizacao || f.data].filter(Boolean).join(' · '))}</p>
+                <div class="qe-info">
+                    <div><span>Cidade</span>${escapeHtml(f.cidade || '-')}</div>
+                    <div><span>Foco</span>${escapeHtml(f.foco || '-')}</div>
+                    <div><span>Atuação</span>${escapeHtml(f.atuacao || '-')}</div>
+                    <div><span>Aplicação</span>${escapeHtml(f.aplicacao || '-')}</div>
+                </div>
                 <label>Status</label>
                 <div class="qe-status-row">
                     ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (f.status || '') ? ' is-active' : ''}" data-s="${s}">${s}</button>`).join('')}
@@ -476,7 +482,13 @@ function openFunilQuickUpdateModal(f, onUpdated) {
     overlay.innerHTML = `
         <div class="modal-card" style="text-align:left">
             <h3 style="margin-top:0">Atualizar — ${escapeHtml(f.cliente || 'Cliente')}</h3>
-            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Data da atualização: <strong>${escapeHtml(formatDateForDisplay(new Date()))}</strong></p>
+            <p class="helper-text" style="margin:-0.4rem 0 0.7rem">Data da atualização: <strong>${escapeHtml(formatDateForDisplay(new Date()))}</strong></p>
+            <div class="qe-info">
+                <div><span>Cidade</span>${escapeHtml(f.cidade || '-')}</div>
+                <div><span>Foco</span>${escapeHtml(f.foco || '-')}</div>
+                <div><span>Atuação</span>${escapeHtml(f.atuacao || '-')}</div>
+                <div><span>Aplicação</span>${escapeHtml(f.aplicacao || '-')}</div>
+            </div>
             <div class="form-group full-width">
                 <label for="fq-status">Status</label>
                 <select id="fq-status">${renderSimpleOptions(['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'], f.status)}</select>
