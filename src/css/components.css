@@ -1962,6 +1962,7 @@ input[type="date"] {
 
 .qe-info-edit > div { align-items: center; }
 .qe-info-edit .searchable-select { flex: 1; min-width: 0; position: relative; }
+.qe-info-edit > div > input { flex: 1; min-width: 0; }
 .qe-info-edit input {
     width: 100%;
     min-height: 30px;

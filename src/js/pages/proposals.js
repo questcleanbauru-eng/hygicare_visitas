@@ -361,7 +361,7 @@ export function fillProposalsContent(mainContent, proposals) {
         if (qeActive() && qeSelectedId) { openProposalQuickPanel(qeSelectedId); }
     };
 
-    function openProposalQuickPanel(id) {
+    async function openProposalQuickPanel(id) {
         const panel = document.getElementById('qe-panel');
         if (!panel) { return; }
         const p = normalized.find((x) => String(x.id) === String(id));
@@ -370,14 +370,30 @@ export function fillProposalsContent(mainContent, proposals) {
         document.querySelectorAll('#proposal-list-container .proposal-card').forEach((c) => {
             c.classList.toggle('qe-selected', c.dataset.proposalId === qeSelectedId);
         });
+        // Best-effort: sem formData ainda carregado, Cidade/Foco caem pra
+        // input de texto simples (sem travar o painel numa espera).
+        const fd = state.formData || (await ensureFormData().then((r) => r.data).catch(() => null));
+        const listaCidades = (fd && fd.cidades) || [];
+        const listaFoco = (fd && fd.potenciaisCliente) || [];
+        if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
+
+        const searchField = (label, fieldId, value, items) => `
+            <div><span>${label}</span>
+                <div class="searchable-select">
+                    <input type="text" id="${fieldId}" value="${escapeHtml(value || '')}" autocomplete="off">
+                    ${items ? `<div class="searchable-select-menu" id="${fieldId}-menu"></div>` : ''}
+                </div>
+            </div>`;
+
         const STAT = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
         panel.innerHTML = `
             <div class="qe-panel-inner">
                 <strong class="qe-panel-title">${escapeHtml(p.cliente || 'Cliente')}</strong>
                 <p class="helper-text" style="margin:0.15rem 0 0.6rem;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.atualizacao].filter(Boolean).join(' · '))}</p>
-                <div class="qe-info">
-                    <div><span>Foco</span>${escapeHtml(p.foco || '-')}</div>
-                    <div><span>Produtos</span>${escapeHtml(p.produtos || '-')}</div>
+                <div class="qe-info qe-info-edit">
+                    ${searchField('Cidade', 'qe-cidade', p.cidade, listaCidades)}
+                    ${searchField('Foco', 'qe-foco', p.foco, listaFoco)}
+                    <div><span>Produtos</span><input type="text" id="qe-produtos" value="${escapeHtml(p.produtos || '')}"></div>
                 </div>
                 <label>Status</label>
                 <div class="qe-status-row">
@@ -390,6 +406,9 @@ export function fillProposalsContent(mainContent, proposals) {
                     <button type="button" class="secondary-button" id="qe-full" style="flex:1" title="Abrir a edição completa desta proposta">Editar tudo</button>
                 </div>
             </div>`;
+
+        initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
+        initializeSearchableInput({ input: panel.querySelector('#qe-foco'), menu: panel.querySelector('#qe-foco-menu'), items: listaFoco, allowFreeText: true });
 
         let selStatus = p.status || 'Enviada';
         panel.querySelectorAll('.qe-status-btn').forEach((b) => b.addEventListener('click', () => {
@@ -404,9 +423,12 @@ export function fillProposalsContent(mainContent, proposals) {
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const obs = stripEmptyDatedLine(ta.value);
+            const cidade = panel.querySelector('#qe-cidade')?.value.trim();
+            const foco = panel.querySelector('#qe-foco')?.value.trim();
+            const produtos = panel.querySelector('#qe-produtos')?.value.trim();
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
-            applyProposalQuickPatch(p, { status: selStatus, obs }, () => {
+            applyProposalQuickPatch(p, { status: selStatus, obs, cidade, foco, produtos }, () => {
                 normalized = state.proposals.map(normalizeProposal);
                 renderFiltered();
             });
@@ -1170,7 +1192,13 @@ function openProposalQuickUpdateModal(p, onUpdated) {
 // Update otimista + attemptOrQueue + rollback compartilhado entre o modal de
 // atualização rápida e o painel de edição rápida (split view do admin).
 function applyProposalQuickPatch(p, patch, onDone) {
-    const { status, obs } = patch;
+    const { status, obs, cidade, foco, produtos } = patch;
+    // Cidade/Foco/Produtos só chegam preenchidos quando o painel tinha os
+    // campos (admin) — undefined não sobrescreve o que já tinha.
+    const camposLivres = {};
+    if (cidade !== undefined) { camposLivres.cidade = cidade; camposLivres.Cidade = cidade; }
+    if (foco !== undefined) { camposLivres.foco = foco; camposLivres.Foco = foco; }
+    if (produtos !== undefined) { camposLivres.produtos = produtos; camposLivres.Produtos = produtos; }
     const idx = state.proposals.findIndex((item) => String(item.Id || item.id) === String(p.id));
     const original = idx >= 0 ? { ...state.proposals[idx] } : null;
     const nowDisplay = formatDateForDisplay(new Date());
@@ -1179,6 +1207,7 @@ function applyProposalQuickPatch(p, patch, onDone) {
             ...state.proposals[idx],
             status, Status: status,
             obs, Obs: obs,
+            ...camposLivres,
             atualizacao: nowDisplay, Atualizacao: nowDisplay
         };
         saveCache('proposals', state.proposals);
@@ -1187,11 +1216,14 @@ function applyProposalQuickPatch(p, patch, onDone) {
     // state.proposals) — mutar aqui também pra o re-render pegar o novo valor.
     p.status = status;
     p.obs = obs;
+    if (cidade !== undefined) p.cidade = cidade;
+    if (foco !== undefined) p.foco = foco;
+    if (produtos !== undefined) p.produtos = produtos;
     p.atualizacao = nowDisplay;
     p.atrasada = false;
     if (onDone) onDone();
 
-    return attemptOrQueue('updateProposal', { id: p.id, status, obs, user: state.currentUser },
+    return attemptOrQueue('updateProposal', { id: p.id, status, obs, ...camposLivres, user: state.currentUser },
         { entity: 'proposals', tempId: p.id })
         .then((result) => {
             if (result && result.status === 'success') {
