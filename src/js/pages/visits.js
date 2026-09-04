@@ -10,13 +10,14 @@ import {
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine
 } from '../utils/format.js';
 import {
-    debounce, downloadCSV, initializeSearchableInput, renderDetailRow, actionIcon,
+    debounce, initializeSearchableInput, renderDetailRow, actionIcon,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
     loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
     buildIcsContent, downloadIcs, renderSavedFilters
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { ensureFunilForDedup, funilItemFor, funilEmAlerta } from '../utils/funilLink.js';
+import { downloadXLSX } from '../utils/xlsxWriter.js';
 import { getProposals } from './proposals.js';
 import { getFunil } from './funil.js';
 
@@ -461,12 +462,12 @@ export function fillVisitsContent(container, visits) {
     document.getElementById('visits-csv-btn')?.addEventListener('click', () => {
         if (!lastFilteredVisits.length) { showToast('Nenhuma visita para os filtros selecionados.', true); return; }
         const stamp = new Date().toISOString().slice(0, 10);
-        downloadCSV(lastFilteredVisits, `visitas-${stamp}.csv`, [
+        downloadXLSX(lastFilteredVisits, `visitas-${stamp}.xlsx`, [
             { key: 'dataVisita', label: 'Data da Visita' },
             { key: 'vendedorGerente', label: 'Vendedor' },
             { key: 'cliente', label: 'Nome do Cliente' },
             { key: 'tipoVisita', label: 'Tipo da Visita' }
-        ]);
+        ], 'Visitas');
     });
 
     document.getElementById('scope-load-days')?.addEventListener('click', () => {
