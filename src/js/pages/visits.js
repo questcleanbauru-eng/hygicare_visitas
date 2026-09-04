@@ -147,15 +147,12 @@ export function fillVisitsContent(container, visits) {
                 <span class="search-bar-icon">🔍</span>
                 <input type="text" id="visit-filter-search" placeholder="Buscar cliente, contato ou cidade..." class="form-input">
             </div>
-            ${isAdmin ? `<button type="button" class="csv-export-btn" id="visits-csv-btn" title="Exportar CSV">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v13M8 11l4 4 4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
-                CSV
-            </button>` : ''}
         </div>
         <div class="card visits-filter-card">
             <div class="visits-filter-header">
                 <div><strong>Filtros</strong></div>
                 <div class="visits-filter-header-actions">
+                    ${isAdmin ? `<button type="button" class="mini-button" id="visits-csv-btn" title="Baixar Excel/CSV das visitas filtradas">📥 Excel</button>` : ''}
                     <button type="button" class="mini-button" id="visit-filters-clear">Limpar</button>
                     <button type="button" class="mini-button visits-filter-toggle" id="visit-filters-toggle" aria-expanded="true" aria-controls="visit-filters-panel">Ocultar</button>
                 </div>
@@ -247,6 +244,10 @@ export function fillVisitsContent(container, visits) {
         initializeSearchableInput({ input: document.getElementById('visit-filter-vendor'), menu: document.getElementById('visit-filter-vendor-menu'), items: availableVendors });
     }
 
+    // Guarda a última lista filtrada pro botão "Excel" exportar exatamente o
+    // que está na tela, não a base inteira.
+    let lastFilteredVisits = [];
+
     const renderFilteredVisits = async () => {
         const dateFromCheck = document.getElementById('visit-filter-date-from')?.value || '';
         if (state.visitsScope !== 'all' && dateFromCheck) {
@@ -291,6 +292,7 @@ export function fillVisitsContent(container, visits) {
 
             return matchesSearch && matchesType && matchesCity && matchesProspection && matchesVendor && matchesPeriod && matchesDateFrom && matchesDateTo && matchesYear;
         });
+        lastFilteredVisits = filteredVisits;
 
         const visitsListContainer = document.getElementById('visits-list-container');
         if (!visitsListContainer) {
@@ -457,13 +459,13 @@ export function fillVisitsContent(container, visits) {
     _visitsRenderFiltered = renderFilteredVisits;
 
     document.getElementById('visits-csv-btn')?.addEventListener('click', () => {
-        downloadCSV(normalizedVisits, 'visitas.csv', [
-            { key: 'dataVisita', label: 'Data' },
-            { key: 'cliente', label: 'Cliente' },
-            { key: 'tipoVisita', label: 'Tipo' },
-            { key: 'cidade', label: 'Cidade' },
+        if (!lastFilteredVisits.length) { showToast('Nenhuma visita para os filtros selecionados.', true); return; }
+        const stamp = new Date().toISOString().slice(0, 10);
+        downloadCSV(lastFilteredVisits, `visitas-${stamp}.csv`, [
+            { key: 'dataVisita', label: 'Data da Visita' },
             { key: 'vendedorGerente', label: 'Vendedor' },
-            { key: 'observacao', label: 'Observação' }
+            { key: 'cliente', label: 'Nome do Cliente' },
+            { key: 'tipoVisita', label: 'Tipo da Visita' }
         ]);
     });
 
