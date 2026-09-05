@@ -595,6 +595,37 @@ main {
 
 .header-actions-group { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.5rem; }
 
+/* Variante "todos do mesmo tamanho": grupo de ações do cabeçalho de lista
+   (Manutenção / Atendimento Técnico) com 2-3 botões de textos bem
+   diferentes. Vira grid de colunas iguais; abaixo de 560px empilha em
+   largura total, todos idênticos. */
+.header-actions-group.header-actions-uniform {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 0.4rem;
+    width: min(100%, 540px);
+}
+.header-actions-group.header-actions-uniform > button {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+@media (max-width: 560px) {
+    .page-header:has(.header-actions-uniform) { flex-wrap: wrap; }
+    .page-header:has(.header-actions-uniform) > div:first-child { flex: 1 1 100%; }
+    .header-actions-group.header-actions-uniform {
+        grid-auto-flow: row;
+        grid-auto-columns: auto;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+}
+
 /* Botões só-ícone (Cliente 360°, WhatsApp, Apagar, PDF...): 44x44 quadrado. */
 .mini-button-icon {
     min-width: 44px;

@@ -83,7 +83,7 @@ export function fillManutencaoContent(mainContent, manutencoes) {
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Manutenção</h2></div>
-                <div class="header-actions-group">
+                <div class="header-actions-group header-actions-uniform">
                     <button type="button" class="mini-button" id="btn-rel-tecnico">📋 Atendimento Técnico</button>
                     <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
                     <button type="button" class="btn-add" id="btn-new-manutencao">+ Novo Relatório</button>
@@ -110,7 +110,7 @@ export function fillManutencaoContent(mainContent, manutencoes) {
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
-            <div class="header-actions-group">
+            <div class="header-actions-group header-actions-uniform">
                 <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
                 <button type="button" class="btn-add" id="btn-new-manutencao">+ Novo Relatório</button>
             </div>
