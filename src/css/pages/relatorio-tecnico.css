@@ -95,7 +95,22 @@
     font-size: 0.85rem;
 }
 
+.rt-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+}
+
+.rt-logo {
+    max-width: 90px;
+    max-height: 56px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
 .rt-title {
+    flex: 1;
     text-align: center;
     font-weight: 800;
     font-size: 0.9rem;
@@ -104,7 +119,7 @@
     border: 1px solid #1e3a8a;
     background: #1e3a8a;
     color: #fff;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
@@ -175,7 +190,7 @@
     .no-print { display: none !important; }
     .rt-report { border: none; padding: 0; font-size: 9pt; }
     .rt-row { break-inside: avoid; }
-    .rt-band, .rt-title { break-after: avoid; }
+    .rt-band, .rt-title, .rt-header { break-after: avoid; break-inside: avoid; }
     .rt-table { break-inside: auto; }
     .rt-table tr { break-inside: avoid; }
 }

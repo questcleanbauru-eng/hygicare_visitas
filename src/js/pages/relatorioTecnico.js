@@ -170,7 +170,10 @@ function fillList(mainContent, list) {
             <button type="button" class="proposal-card" data-id="${escapeHtml(m.id)}">
                 <div class="visit-card-header">
                     <strong>${escapeHtml(m.cliente || 'Cliente não informado')}</strong>
-                    ${m._pending ? '<span class="pending-badge">⏳ Pendente</span>' : ''}
+                    <div style="display:flex;align-items:center;gap:0.3rem">
+                        ${m._pending ? '<span class="pending-badge">⏳ Pendente</span>' : ''}
+                        <span class="card-quick-edit-btn" role="button" tabindex="0" title="Excluir relatório" aria-label="Excluir relatório" data-rt-delete="${escapeHtml(m.id)}">🗑️</span>
+                    </div>
                 </div>
                 <div class="proposal-meta">
                     <span>${escapeHtml([m.cidade, m.estado].filter(Boolean).join('/') || '-')}</span>
@@ -181,6 +184,23 @@ function fillList(mainContent, list) {
             </button>`).join('');
         listEl.querySelectorAll('.proposal-card').forEach((btn) => {
             btn.addEventListener('click', () => navigateTo('relatorio-tecnico-detail', { id: btn.dataset.id }));
+        });
+        listEl.querySelectorAll('[data-rt-delete]').forEach((el) => {
+            el.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = el.dataset.rtDelete;
+                const item = normalized.find((x) => String(x.id) === id);
+                if (!confirm(`Apagar o relatório de "${item?.cliente || 'cliente'}"? Não dá pra desfazer.`)) return;
+                const r = await callAPI('deleteRelatorioTecnico', { id, user: state.currentUser }).catch(() => null);
+                if (r && r.status === 'success') {
+                    state.relatoriosTecnicos = (state.relatoriosTecnicos || []).filter((x) => String(x.id || x.Id) !== id);
+                    saveCache('relatoriosTecnicos', state.relatoriosTecnicos);
+                    showToast('Relatório apagado.');
+                    fillList(mainContent, state.relatoriosTecnicos);
+                } else {
+                    showToast((r && r.message) || 'Não foi possível apagar.', true);
+                }
+            });
         });
     };
     render();
@@ -203,7 +223,7 @@ function respRow(label, value) {
     return `<div class="rt-row"><div class="rt-row-label">${escapeHtml(label)}</div><div class="rt-row-value">${escapeHtml(value || '—')}</div></div>`;
 }
 
-function reportHtml(m) {
+function reportHtml(m, logoEmpresa) {
     const secoesHtml = SECOES.map((sec, si) => `
         <div class="rt-band">${escapeHtml(sec.titulo)}</div>
         ${sec.perguntas.map((p, qi) => respRow(p, m.respostas[qKey(si, qi)])).join('')}
@@ -222,7 +242,10 @@ function reportHtml(m) {
 
     return `
     <div class="rt-report">
-        <div class="rt-title">RELATÓRIO DE ATENDIMENTO TÉCNICO — PROFESSIONAL</div>
+        <div class="rt-header">
+            ${logoEmpresa ? `<img class="rt-logo" src="${escapeHtml(logoEmpresa)}" alt="Logo da empresa">` : ''}
+            <div class="rt-title">RELATÓRIO DE ATENDIMENTO TÉCNICO — PROFESSIONAL</div>
+        </div>
 
         ${respRow('Relatório', m.relatorioMes)}
         ${respRow('Data da Visita', m.dataVisita)}
@@ -279,6 +302,8 @@ export async function renderRelatorioTecnicoDetailPage(id) {
     }
     const m = normalize(result.relatorio);
     state.currentRelatorioTecnico = m;
+    const fd = await ensureFormData().catch(() => null);
+    const logoEmpresa = (fd && fd.data && fd.data.logoEmpresa) || '';
 
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Manutenção', page: 'manutencao' }, { label: 'Atendimento Técnico', page: 'relatorio-tecnico' }, { label: m.cliente || 'Relatório' }])}
@@ -292,7 +317,7 @@ export async function renderRelatorioTecnicoDetailPage(id) {
                 <button type="button" class="mini-button danger" id="rt-delete">🗑️</button>
             </div>
         </div>
-        ${reportHtml(m)}
+        ${reportHtml(m, logoEmpresa)}
     `;
 
     document.getElementById('rt-edit').addEventListener('click', () => navigateTo('relatorio-tecnico-edit', { relatorio: m }));

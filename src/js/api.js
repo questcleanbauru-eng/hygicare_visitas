@@ -345,6 +345,18 @@ function setCanAccessRadar(value) {
     renderNavigation();
 }
 
+// Mesma ideia do setCanAccessRadar acima: telasBloqueadas pode mudar (admin
+// editou o usuário) sem precisar de logout/login — a cada getDashboardData
+// (chamado toda vez que o Início carrega) o menu se ajusta sozinho.
+function setTelasBloqueadas(value) {
+    const arr = Array.isArray(value) ? value : [];
+    const cur = (state.currentUser && state.currentUser.telasBloqueadas) || [];
+    if (cur.length === arr.length && cur.every((v, i) => v === arr[i])) return;
+    if (state.currentUser) state.currentUser.telasBloqueadas = arr;
+    resetNavCache();
+    renderNavigation();
+}
+
 export async function getDashboardData() {
     const cached = loadCache('dashboard');
     const fresh = callAPI('getDashboardData', { user: state.currentUser })
@@ -355,6 +367,7 @@ export async function getDashboardData() {
                 state.canDelete = !!r.data.canDelete;
                 state.canCreateProposalFunil = !!r.data.canCreateProposalFunil;
                 setCanAccessRadar(!!r.data.canAccessRadar);
+                setTelasBloqueadas(r.data.telasBloqueadas);
             }
             return r;
         })
@@ -364,6 +377,7 @@ export async function getDashboardData() {
         state.canDelete = !!cached.canDelete;
         state.canCreateProposalFunil = !!cached.canCreateProposalFunil;
         setCanAccessRadar(!!cached.canAccessRadar);
+        setTelasBloqueadas(cached.telasBloqueadas);
         showRefreshIndicator();
         fresh.then(function(r) {
             hideRefreshIndicator();

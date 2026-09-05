@@ -514,6 +514,9 @@ export function fillProposalsContent(mainContent, proposals) {
         e.currentTarget.classList.toggle('is-on', quickEdit);
         qeSelectedId = null;
         renderFiltered();
+        // Layout muda bastante de altura — sem isso, o navegador mantém o
+        // mesmo scroll em pixels, que passa a apontar pro meio da lista.
+        window.scrollTo({ top: 0, behavior: 'auto' });
     });
     document.getElementById('proposals-csv-btn')?.addEventListener('click', () => {
         downloadCSV(normalized, 'propostas.csv', [

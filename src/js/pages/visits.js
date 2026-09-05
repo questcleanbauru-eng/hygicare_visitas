@@ -549,6 +549,10 @@ export async function renderVisitsPage() {
         try { localStorage.setItem('visits_quick_edit', on ? '0' : '1'); } catch (err) {}
         e.currentTarget.classList.toggle('is-on', !on);
         _visitsRenderFiltered?.();
+        // O layout de "Edição rápida" muda bastante a altura da página — sem
+        // isso, o navegador mantém o mesmo scroll em pixels, que passa a
+        // apontar pra um ponto no meio da lista (some o cabeçalho/filtros).
+        window.scrollTo({ top: 0, behavior: 'auto' });
     });
 
     if (cachedVisits) {
@@ -888,7 +892,7 @@ export async function renderCalendarPage(options) {
             { key: 'retornos', label: 'Retornos' }
         ];
         const filterChipsHtml = filterOptions.map((opt) =>
-            `<button type="button" class="mini-button year-chip${activeFilter === opt.key ? ' active' : ''}" data-cal-filter="${opt.key}">${opt.label}</button>`
+            `<button type="button" class="mini-button cal-filter-btn${activeFilter === opt.key ? ' active' : ''}" data-cal-filter="${opt.key}">${opt.label}</button>`
         ).join('');
 
         mainContent.innerHTML = `
@@ -896,7 +900,7 @@ export async function renderCalendarPage(options) {
                 <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas, Funil e Retornos</p></div>
                 <button type="button" class="btn-add" id="cal-new-agendamento">+ Agendar</button>
             </div>
-            <div class="year-chips-row">${filterChipsHtml}</div>
+            <div class="cal-filter-row">${filterChipsHtml}</div>
             <div class="card cal-card">
                 <div class="cal-nav">
                     <button type="button" class="mini-button" id="cal-prev">&#8592;</button>

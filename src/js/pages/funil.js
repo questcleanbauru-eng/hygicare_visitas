@@ -486,6 +486,9 @@ export function fillFunilContent(mainContent, funil) {
         e.currentTarget.classList.toggle('is-on', quickEdit);
         qeSelectedId = null;
         renderFiltered();
+        // Layout muda bastante de altura — sem isso, o navegador mantém o
+        // mesmo scroll em pixels, que passa a apontar pro meio da lista.
+        window.scrollTo({ top: 0, behavior: 'auto' });
     });
     document.getElementById('update-summary-btn')?.addEventListener('click', () => {
         if (confirm('Compartilhar o resumo de atualizações no WhatsApp e limpar a lista?')) {

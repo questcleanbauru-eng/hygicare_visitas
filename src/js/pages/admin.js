@@ -45,6 +45,45 @@ function readPermFieldsValue(scope) {
     };
 }
 
+// Telas que o admin pode esconder por usuário — Início nunca some (é a
+// home), Radar/Admin já têm seus próprios controles (acima). Checkbox
+// marcado = usuário VÊ a tela; internamente guardamos é as DESMARCADAS
+// (telasBloqueadas), pra um usuário sem nada configurado continuar vendo
+// tudo (mesmo comportamento de sempre).
+const TELAS_CONTROLAVEIS = [
+    { id: 'visits', label: 'Visitas' },
+    { id: 'calendar', label: 'Agenda' },
+    { id: 'proposals', label: 'Propostas' },
+    { id: 'funil', label: 'Funil' },
+    { id: 'contratos', label: 'Contratos' },
+    { id: 'manutencao', label: 'Manutenção' },
+    { id: 'report', label: 'Relatório' }
+];
+
+function renderTelasFieldHtml(telasBloqueadas) {
+    const bloqueadas = Array.isArray(telasBloqueadas) ? telasBloqueadas : [];
+    return `
+        <div class="uif-field full-width">
+            <label>Telas visíveis pra esse usuário</label>
+            <div class="uif-telas-grid">
+                ${TELAS_CONTROLAVEIS.map((t) => `
+                    <label class="uif-tela-check">
+                        <input type="checkbox" class="uif-tela" value="${t.id}" ${bloqueadas.includes(t.id) ? '' : 'checked'}>
+                        ${escapeHtml(t.label)}
+                    </label>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function readTelasFieldValue(scope) {
+    const bloqueadas = TELAS_CONTROLAVEIS
+        .map((t) => t.id)
+        .filter((id) => !scope.querySelector(`.uif-tela[value="${id}"]`)?.checked);
+    return { telasBloqueadas: bloqueadas.join(',') };
+}
+
 // Redimensiona pro maior lado ficar em no máx. maxDim antes de virar
 // base64 — a logo é salva numa célula do Sheets (limite de 50.000
 // caracteres), e um arquivo exportado de um editor de design facilmente
@@ -655,6 +694,7 @@ export function bindAdminEvents(data) {
                         <input type="number" class="uif-meta" min="0" placeholder="Ex.: 40">
                     </div>
                     ${renderPermFieldsHtml({})}
+                    ${renderTelasFieldHtml([])}
                 </div>
                 <div class="uif-actions">
                     <button type="button" class="uif-cancel">Cancelar</button>
@@ -683,7 +723,8 @@ export function bindAdminEvents(data) {
                 gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
                 perfil: overlay.querySelector('.uif-perfil').value,
                 metaVisitasMes: overlay.querySelector('.uif-meta').value.trim(),
-                ...readPermFieldsValue(overlay)
+                ...readPermFieldsValue(overlay),
+                ...readTelasFieldValue(overlay)
             });
             if (result.status === 'success') {
                 showToast('Usuário criado.');
@@ -698,8 +739,11 @@ export function bindAdminEvents(data) {
 
     document.querySelectorAll('[data-user-index]').forEach((btn) => {
         btn.addEventListener('click', () => {
+            if (document.querySelector('.uif-modal-overlay')) {
+                document.querySelector('.uif-modal-overlay .uif-nome').focus();
+                return;
+            }
             const user = state.adminData.users[Number(btn.dataset.userIndex)];
-            const row = btn.closest('tr');
             const email = user.emailLogin || user.EmailLogin || user.email || '';
             const nome = user.nomeVendedor || user.NomeVendedor || user.name || '';
             const perfil = user.perfil || user.Perfil || user.profile || '';
@@ -712,78 +756,91 @@ export function bindAdminEvents(data) {
             };
             const pc = profileClass(perfil);
 
-            row.innerHTML = `<td colspan="5" class="uif-cell">
-                <div class="uif-header">
-                    <div class="user-avatar-initials ${pc}">${escapeHtml(getInitials(nome))}</div>
-                    <span class="uif-title">${escapeHtml(titleCase(nome))}</span>
-                </div>
-                <div class="uif-grid">
-                    <div class="uif-field">
-                        <label>Nome</label>
-                        <input type="text" class="uif-nome" value="${escapeHtml(nome)}" placeholder="Nome completo">
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay uif-modal-overlay';
+            overlay.innerHTML = `
+                <div class="modal-card modal-card-wide uif-modal">
+                    <div class="uif-header">
+                        <div class="user-avatar-initials ${pc}">${escapeHtml(getInitials(nome))}</div>
+                        <span class="uif-title">${escapeHtml(titleCase(nome))}</span>
                     </div>
-                    <div class="uif-field">
-                        <label>E-mail</label>
-                        <input type="email" class="uif-email" value="${escapeHtml(email)}" placeholder="E-mail">
+                    <div class="uif-grid">
+                        <div class="uif-field">
+                            <label>Nome</label>
+                            <input type="text" class="uif-nome" value="${escapeHtml(nome)}" placeholder="Nome completo">
+                        </div>
+                        <div class="uif-field">
+                            <label>E-mail</label>
+                            <input type="email" class="uif-email" value="${escapeHtml(email)}" placeholder="E-mail">
+                        </div>
+                        <div class="uif-field">
+                            <label>Senha <span class="uif-hint">(em branco = manter)</span></label>
+                            <input type="password" class="uif-senha" placeholder="••••••••" autocomplete="new-password">
+                        </div>
+                        <div class="uif-field">
+                            <label>Região</label>
+                            <input type="text" class="uif-gerencia" value="${escapeHtml(gerencia)}" placeholder="Região">
+                        </div>
+                        <div class="uif-field">
+                            <label>Cargo</label>
+                            <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Admin'], perfil)}</select>
+                        </div>
+                        <div class="uif-field">
+                            <label>Meta mensal (visitas)</label>
+                            <input type="number" class="uif-meta" min="0" value="${escapeHtml(String(metaVisitasMes))}" placeholder="Ex.: 40">
+                        </div>
+                        ${renderPermFieldsHtml(perms)}
+                        ${renderTelasFieldHtml(user.telasBloqueadas)}
                     </div>
-                    <div class="uif-field">
-                        <label>Senha <span class="uif-hint">(em branco = manter)</span></label>
-                        <input type="password" class="uif-senha" placeholder="••••••••" autocomplete="new-password">
+                    <div class="uif-pin-row">
+                        <span>PIN de acesso rápido: <strong>${user.hasPin ? 'ativo' : 'não cadastrado'}</strong></span>
+                        ${user.hasPin ? '<button type="button" class="mini-button uif-pin-remove">Remover PIN</button>' : ''}
                     </div>
-                    <div class="uif-field">
-                        <label>Região</label>
-                        <input type="text" class="uif-gerencia" value="${escapeHtml(gerencia)}" placeholder="Região">
+                    <div class="uif-actions">
+                        <button type="button" class="uif-cancel">Cancelar</button>
+                        <button type="button" class="uif-save">Salvar</button>
                     </div>
-                    <div class="uif-field">
-                        <label>Cargo</label>
-                        <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Admin'], perfil)}</select>
-                    </div>
-                    <div class="uif-field">
-                        <label>Meta mensal (visitas)</label>
-                        <input type="number" class="uif-meta" min="0" value="${escapeHtml(String(metaVisitasMes))}" placeholder="Ex.: 40">
-                    </div>
-                    ${renderPermFieldsHtml(perms)}
-                </div>
-                <div class="uif-pin-row">
-                    <span>PIN de acesso rápido: <strong>${user.hasPin ? 'ativo' : 'não cadastrado'}</strong></span>
-                    ${user.hasPin ? '<button type="button" class="mini-button uif-pin-remove">Remover PIN</button>' : ''}
-                </div>
-                <div class="uif-actions">
-                    <button type="button" class="uif-cancel">Cancelar</button>
-                    <button type="button" class="uif-save">Salvar</button>
-                </div>
-            </td>`;
+                </div>`;
+            document.body.appendChild(overlay);
+            const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+            const onKey = (e) => { if (e.key === 'Escape') close(); };
+            document.addEventListener('keydown', onKey);
+            overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+            overlay.querySelector('.uif-nome').focus();
 
-            row.querySelector('.uif-cancel').addEventListener('click', () => renderAdminPage());
-            row.querySelector('.uif-pin-remove')?.addEventListener('click', async (ev) => {
+            overlay.querySelector('.uif-cancel').addEventListener('click', close);
+            overlay.querySelector('.uif-pin-remove')?.addEventListener('click', async (ev) => {
                 const b = ev.currentTarget;
                 b.disabled = true;
                 const r = await callAPI('removePin', { email }).catch(() => null);
                 if (r && r.status === 'success') {
                     showToast('PIN removido.');
+                    close();
                     renderAdminPage();
                 } else {
                     showToast((r && r.message) || 'Não foi possível remover o PIN.', true);
                     b.disabled = false;
                 }
             });
-            row.querySelector('.uif-save').addEventListener('click', async () => {
-                const senhaEdit = row.querySelector('.uif-senha').value.trim();
+            overlay.querySelector('.uif-save').addEventListener('click', async () => {
+                const senhaEdit = overlay.querySelector('.uif-senha').value.trim();
                 if (senhaEdit && senhaEdit.length < 6) { showToast('A senha precisa ter pelo menos 6 caracteres.', true); return; }
-                const saveBtn = row.querySelector('.uif-save');
+                const saveBtn = overlay.querySelector('.uif-save');
                 setSaving(true, saveBtn, 'Salvando...');
                 const result = await saveUser({
                     originalEmail: email,
-                    emailLogin: row.querySelector('.uif-email').value.trim(),
-                    nomeVendedor: row.querySelector('.uif-nome').value.trim(),
+                    emailLogin: overlay.querySelector('.uif-email').value.trim(),
+                    nomeVendedor: overlay.querySelector('.uif-nome').value.trim(),
                     senha: senhaEdit,
-                    gerencia: row.querySelector('.uif-gerencia').value.trim(),
-                    perfil: row.querySelector('.uif-perfil').value,
-                    metaVisitasMes: row.querySelector('.uif-meta').value.trim(),
-                    ...readPermFieldsValue(row)
+                    gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
+                    perfil: overlay.querySelector('.uif-perfil').value,
+                    metaVisitasMes: overlay.querySelector('.uif-meta').value.trim(),
+                    ...readPermFieldsValue(overlay),
+                    ...readTelasFieldValue(overlay)
                 });
                 if (result.status === 'success') {
                     showToast('Usuário salvo.');
+                    close();
                     renderAdminPage();
                 } else {
                     showToast(result.message || 'Não foi possível salvar.', true);

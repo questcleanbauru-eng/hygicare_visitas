@@ -28,7 +28,7 @@ export function fillDashboard(mainContent, data, user) {
     const todayVisits = recentVisits.filter((v) => v.dataVisita === todayStr);
 
     mainContent.innerHTML = `
-        <div class="page-header" style="margin-bottom:1rem">
+        <div class="page-header" style="margin-bottom:0.75rem">
             <div>
                 <h2>Início</h2>
                 <p class="page-subtitle" style="margin:0.15rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>
@@ -54,7 +54,7 @@ export function fillDashboard(mainContent, data, user) {
         </div>
 
         ${(data.proximosAgendamentos && data.proximosAgendamentos.length > 0) ? `
-        <div class="dash-today-card" style="margin-top:0.6rem">
+        <div class="dash-today-card" style="margin-top:0.5rem">
             <div class="section-title-row">
                 <h3 style="font-size:0.88rem;font-weight:700;margin:0">📌 Próximos retornos</h3>
                 <button class="section-link-button" id="go-agenda-retornos">Ver agenda →</button>
@@ -75,7 +75,7 @@ export function fillDashboard(mainContent, data, user) {
         </div>` : ''}
 
         ${(data.clientesPrincipaisPendentes && data.clientesPrincipaisPendentes.length > 0) ? `
-        <div class="dash-today-card dash-cp-card dash-cp-collapsed" id="dash-cp-card" style="margin-top:0.6rem">
+        <div class="dash-today-card dash-cp-card dash-cp-collapsed" id="dash-cp-card" style="margin-top:0.5rem">
             <button type="button" class="dash-cp-toggle" id="dash-cp-toggle" aria-expanded="false" aria-controls="dash-cp-body">
                 <span class="dash-cp-title">⭐ Clientes principais sem relatório este mês</span>
                 <span class="dash-cp-count" aria-label="${data.clientesPrincipaisPendentes.length} pendente(s)">${data.clientesPrincipaisPendentes.length}</span>
@@ -138,13 +138,13 @@ export function fillDashboard(mainContent, data, user) {
 
         <!-- Gráfico de visitas + meta (relatorio gerencial — so admin/gerente) -->
         ${(isAdminOrGerente && data.visitsByDay && data.visitsByDay.length > 0) ? `
-        <p class="dash-section-heading" style="margin-top:1.5rem">Visitas — últimos 7 dias</p>
+        <p class="dash-section-heading" style="margin-top:1.1rem">Visitas — últimos 7 dias</p>
         <div class="dash-chart-card">
             ${renderVisitsBarChart(data.visitsByDay, data.metaVisitas || 0, data.weeklyVisits || 0)}
         </div>` : ''}
 
         ${(data.teamData && data.teamData.length > 0) ? `
-        <p class="dash-section-heading" style="margin-top:1.5rem">Desempenho da equipe — esta semana</p>
+        <p class="dash-section-heading" style="margin-top:1.1rem">Desempenho da equipe — esta semana</p>
         <div class="dash-team-table">
             ${data.teamData.sort((a, b) => b.visitas - a.visitas).map(member => `
                 <div class="dash-team-row">
@@ -156,7 +156,7 @@ export function fillDashboard(mainContent, data, user) {
         </div>` : ''}
 
         ${(data.teamRanking && data.teamRanking.length > 0) ? `
-        <p class="dash-section-heading" style="margin-top:1.5rem">Ranking do mês — Meta de visitas</p>
+        <p class="dash-section-heading" style="margin-top:1.1rem">Ranking do mês — Meta de visitas</p>
         <div class="dash-team-table">
             ${data.teamRanking.map((r, i) => `
                 <div class="dash-ranking-row" title="Projeção do mês: ${r.projecao} visitas">
@@ -171,7 +171,7 @@ export function fillDashboard(mainContent, data, user) {
         </div>` : ''}
 
         <!-- Atividade recente — um painel só, com abas -->
-        <p class="dash-section-heading" style="margin-top:1.5rem">Atividade recente</p>
+        <p class="dash-section-heading" style="margin-top:1.1rem">Atividade recente</p>
         <div class="dash-activity">
             <div class="dash-activity-tabs" role="tablist">
                 <button type="button" class="dash-activity-tab is-active" data-act="visits">Visitas</button>

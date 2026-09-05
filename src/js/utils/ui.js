@@ -144,6 +144,9 @@ export function renderNavigation() {
     };
 
     // Desktop sidebar: all items (inclui Contratos); Mobile bottom nav: sem Contratos (menu já cheio) — acessível via link no Dashboard.
+    // Telas escondidas por usuário (Admin → editar usuário) — Início nunca
+    // some, é a home; Radar/Admin têm seus próprios controles abaixo.
+    const telasBloqueadas = (state.currentUser && state.currentUser.telasBloqueadas) || [];
     const allNavItems = [
         { id: 'dashboard', label: 'Início',        icon: NAV_ICON_SVG.dashboard },
         { id: 'visits',    label: 'Visitas',        icon: NAV_ICON_SVG.visits },
@@ -153,7 +156,7 @@ export function renderNavigation() {
         { id: 'contratos', label: 'Contratos',      icon: NAV_ICON_SVG.contratos },
         { id: 'manutencao', label: 'Manutenção',    icon: NAV_ICON_SVG.manutencao },
         { id: 'report',    label: 'Relatório',      icon: NAV_ICON_SVG.report }
-    ];
+    ].filter((item) => !telasBloqueadas.includes(item.id));
 
     if (state.canAccessRadar) {
         allNavItems.push({ id: 'radar', label: 'Radar', icon: NAV_ICON_SVG.radar });

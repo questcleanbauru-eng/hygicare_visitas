@@ -6,6 +6,21 @@ import {
 } from './utils/ui.js';
 import { renderLoginPage, renderForgotPasswordPage } from './pages/auth.js';
 import { renderDashboard, fillDashboard } from './pages/dashboard.js';
+import { showToast } from './utils/dom.js';
+
+// Mapeia cada página pro id de nav controlável (Admin → editar usuário →
+// telas escondidas). Página sem entrada aqui (Início, detalhe de cliente,
+// Radar, Admin…) nunca é bloqueada por essa lista.
+const PAGE_TO_NAV_ID = {
+    visits: 'visits', 'visit-detail': 'visits', 'visit-new': 'visits', 'visit-edit': 'visits',
+    calendar: 'calendar',
+    proposals: 'proposals', 'proposal-detail': 'proposals', 'proposal-new': 'proposals', 'proposal-edit': 'proposals',
+    funil: 'funil', 'funil-detail': 'funil', 'funil-new': 'funil', 'funil-edit': 'funil',
+    contratos: 'contratos', 'contrato-detail': 'contratos', 'contrato-new': 'contratos', 'contrato-edit': 'contratos',
+    manutencao: 'manutencao', 'manutencao-detail': 'manutencao', 'manutencao-new': 'manutencao', 'manutencao-edit': 'manutencao',
+    'relatorio-tecnico': 'manutencao', 'relatorio-tecnico-detail': 'manutencao', 'relatorio-tecnico-new': 'manutencao', 'relatorio-tecnico-edit': 'manutencao',
+    report: 'report'
+};
 
 export const state = {
     currentUser: loadStoredUser(),
@@ -190,6 +205,16 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
     if (!state.currentUser && page !== 'login' && page !== 'forgot-password') {
         renderLoginPage();
         return;
+    }
+
+    // Tela escondida pra esse usuário (Admin → editar usuário) — mesmo
+    // chegando aqui por link direto, atalho salvo ou busca global, não deixa
+    // renderizar; volta pro Início. O menu já nem mostra o item, isso aqui é
+    // só o cinto de segurança pra quem tentar contornar.
+    const navIdBloqueado = PAGE_TO_NAV_ID[page];
+    if (navIdBloqueado && (state.currentUser?.telasBloqueadas || []).includes(navIdBloqueado)) {
+        showToast('Você não tem acesso a esta tela.', true);
+        return navigateTo('dashboard');
     }
 
     const header = document.querySelector('header');
