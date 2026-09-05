@@ -44,6 +44,67 @@ const AVALIACAO_OPCOES = ['Totalmente Satisfeito', 'Satisfeito', 'Neutro', 'Insa
 
 const qKey = (si, qi) => `s${si}_q${qi}`;
 
+// ── Cidade → Estado (UF) ────────────────────────────────────────────────
+// Não existe UF na base do app, então: mapa-semente das cidades mais comuns
+// (região de Bauru/SP + capitais) + um mapa "aprendido" no localStorage que
+// cresce conforme o usuário preenche cidade+estado.
+const _DIACRITICS = /[̀-ͯ]/g;
+const _slug = (v) => String(v || '').trim().toLowerCase().normalize('NFD').replace(_DIACRITICS, '');
+const CIDADE_UF = {
+    'bauru': 'SP', 'marilia': 'SP', 'jau': 'SP', 'jahu': 'SP', 'botucatu': 'SP',
+    'lencois paulista': 'SP', 'agudos': 'SP', 'pederneiras': 'SP', 'pirajui': 'SP',
+    'dois corregos': 'SP', 'barra bonita': 'SP', 'sao manuel': 'SP', 'igaracu do tiete': 'SP',
+    'santa cruz do rio pardo': 'SP', 'duartina': 'SP', 'piratininga': 'SP', 'arealva': 'SP',
+    'iacanga': 'SP', 'reginopolis': 'SP', 'cabralia paulista': 'SP', 'bariri': 'SP',
+    'macatuba': 'SP', 'boraceia': 'SP', 'garca': 'SP', 'avare': 'SP', 'ourinhos': 'SP',
+    'assis': 'SP', 'tatui': 'SP', 'itapetininga': 'SP', 'itapeva': 'SP', 'tupa': 'SP',
+    'sao paulo': 'SP', 'campinas': 'SP', 'sorocaba': 'SP', 'ribeirao preto': 'SP',
+    'sao jose do rio preto': 'SP', 'aracatuba': 'SP', 'presidente prudente': 'SP',
+    'franca': 'SP', 'piracicaba': 'SP', 'limeira': 'SP', 'americana': 'SP', 'rio claro': 'SP',
+    'sao carlos': 'SP', 'araraquara': 'SP', 'jaboticabal': 'SP', 'catanduva': 'SP',
+    'birigui': 'SP', 'penapolis': 'SP', 'lins': 'SP', 'promissao': 'SP', 'cafelandia': 'SP',
+    'jundiai': 'SP', 'braganca paulista': 'SP', 'atibaia': 'SP', 'indaiatuba': 'SP',
+    'hortolandia': 'SP', 'sumare': 'SP', 'mogi guacu': 'SP', 'mogi mirim': 'SP', 'araras': 'SP',
+    'leme': 'SP', 'pirassununga': 'SP', 'taquaritinga': 'SP', 'sertaozinho': 'SP',
+    'barretos': 'SP', 'bebedouro': 'SP', 'olimpia': 'SP', 'mirassol': 'SP', 'votuporanga': 'SP',
+    'fernandopolis': 'SP', 'jales': 'SP', 'andradina': 'SP', 'novo horizonte': 'SP',
+    'matao': 'SP', 'ibitinga': 'SP', 'itapolis': 'SP', 'santos': 'SP', 'guaruja': 'SP',
+    'sao vicente': 'SP', 'praia grande': 'SP', 'sao jose dos campos': 'SP', 'taubate': 'SP',
+    'jacarei': 'SP', 'guaratingueta': 'SP', 'osasco': 'SP', 'guarulhos': 'SP',
+    'santo andre': 'SP', 'sao bernardo do campo': 'SP', 'diadema': 'SP', 'maua': 'SP',
+    'londrina': 'PR', 'maringa': 'PR', 'curitiba': 'PR', 'ponta grossa': 'PR', 'cascavel': 'PR',
+    'foz do iguacu': 'PR', 'uberlandia': 'MG', 'uberaba': 'MG', 'belo horizonte': 'MG',
+    'juiz de fora': 'MG', 'pocos de caldas': 'MG', 'ribeirao das neves': 'MG', 'contagem': 'MG',
+    'campo grande': 'MS', 'dourados': 'MS', 'cuiaba': 'MT', 'goiania': 'GO', 'brasilia': 'DF',
+    'rio de janeiro': 'RJ', 'niteroi': 'RJ', 'campos dos goytacazes': 'RJ',
+    'porto alegre': 'RS', 'caxias do sul': 'RS', 'florianopolis': 'SC', 'joinville': 'SC',
+    'blumenau': 'SC', 'curitibanos': 'SC', 'vitoria': 'ES', 'vila velha': 'ES', 'serra': 'ES',
+    'salvador': 'BA', 'feira de santana': 'BA', 'recife': 'PE', 'fortaleza': 'CE',
+    'natal': 'RN', 'joao pessoa': 'PB', 'maceio': 'AL', 'aracaju': 'SE', 'teresina': 'PI',
+    'sao luis': 'MA', 'belem': 'PA', 'manaus': 'AM', 'macapa': 'AP', 'boa vista': 'RR',
+    'porto velho': 'RO', 'rio branco': 'AC', 'palmas': 'TO'
+};
+const CIDADE_UF_LS = 'rt_cidade_uf';
+function _cidadeUfAprendido() {
+    try { return JSON.parse(localStorage.getItem(CIDADE_UF_LS) || '{}') || {}; } catch (e) { return {}; }
+}
+function ufParaCidade(cidade) {
+    const k = _slug(cidade);
+    if (!k) return '';
+    return _cidadeUfAprendido()[k] || CIDADE_UF[k] || '';
+}
+function aprenderCidadeUf(cidade, uf) {
+    const k = _slug(cidade);
+    const u = String(uf || '').trim().toUpperCase();
+    if (!k || !/^[A-Z]{2}$/.test(u)) return;
+    try {
+        const map = _cidadeUfAprendido();
+        if (map[k] === u) return;
+        map[k] = u;
+        localStorage.setItem(CIDADE_UF_LS, JSON.stringify(map));
+    } catch (e) {}
+}
+
 function ensureRtStyles() {
     ensureStyles('relatorio-tecnico');
     ensureStyles('proposals');
@@ -253,10 +314,6 @@ function reportHtml(m, logoEmpresa) {
         <div class="rt-band">DADOS DO CLIENTE</div>
         ${respRow('Código (Ship To)', m.codigoShipTo)}
         ${respRow('Cliente', m.cliente)}
-        ${respRow('Grupo', m.grupo)}
-        ${respRow('Market Sector', m.marketSector)}
-        ${respRow('Endereço', m.endereco)}
-        ${respRow('Bairro', m.bairro)}
         ${respRow('Cidade', m.cidade)}
         ${respRow('Estado', m.estado)}
 
@@ -420,6 +477,9 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
     if (!isEdit && !m.relatorioMes) {
         m.relatorioMes = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
     }
+    if (!isEdit && !m.dataVisita) {
+        m.dataVisita = new Date().toLocaleDateString('pt-BR'); // dd/mm/aaaa
+    }
 
     const breadcrumbHtml = renderBreadcrumb([
         { label: 'Manutenção', page: 'manutencao' },
@@ -443,7 +503,7 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
         </div>
         <form id="rt-form" class="form-layout form-layout-stack">
             ${field('Relatório (mês)', 'rt-relatorioMes', m.relatorioMes, { placeholder: 'AGOSTO 2026' })}
-            ${field('Data da Visita', 'rt-dataVisita', m.dataVisita, { placeholder: 'ex.: 20' })}
+            ${field('Data da Visita', 'rt-dataVisita', m.dataVisita, { placeholder: 'dd/mm/aaaa', inputmode: 'numeric' })}
 
             <div class="rt-section-title">Dados do cliente</div>
             ${field('Código (Ship To)', 'rt-codigoShipTo', m.codigoShipTo)}
@@ -454,11 +514,13 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
                     <div class="searchable-select-menu" id="rt-cliente-menu"></div>
                 </div>
             </div>
-            ${field('Grupo', 'rt-grupo', m.grupo)}
-            ${field('Market Sector', 'rt-marketSector', m.marketSector)}
-            ${field('Endereço', 'rt-endereco', m.endereco)}
-            ${field('Bairro', 'rt-bairro', m.bairro)}
-            ${field('Cidade', 'rt-cidade', m.cidade)}
+            <div class="form-group">
+                <label for="rt-cidade">Cidade</label>
+                <div class="searchable-select">
+                    <input type="text" id="rt-cidade" value="${escapeHtml(m.cidade)}" placeholder="Escolha ou escreva uma cidade" autocomplete="off">
+                    <div class="searchable-select-menu" id="rt-cidade-menu"></div>
+                </div>
+            </div>
             ${field('Estado', 'rt-estado', m.estado, { placeholder: 'SP' })}
 
             <div class="form-group">
@@ -521,16 +583,39 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
         });
     });
 
-    // cliente picker
+    // Estado segue a cidade — mas respeita edição manual do usuário.
+    const estadoEl = document.getElementById('rt-estado');
+    estadoEl.addEventListener('input', () => { estadoEl.dataset.touched = '1'; });
+    const aplicarEstadoDaCidade = (cidade) => {
+        const uf = ufParaCidade(cidade);
+        if (uf && !estadoEl.dataset.touched) estadoEl.value = uf;
+    };
+
+    // cliente picker — texto livre, lista é só sugestão
     initializeSearchableInput({
         input: document.getElementById('rt-cliente'),
         menu: document.getElementById('rt-cliente-menu'),
         items: clientes.map((c) => c['Nome do Cliente'] || c.nome).filter(Boolean),
+        allowFreeText: true,
         onSelect: (value) => {
             const c = clientes.find((x) => (x['Nome do Cliente'] || x.nome) === value);
             if (!c) return;
-            if (c.Cidade && !document.getElementById('rt-cidade').value) document.getElementById('rt-cidade').value = c.Cidade;
+            const cidadeEl = document.getElementById('rt-cidade');
+            if (c.Cidade && !cidadeEl.value) { cidadeEl.value = c.Cidade; aplicarEstadoDaCidade(c.Cidade); }
         }
+    });
+
+    // cidade picker — escolher da lista ou escrever uma nova
+    initializeSearchableInput({
+        input: document.getElementById('rt-cidade'),
+        menu: document.getElementById('rt-cidade-menu'),
+        items: ((fd && fd.data && fd.data.cidades) || []).slice(),
+        allowFreeText: true,
+        onSelect: (value) => aplicarEstadoDaCidade(value)
+    });
+    document.getElementById('rt-cidade').addEventListener('blur', (e) => {
+        const val = e.target.value;
+        setTimeout(() => aplicarEstadoDaCidade(val), 150);
     });
 
     // tabela produtos aferidos
@@ -561,8 +646,7 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
         })).filter((r) => r.produto || r.diluicao || r.ideal || r.realizada);
         return {
             relatorioMes: g('rt-relatorioMes'), dataVisita: g('rt-dataVisita'),
-            codigoShipTo: g('rt-codigoShipTo'), cliente: g('rt-cliente'), grupo: g('rt-grupo'),
-            marketSector: g('rt-marketSector'), endereco: g('rt-endereco'), bairro: g('rt-bairro'),
+            codigoShipTo: g('rt-codigoShipTo'), cliente: g('rt-cliente'),
             cidade: g('rt-cidade'), estado: g('rt-estado'),
             tipoVisita: mainContent.querySelector('input[name="tipoVisita"]').value,
             area: g('rt-area'),
@@ -588,6 +672,7 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
         event.preventDefault();
         const payload = collect();
         if (!payload.cliente) { showToast('Informe o cliente.', true); return; }
+        aprenderCidadeUf(payload.cidade, payload.estado);
         const btn = document.getElementById('rt-submit');
         setSaving(true, btn, isEdit ? 'Salvando...' : 'Criando...');
 
@@ -624,8 +709,7 @@ function modeloDadosFromPayload(p) {
     // Só os campos que se repetem por cliente/unidade — nada de datas,
     // comentários da visita ou avaliação do cliente.
     return JSON.stringify({
-        codigoShipTo: p.codigoShipTo, grupo: p.grupo, marketSector: p.marketSector,
-        endereco: p.endereco, bairro: p.bairro, cidade: p.cidade, estado: p.estado,
+        codigoShipTo: p.codigoShipTo, cidade: p.cidade, estado: p.estado,
         tipoVisita: p.tipoVisita, area: p.area,
         comentariosTabela: JSON.parse(p.comentariosTabela || '[]'),
         departamento: p.departamento, gestor: p.gestor, contatoGestor: p.contatoGestor,
