@@ -488,6 +488,8 @@ export function fillFunilContent(mainContent, funil) {
         renderFiltered();
         // Layout muda bastante de altura — sem isso, o navegador mantém o
         // mesmo scroll em pixels, que passa a apontar pro meio da lista.
+        // No desktop quem rola é o #main-content, não a window.
+        document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
         window.scrollTo({ top: 0, behavior: 'auto' });
     });
     document.getElementById('update-summary-btn')?.addEventListener('click', () => {

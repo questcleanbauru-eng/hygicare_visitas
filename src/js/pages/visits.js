@@ -552,6 +552,8 @@ export async function renderVisitsPage() {
         // O layout de "Edição rápida" muda bastante a altura da página — sem
         // isso, o navegador mantém o mesmo scroll em pixels, que passa a
         // apontar pra um ponto no meio da lista (some o cabeçalho/filtros).
+        // No desktop quem rola é o #main-content, não a window.
+        document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
         window.scrollTo({ top: 0, behavior: 'auto' });
     });
 

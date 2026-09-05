@@ -516,6 +516,8 @@ export function fillProposalsContent(mainContent, proposals) {
         renderFiltered();
         // Layout muda bastante de altura — sem isso, o navegador mantém o
         // mesmo scroll em pixels, que passa a apontar pro meio da lista.
+        // No desktop quem rola é o #main-content, não a window.
+        document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
         window.scrollTo({ top: 0, behavior: 'auto' });
     });
     document.getElementById('proposals-csv-btn')?.addEventListener('click', () => {
