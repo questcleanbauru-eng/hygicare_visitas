@@ -514,11 +514,17 @@ export function fillProposalsContent(mainContent, proposals) {
         e.currentTarget.classList.toggle('is-on', quickEdit);
         qeSelectedId = null;
         renderFiltered();
-        // Layout muda bastante de altura — sem isso, o navegador mantém o
-        // mesmo scroll em pixels, que passa a apontar pro meio da lista.
-        // No desktop quem rola é o #main-content, não a window.
-        document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
-        window.scrollTo({ top: 0, behavior: 'auto' });
+        // Ao LIGAR: rola até a lista (esconde busca/filtros), pra a área de
+        // edição rápida ocupar a tela toda. Ao DESLIGAR: volta pro topo.
+        const goingOn = quickEdit;
+        requestAnimationFrame(() => {
+            if (goingOn) {
+                document.getElementById('proposal-list-container')?.scrollIntoView({ block: 'start', behavior: 'auto' });
+            } else {
+                document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
+                window.scrollTo({ top: 0, behavior: 'auto' });
+            }
+        });
     });
     document.getElementById('proposals-csv-btn')?.addEventListener('click', () => {
         downloadCSV(normalized, 'propostas.csv', [

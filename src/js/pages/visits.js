@@ -549,12 +549,17 @@ export async function renderVisitsPage() {
         try { localStorage.setItem('visits_quick_edit', on ? '0' : '1'); } catch (err) {}
         e.currentTarget.classList.toggle('is-on', !on);
         _visitsRenderFiltered?.();
-        // O layout de "Edição rápida" muda bastante a altura da página — sem
-        // isso, o navegador mantém o mesmo scroll em pixels, que passa a
-        // apontar pra um ponto no meio da lista (some o cabeçalho/filtros).
-        // No desktop quem rola é o #main-content, não a window.
-        document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
-        window.scrollTo({ top: 0, behavior: 'auto' });
+        // Ao LIGAR: rola até a lista (esconde busca/filtros/período), pra a
+        // área de edição rápida ocupar a tela toda. Ao DESLIGAR: volta pro topo.
+        const goingOn = !on;
+        requestAnimationFrame(() => {
+            if (goingOn) {
+                document.getElementById('visits-list-container')?.scrollIntoView({ block: 'start', behavior: 'auto' });
+            } else {
+                document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
+                window.scrollTo({ top: 0, behavior: 'auto' });
+            }
+        });
     });
 
     if (cachedVisits) {
