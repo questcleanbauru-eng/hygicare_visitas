@@ -665,12 +665,26 @@
 }
 .uif-tela-check input { width: auto; min-height: 0; accent-color: var(--primary); }
 
-/* Novo Usuário como modal (mesmo padrão de "Agendar retorno" / "Adicionar
-   ao Funil") — abre centralizado, sem precisar rolar até o fim da lista. */
+/* Novo Usuário/Editar Usuário como modal (mesmo padrão de "Agendar
+   retorno" / "Adicionar ao Funil") — abre centralizado, sem precisar rolar
+   até o fim da lista. */
 .uif-modal { text-align: left; }
 .uif-modal .uif-header { margin-bottom: 0.85rem; }
 .uif-modal .uif-grid { grid-template-columns: 1fr 1fr; margin-bottom: 1rem; }
 .uif-modal .uif-actions { justify-content: flex-end; }
+
+/* Espaço garantido na lateral (o formulário ficou mais alto com "Telas
+   visíveis" e, num celular estreito, precisa continuar com respiro dos
+   dois lados — não colado na borda da tela). O clamp no card, combinado
+   com o justify-content:center do .modal-overlay, é o que centraliza de
+   verdade sobrando gutter igual dos dois lados. */
+.uif-modal-overlay {
+    padding-left: max(1.25rem, calc(var(--safe-left) + 1rem));
+    padding-right: max(1.25rem, calc(var(--safe-right) + 1rem));
+}
+.uif-modal-overlay .modal-card-wide {
+    max-width: min(560px, calc(100vw - 2.5rem));
+}
 
 @media (max-width: 480px) {
     .uif-modal .uif-grid { grid-template-columns: 1fr; }
