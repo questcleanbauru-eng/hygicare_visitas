@@ -682,6 +682,8 @@ function openFunilInlineStatusEditor(pill, funilId, currentStatus) {
 
 export async function renderFunilPage() {
     ensureStyles('funil');
+    // Edição rápida sempre começa desligada — o usuário liga clicando.
+    try { localStorage.removeItem('funil_quick_edit'); } catch (e) {}
     const mainContent = document.getElementById('main-content');
     const loadAll = state.navLoadAll === 'funil';
     state.navLoadAll = null;

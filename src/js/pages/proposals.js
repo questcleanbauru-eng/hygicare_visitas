@@ -559,6 +559,8 @@ export function fillProposalsContent(mainContent, proposals) {
 
 export async function renderProposalsPage() {
     ensureStyles('proposals');
+    // Edição rápida sempre começa desligada — o usuário liga clicando.
+    try { localStorage.removeItem('proposals_quick_edit'); } catch (e) {}
     const mainContent = document.getElementById('main-content');
     const loadAll = state.navLoadAll === 'proposals';
     state.navLoadAll = null;

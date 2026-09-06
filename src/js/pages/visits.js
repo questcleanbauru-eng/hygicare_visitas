@@ -522,6 +522,8 @@ export function fillVisitsContent(container, visits) {
 
 export async function renderVisitsPage() {
     ensureStyles('visits');
+    // Edição rápida sempre começa desligada — o usuário liga clicando.
+    try { localStorage.removeItem('visits_quick_edit'); } catch (e) {}
     const mainContent = document.getElementById('main-content');
     const cachedAllRaw = loadCache('visits_all');
     const cached3mRaw  = loadCache('visits');
