@@ -647,6 +647,45 @@
     color: var(--text-muted-strong);
 }
 
+/* Excluir / desativar usuário (modal Editar Usuário) */
+.uif-danger-zone {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem 0.75rem;
+    flex-wrap: wrap;
+    margin: 0 0 0.75rem;
+    padding: 0.55rem 0.7rem;
+    background: #FEF2F2;
+    border: 1px solid var(--danger-border);
+    border-radius: var(--radius-sm);
+}
+.uif-danger-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--danger);
+}
+.uif-danger-btns {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.admin-inativo-badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+}
+.admin-user-row-inativo .user-avatar-cell > span:first-of-type { color: var(--text-muted); }
+
 /* Telas visíveis por usuário (checkboxes no modal de Novo/Editar Usuário) */
 .uif-telas-grid {
     display: flex;

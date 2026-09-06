@@ -268,11 +268,13 @@ function fillAdminContent(mainContent, data, emailConfig) {
                             const perfil = user.perfil || user.Perfil || user.profile || '';
                             const gerencia = user.gerencia || user.Gerencia || '-';
                             const ultimoLogin = user.ultimoLogin || user.UltimoLogin || '';
+                            const inativo = user.ativo === false;
                             const pc = profileClass(perfil);
-                            return `<tr class="admin-user-row row-collapsed">
+                            return `<tr class="admin-user-row row-collapsed${inativo ? ' admin-user-row-inativo' : ''}">
                                 <td data-label=""><div class="user-avatar-cell">
                                     <div class="user-avatar-initials ${pc}">${escapeHtml(getInitials(nome))}</div>
                                     <span>${escapeHtml(titleCase(nome))}</span>
+                                    ${inativo ? '<span class="admin-inativo-badge">Inativo</span>' : ''}
                                     <button type="button" class="row-toggle-btn" data-row-toggle aria-label="Mostrar detalhes de ${escapeHtml(nome)}" aria-expanded="false">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                                     </button>
@@ -746,6 +748,7 @@ export function bindAdminEvents(data) {
             const user = state.adminData.users[Number(btn.dataset.userIndex)];
             const email = user.emailLogin || user.EmailLogin || user.email || '';
             const nome = user.nomeVendedor || user.NomeVendedor || user.name || '';
+            const inativo = user.ativo === false;
             const perfil = user.perfil || user.Perfil || user.profile || '';
             const gerencia = (user.gerencia || user.Gerencia || '') === '-' ? '' : (user.gerencia || user.Gerencia || '');
             const metaVisitasMes = user.metaVisitasMes || user.MetaVisitasMes || '';
@@ -796,6 +799,13 @@ export function bindAdminEvents(data) {
                         <span>PIN de acesso rápido: <strong>${user.hasPin ? 'ativo' : 'não cadastrado'}</strong></span>
                         ${user.hasPin ? '<button type="button" class="mini-button uif-pin-remove">Remover PIN</button>' : ''}
                     </div>
+                    <div class="uif-danger-zone">
+                        <span class="uif-danger-label">${inativo ? 'Conta desativada — não consegue entrar no app.' : 'Zona de risco'}</span>
+                        <div class="uif-danger-btns">
+                            <button type="button" class="mini-button uif-toggle-ativo">${inativo ? 'Reativar usuário' : 'Desativar usuário'}</button>
+                            <button type="button" class="mini-button mini-button-danger uif-delete">Excluir usuário</button>
+                        </div>
+                    </div>
                     <div class="uif-actions">
                         <button type="button" class="uif-cancel">Cancelar</button>
                         <button type="button" class="uif-save">Salvar</button>
@@ -820,6 +830,43 @@ export function bindAdminEvents(data) {
                 } else {
                     showToast((r && r.message) || 'Não foi possível remover o PIN.', true);
                     b.disabled = false;
+                }
+            });
+            overlay.querySelector('.uif-toggle-ativo').addEventListener('click', async (ev) => {
+                const b = ev.currentTarget;
+                const acao = inativo ? 'Reativar' : 'Desativar';
+                if (!confirm(`${acao} o usuário "${titleCase(nome)}"?${inativo ? '' : ' Ele deixa de conseguir entrar no app, mas todo o histórico é mantido.'}`)) return;
+                setSaving(true, b, `${acao === 'Reativar' ? 'Reativando' : 'Desativando'}...`);
+                const r = await callAPI('setUserAtivo', { emailLogin: email, ativo: inativo ? 'Sim' : 'Nao', user: state.currentUser }).catch(() => null);
+                if (r && r.status === 'success') {
+                    showToast(r.message || 'Feito.');
+                    close();
+                    renderAdminPage();
+                } else {
+                    showToast((r && r.message) || 'Não foi possível concluir.', true);
+                    setSaving(false, b);
+                }
+            });
+            overlay.querySelector('.uif-delete').addEventListener('click', async (ev) => {
+                const b = ev.currentTarget;
+                if (!confirm(`Excluir o usuário "${titleCase(nome)}" de vez? Não dá pra desfazer.`)) return;
+                setSaving(true, b, 'Excluindo...');
+                const r = await callAPI('deleteUser', { emailLogin: email, user: state.currentUser }).catch(() => null);
+                if (r && r.status === 'success') {
+                    showToast(r.message || 'Usuário excluído.');
+                    close();
+                    renderAdminPage();
+                } else if (r && r.code === 'HAS_HISTORY') {
+                    setSaving(false, b);
+                    if (confirm(`${r.message}\n\nDesativar agora?`)) {
+                        setSaving(true, b, 'Desativando...');
+                        const r2 = await callAPI('setUserAtivo', { emailLogin: email, ativo: 'Nao', user: state.currentUser }).catch(() => null);
+                        if (r2 && r2.status === 'success') { showToast(r2.message || 'Usuário desativado.'); close(); renderAdminPage(); }
+                        else { showToast((r2 && r2.message) || 'Não foi possível desativar.', true); setSaving(false, b); }
+                    }
+                } else {
+                    showToast((r && r.message) || 'Não foi possível excluir.', true);
+                    setSaving(false, b);
                 }
             });
             overlay.querySelector('.uif-save').addEventListener('click', async () => {
