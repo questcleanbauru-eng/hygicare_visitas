@@ -1,3 +1,40 @@
+/* Vazio da Manutenção: dois cartões lado a lado (Técnico x Manutenção),
+   cada um com a frase de quando usar. Empilha no celular. */
+.mnt-tipo-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 620px;
+    margin-top: 0.85rem;
+}
+.mnt-tipo-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 1rem 0.9rem;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    text-align: center;
+}
+.mnt-tipo-card strong {
+    font-size: 0.95rem;
+    color: var(--text);
+}
+.mnt-tipo-card span {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+    min-height: 2.2em;
+}
+.mnt-tipo-card .btn-add {
+    margin-top: 0.35rem;
+    width: 100%;
+    white-space: nowrap;
+}
+
 .mnt-modelo-actions {
     display: flex;
     gap: 0.5rem;

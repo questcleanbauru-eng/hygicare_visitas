@@ -91,12 +91,24 @@ export function fillManutencaoContent(mainContent, manutencoes) {
             </div>
             <div class="empty-state">
                 <span class="empty-state-icon">🔧</span>
-                <p>Nenhum relatório de manutenção registrado ainda.</p>
-                <button type="button" class="btn-add" id="btn-new-manutencao2">+ Novo Relatório</button>
+                <p>Nenhum relatório registrado ainda. Escolha o tipo:</p>
+                <div class="mnt-tipo-cards">
+                    <div class="mnt-tipo-card">
+                        <strong>📋 Relatório Técnico</strong>
+                        <span>Destinado ao atendimento do Grupo SPSP.</span>
+                        <button type="button" class="btn-add" id="btn-new-rel-tecnico">+ Relatório Técnico</button>
+                    </div>
+                    <div class="mnt-tipo-card">
+                        <strong>🔧 Relatório de Manutenção</strong>
+                        <span>Destinado aos demais clientes.</span>
+                        <button type="button" class="btn-add" id="btn-new-manutencao2">+ Relatório de Manutenção</button>
+                    </div>
+                </div>
             </div>
         `;
         document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
         document.getElementById('btn-new-manutencao2')?.addEventListener('click', () => navigateTo('manutencao-new'));
+        document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
         document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
         document.getElementById('btn-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico'));
         return;
