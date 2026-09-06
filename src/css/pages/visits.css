@@ -25,6 +25,21 @@
 .visit-form-layout #prospeccao-group,
 .visit-form-layout #veiculo-group { gap: 0.4rem; flex-wrap: wrap; }
 
+/* Legenda da Prospecção numa linha própria (o container é flex-wrap). */
+.visit-form-layout #prospeccao-field .field-helper-text {
+    flex-basis: 100%;
+    width: 100%;
+    margin: 0;
+}
+
+/* Nova Visita: enquanto Prospecção (Sim/Não) não for escolhida, só esse
+   campo aparece — o resto do formulário fica oculto. */
+#visit-form.prospeccao-pendente > .form-group:not(#prospeccao-field),
+#visit-form.prospeccao-pendente > .form-row-pair,
+#visit-form.prospeccao-pendente > .form-actions {
+    display: none;
+}
+
 /* ── Field inline error ───────────────────────────────────── */.visit-card-wrap {
     position: relative;
     display: flex;

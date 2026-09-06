@@ -1066,7 +1066,11 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
 
     const formData = state.formData;
     const now = new Date();
-    const currentProspection = normalizedVisit ? normalizedVisit.prospeccao : 'Sim';
+    // Nova Visita "pura" (sem prefill): nenhuma opção de Prospecção vem
+    // marcada — o resto do formulário só aparece depois que o usuário
+    // escolher Sim/Não.
+    const currentProspection = normalizedVisit ? normalizedVisit.prospeccao : '';
+    const prospeccaoPendente = !normalizedVisit;
     const currentClient = normalizedVisit ? normalizedVisit.cliente : '';
     // Um prefill parcial (ex.: "Agendar prospecção" do Radar, ou Agendamento
     // concluído virando Visita) só traz Cliente/Cidade — normalizedVisit fica
@@ -1111,10 +1115,11 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             <button type="button" class="mini-button" id="back-to-visits">Voltar</button>
             <h2>${isEdit ? 'Editar Visita' : 'Nova Visita'}</h2>
         </div>
-        <form id="visit-form" class="card form-card form-layout visit-form-layout">
+        <form id="visit-form" class="card form-card form-layout visit-form-layout${prospeccaoPendente ? ' prospeccao-pendente' : ''}">
             <input type="hidden" id="visit-id" value="${escapeHtml(normalizedVisit ? normalizedVisit.id : '')}">
-            <div class="form-group full-width">
+            <div class="form-group full-width" id="prospeccao-field">
                 <label>Prospecção</label>
+                <p class="field-helper-text">Marque "Sim" apenas para cliente ainda sem cadastro no sistema.</p>
                 <div class="radio-group" id="prospeccao-group">
                     <label class="radio-pill">
                         <input type="radio" name="prospeccao" value="Sim" ${currentProspection === 'Sim' ? 'checked' : ''}>
@@ -1379,7 +1384,11 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
 
     initObservacaoField();
 
-    document.querySelectorAll('input[name="prospeccao"]').forEach((radio) => radio.addEventListener('change', syncProspectionMode));
+    document.querySelectorAll('input[name="prospeccao"]').forEach((radio) => radio.addEventListener('change', () => {
+        // Escolheu Sim/Não → revela o resto do formulário.
+        document.getElementById('visit-form').classList.remove('prospeccao-pendente');
+        syncProspectionMode();
+    }));
     clienteSelect.addEventListener('change', () => fillClientData(clienteSelect.value));
     clienteSelect.addEventListener('input', () => fillClientData(clienteSelect.value));
     clienteInput.addEventListener('blur', () => {
@@ -1481,7 +1490,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             // rascunho são reaplicados depois, preservando ajustes manuais.
             if (f.prospeccao) {
                 const r = document.querySelector('input[name="prospeccao"][value="' + f.prospeccao + '"]');
-                if (r) { r.checked = true; }
+                if (r) { r.checked = true; document.getElementById('visit-form').classList.remove('prospeccao-pendente'); }
             }
             if (f.clienteExistente) { clienteSelect.value = f.clienteExistente; }
             syncProspectionMode();
@@ -1552,6 +1561,11 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
 
     document.getElementById('visit-form').addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (!document.querySelector('input[name="prospeccao"]:checked')) {
+            showToast('Escolha se é prospecção: Sim ou Não.', true);
+            document.getElementById('prospeccao-field')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return;
+        }
         const saveButton = document.getElementById('save-visit');
         setSaving(true, saveButton, isEdit ? 'Salvando...' : 'Criando...');
 
