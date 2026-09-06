@@ -85,7 +85,6 @@ export function fillManutencaoContent(mainContent, manutencoes) {
                 <div><h2>Manutenção</h2></div>
                 <div class="header-actions-group header-actions-uniform">
                     <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
-                    <button type="button" class="btn-add" id="btn-new-manutencao">+ Novo Relatório</button>
                 </div>
             </div>
             <div class="empty-state">
@@ -105,7 +104,6 @@ export function fillManutencaoContent(mainContent, manutencoes) {
                 </div>
             </div>
         `;
-        document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
         document.getElementById('btn-new-manutencao2')?.addEventListener('click', () => navigateTo('manutencao-new'));
         document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
         document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
