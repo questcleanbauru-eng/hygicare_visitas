@@ -193,7 +193,6 @@ function fillList(mainContent, list) {
             <div><h2>Atendimento Técnico</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
             <div class="header-actions-group header-actions-uniform">
                 <button type="button" class="mini-button" id="rt-goto-manutencao">🔧 Manutenção</button>
-                <button type="button" class="mini-button" id="rt-modelos">📋 Modelos</button>
                 <button type="button" class="btn-add" id="rt-new">+ Novo Relatório</button>
             </div>
         </div>`;
@@ -208,7 +207,6 @@ function fillList(mainContent, list) {
         document.getElementById('rt-new')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
         document.getElementById('rt-new2')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
         document.getElementById('rt-goto-manutencao')?.addEventListener('click', () => navigateTo('manutencao'));
-        document.getElementById('rt-modelos')?.addEventListener('click', openRelatorioTecnicoModelosModal);
         return;
     }
 
@@ -268,7 +266,6 @@ function fillList(mainContent, list) {
     document.getElementById('rt-search').addEventListener('input', debounce(render, 200));
     document.getElementById('rt-new').addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
     document.getElementById('rt-goto-manutencao').addEventListener('click', () => navigateTo('manutencao'));
-    document.getElementById('rt-modelos').addEventListener('click', openRelatorioTecnicoModelosModal);
     addScrollTop();
 }
 

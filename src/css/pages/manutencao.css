@@ -47,6 +47,18 @@
     line-height: 1.25;
 }
 
+/* Cabeçalho de grupo no modal "Modelos salvos" (Relatório Técnico x
+   Relatório de Manutenção). */
+.mnt-modelo-group-label {
+    margin: 0.9rem 0 0.15rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted-strong);
+}
+.mnt-modelo-group-label:first-child { margin-top: 0; }
+
 /* Lista do modal "Modelos salvos" (ver openModelosSalvosModal em
    manutencao.js) — uma linha por cliente com modelo cadastrado. */
 .mnt-modelo-list-row {
