@@ -376,9 +376,15 @@ export async function renderContratoFormPage(contrato) {
                 <textarea id="ctf-obs" rows="4">${escapeHtml(normalized.obs || '')}</textarea>
             </div>
             <div class="form-group full-width">
-                <label for="ctf-anexo">Anexo (link do Drive)</label>
-                <input type="url" id="ctf-anexo" value="${escapeHtml(normalized.anexo || '')}" placeholder="Cole aqui o link compartilhável do PDF no Drive">
-                <p class="helper-text" style="margin-top:0.35rem">Suba o PDF no seu Google Drive, copie o link "Qualquer pessoa com o link" e cole aqui.</p>
+                <label for="ctf-anexo">PDF do contrato</label>
+                <div class="ctf-anexo-row" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+                    <label class="mini-button ctf-anexo-upload" for="ctf-anexo-file" style="cursor:pointer">📎 Enviar PDF</label>
+                    <input type="file" id="ctf-anexo-file" accept="application/pdf" hidden>
+                    <span id="ctf-anexo-status" class="helper-text">${normalized.anexo ? '✅ PDF anexado' : 'Nenhum PDF ainda'}</span>
+                    ${normalized.anexo ? '<button type="button" class="mini-button" id="ctf-anexo-open">Ver</button>' : ''}
+                </div>
+                <input type="url" id="ctf-anexo" value="${escapeHtml(normalized.anexo || '')}" placeholder="…ou cole aqui um link do Drive" style="margin-top:0.4rem">
+                <p class="helper-text" style="margin-top:0.35rem">O PDF vai pra pasta "Contratos App" no Drive e pode ser consultado pelo app.</p>
             </div>
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-contrato-form">Cancelar</button>
@@ -389,6 +395,45 @@ export async function renderContratoFormPage(contrato) {
 
     initializeSearchableInput({ input: document.getElementById('ctf-cidade'), menu: document.getElementById('ctf-cidade-menu'), items: cidades });
     document.getElementById('cancel-contrato-form').addEventListener('click', () => navigateTo(isEdit ? 'contrato-detail' : 'contratos', { id: normalized.id }));
+
+    // Upload do PDF pro Drive (pasta "Contratos App") — preenche o campo anexo.
+    const anexoFile = document.getElementById('ctf-anexo-file');
+    const anexoInput = document.getElementById('ctf-anexo');
+    const anexoStatus = document.getElementById('ctf-anexo-status');
+    document.getElementById('ctf-anexo-open')?.addEventListener('click', () => {
+        if (anexoInput.value.trim()) openExternal(anexoInput.value.trim());
+    });
+    anexoFile?.addEventListener('change', async () => {
+        const file = anexoFile.files && anexoFile.files[0];
+        anexoFile.value = '';
+        if (!file) return;
+        if (file.type !== 'application/pdf') { showToast('Selecione um arquivo PDF.', true); return; }
+        if (file.size > 4 * 1024 * 1024) { showToast('PDF muito grande (máx. ~4 MB). Comprima o arquivo e tente de novo.', true); return; }
+        anexoStatus.textContent = 'Enviando PDF...';
+        try {
+            const dataUrl = await new Promise((resolve, reject) => {
+                const fr = new FileReader();
+                fr.onload = () => resolve(fr.result);
+                fr.onerror = () => reject(new Error('Falha ao ler o arquivo.'));
+                fr.readAsDataURL(file);
+            });
+            const r = await callAPI('uploadContratoPdf', {
+                pdf: dataUrl,
+                cliente: document.getElementById('ctf-cliente').value.trim(),
+                user: state.currentUser
+            });
+            if (r && r.status === 'success' && r.anexo) {
+                anexoInput.value = r.anexo;
+                anexoStatus.textContent = '✅ PDF anexado';
+            } else {
+                anexoStatus.textContent = 'Nenhum PDF ainda';
+                showToast((r && r.message) || 'Não foi possível enviar o PDF.', true);
+            }
+        } catch (e) {
+            anexoStatus.textContent = 'Nenhum PDF ainda';
+            showToast(e.message || 'Falha ao enviar o PDF.', true);
+        }
+    });
 
     document.getElementById('contrato-form').addEventListener('submit', async (event) => {
         event.preventDefault();

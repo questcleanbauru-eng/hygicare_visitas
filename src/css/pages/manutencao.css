@@ -175,6 +175,49 @@
     margin-top: 0.4rem;
 }
 
+/* ── Fotos (Drive) ─────────────────────────────────────────────────── */
+.mnt-fotos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.mnt-fotos-grid:empty { display: none; }
+.mnt-foto-thumb {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: #f1f5f9;
+    display: block;
+}
+.mnt-foto-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mnt-foto-del {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.72);
+    color: #fff;
+    font-size: 0.72rem;
+    line-height: 22px;
+    cursor: pointer;
+}
+.mnt-foto-add { display: inline-block; cursor: pointer; }
+
+@media print {
+    .mnt-report-fotos .mnt-fotos-grid {
+        grid-template-columns: repeat(3, 1fr);
+        break-inside: avoid;
+    }
+    .mnt-report-fotos .mnt-foto-thumb { border-color: #cbd5e1; }
+}
+
 /* Página de detalhe tinha 4-5 botões de ação (Voltar/Editar/PDF/Zap/Apagar)
    no cabeçalho compacto — com um nome de cliente comprido, o título
    "Detalhes do Relatório" (.compact-header h2 é flex:1, genérico, usado em

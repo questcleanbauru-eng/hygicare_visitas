@@ -6,6 +6,10 @@ import {
     skeletonList, skeletonDetail, addScrollTop, setSaving, openExternal
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
+import { compressImageFile } from '../utils/image.js';
+
+const driveThumbUrl = (id) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1000`;
+const driveViewUrl = (id) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
 
 // O card da lista (.proposal-card/.proposal-meta) e o cabeçalho do card
 // (.visit-card-header) vêm dos bundles de CSS de Propostas/Visitas, não de
@@ -589,6 +593,13 @@ export async function renderManutencaoDetailPage(id) {
                     <p class="mnt-section-title">Observação</p>
                     <div class="mnt-observacao-block ${hasObservacao ? 'mnt-observacao-filled' : 'mnt-observacao-empty'}">${hasObservacao ? escapeHtml(m.observacao) : '<em>Nenhuma observação registrada.</em>'}</div>
                 </div>
+                ${(m.fotos && m.fotos.length) ? `
+                <div class="mnt-report-section mnt-report-fotos">
+                    <p class="mnt-section-title">Fotos</p>
+                    <div class="mnt-fotos-grid mnt-fotos-grid-view">
+                        ${m.fotos.map((id) => `<a href="${driveViewUrl(id)}" target="_blank" rel="noopener" class="mnt-foto-thumb"><img src="${driveThumbUrl(id)}" alt="Foto do relatório" loading="lazy"></a>`).join('')}
+                    </div>
+                </div>` : ''}
                 <div class="mnt-report-section">
                     <p class="mnt-section-title">Assinaturas</p>
                     <div class="mnt-signatures-grid">
@@ -863,6 +874,14 @@ export async function renderManutencaoFormPage(record, options) {
             </div>
 
             <div class="form-group full-width">
+                <label>Fotos</label>
+                <div id="mnt-fotos-grid" class="mnt-fotos-grid"></div>
+                <label class="mini-button mnt-foto-add" for="mnt-foto-input">📷 Adicionar foto</label>
+                <input type="file" id="mnt-foto-input" accept="image/*" capture="environment" multiple hidden>
+                <p class="field-helper-text" id="mnt-foto-hint">As fotos vão pra pasta do Drive e aparecem no relatório/PDF.</p>
+            </div>
+
+            <div class="form-group full-width">
                 <label>Assinatura do Técnico</label>
                 <canvas id="mnt-signature-tecnico" class="signature-pad"></canvas>
                 <div class="signature-pad-actions"><button type="button" class="mini-button" id="mnt-signature-tecnico-clear">Limpar assinatura</button></div>
@@ -898,6 +917,56 @@ export async function renderManutencaoFormPage(record, options) {
     }
     document.getElementById('mnt-signature-tecnico-clear').addEventListener('click', () => clearSignaturePad(sigTecnico));
     document.getElementById('mnt-signature-cliente-clear').addEventListener('click', () => clearSignaturePad(sigCliente));
+
+    // ── Fotos (Drive) ──────────────────────────────────────────────────
+    const fotoIds = Array.isArray(m.fotos) ? m.fotos.slice() : [];
+    const fotosGrid = document.getElementById('mnt-fotos-grid');
+    const fotoInput = document.getElementById('mnt-foto-input');
+    const fotoHint = document.getElementById('mnt-foto-hint');
+    const renderFotos = () => {
+        fotosGrid.innerHTML = fotoIds.map((id) => `
+            <div class="mnt-foto-thumb" data-foto="${escapeHtml(id)}">
+                <img src="${driveThumbUrl(id)}" alt="Foto do relatório" loading="lazy">
+                <button type="button" class="mnt-foto-del" data-foto="${escapeHtml(id)}" aria-label="Remover foto" title="Remover foto">✕</button>
+            </div>`).join('');
+        fotosGrid.querySelectorAll('.mnt-foto-del').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.foto;
+                if (!confirm('Remover esta foto? Ela sai do Drive também.')) return;
+                const i = fotoIds.indexOf(id);
+                if (i > -1) fotoIds.splice(i, 1);
+                renderFotos();
+                callAPI('deleteManutencaoFoto', { id: isEdit ? m.id : '', fotoId: id, user: state.currentUser }).catch(() => {});
+            });
+        });
+    };
+    renderFotos();
+    fotoInput.addEventListener('change', async () => {
+        const files = Array.from(fotoInput.files || []);
+        fotoInput.value = '';
+        if (!files.length) return;
+        fotoHint.textContent = `Enviando ${files.length} foto(s)...`;
+        for (const file of files) {
+            try {
+                const dataUrl = await compressImageFile(file, { maxDim: 1280, quality: 0.7 });
+                const r = await callAPI('uploadManutencaoFoto', {
+                    id: isEdit ? m.id : '',
+                    cliente: document.getElementById('mnt-cliente').value.trim(),
+                    imagem: dataUrl,
+                    user: state.currentUser
+                });
+                if (r && r.status === 'success' && r.foto && r.foto.id) {
+                    fotoIds.push(r.foto.id);
+                    renderFotos();
+                } else {
+                    showToast((r && r.message) || 'Não foi possível enviar a foto.', true);
+                }
+            } catch (e) {
+                showToast(e.message || 'Falha ao processar a foto.', true);
+            }
+        }
+        fotoHint.textContent = 'As fotos vão pra pasta do Drive e aparecem no relatório/PDF.';
+    });
 
     initializeSearchableInput({
         input: document.getElementById('mnt-cliente'),
@@ -1039,6 +1108,7 @@ export async function renderManutencaoFormPage(record, options) {
             cliente: clienteVal, cidade: cidadeVal, tecnico: tecnicoVal,
             observacao: observacaoVal,
             itensTabela: JSON.stringify(collectItens(itensContainer)),
+            fotos: fotoIds.slice(),
             // Sempre manda o que está no canvas agora (mesmo vazio) — assim
             // clicar em "Limpar" numa edição realmente apaga a assinatura
             // salva, em vez de deixar o valor antigo intocado no servidor.

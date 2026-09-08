@@ -102,6 +102,9 @@ export function normalizeManutencao(item) {
         assinaturaTecnico: m.AssinaturaTecnico || m.assinaturaTecnico || '',
         assinaturaCliente: m.AssinaturaCliente || m.assinaturaCliente || '',
         pendenteAprovacao: m.PendenteAprovacao || m.pendenteAprovacao || '',
+        fotos: Array.isArray(m.fotos)
+            ? m.fotos
+            : String(m.Fotos || m.fotos || '').split(',').map((s) => s.trim()).filter(Boolean),
         _pending: !!m._pending
     };
 }

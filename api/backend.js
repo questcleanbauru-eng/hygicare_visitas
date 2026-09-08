@@ -7,7 +7,8 @@ import {
     handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDebugFunilHeaders
 } from '../lib/handlers/funil.js';
 import {
-    handleGetContratos, handleGetContratoById, handleCreateContrato, handleUpdateContrato, handleDeleteContrato
+    handleGetContratos, handleGetContratoById, handleCreateContrato, handleUpdateContrato, handleDeleteContrato,
+    handleUploadContratoPdf
 } from '../lib/handlers/contratos.js';
 import {
     handleGetAgendamentos, handleCreateAgendamento, handleUpdateAgendamento, handleDeleteAgendamento
@@ -15,7 +16,8 @@ import {
 import {
     handleGetManutencoes, handleGetManutencaoById, handleCreateManutencao, handleUpdateManutencao,
     handleDeleteManutencao, handleApproveManutencao, handleGetManutencaoModelos, handleSaveManutencaoModelo,
-    handleDeleteManutencaoModelo, handleGetClientesPrincipais, handleAddClientePrincipal, handleRemoveClientePrincipal
+    handleDeleteManutencaoModelo, handleGetClientesPrincipais, handleAddClientePrincipal, handleRemoveClientePrincipal,
+    handleUploadManutencaoFoto, handleDeleteManutencaoFoto
 } from '../lib/handlers/manutencao.js';
 import {
     handleGetRadarCidadesDisponiveis, handleGetRadarClientes, handleUpdateRadarClienteStatus,
@@ -77,6 +79,7 @@ const HANDLERS = {
     getContratos: handleGetContratos,
     getContratoById: handleGetContratoById,
     createContrato: handleCreateContrato,
+    uploadContratoPdf: handleUploadContratoPdf,
     updateContrato: handleUpdateContrato,
     deleteContrato: handleDeleteContrato,
     getAgendamentos: handleGetAgendamentos,
@@ -87,6 +90,8 @@ const HANDLERS = {
     getManutencaoById: handleGetManutencaoById,
     createManutencao: handleCreateManutencao,
     updateManutencao: handleUpdateManutencao,
+    uploadManutencaoFoto: handleUploadManutencaoFoto,
+    deleteManutencaoFoto: handleDeleteManutencaoFoto,
     deleteManutencao: handleDeleteManutencao,
     approveManutencao: handleApproveManutencao,
     getManutencaoModelos: handleGetManutencaoModelos,
