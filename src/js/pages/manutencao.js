@@ -42,6 +42,8 @@ const MNT_PAGE_MARGIN_MM = 24; // soma do @page margin (12mm em cima + 12mm emba
 function autoFitManutencaoReport() {
     const report = document.querySelector('.mnt-report');
     if (!report) return;
+    // .mnt-report-fotos fica FORA de .mnt-report (página 2 na impressão),
+    // então não entra no scrollHeight aqui — o fit é só do relatório em si.
     const levels = ['mnt-compact-1', 'mnt-compact-2', 'mnt-compact-3'];
     levels.forEach((level) => report.classList.remove(level));
     const usablePx = mmToPx(MNT_PAGE_HEIGHT_MM - MNT_PAGE_MARGIN_MM);
@@ -593,13 +595,6 @@ export async function renderManutencaoDetailPage(id) {
                     <p class="mnt-section-title">Observação</p>
                     <div class="mnt-observacao-block ${hasObservacao ? 'mnt-observacao-filled' : 'mnt-observacao-empty'}">${hasObservacao ? escapeHtml(m.observacao) : '<em>Nenhuma observação registrada.</em>'}</div>
                 </div>
-                ${(m.fotos && m.fotos.length) ? `
-                <div class="mnt-report-section mnt-report-fotos">
-                    <p class="mnt-section-title">Fotos</p>
-                    <div class="mnt-fotos-grid mnt-fotos-grid-view">
-                        ${m.fotos.map((id) => `<a href="${driveViewUrl(id)}" target="_blank" rel="noopener" class="mnt-foto-thumb"><img src="${driveThumbUrl(id)}" alt="Foto do relatório" loading="lazy"></a>`).join('')}
-                    </div>
-                </div>` : ''}
                 <div class="mnt-report-section">
                     <p class="mnt-section-title">Assinaturas</p>
                     <div class="mnt-signatures-grid">
@@ -619,6 +614,13 @@ export async function renderManutencaoDetailPage(id) {
                 <span>Gerado em ${new Date().toLocaleString('pt-BR')}</span>
             </div>
         </div>
+        ${(m.fotos && m.fotos.length) ? `
+        <div class="mnt-report-fotos">
+            <p class="mnt-section-title">Fotos — ${escapeHtml(m.cliente || '')}</p>
+            <div class="mnt-fotos-grid mnt-fotos-grid-view">
+                ${m.fotos.map((id) => `<a href="${driveViewUrl(id)}" target="_blank" rel="noopener" class="mnt-foto-thumb"><img src="${driveThumbUrl(id)}" alt="Foto do relatório" loading="lazy"></a>`).join('')}
+            </div>
+        </div>` : ''}
     `;
 
     document.getElementById('back-manutencao').addEventListener('click', () => navigateTo('manutencao'));
