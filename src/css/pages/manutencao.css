@@ -227,9 +227,14 @@
 }
 
 @media print {
-    /* Fotos numa página só delas. */
+    /* Fotos numa página só delas. O overflow:hidden do .mnt-report (regra
+       normal do card) "engole" o page-break do irmão seguinte no Chrome —
+       aqui só na impressão volta pra overflow visível. border-radius já é 0
+       na impressão, então não reintroduz o artefato de recorte antigo. */
+    .mnt-report { overflow: visible; }
     .mnt-report-fotos {
         break-before: page;
+        page-break-before: always;
         border: none;
         border-radius: 0;
         padding: 0;
