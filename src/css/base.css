@@ -803,6 +803,10 @@ main {
     }
     #app, #main-content {
         display: block !important;
+        /* #app é position:fixed no app (ver regra normal) — um subárvore
+           fixa não pagina, então quebra de página forçada era ignorada e
+           tudo caía numa folha só. static devolve a paginação normal. */
+        position: static !important;
         height: auto !important;
         overflow: visible !important;
         padding: 0 !important;
