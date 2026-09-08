@@ -651,7 +651,14 @@
     .mnt-report-docnum { padding: 0.65rem 2rem; font-size: 0.92rem; }
     .mnt-status-badge { font-size: 0.85rem; padding: 0.4rem 1rem; }
 
-    .mnt-report-body { padding: 2.2rem 2rem; gap: 2.2rem; }
+    /* No papel o corpo vira block (flex column não fragmenta entre páginas
+       no Chrome — quando não cabia numa folha, ia inteiro pra folha 2 e
+       deixava a 1 quase em branco). Margem no lugar do gap; cada seção
+       evita quebrar no meio. */
+    .mnt-report-body { padding: 2.2rem 2rem; display: block; }
+    .mnt-report-body > * { margin-bottom: 2.2rem; }
+    .mnt-report-body > *:last-child { margin-bottom: 0; }
+    .mnt-report-section, .mnt-signatures-grid { break-inside: avoid; }
     .mnt-section-title { font-size: 0.88rem; margin-bottom: 0.9rem; }
 
     .mnt-grid-2x2 { gap: 1.4rem 2.5rem; }
@@ -677,7 +684,8 @@
     .mnt-compact-1 .mnt-report-header { padding: 1.1rem 1.6rem; }
     .mnt-compact-1 .mnt-report-logo { width: 46px; height: 46px; }
     .mnt-compact-1 .mnt-report-title { font-size: 1.3rem; }
-    .mnt-compact-1 .mnt-report-body { padding: 1.5rem 1.6rem; gap: 1.4rem; }
+    .mnt-compact-1 .mnt-report-body { padding: 1.5rem 1.6rem; }
+    .mnt-compact-1 .mnt-report-body > * { margin-bottom: 1.4rem; }
     .mnt-compact-1 .mnt-grid-2x2 { gap: 1rem 2rem; }
     .mnt-compact-1 .mnt-field-value { font-size: 1.05rem; }
     .mnt-compact-1 .mnt-afericao-table { font-size: 12.5px; border-spacing: 0 4px; }
@@ -688,7 +696,8 @@
     .mnt-compact-2 .mnt-report-header { padding: 0.9rem 1.4rem; }
     .mnt-compact-2 .mnt-report-logo { width: 38px; height: 38px; }
     .mnt-compact-2 .mnt-report-title { font-size: 1.1rem; }
-    .mnt-compact-2 .mnt-report-body { padding: 1.1rem 1.4rem; gap: 1rem; }
+    .mnt-compact-2 .mnt-report-body { padding: 1.1rem 1.4rem; }
+    .mnt-compact-2 .mnt-report-body > * { margin-bottom: 1rem; }
     .mnt-compact-2 .mnt-section-title { margin-bottom: 0.45rem; }
     .mnt-compact-2 .mnt-grid-2x2 { gap: 0.7rem 1.5rem; }
     .mnt-compact-2 .mnt-field-value { font-size: 0.92rem; }
@@ -701,7 +710,8 @@
     .mnt-compact-3 .mnt-report-logo { width: 30px; height: 30px; }
     .mnt-compact-3 .mnt-report-title { font-size: 0.95rem; }
     .mnt-compact-3 .mnt-report-docnum { padding: 0.35rem 1.2rem; font-size: 0.78rem; }
-    .mnt-compact-3 .mnt-report-body { padding: 0.8rem 1.2rem; gap: 0.7rem; }
+    .mnt-compact-3 .mnt-report-body { padding: 0.8rem 1.2rem; }
+    .mnt-compact-3 .mnt-report-body > * { margin-bottom: 0.7rem; }
     .mnt-compact-3 .mnt-section-title { font-size: 0.7rem; margin-bottom: 0.35rem; }
     .mnt-compact-3 .mnt-grid-2x2 { gap: 0.5rem 1.2rem; }
     .mnt-compact-3 .mnt-field-label { font-size: 0.66rem; }
