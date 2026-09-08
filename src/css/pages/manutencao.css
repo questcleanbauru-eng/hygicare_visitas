@@ -232,6 +232,13 @@
 .mnt-tipo-badge-tecnico { background: #e0edff; color: #1d4ed8; }
 .mnt-tipo-badge-manutencao { background: #e6f1fb; color: #185fa5; }
 
+.mnt-card-head-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
 /* Bloco "Fotos" do relatório — fica FORA do cartão .mnt-report. Some
    sozinho quando não há fotos (o HTML nem renderiza). */
 .mnt-report-fotos {

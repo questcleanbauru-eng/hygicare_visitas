@@ -241,7 +241,10 @@ export function fillManutencaoContent(mainContent, itens) {
             <button type="button" class="proposal-card" data-manutencao-id="${escapeHtml(m.id)}" data-tipo="${m._tipo}">
                 <div class="visit-card-header">
                     <strong><span aria-hidden="true">${m._tipo === 'tecnico' ? '📋' : '🔧'}</span> ${escapeHtml(m.cliente || 'Cliente não informado')}</strong>
-                    <span class="mnt-tipo-badge mnt-tipo-badge-${m._tipo}">${tipoLabel(m._tipo)}</span>
+                    <span class="mnt-card-head-right">
+                        <span class="mnt-tipo-badge mnt-tipo-badge-${m._tipo}">${tipoLabel(m._tipo)}</span>
+                        ${state.canDelete ? `<span class="card-quick-edit-btn" role="button" tabindex="0" title="Excluir relatório" aria-label="Excluir relatório" data-mnt-delete="${escapeHtml(m.id)}" data-tipo="${m._tipo}">🗑️</span>` : ''}
+                    </span>
                 </div>
                 <div class="proposal-meta">
                     <span>${escapeHtml(m.cidade || '-')}</span>
@@ -258,6 +261,37 @@ export function fillManutencaoContent(mainContent, itens) {
             btn.addEventListener('click', () => {
                 const page = btn.dataset.tipo === 'tecnico' ? 'relatorio-tecnico-detail' : 'manutencao-detail';
                 navigateTo(page, { id: btn.dataset.manutencaoId });
+            });
+        });
+
+        container.querySelectorAll('[data-mnt-delete]').forEach((el) => {
+            const stop = (e) => e.stopPropagation();
+            el.addEventListener('mousedown', stop);
+            el.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = el.dataset.mntDelete;
+                const tipo = el.dataset.tipo;
+                const item = normalized.find((x) => String(x.id) === id && x._tipo === tipo);
+                if (!confirm(`Apagar o relatório de "${item?.cliente || 'cliente'}"? Não dá pra desfazer.`)) return;
+                const action = tipo === 'tecnico' ? 'deleteRelatorioTecnico' : 'deleteManutencao';
+                const r = await callAPI(action, { id, user: state.currentUser }).catch(() => null);
+                if (r && r.status === 'success') {
+                    const idx = normalized.findIndex((x) => String(x.id) === id && x._tipo === tipo);
+                    if (idx > -1) normalized.splice(idx, 1);
+                    if (tipo === 'tecnico') {
+                        saveCache('relatoriosTecnicos', null);
+                        if (Array.isArray(state.relatoriosTecnicos)) {
+                            state.relatoriosTecnicos = state.relatoriosTecnicos.filter((x) => String(x.id || x.Id) !== id);
+                        }
+                    } else {
+                        saveCache('manutencoes', null);
+                        state.manutencoes = (state.manutencoes || []).filter((x) => String(x.id || x.Id) !== id);
+                    }
+                    showToast('Relatório apagado.');
+                    renderFiltered();
+                } else {
+                    showToast((r && r.message) || 'Não foi possível apagar.', true);
+                }
             });
         });
     };
