@@ -580,7 +580,12 @@ export async function renderVisitsPage() {
                 if (el) { fillVisitsContent(el, state.visits); }
             }
         });
-        getVisits(cachedAll ? 0 : 3);
+        // Antes: getVisits(3) — refresh "incremental" de 3 dias. Só que sem
+        // 'since' válido (o timestamp de sync expira em 24h) o merge não roda
+        // e a lista era substituída por só os últimos 3 dias. Recarrega a
+        // janela cheia (loadDias); quando há 'since' o backend já devolve só
+        // o delta, então continua barato.
+        getVisits(cachedAll ? 0 : undefined);
         return;
     }
 

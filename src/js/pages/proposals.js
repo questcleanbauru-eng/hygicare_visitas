@@ -586,7 +586,10 @@ export async function renderProposalsPage() {
                 if (el) { fillProposalsContent(el, state.proposals); }
             }
         });
-        getProposals(loadAll || cachedAll ? 0 : 3);
+        // Não usar getProposals(3): sem 'since' válido (expira em 24h) o merge
+        // não roda e a lista era trocada por só os últimos 3 dias. Recarrega a
+        // janela cheia; com 'since' o backend já devolve só o delta.
+        getProposals(loadAll || cachedAll ? 0 : undefined);
         return;
     }
     mainContent.innerHTML = loadingState('📄', 'Carregando suas propostas...');
