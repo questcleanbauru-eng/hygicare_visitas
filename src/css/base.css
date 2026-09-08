@@ -620,7 +620,12 @@ main {
     .page-header:has(.header-actions-uniform) > div:first-child { flex: 1 1 100%; }
     .header-actions-group.header-actions-uniform {
         grid-auto-flow: row;
-        grid-auto-columns: auto;
+        /* coluna única que preenche a largura (auto = largura do conteúdo,
+           que com justify-content:flex-end herdado empurrava os botões
+           estreitos pra direita) */
+        grid-template-columns: 1fr;
+        grid-auto-columns: 1fr;
+        justify-content: stretch;
         width: 100%;
         margin-top: 0.5rem;
     }

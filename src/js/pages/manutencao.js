@@ -157,7 +157,10 @@ export function fillManutencaoContent(mainContent, itens) {
                 <button type="button" class="btn-add" id="btn-new-manutencao" title="Demais clientes">🔧 Rel. de Manutenção</button>
             </div>
         </div>
-        <p class="mnt-tipo-legenda">📋 <strong>Rel. Técnico</strong> → atendimento ao Grupo SPSP &nbsp;·&nbsp; 🔧 <strong>Rel. de Manutenção</strong> → demais clientes</p>
+        <p class="mnt-tipo-legenda">
+            <span class="mnt-legenda-item">📋 <strong>Rel. Técnico</strong> → Grupo SPSP</span>
+            <span class="mnt-legenda-item">🔧 <strong>Rel. de Manutenção</strong> → demais clientes</span>
+        </p>
         <div class="search-bar-wrapper">
             <div class="search-bar-input-group">
                 <span class="search-bar-icon">🔍</span>

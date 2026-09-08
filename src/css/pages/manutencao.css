@@ -212,11 +212,15 @@
 
 /* Legenda dos tipos de relatório (abaixo dos botões do cabeçalho) */
 .mnt-tipo-legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 1rem;
     margin: -0.25rem 0 0.85rem;
     font-size: 0.8rem;
     color: var(--text-muted-strong);
     line-height: 1.4;
 }
+.mnt-legenda-item { white-space: nowrap; }
 
 /* Etiqueta Técnico / Manutenção no card da lista */
 .mnt-tipo-badge {
