@@ -81,8 +81,35 @@ function safeParseJson(value, fallback) {
     }
 }
 
-export function fillManutencaoContent(mainContent, manutencoes) {
-    const normalized = (manutencoes || []).map(normalizeManutencao);
+// Busca os Relatórios Técnicos (entidade separada) pra listar junto com os
+// de Manutenção nesta tela.
+function getRelatoriosTecnicosLite() {
+    return callAPI('getRelatoriosTecnicos', { user: state.currentUser })
+        .then((r) => (r && r.status === 'success') ? (r.relatorios || []) : [])
+        .catch(() => []);
+}
+
+// Junta os dois tipos numa lista só, cada item marcado com _tipo.
+function combinarRelatorios(manut, tecnicos) {
+    const a = (manut || []).map(normalizeManutencao).map((m) => ({ ...m, _tipo: 'manutencao' }));
+    const b = (tecnicos || []).map((t) => ({
+        id: String(t.id || t.Id || ''),
+        cliente: t.cliente || t.Cliente || '',
+        cidade: t.cidade || t.Cidade || '',
+        tecnico: t.tecnico || t.Tecnico || '',
+        data: t.data || t.Data || t.dataVisita || t.DataVisita || t.relatorioMes || t.RelatorioMes || '',
+        pendenteAprovacao: '',
+        _pending: !!t._pending,
+        _tipo: 'tecnico'
+    }));
+    return [...a, ...b];
+}
+
+const tipoLabel = (t) => (t === 'tecnico' ? 'Técnico' : 'Manutenção');
+
+// Recebe a lista JÁ combinada e normalizada (ver combinarRelatorios).
+export function fillManutencaoContent(mainContent, itens) {
+    const normalized = itens || [];
     const isAdmGer = isAdminOrGerenteUser();
 
     if (normalized.length === 0) {
@@ -130,6 +157,7 @@ export function fillManutencaoContent(mainContent, manutencoes) {
                 <button type="button" class="btn-add" id="btn-new-manutencao" title="Demais clientes">🔧 Rel. de Manutenção</button>
             </div>
         </div>
+        <p class="mnt-tipo-legenda">📋 <strong>Rel. Técnico</strong> → atendimento ao Grupo SPSP &nbsp;·&nbsp; 🔧 <strong>Rel. de Manutenção</strong> → demais clientes</p>
         <div class="search-bar-wrapper">
             <div class="search-bar-input-group">
                 <span class="search-bar-icon">🔍</span>
@@ -145,6 +173,14 @@ export function fillManutencaoContent(mainContent, manutencoes) {
                 </div>
             </div>
             <div class="visits-filter-grid" id="mnt-filter-panel">
+                <div class="form-group">
+                    <label for="mnt-tipo">Tipo</label>
+                    <select id="mnt-tipo">
+                        <option value="">Todos</option>
+                        <option value="tecnico">Técnico</option>
+                        <option value="manutencao">Manutenção</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="mnt-cidade">Cidade</label>
                     <div class="searchable-select">
@@ -179,14 +215,16 @@ export function fillManutencaoContent(mainContent, manutencoes) {
 
     const renderFiltered = () => {
         const search  = document.getElementById('mnt-search')?.value.trim().toLowerCase() || '';
+        const tipo    = document.getElementById('mnt-tipo')?.value || '';
         const cidade  = document.getElementById('mnt-cidade')?.value || '';
         const tecnico = document.getElementById('mnt-tecnico')?.value || '';
 
         const filtered = normalized.filter((m) => {
             const matchSearch  = !search || [m.cliente, m.cidade, m.tecnico].some((v) => String(v || '').toLowerCase().includes(search));
+            const matchTipo    = !tipo || m._tipo === tipo;
             const matchCidade  = !cidade || m.cidade === cidade;
             const matchTecnico = !tecnico || m.tecnico === tecnico;
-            return matchSearch && matchCidade && matchTecnico;
+            return matchSearch && matchTipo && matchCidade && matchTecnico;
         });
 
         const container = document.getElementById('manutencao-list-container');
@@ -200,10 +238,10 @@ export function fillManutencaoContent(mainContent, manutencoes) {
         const sorted = [...filtered].sort((a, b) => Number(b.id) - Number(a.id));
 
         container.innerHTML = `<div class="visits-list">${sorted.map((m) => `
-            <button type="button" class="proposal-card" data-manutencao-id="${escapeHtml(m.id)}">
+            <button type="button" class="proposal-card" data-manutencao-id="${escapeHtml(m.id)}" data-tipo="${m._tipo}">
                 <div class="visit-card-header">
-                    <strong><span aria-hidden="true">🔬</span> ${escapeHtml(m.cliente || 'Cliente não informado')}</strong>
-                    ${m._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : (m.pendenteAprovacao === 'Sim' ? '<span class="status-pill funil-status-proposta">Pendente de aprovação</span>' : '')}
+                    <strong><span aria-hidden="true">${m._tipo === 'tecnico' ? '📋' : '🔧'}</span> ${escapeHtml(m.cliente || 'Cliente não informado')}</strong>
+                    <span class="mnt-tipo-badge mnt-tipo-badge-${m._tipo}">${tipoLabel(m._tipo)}</span>
                 </div>
                 <div class="proposal-meta">
                     <span>${escapeHtml(m.cidade || '-')}</span>
@@ -211,12 +249,16 @@ export function fillManutencaoContent(mainContent, manutencoes) {
                 </div>
                 <div class="proposal-meta">
                     <span>${escapeHtml(m.data || '-')}</span>
+                    ${m._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : (m.pendenteAprovacao === 'Sim' ? '<span class="status-pill funil-status-proposta">Pendente de aprovação</span>' : '')}
                 </div>
             </button>
         `).join('')}</div>`;
 
         container.querySelectorAll('[data-manutencao-id]').forEach((btn) => {
-            btn.addEventListener('click', () => navigateTo('manutencao-detail', { id: btn.dataset.manutencaoId }));
+            btn.addEventListener('click', () => {
+                const page = btn.dataset.tipo === 'tecnico' ? 'relatorio-tecnico-detail' : 'manutencao-detail';
+                navigateTo(page, { id: btn.dataset.manutencaoId });
+            });
         });
     };
 
@@ -225,7 +267,7 @@ export function fillManutencaoContent(mainContent, manutencoes) {
         initializeSearchableInput({ input: document.getElementById('mnt-tecnico'), menu: document.getElementById('mnt-tecnico-menu'), items: availableTecnicos });
     }
 
-    const _filterIds = ['mnt-search', 'mnt-cidade', 'mnt-tecnico'];
+    const _filterIds = ['mnt-search', 'mnt-tipo', 'mnt-cidade', 'mnt-tecnico'];
     const _textFilterIds = new Set(['mnt-search', 'mnt-cidade', 'mnt-tecnico']);
     const _debouncedFilter = debounce(renderFiltered, 250);
     _filterIds.forEach((id) => {
@@ -466,40 +508,43 @@ function pickModeloFromMatches(matches) {
 export async function renderManutencaoPage() {
     ensureManutencaoStyles();
     const mainContent = document.getElementById('main-content');
+
+    let _tecnicos = loadCache('relatoriosTecnicos') || [];
+    const paint = () => {
+        const el = document.getElementById('main-content');
+        if (el && state.currentPage === 'manutencao') {
+            fillManutencaoContent(el, combinarRelatorios(state.manutencoes, _tecnicos));
+        }
+    };
+    const refreshBoth = async () => {
+        const [rm, rt] = await Promise.all([getManutencoes(), getRelatoriosTecnicosLite()]);
+        if (rm.status === 'success') state.manutencoes = rm.manutencoes || [];
+        _tecnicos = rt;
+        paint();
+    };
+
     const cachedRaw = loadCache('manutencoes');
     const cached = (Array.isArray(cachedRaw) && cachedRaw.length > 0) ? cachedRaw : null;
-    if (cached) {
-        state.manutencoes = cached;
-        fillManutencaoContent(mainContent, state.manutencoes);
+    if (cached || _tecnicos.length) {
+        state.manutencoes = cached || state.manutencoes || [];
+        paint();
         addScrollTop();
-        initPullToRefresh(async () => {
-            const r = await getManutencoes();
-            if (r.status === 'success' && state.currentPage === 'manutencao') {
-                state.manutencoes = r.manutencoes || [];
-                const el = document.getElementById('main-content');
-                if (el) fillManutencaoContent(el, state.manutencoes);
-            }
-        });
-        getManutencoes();
+        initPullToRefresh(refreshBoth);
+        refreshBoth();
         return;
     }
+
     mainContent.innerHTML = skeletonList(5);
-    const result = await getManutencoes();
+    const [result, tecnicos] = await Promise.all([getManutencoes(), getRelatoriosTecnicosLite()]);
     if (result.status !== 'success') {
-        mainContent.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar relatórios de manutenção.')}</p>`;
+        mainContent.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao carregar relatórios.')}</p>`;
         return;
     }
     state.manutencoes = result.manutencoes || [];
-    fillManutencaoContent(mainContent, state.manutencoes);
+    _tecnicos = tecnicos;
+    paint();
     addScrollTop();
-    initPullToRefresh(async () => {
-        const r = await getManutencoes();
-        if (r.status === 'success' && state.currentPage === 'manutencao') {
-            state.manutencoes = r.manutencoes || [];
-            const el = document.getElementById('main-content');
-            if (el) fillManutencaoContent(el, state.manutencoes);
-        }
-    });
+    initPullToRefresh(refreshBoth);
 }
 
 export async function renderManutencaoDetailPage(id) {

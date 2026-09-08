@@ -210,6 +210,28 @@
 }
 .mnt-foto-add { display: inline-block; cursor: pointer; }
 
+/* Legenda dos tipos de relatório (abaixo dos botões do cabeçalho) */
+.mnt-tipo-legenda {
+    margin: -0.25rem 0 0.85rem;
+    font-size: 0.8rem;
+    color: var(--text-muted-strong);
+    line-height: 1.4;
+}
+
+/* Etiqueta Técnico / Manutenção no card da lista */
+.mnt-tipo-badge {
+    flex-shrink: 0;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.mnt-tipo-badge-tecnico { background: #e0edff; color: #1d4ed8; }
+.mnt-tipo-badge-manutencao { background: #e6f1fb; color: #185fa5; }
+
 /* Bloco "Fotos" do relatório — fica FORA do cartão .mnt-report. Some
    sozinho quando não há fotos (o HTML nem renderiza). */
 .mnt-report-fotos {
