@@ -126,7 +126,8 @@ export function fillManutencaoContent(mainContent, manutencoes) {
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
             <div class="header-actions-group header-actions-uniform">
                 <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
-                <button type="button" class="btn-add" id="btn-new-manutencao">+ Novo Relatório</button>
+                <button type="button" class="btn-add" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. Técnico</button>
+                <button type="button" class="btn-add" id="btn-new-manutencao" title="Demais clientes">🔧 Rel. de Manutenção</button>
             </div>
         </div>
         <div class="search-bar-wrapper">
@@ -237,6 +238,7 @@ export function fillManutencaoContent(mainContent, manutencoes) {
     });
 
     document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
+    document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
     document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
     renderFiltered();
 }
