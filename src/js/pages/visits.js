@@ -538,7 +538,7 @@ export async function renderVisitsPage() {
                 <h2>Visitas</h2>
                 <p class="page-subtitle">Historico e registro de visitas</p>
             </div>
-            <div style="display:flex;gap:0.5rem">
+            <div class="page-header-actions">
                 ${vpIsAdmin ? `<button type="button" class="mini-button qe-toggle${vpQeOn ? ' is-on' : ''}" id="visits-qe-toggle" title="Anotar na mesma tela, uma visita após a outra">⚡ Edição rápida</button>` : ''}
                 <button class="btn-add" id="btn-new-visit" type="button">+ Nova Visita</button>
             </div>

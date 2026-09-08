@@ -595,6 +595,17 @@ main {
 
 .header-actions-group { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.5rem; }
 
+/* Grupo de botões do cabeçalho de lista (ex.: "Edição rápida" + "+ Nova
+   X"). Numa tela estreita desce pra uma linha própria em largura total,
+   os botões dividindo o espaço — em vez de espremer o título. */
+.page-header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 560px) {
+    .page-header:has(.page-header-actions) { flex-wrap: wrap; }
+    .page-header:has(.page-header-actions) > div:first-child { flex: 1 1 100%; }
+    .page-header-actions { width: 100%; margin-top: 0.5rem; }
+    .page-header-actions > * { flex: 1 1 0; min-height: 42px; }
+}
+
 /* Variante "todos do mesmo tamanho": grupo de ações do cabeçalho de lista
    (Manutenção / Atendimento Técnico) com 2-3 botões de textos bem
    diferentes. Vira grid de colunas iguais; abaixo de 560px empilha em

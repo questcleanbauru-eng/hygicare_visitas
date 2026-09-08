@@ -75,7 +75,7 @@ export function fillProposalsContent(mainContent, proposals) {
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Propostas</h2><p class="page-subtitle">${normalized.length} proposta(s)</p></div>
-            <div style="display:flex;gap:0.5rem">
+            <div class="page-header-actions">
                 ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, uma proposta após a outra">⚡ Edição rápida</button>` : ''}
                 <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
             </div>

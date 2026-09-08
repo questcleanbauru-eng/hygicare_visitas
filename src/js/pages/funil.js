@@ -85,7 +85,7 @@ export function fillFunilContent(mainContent, funil) {
                 <h2>Funil de Vendas</h2>
                 <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
             </div>
-            <div style="display:flex;gap:0.5rem">
+            <div class="page-header-actions">
                 ${isAdminUser ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, um registro após o outro">⚡ Edição rápida</button>` : ''}
                 <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
             </div>
