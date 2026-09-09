@@ -29,8 +29,15 @@ function situacaoClass(c) {
 export function fillContratosContent(mainContent, contratos) {
     const normalized = (contratos || []).map(normalizeContrato);
     const isAdmGer = isAdminOrGerenteUser();
+    const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
     const availableCities = Array.from(new Set(normalized.map((c) => c.cidade).filter(Boolean))).sort();
     const availableVendors = Array.from(new Set(normalized.map((c) => c.vendedor).filter(Boolean))).sort();
+
+    // Edição rápida (só admin, só desktop): lista à esquerda + form completo
+    // do contrato à direita, na mesma tela.
+    let quickEdit = isAdmin && (() => { try { return localStorage.getItem('contratos_quick_edit') === '1'; } catch (e) { return false; } })();
+    let qeSelectedId = null;
+    const qeActive = () => quickEdit && isAdmin && window.innerWidth >= 1024;
 
     mainContent.innerHTML = `
         <div class="page-header">
@@ -38,7 +45,10 @@ export function fillContratosContent(mainContent, contratos) {
                 <h2>Contratos</h2>
                 <p class="page-subtitle">Contratos ativos e vencimentos</p>
             </div>
-            <button class="btn-add" id="btn-new-contrato" type="button" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de contratos."'}>+ Novo</button>
+            <div class="page-header-actions">
+                ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="ct-qe-toggle" title="Editar na mesma tela, um contrato após o outro">⚡ Edição rápida</button>` : ''}
+                <button class="btn-add" id="btn-new-contrato" type="button" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de contratos."'}>+ Novo</button>
+            </div>
         </div>
         <div class="search-bar-wrapper">
             <div class="search-bar-input-group">
@@ -132,9 +142,10 @@ export function fillContratosContent(mainContent, contratos) {
         }
 
         const sorted = [...filtered].sort((a, b) => (a.diasRestantes ?? 999999) - (b.diasRestantes ?? 999999));
+        const qe = qeActive();
 
-        container.innerHTML = `<div class="visits-list">${sorted.map((c) => `
-            <button type="button" class="proposal-card ${c.vencido ? 'proposal-card-alert' : ''}" data-contrato-id="${escapeHtml(c.id)}">
+        const cardsHtml = sorted.map((c) => `
+            <button type="button" class="proposal-card ${c.vencido ? 'proposal-card-alert' : ''}${qe && String(c.id) === String(qeSelectedId) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}">
                 <div class="visit-card-header">
                     <strong><span aria-hidden="true">${contratoSituacaoIcon(c)}</span> ${escapeHtml(c.cliente || 'Cliente não informado')}</strong>
                     <span class="${situacaoClass(c)}">${situacaoLabel(c)}</span>
@@ -152,10 +163,30 @@ export function fillContratosContent(mainContent, contratos) {
                     ${anexoUrl(c) ? `<span class="ct-anexo-view" role="button" tabindex="0" data-anexo="${escapeHtml(anexoUrl(c))}">Ver PDF</span>` : ''}
                 </div>
             </button>
-        `).join('')}</div>`;
+        `).join('');
+
+        if (qe) {
+            container.classList.add('qe-layout');
+            container.innerHTML = `<div class="qe-list">${cardsHtml}</div>`
+                + `<div class="qe-panel" id="qe-panel"><p class="qe-empty">Escolha um contrato na lista pra editar aqui.</p></div>`;
+            if (qeSelectedId && sorted.some((c) => String(c.id) === String(qeSelectedId))) {
+                openContratoQuickPanel(qeSelectedId);
+            }
+        } else {
+            container.classList.remove('qe-layout');
+            container.innerHTML = `<div class="visits-list">${cardsHtml}</div>`;
+        }
 
         container.querySelectorAll('[data-contrato-id]').forEach((btn) => {
-            btn.addEventListener('click', () => navigateTo('contrato-detail', { id: btn.dataset.contratoId }));
+            btn.addEventListener('click', () => {
+                if (qeActive()) {
+                    qeSelectedId = btn.dataset.contratoId;
+                    container.querySelectorAll('.proposal-card').forEach((el) => el.classList.toggle('qe-selected', el === btn));
+                    openContratoQuickPanel(qeSelectedId);
+                } else {
+                    navigateTo('contrato-detail', { id: btn.dataset.contratoId });
+                }
+            });
         });
         container.querySelectorAll('[data-anexo]').forEach((el) => {
             const open = (e) => { e.stopPropagation(); openExternal(el.dataset.anexo); };
@@ -164,6 +195,157 @@ export function fillContratosContent(mainContent, contratos) {
             el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(e); });
         });
     };
+
+    // ── Painel de edição rápida: form completo do contrato à direita ──────
+    async function openContratoQuickPanel(id) {
+        const panel = document.getElementById('qe-panel');
+        if (!panel) return;
+        const c = normalized.find((x) => String(x.id) === String(id));
+        if (!c) { panel.innerHTML = '<p class="qe-empty">Contrato não encontrado.</p>'; return; }
+        panel.innerHTML = '<p class="qe-empty">Carregando…</p>';
+
+        const fd = state.formData || (await ensureFormData().then((r) => r.data).catch(() => null));
+        if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) return;
+        const cidades = (fd && fd.cidades) || [];
+
+        panel.innerHTML = `
+            <div class="qe-panel-inner">
+            <form id="qe-ct-form" class="form-layout">
+                <div class="form-group full-width">
+                    <label for="qe-ct-cliente">Cliente *</label>
+                    <input type="text" id="qe-ct-cliente" value="${escapeHtml(c.cliente || '')}" placeholder="Nome do cliente" required>
+                </div>
+                <div class="form-group">
+                    <label for="qe-ct-cidade">Cidade</label>
+                    <div class="searchable-select">
+                        <input type="text" id="qe-ct-cidade" value="${escapeHtml(c.cidade || '')}" placeholder="Pesquise a cidade" autocomplete="off">
+                        <div class="searchable-select-menu" id="qe-ct-cidade-menu"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="qe-ct-vendedor">Vendedor</label>
+                    <input type="text" id="qe-ct-vendedor" value="${escapeHtml(c.vendedor || '')}" ${isAdmGer ? '' : 'readonly'}>
+                </div>
+                <div class="form-row-pair full-width">
+                    <div class="form-group">
+                        <label for="qe-ct-inicio">Início</label>
+                        <input type="date" id="qe-ct-inicio" value="${c.inicio ? formatInputDateFromDisplay(c.inicio) : ''}">
+                    </div>
+                    <div class="form-group">
+                        <label for="qe-ct-fim">Fim</label>
+                        <input type="date" id="qe-ct-fim" value="${c.fim ? formatInputDateFromDisplay(c.fim) : ''}">
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label>Ativo</label>
+                    <div class="radio-group">
+                        <label class="radio-pill"><input type="radio" name="qe-ct-ativo" value="Sim" ${c.ativo === 'Sim' ? 'checked' : ''}><span>Sim</span></label>
+                        <label class="radio-pill"><input type="radio" name="qe-ct-ativo" value="Nao" ${c.ativo !== 'Sim' ? 'checked' : ''}><span>Não</span></label>
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label>Assinado</label>
+                    <div class="radio-group">
+                        <label class="radio-pill"><input type="radio" name="qe-ct-assinado" value="Sim" ${c.assinado === 'Sim' ? 'checked' : ''}><span>Sim</span></label>
+                        <label class="radio-pill"><input type="radio" name="qe-ct-assinado" value="Nao" ${c.assinado !== 'Sim' ? 'checked' : ''}><span>Não</span></label>
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label>Enviar aviso de vencimento</label>
+                    <div class="radio-group">
+                        <label class="radio-pill"><input type="radio" name="qe-ct-aviso" value="Sim" ${/^n/i.test(String(c.enviarAviso || 'Sim')) ? '' : 'checked'}><span>Sim</span></label>
+                        <label class="radio-pill"><input type="radio" name="qe-ct-aviso" value="Nao" ${/^n/i.test(String(c.enviarAviso || 'Sim')) ? 'checked' : ''}><span>Não</span></label>
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label for="qe-ct-obs">Observações</label>
+                    <textarea id="qe-ct-obs" rows="3">${escapeHtml(c.obs || '')}</textarea>
+                </div>
+                <div class="form-group full-width">
+                    <label>PDF do contrato</label>
+                    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+                        <label class="mini-button" for="qe-ct-anexo-file" style="cursor:pointer">📎 Enviar PDF</label>
+                        <input type="file" id="qe-ct-anexo-file" accept="application/pdf" hidden>
+                        <span id="qe-ct-anexo-status" class="helper-text">${anexoUrl(c) ? '✅ PDF anexado' : 'Nenhum PDF ainda'}</span>
+                        ${anexoUrl(c) ? '<button type="button" class="mini-button" id="qe-ct-anexo-open">Ver</button>' : ''}
+                    </div>
+                    <input type="url" id="qe-ct-anexo" value="${escapeHtml(c.anexo || '')}" placeholder="…ou cole aqui um link do Drive" style="margin-top:0.4rem">
+                </div>
+                <div class="form-actions full-width">
+                    <button type="submit" class="primary-button" id="qe-ct-save">Salvar contrato</button>
+                </div>
+            </form>
+            </div>`;
+
+        initializeSearchableInput({ input: document.getElementById('qe-ct-cidade'), menu: document.getElementById('qe-ct-cidade-menu'), items: cidades, allowFreeText: true });
+
+        const anexoInput = document.getElementById('qe-ct-anexo');
+        const anexoStatus = document.getElementById('qe-ct-anexo-status');
+        document.getElementById('qe-ct-anexo-open')?.addEventListener('click', () => {
+            if (anexoInput.value.trim()) openExternal(anexoInput.value.trim());
+        });
+        document.getElementById('qe-ct-anexo-file').addEventListener('change', async (ev) => {
+            const file = ev.target.files && ev.target.files[0];
+            ev.target.value = '';
+            if (!file) return;
+            if (file.type !== 'application/pdf') { showToast('Selecione um arquivo PDF.', true); return; }
+            if (file.size > 4 * 1024 * 1024) { showToast('PDF muito grande (máx. ~4 MB).', true); return; }
+            anexoStatus.textContent = 'Enviando PDF...';
+            try {
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const fr = new FileReader();
+                    fr.onload = () => resolve(fr.result);
+                    fr.onerror = () => reject(new Error('Falha ao ler o arquivo.'));
+                    fr.readAsDataURL(file);
+                });
+                const r = await callAPI('uploadContratoPdf', { pdf: dataUrl, cliente: document.getElementById('qe-ct-cliente').value.trim(), user: state.currentUser });
+                if (r && r.status === 'success' && r.anexo) { anexoInput.value = r.anexo; anexoStatus.textContent = '✅ PDF anexado'; }
+                else { anexoStatus.textContent = 'Nenhum PDF ainda'; showToast((r && r.message) || 'Não foi possível enviar o PDF.', true); }
+            } catch (e) { anexoStatus.textContent = 'Nenhum PDF ainda'; showToast(e.message || 'Falha ao enviar o PDF.', true); }
+        });
+
+        document.getElementById('qe-ct-form').addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            const btn = document.getElementById('qe-ct-save');
+            const payload = {
+                id: c.id,
+                cliente: document.getElementById('qe-ct-cliente').value.trim(),
+                cidade: document.getElementById('qe-ct-cidade').value.trim(),
+                vendedor: document.getElementById('qe-ct-vendedor').value.trim(),
+                inicio: document.getElementById('qe-ct-inicio').value || '',
+                fim: document.getElementById('qe-ct-fim').value || '',
+                ativo: document.querySelector('input[name="qe-ct-ativo"]:checked')?.value || 'Sim',
+                assinado: document.querySelector('input[name="qe-ct-assinado"]:checked')?.value || 'Nao',
+                enviarAviso: document.querySelector('input[name="qe-ct-aviso"]:checked')?.value || 'Sim',
+                obs: document.getElementById('qe-ct-obs').value.trim(),
+                anexo: document.getElementById('qe-ct-anexo').value.trim(),
+                user: state.currentUser
+            };
+            if (!payload.cliente) { showToast('Informe o cliente.', true); return; }
+            setSaving(true, btn, 'Salvando...');
+            try {
+                const r = await attemptOrQueue('updateContrato', payload, { entity: 'contratos', tempId: String(c.id) });
+                if (r && (r.status === 'success' || r.status === 'queued')) {
+                    saveCache('contratos', null);
+                    const idx = (state.contratos || []).findIndex((x) => String(x.id || x.Id) === String(c.id));
+                    if (idx >= 0 && r.contrato) state.contratos[idx] = r.contrato;
+                    showToast(r.status === 'queued' ? 'Sem conexão — será enviado depois.' : 'Contrato atualizado.');
+                    getContratos().then((rr) => {
+                        if (rr.status === 'success' && state.currentPage === 'contratos') {
+                            state.contratos = rr.contratos || [];
+                            fillContratosContent(document.getElementById('main-content'), state.contratos);
+                        }
+                    });
+                } else {
+                    showToast((r && r.message) || 'Não foi possível salvar.', true);
+                    setSaving(false, btn);
+                }
+            } catch (e) {
+                showToast('Erro ao salvar. Tente de novo.', true);
+                setSaving(false, btn);
+            }
+        });
+    }
 
     initializeSearchableInput({ input: document.getElementById('ct-cidade'), menu: document.getElementById('ct-cidade-menu'), items: availableCities });
     if (isAdmGer) {
@@ -186,12 +368,31 @@ export function fillContratosContent(mainContent, contratos) {
 
     document.getElementById('btn-new-contrato')?.addEventListener('click', () => navigateTo('contrato-new'));
 
+    document.getElementById('ct-qe-toggle')?.addEventListener('click', (e) => {
+        quickEdit = !quickEdit;
+        try { localStorage.setItem('contratos_quick_edit', quickEdit ? '1' : '0'); } catch (err) {}
+        e.currentTarget.classList.toggle('is-on', quickEdit);
+        qeSelectedId = null;
+        renderFiltered();
+        const goingOn = quickEdit;
+        requestAnimationFrame(() => {
+            if (goingOn) {
+                document.getElementById('contratos-list-container')?.scrollIntoView({ block: 'start', behavior: 'auto' });
+            } else {
+                document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
+                window.scrollTo({ top: 0, behavior: 'auto' });
+            }
+        });
+    });
+
     renderFiltered();
 }
 
 
 export async function renderContratosPage() {
     ensureStyles('proposals');
+    // Edição rápida sempre começa desligada — o usuário liga clicando.
+    try { localStorage.removeItem('contratos_quick_edit'); } catch (e) {}
     const mainContent = document.getElementById('main-content');
     const cached = loadCache('contratos');
     if (cached) {
