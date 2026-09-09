@@ -120,6 +120,20 @@ export function fillDashboard(mainContent, data, user) {
                 <strong class="metric-value">${data.overdueFunil || 0}</strong>
                 ${(data.overdueFunil || 0) > 0 ? '<span class="metric-badge-urgent">Ação necessária</span>' : ''}
             </button>
+            ${!(data.telasBloqueadas || []).includes('contratos') ? `
+            <button class="metric-card metric-card-blue" data-nav="contratos" type="button">
+                <span class="metric-label">Contratos</span>
+                <strong class="metric-value">${data.contratosTotal || 0}</strong>
+            </button>
+            <button class="metric-card metric-card-orange" data-nav="contratos" type="button">
+                <span class="metric-label">Contratos vencidos</span>
+                <strong class="metric-value">${data.contratosVencidos || 0}</strong>
+            </button>
+            <button class="metric-card metric-card-orange" data-nav="contratos" type="button">
+                <span class="metric-label">Vencem em 30 dias</span>
+                <strong class="metric-value">${data.contratosVenceEmBreve || 0}</strong>
+                ${(data.contratosVenceEmBreve || 0) > 0 ? '<span class="metric-badge-urgent">Atenção</span>' : ''}
+            </button>` : ''}
             ${isAdminOrGerente ? `
             <button class="metric-card metric-card-blue" data-nav="visits" type="button">
                 <span class="metric-label">Visitas da equipe</span>
