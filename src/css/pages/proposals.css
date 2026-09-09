@@ -44,3 +44,11 @@
     margin-top: 0.4rem;
 }
 
+
+/* Indicador de anexo no card de Contrato */
+.ct-anexo-flag {
+    font-weight: 600;
+    font-size: 0.78rem;
+}
+.ct-anexo-ok { color: var(--success, #15803d); }
+.ct-anexo-missing { color: #b45309; }

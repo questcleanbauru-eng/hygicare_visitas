@@ -644,38 +644,42 @@
        Aumenta fonte, preenchimento e altura das caixas de assinatura só na
        impressão pra ocupar a página como um documento de verdade — o
        auto-ajuste (mnt-compact-*) reduz de volta se não couber assim. */
-    .mnt-report-header { padding: 1.5rem 2rem; }
-    .mnt-report-logo { width: 60px; height: 60px; }
-    .mnt-report-brand { font-size: 0.85rem; }
-    .mnt-report-title { font-size: 1.55rem; margin-top: 0.25rem; }
-    .mnt-report-docnum { padding: 0.65rem 2rem; font-size: 0.92rem; }
-    .mnt-status-badge { font-size: 0.85rem; padding: 0.4rem 1rem; }
+    .mnt-report-header { padding: 1.1rem 2rem; }
+    .mnt-report-logo { width: 52px; height: 52px; }
+    .mnt-report-brand { font-size: 0.82rem; }
+    .mnt-report-title { font-size: 1.4rem; margin-top: 0.2rem; }
+    .mnt-report-docnum { padding: 0.5rem 2rem; font-size: 0.88rem; }
+    .mnt-status-badge { font-size: 0.82rem; padding: 0.35rem 0.9rem; }
 
     /* No papel o corpo vira block (flex column não fragmenta entre páginas
        no Chrome — quando não cabia numa folha, ia inteiro pra folha 2 e
        deixava a 1 quase em branco). Margem no lugar do gap; cada seção
        evita quebrar no meio. */
-    .mnt-report-body { padding: 2.2rem 2rem; display: block; }
-    .mnt-report-body > * { margin-bottom: 2.2rem; }
+    /* Tamanhos folgados MAS calibrados pra caberem numa folha A4 mesmo sem
+       o auto-ajuste rodar (o beforeprint não dispara em parte dos celulares
+       no "Salvar PDF"). O mnt-compact-* ainda reduz mais se o relatório for
+       longo de verdade (muitas linhas de aferição). */
+    .mnt-report-body { padding: 1.5rem 2rem; display: block; }
+    .mnt-report-body > * { margin-bottom: 1.4rem; }
     .mnt-report-body > *:last-child { margin-bottom: 0; }
     .mnt-report-section, .mnt-signatures-grid { break-inside: avoid; }
-    .mnt-section-title { font-size: 0.88rem; margin-bottom: 0.9rem; }
+    .mnt-section-title { font-size: 0.86rem; margin-bottom: 0.6rem; }
 
-    .mnt-grid-2x2 { gap: 1.4rem 2.5rem; }
-    .mnt-field-label { font-size: 0.78rem; }
-    .mnt-field-value { font-size: 1.2rem; }
+    .mnt-grid-2x2 { gap: 1rem 2.5rem; }
+    .mnt-field-label { font-size: 0.76rem; }
+    .mnt-field-value { font-size: 1.1rem; }
 
-    .mnt-afericao-table { font-size: 14px; }
-    .mnt-afericao-table thead th { font-size: 12px; padding: 8px 14px; }
-    .mnt-afericao-table tbody td { padding: 12px 14px; }
+    .mnt-afericao-table { font-size: 13px; }
+    .mnt-afericao-table thead th { font-size: 11px; padding: 7px 14px; }
+    .mnt-afericao-table tbody td { padding: 9px 14px; }
 
-    .mnt-observacao-block { padding: 1.1rem 1.4rem; font-size: 1.05rem; line-height: 1.6; min-height: 3rem; }
+    .mnt-observacao-block { padding: 0.85rem 1.2rem; font-size: 0.98rem; line-height: 1.5; min-height: 2rem; }
 
     .mnt-signatures-grid { gap: 2rem; }
-    .mnt-signature-box { height: 150px; }
-    .mnt-signature-name { font-size: 0.95rem; margin-top: 0.6rem; }
+    .mnt-signature-box { height: 100px; }
+    .mnt-signature-name { font-size: 0.9rem; margin-top: 0.5rem; }
 
-    .mnt-report-footer { padding: 1rem 2rem; font-size: 0.82rem; }
+    .mnt-report-footer { padding: 0.8rem 2rem; font-size: 0.8rem; }
 
     /* ── Auto-ajuste (beforeprint em manutencao.js) ──────────────────
        Cada nível reduz mais espaçamento/fonte que o anterior — aplicado só

@@ -53,6 +53,14 @@ function autoFitManutencaoReport() {
     }
 }
 window.addEventListener('beforeprint', autoFitManutencaoReport);
+// beforeprint não dispara em parte dos navegadores mobile ("Salvar PDF"),
+// mas a media query "print" muda — usa isso como gatilho de reserva.
+try {
+    const mq = window.matchMedia('print');
+    (mq.addEventListener ? mq.addEventListener.bind(mq, 'change') : mq.addListener.bind(mq))((e) => {
+        if (!e || e.matches) autoFitManutencaoReport();
+    });
+} catch (e) { /* sem matchMedia: só o beforeprint */ }
 
 // O Id é o timestamp (Date.now()) do momento da criação — bom como chave
 // interna (evita colisão entre dois relatórios criados ao mesmo tempo por

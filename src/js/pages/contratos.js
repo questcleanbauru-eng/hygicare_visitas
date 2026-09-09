@@ -140,6 +140,9 @@ export function fillContratosContent(mainContent, contratos) {
                     <span>Fim: ${escapeHtml(c.fim || '-')}</span>
                     <span>${c.diasRestantes === null ? '' : (c.diasRestantes >= 0 ? `${c.diasRestantes} dia(s) restante(s)` : `Vencido há ${Math.abs(c.diasRestantes)} dia(s)`)}</span>
                 </div>
+                <div class="proposal-meta">
+                    <span class="ct-anexo-flag ${c.anexo ? 'ct-anexo-ok' : 'ct-anexo-missing'}">${c.anexo ? '📎 Contrato anexado' : '⚠️ Falta anexar o contrato'}</span>
+                </div>
             </button>
         `).join('')}</div>`;
 
@@ -270,6 +273,10 @@ export async function renderContratoDetailPage(id) {
             ${renderDetailRow('Início', contrato.inicio || '-')}
             ${renderDetailRow('Fim', contrato.fim || '-')}
             ${renderDetailRow('Enviar Aviso de vencimento', contrato.enviarAviso)}
+            <div class="detail-row">
+                <span class="detail-label">PDF do contrato</span>
+                <strong class="detail-value ${contrato.anexo ? 'ct-anexo-ok' : 'ct-anexo-missing'}">${contrato.anexo ? '📎 Anexado' : '⚠️ Falta anexar'}</strong>
+            </div>
             ${renderDetailRow('Obs', contrato.obs || '-')}
         </div>
     `;
