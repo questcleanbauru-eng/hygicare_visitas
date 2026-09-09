@@ -97,58 +97,85 @@ export function fillDashboard(mainContent, data, user) {
         <div class="section-title-row" style="margin-top:0.4rem">
             <p class="dash-section-heading" style="margin:0">Visão geral</p>
         </div>
-        <div class="metrics-grid">
-            <button class="metric-card metric-card-blue" data-nav="visits" type="button">
-                <span class="metric-label">Visitas na semana</span>
-                <strong class="metric-value">${data.weeklyVisits || 0}</strong>
-            </button>
-            <button class="metric-card metric-card-green" data-nav="proposals" type="button">
-                <span class="metric-label">Propostas abertas</span>
-                <strong class="metric-value">${data.openProposals || 0}</strong>
-            </button>
-            <button class="metric-card metric-card-orange" data-nav="proposals" type="button">
-                <span class="metric-label">Propostas sem atualização</span>
-                <strong class="metric-value">${data.overdueProposals || 0}</strong>
-                ${(data.overdueProposals || 0) > 0 ? '<span class="metric-badge-urgent">Ação necessária</span>' : ''}
-            </button>
-            <button class="metric-card metric-card-green" data-nav="funil" type="button">
-                <span class="metric-label">Funil ativo</span>
-                <strong class="metric-value">${data.funilAtivo || 0}</strong>
-            </button>
-            <button class="metric-card metric-card-orange" data-nav="funil" type="button">
-                <span class="metric-label">Funil sem atualização</span>
-                <strong class="metric-value">${data.overdueFunil || 0}</strong>
-                ${(data.overdueFunil || 0) > 0 ? '<span class="metric-badge-urgent">Ação necessária</span>' : ''}
-            </button>
-            ${!(data.telasBloqueadas || []).includes('contratos') ? `
-            <button class="metric-card metric-card-blue" data-nav="contratos" type="button">
-                <span class="metric-label">Contratos</span>
-                <strong class="metric-value">${data.contratosTotal || 0}</strong>
-            </button>
-            <button class="metric-card metric-card-orange" data-nav="contratos" type="button">
-                <span class="metric-label">Contratos vencidos</span>
-                <strong class="metric-value">${data.contratosVencidos || 0}</strong>
-            </button>
-            <button class="metric-card metric-card-orange" data-nav="contratos" type="button">
-                <span class="metric-label">Vencem em 30 dias</span>
-                <strong class="metric-value">${data.contratosVenceEmBreve || 0}</strong>
-                ${(data.contratosVenceEmBreve || 0) > 0 ? '<span class="metric-badge-urgent">Atenção</span>' : ''}
-            </button>` : ''}
-            ${isAdminOrGerente ? `
-            <button class="metric-card metric-card-blue" data-nav="visits" type="button">
-                <span class="metric-label">Visitas da equipe</span>
-                <strong class="metric-value">${data.teamWeeklyVisits || data.weeklyVisits || 0}</strong>
-            </button>` : ''}
-            ${data.canAccessRadar ? `
-            <button class="metric-card metric-card-orange" id="radar-prospeccao-card" type="button">
-                <span class="metric-label">Radar — em prospecção</span>
-                <strong class="metric-value">${data.radarClientesProspeccao || 0}</strong>
-            </button>
-            <button class="metric-card metric-card-blue" id="radar-carteira-card" type="button">
-                <span class="metric-label">Radar — minha carteira</span>
-                <strong class="metric-value">${data.radarClientesCarteira || 0}</strong>
-            </button>` : ''}
+        <div class="dash-metric-group">
+            <p class="dash-metric-group-label">Visitas</p>
+            <div class="metrics-grid">
+                <button class="metric-card metric-card-blue" data-nav="visits" type="button">
+                    <span class="metric-label">Na semana</span>
+                    <strong class="metric-value">${data.weeklyVisits || 0}</strong>
+                </button>
+                ${isAdminOrGerente ? `
+                <button class="metric-card metric-card-blue" data-nav="visits" type="button">
+                    <span class="metric-label">Da equipe (semana)</span>
+                    <strong class="metric-value">${data.teamWeeklyVisits || data.weeklyVisits || 0}</strong>
+                </button>` : ''}
+            </div>
         </div>
+
+        <div class="dash-metric-group">
+            <p class="dash-metric-group-label">Propostas</p>
+            <div class="metrics-grid">
+                <button class="metric-card metric-card-green" data-nav="proposals" type="button">
+                    <span class="metric-label">Abertas</span>
+                    <strong class="metric-value">${data.openProposals || 0}</strong>
+                </button>
+                <button class="metric-card metric-card-orange" data-nav="proposals" type="button">
+                    <span class="metric-label">Sem atualização</span>
+                    <strong class="metric-value">${data.overdueProposals || 0}</strong>
+                    ${(data.overdueProposals || 0) > 0 ? '<span class="metric-badge-urgent">Ação necessária</span>' : ''}
+                </button>
+            </div>
+        </div>
+
+        <div class="dash-metric-group">
+            <p class="dash-metric-group-label">Funil</p>
+            <div class="metrics-grid">
+                <button class="metric-card metric-card-green" data-nav="funil" type="button">
+                    <span class="metric-label">Ativo</span>
+                    <strong class="metric-value">${data.funilAtivo || 0}</strong>
+                </button>
+                <button class="metric-card metric-card-orange" data-nav="funil" type="button">
+                    <span class="metric-label">Sem atualização</span>
+                    <strong class="metric-value">${data.overdueFunil || 0}</strong>
+                    ${(data.overdueFunil || 0) > 0 ? '<span class="metric-badge-urgent">Ação necessária</span>' : ''}
+                </button>
+            </div>
+        </div>
+
+        ${!(data.telasBloqueadas || []).includes('contratos') ? `
+        <div class="dash-metric-group">
+            <p class="dash-metric-group-label">Contratos</p>
+            <div class="metrics-grid">
+                <button class="metric-card metric-card-blue" data-nav="contratos" type="button">
+                    <span class="metric-label">Total</span>
+                    <strong class="metric-value">${data.contratosTotal || 0}</strong>
+                </button>
+                <button class="metric-card metric-card-orange" data-nav="contratos" type="button">
+                    <span class="metric-label">Vencidos</span>
+                    <strong class="metric-value">${data.contratosVencidos || 0}</strong>
+                </button>
+                <button class="metric-card metric-card-orange" data-nav="contratos" type="button">
+                    <span class="metric-label">Vencem em 30 dias</span>
+                    <strong class="metric-value">${data.contratosVenceEmBreve || 0}</strong>
+                    ${(data.contratosVenceEmBreve || 0) > 0 ? '<span class="metric-badge-urgent">Atenção</span>' : ''}
+                </button>
+            </div>
+        </div>` : ''}
+
+        ${data.canAccessRadar ? `
+        <div class="dash-metric-group">
+            <p class="dash-metric-group-label">Radar</p>
+            <div class="metrics-grid">
+                <button class="metric-card metric-card-orange" id="radar-prospeccao-card" type="button">
+                    <span class="metric-label">Em prospecção</span>
+                    <strong class="metric-value">${data.radarClientesProspeccao || 0}</strong>
+                </button>
+                <button class="metric-card metric-card-blue" id="radar-carteira-card" type="button">
+                    <span class="metric-label">Minha carteira</span>
+                    <strong class="metric-value">${data.radarClientesCarteira || 0}</strong>
+                </button>
+            </div>
+        </div>` : ''}
 
         <!-- Gráfico de visitas + meta (relatorio gerencial — so admin/gerente) -->
         ${(isAdminOrGerente && data.visitsByDay && data.visitsByDay.length > 0) ? `
