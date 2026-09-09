@@ -7,6 +7,13 @@ import {
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 
+// "anexo" só conta se for um link http(s) de verdade — contratos antigos
+// têm texto/rabisco no campo que não abre nada.
+function anexoUrl(c) {
+    const v = String((c && c.anexo) || '').trim();
+    return /^https?:\/\//i.test(v) ? v : '';
+}
+
 function situacaoLabel(c) {
     if (c.vencido) return 'Vencido';
     if (c.venceEmBreve) return 'Vence em breve';
@@ -141,8 +148,8 @@ export function fillContratosContent(mainContent, contratos) {
                     <span>${c.diasRestantes === null ? '' : (c.diasRestantes >= 0 ? `${c.diasRestantes} dia(s) restante(s)` : `Vencido há ${Math.abs(c.diasRestantes)} dia(s)`)}</span>
                 </div>
                 <div class="proposal-meta ct-anexo-row">
-                    <span class="ct-anexo-flag ${c.anexo ? 'ct-anexo-ok' : 'ct-anexo-missing'}">${c.anexo ? '📎 Contrato anexado' : '⚠️ Falta anexar o contrato'}</span>
-                    ${c.anexo ? `<span class="ct-anexo-view" role="button" tabindex="0" data-anexo="${escapeHtml(c.anexo)}">Ver PDF</span>` : ''}
+                    <span class="ct-anexo-flag ${anexoUrl(c) ? 'ct-anexo-ok' : 'ct-anexo-missing'}">${anexoUrl(c) ? '📎 Contrato anexado' : '⚠️ Falta anexar o contrato'}</span>
+                    ${anexoUrl(c) ? `<span class="ct-anexo-view" role="button" tabindex="0" data-anexo="${escapeHtml(anexoUrl(c))}">Ver PDF</span>` : ''}
                 </div>
             </button>
         `).join('')}</div>`;
@@ -257,7 +264,7 @@ export async function renderContratoDetailPage(id) {
             <div class="header-actions-group">
                 ${contrato.cliente ? `<button type="button" class="mini-button mini-button-icon" id="contrato-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
                 <button type="button" class="mini-button" id="edit-contrato">Editar</button>
-                ${contrato.anexo ? `<button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="ver-anexo-contrato" aria-label="Ver PDF do contrato" title="Ver PDF do contrato">${actionIcon('file')}</button>` : ''}
+                ${anexoUrl(contrato) ? `<button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="ver-anexo-contrato" aria-label="Ver PDF do contrato" title="Ver PDF do contrato">${actionIcon('file')}</button>` : ''}
                 ${state.canDelete ? `<button type="button" class="mini-button mini-button-icon mini-button-danger" id="delete-contrato" aria-label="Apagar" title="Apagar">${actionIcon('trash')}</button>` : ''}
             </div>
         </div>
@@ -283,7 +290,7 @@ export async function renderContratoDetailPage(id) {
             <div class="detail-row">
                 <span class="detail-label">PDF do contrato</span>
                 <span class="detail-value">
-                    ${contrato.anexo
+                    ${anexoUrl(contrato)
                         ? '<button type="button" class="mini-button" id="ver-contrato-pdf">📎 Ver contrato</button>'
                         : '<strong class="ct-anexo-missing">⚠️ Falta anexar</strong>'}
                 </span>
@@ -295,8 +302,8 @@ export async function renderContratoDetailPage(id) {
     document.getElementById('back-contratos').addEventListener('click', () => navigateTo('contratos'));
     document.getElementById('contrato-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: contrato.cliente }));
     document.getElementById('edit-contrato').addEventListener('click', () => navigateTo('contrato-edit', { contrato }));
-    document.getElementById('ver-anexo-contrato')?.addEventListener('click', () => openExternal(contrato.anexo));
-    document.getElementById('ver-contrato-pdf')?.addEventListener('click', () => openExternal(contrato.anexo));
+    document.getElementById('ver-anexo-contrato')?.addEventListener('click', () => openExternal(anexoUrl(contrato)));
+    document.getElementById('ver-contrato-pdf')?.addEventListener('click', () => openExternal(anexoUrl(contrato)));
     document.getElementById('delete-contrato')?.addEventListener('click', async (event) => {
         if (!confirm(`Apagar o contrato de "${contrato.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
         const btn = event.currentTarget;
@@ -399,8 +406,8 @@ export async function renderContratoFormPage(contrato) {
                 <div class="ctf-anexo-row" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
                     <label class="mini-button ctf-anexo-upload" for="ctf-anexo-file" style="cursor:pointer">📎 Enviar PDF</label>
                     <input type="file" id="ctf-anexo-file" accept="application/pdf" hidden>
-                    <span id="ctf-anexo-status" class="helper-text">${normalized.anexo ? '✅ PDF anexado' : 'Nenhum PDF ainda'}</span>
-                    ${normalized.anexo ? '<button type="button" class="mini-button" id="ctf-anexo-open">Ver</button>' : ''}
+                    <span id="ctf-anexo-status" class="helper-text">${anexoUrl(normalized) ? '✅ PDF anexado' : 'Nenhum PDF ainda'}</span>
+                    ${anexoUrl(normalized) ? '<button type="button" class="mini-button" id="ctf-anexo-open">Ver</button>' : ''}
                 </div>
                 <input type="url" id="ctf-anexo" value="${escapeHtml(normalized.anexo || '')}" placeholder="…ou cole aqui um link do Drive" style="margin-top:0.4rem">
                 <p class="helper-text" style="margin-top:0.35rem">O PDF vai pra pasta "Contratos App" no Drive e pode ser consultado pelo app.</p>
