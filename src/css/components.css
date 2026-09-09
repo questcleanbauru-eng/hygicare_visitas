@@ -2175,10 +2175,29 @@ input[type="date"] {
 .visit-card.qe-selected { outline: 2px solid var(--primary); outline-offset: -1px; }
 
 .qe-panel .qe-empty { padding: 1.5rem 1.2rem; margin: 0; color: var(--text-muted); font-size: 0.85rem; }
-/* Edição rápida do Contrato: o form completo é mais alto — deixa a coluna
-   rolar junto com a página em vez de ficar presa. */
-.qe-panel .qe-panel-inner .form-layout { gap: 0.6rem; }
-.qe-panel .qe-panel-inner .radio-group { flex-wrap: wrap; }
+
+/* Edição rápida do Contrato: form completo compacto pra caber mais na
+   coluna sem tanta rolagem. */
+.qe-panel .qe-panel-inner { padding: 0.85rem 1rem 1rem; }
+.qe-panel .qe-panel-inner .form-layout { gap: 0.55rem; }
+.qe-panel .qe-panel-inner .form-group { margin-bottom: 0; }
+.qe-panel .qe-panel-inner .form-row-pair { gap: 0.55rem; }
+.qe-panel .qe-panel-inner label {
+    margin-bottom: 0.15rem;
+    font-size: 0.74rem;
+}
+.qe-panel .qe-panel-inner input,
+.qe-panel .qe-panel-inner textarea,
+.qe-panel .qe-panel-inner .searchable-select input {
+    min-height: 34px;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.85rem;
+}
+.qe-panel .qe-panel-inner textarea { min-height: 56px; }
+.qe-panel .qe-panel-inner .radio-group { flex-wrap: wrap; gap: 0.35rem; }
+.qe-panel .qe-panel-inner .radio-pill { padding: 0.28rem 0.7rem; font-size: 0.82rem; }
+.qe-panel .qe-panel-inner .form-actions { margin-top: 0.35rem; }
+.qe-panel .qe-panel-inner .helper-text { margin: 0; }
 
 @media (max-width: 1023px) {
     .qe-toggle { display: none; }
