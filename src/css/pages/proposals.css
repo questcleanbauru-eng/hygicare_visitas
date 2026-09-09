@@ -52,3 +52,17 @@
 }
 .ct-anexo-ok { color: var(--success, #15803d); }
 .ct-anexo-missing { color: #b45309; }
+
+.ct-anexo-row { align-items: center; }
+.ct-anexo-view {
+    flex-shrink: 0;
+    padding: 0.1rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-light);
+    cursor: pointer;
+}
+.ct-anexo-view:hover { background: #dbeafe; }

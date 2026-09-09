@@ -140,14 +140,21 @@ export function fillContratosContent(mainContent, contratos) {
                     <span>Fim: ${escapeHtml(c.fim || '-')}</span>
                     <span>${c.diasRestantes === null ? '' : (c.diasRestantes >= 0 ? `${c.diasRestantes} dia(s) restante(s)` : `Vencido há ${Math.abs(c.diasRestantes)} dia(s)`)}</span>
                 </div>
-                <div class="proposal-meta">
+                <div class="proposal-meta ct-anexo-row">
                     <span class="ct-anexo-flag ${c.anexo ? 'ct-anexo-ok' : 'ct-anexo-missing'}">${c.anexo ? '📎 Contrato anexado' : '⚠️ Falta anexar o contrato'}</span>
+                    ${c.anexo ? `<span class="ct-anexo-view" role="button" tabindex="0" data-anexo="${escapeHtml(c.anexo)}">Ver PDF</span>` : ''}
                 </div>
             </button>
         `).join('')}</div>`;
 
         container.querySelectorAll('[data-contrato-id]').forEach((btn) => {
             btn.addEventListener('click', () => navigateTo('contrato-detail', { id: btn.dataset.contratoId }));
+        });
+        container.querySelectorAll('[data-anexo]').forEach((el) => {
+            const open = (e) => { e.stopPropagation(); openExternal(el.dataset.anexo); };
+            el.addEventListener('click', open);
+            el.addEventListener('mousedown', (e) => e.stopPropagation());
+            el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(e); });
         });
     };
 
@@ -275,7 +282,11 @@ export async function renderContratoDetailPage(id) {
             ${renderDetailRow('Enviar Aviso de vencimento', contrato.enviarAviso)}
             <div class="detail-row">
                 <span class="detail-label">PDF do contrato</span>
-                <strong class="detail-value ${contrato.anexo ? 'ct-anexo-ok' : 'ct-anexo-missing'}">${contrato.anexo ? '📎 Anexado' : '⚠️ Falta anexar'}</strong>
+                <span class="detail-value">
+                    ${contrato.anexo
+                        ? '<button type="button" class="mini-button" id="ver-contrato-pdf">📎 Ver contrato</button>'
+                        : '<strong class="ct-anexo-missing">⚠️ Falta anexar</strong>'}
+                </span>
             </div>
             ${renderDetailRow('Obs', contrato.obs || '-')}
         </div>
@@ -285,6 +296,7 @@ export async function renderContratoDetailPage(id) {
     document.getElementById('contrato-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: contrato.cliente }));
     document.getElementById('edit-contrato').addEventListener('click', () => navigateTo('contrato-edit', { contrato }));
     document.getElementById('ver-anexo-contrato')?.addEventListener('click', () => openExternal(contrato.anexo));
+    document.getElementById('ver-contrato-pdf')?.addEventListener('click', () => openExternal(contrato.anexo));
     document.getElementById('delete-contrato')?.addEventListener('click', async (event) => {
         if (!confirm(`Apagar o contrato de "${contrato.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
         const btn = event.currentTarget;
