@@ -139,6 +139,10 @@ export function fillDashboard(mainContent, data, user) {
                     <strong class="metric-value">${data.overdueFunil || 0}</strong>
                     ${(data.overdueFunil || 0) > 0 ? '<span class="metric-badge-urgent">Ação necessária</span>' : ''}
                 </button>
+                <button class="metric-card metric-card-blue" id="dash-funil-diversey" data-nav="funil" type="button">
+                    <span class="metric-label">⭐ Funil Diversey</span>
+                    <strong class="metric-value">${data.funilDiversey || 0}</strong>
+                </button>
             </div>
         </div>
 

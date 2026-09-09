@@ -59,3 +59,20 @@
 .funil-readonly-row span { color: var(--text-muted); font-size: 0.8rem; }
 
 .funil-readonly-row strong { color: var(--text); }
+
+/* Funil Diversey — etiqueta de "acompanhar de perto" */
+.funil-diversey-tag {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.02rem 0.4rem;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.funil-card-diversey { border-left: 3px solid #f59e0b; }

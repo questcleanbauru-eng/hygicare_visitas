@@ -142,6 +142,14 @@ export function fillFunilContent(mainContent, funil) {
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="funil-filter-diversey">${filterLabelHtml('Funil Diversey')}</label>
+                    <select id="funil-filter-diversey">
+                        <option value="">Todos</option>
+                        <option value="sim">Só marcados</option>
+                        <option value="nao">Sem marcação</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="funil-filter-period">${filterLabelHtml('Período')}</label>
                     <select id="funil-filter-period">
                         <option value="">Todos</option>
@@ -210,6 +218,7 @@ export function fillFunilContent(mainContent, funil) {
         const cidadeFilter = document.getElementById('funil-filter-cidade')?.value || '';
         const ativoFilter  = document.getElementById('funil-filter-ativo')?.value || '';
         const atrasadoFilter = document.getElementById('funil-filter-atrasado')?.value || '';
+        const diverseyFilter = document.getElementById('funil-filter-diversey')?.value || '';
         const period       = document.getElementById('funil-filter-period')?.value || '';
         const vendorFilter = document.getElementById('funil-filter-vendor')?.value || '';
         const vlMin        = Number(document.getElementById('funil-filter-vl')?.value || 0);
@@ -224,12 +233,14 @@ export function fillFunilContent(mainContent, funil) {
                 && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
                 && calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30;
             const matchAtrasado = !atrasadoFilter || (atrasadoFilter === 'sim' ? isOverdue : !isOverdue);
+            const isDiversey    = f.funilDiversey === 'Sim';
+            const matchDiversey = !diverseyFilter || (diverseyFilter === 'sim' ? isDiversey : !isDiversey);
             const matchVendor  = !vendorFilter || f.vendedor === vendorFilter;
             const atuDate      = parseDisplayDate(f.atualizacao) || parseDisplayDate(f.data);
             const matchPeriod  = !period || (atuDate && atuDate >= periodStart && atuDate <= periodEnd);
             const matchVl      = !vlMin || parseCurrencyBR(f.vlMensal) >= vlMin;
             const matchYear    = !state.funilYearFilter || (atuDate && atuDate.getFullYear() === state.funilYearFilter);
-            return matchSearch && matchStatus && matchCidade && matchAtivo && matchAtrasado && matchVendor && matchPeriod && matchVl && matchYear;
+            return matchSearch && matchStatus && matchCidade && matchAtivo && matchAtrasado && matchDiversey && matchVendor && matchPeriod && matchVl && matchYear;
         });
 
         const container = document.getElementById('funil-list-container');
@@ -265,10 +276,11 @@ export function fillFunilContent(mainContent, funil) {
                         && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
                         && calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30;
                     return `
-                    <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}" data-funil-id="${escapeHtml(f.id)}">
+                    <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}${f.funilDiversey === 'Sim' ? ' funil-card-diversey' : ''}" data-funil-id="${escapeHtml(f.id)}">
                         <div class="visit-card-header">
                             <strong>
                                 <span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
+                                ${f.funilDiversey === 'Sim' ? '<span class="funil-diversey-tag" title="Funil Diversey — acompanhar de perto">⭐ Diversey</span>' : ''}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
                             </strong>
                             ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(f.status || '-')}" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(f.status || '')}">${escapeHtml(f.status || '-')}</span>`}
@@ -346,6 +358,10 @@ export function fillFunilContent(mainContent, funil) {
                     <label>Motivo da perda</label>
                     <input type="text" id="qe-motivo" value="${escapeHtml(f.motivoPerda || '')}" placeholder="Ex.: preço, concorrência...">
                 </div>
+                <label class="qe-diversey-check" style="margin-top:0.7rem;display:flex;align-items:center;gap:0.5rem;font-weight:600;cursor:pointer">
+                    <input type="checkbox" id="qe-diversey" ${f.funilDiversey === 'Sim' ? 'checked' : ''} style="width:auto;accent-color:var(--primary)">
+                    ⭐ Funil Diversey <span class="helper-text" style="font-weight:400">(acompanhar de perto)</span>
+                </label>
                 <label style="margin-top:0.7rem">Comentários</label>
                 <textarea id="qe-coment" rows="8">${escapeHtml(withDatedNoteHeader(f.comentarios))}</textarea>
                 <div style="display:flex;gap:0.5rem;margin-top:0.7rem">
@@ -379,9 +395,10 @@ export function fillFunilContent(mainContent, funil) {
             const foco = panel.querySelector('#qe-foco')?.value.trim();
             const atuacao = panel.querySelector('#qe-atuacao')?.value.trim();
             const aplicacao = panel.querySelector('#qe-aplicacao')?.value.trim();
+            const funilDiversey = panel.querySelector('#qe-diversey')?.checked ? 'Sim' : 'Nao';
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
-            applyFunilQuickPatch(f, { status: selStatus, comentarios: coment, motivoPerda: motivo, cidade, foco, atuacao, aplicacao }, () => {
+            applyFunilQuickPatch(f, { status: selStatus, comentarios: coment, motivoPerda: motivo, cidade, foco, atuacao, aplicacao, funilDiversey }, () => {
                 funilData = state.funil;
                 renderFiltered();
             });
@@ -411,7 +428,7 @@ export function fillFunilContent(mainContent, funil) {
     }
 
     const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
-        'funil-filter-atrasado', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
+        'funil-filter-atrasado', 'funil-filter-diversey', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
     initializeSearchableInput({ input: document.getElementById('funil-filter-status'), menu: document.getElementById('funil-filter-status-menu'), items: availableStatuses });
     initializeSearchableInput({ input: document.getElementById('funil-filter-cidade'), menu: document.getElementById('funil-filter-cidade-menu'), items: availableCidades });
     if (isAdmGer) {
@@ -574,7 +591,7 @@ function openFunilQuickUpdateModal(f, onUpdated) {
 // Update otimista + attemptOrQueue + rollback compartilhado entre o modal de
 // atualização rápida e o painel de edição rápida (split view do admin).
 function applyFunilQuickPatch(f, patch, onDone) {
-    const { status, comentarios, motivoPerda, cidade, foco, atuacao, aplicacao } = patch;
+    const { status, comentarios, motivoPerda, cidade, foco, atuacao, aplicacao, funilDiversey } = patch;
     const idx = state.funil.findIndex((item) => String(item.id) === String(f.id));
     const original = idx >= 0 ? { ...state.funil[idx] } : null;
     const nowDisplay = formatDateForDisplay(new Date());
@@ -585,8 +602,11 @@ function applyFunilQuickPatch(f, patch, onDone) {
     if (foco !== undefined) camposLivres.foco = foco;
     if (atuacao !== undefined) camposLivres.atuacao = atuacao;
     if (aplicacao !== undefined) camposLivres.aplicacao = aplicacao;
+    if (funilDiversey !== undefined) camposLivres.funilDiversey = funilDiversey;
     if (idx >= 0) {
-        state.funil[idx] = { ...state.funil[idx], status, comentarios, motivoPerda, ...camposLivres, atualizacao: nowDisplay };
+        const optimistic = { ...state.funil[idx], status, comentarios, motivoPerda, ...camposLivres, atualizacao: nowDisplay };
+        if (funilDiversey !== undefined) optimistic.funilDiversey = funilDiversey === 'Sim' ? 'Sim' : '';
+        state.funil[idx] = optimistic;
         saveCache('funil', state.funil);
     }
     if (onDone) onDone();
@@ -1028,6 +1048,7 @@ export async function renderFunilDetailPage(id, _revalidated) {
             <h2>Funil de Vendas</h2>
             <div class="header-actions-group">
                 ${f.cliente ? `<button type="button" class="mini-button mini-button-icon" id="funil-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
+                <button type="button" class="mini-button qe-toggle${f.funilDiversey === 'Sim' ? ' is-on' : ''}" id="toggle-funil-diversey" title="Funil Diversey — acompanhar de perto">⭐ Diversey</button>
                 <button type="button" class="mini-button" id="edit-funil">Editar</button>
                 <button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="share-funil-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -1053,12 +1074,29 @@ export async function renderFunilDetailPage(id, _revalidated) {
             ${renderDetailRow('Conclusão', f.conclusao || '-')}
             ${renderDetailRow('Informações Importantes', f.infImportantes || '-')}
             ${renderDetailRow('Comentários', f.comentarios || '-')}
+            ${renderDetailRow('Funil Diversey', f.funilDiversey === 'Sim' ? '⭐ Sim — acompanhar de perto' : 'Não')}
             ${f.status === 'PERDIDO' ? renderDetailRow('Motivo da Perda', f.motivoPerda || '-') : ''}
         </div>
     `;
 
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => navigateTo('funil')));
     document.getElementById('edit-funil').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
+    document.getElementById('toggle-funil-diversey')?.addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const novo = f.funilDiversey === 'Sim' ? 'Nao' : 'Sim';
+        btn.disabled = true;
+        const r = await callAPI('updateFunil', { id: f.id, funilDiversey: novo, user: state.currentUser }).catch(() => null);
+        btn.disabled = false;
+        if (r && r.status === 'success') {
+            f.funilDiversey = novo === 'Sim' ? 'Sim' : '';
+            btn.classList.toggle('is-on', f.funilDiversey === 'Sim');
+            state.funil = (state.funil || []).map((item) => String(item.id) === String(f.id) ? { ...item, funilDiversey: f.funilDiversey } : item);
+            saveCache('funil', state.funil);
+            showToast(f.funilDiversey === 'Sim' ? 'Marcado como Funil Diversey.' : 'Marcação removida.');
+        } else {
+            showToast((r && r.message) || 'Não foi possível salvar.', true);
+        }
+    });
     document.getElementById('funil-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: f.cliente }));
     document.getElementById('share-funil-whatsapp').addEventListener('click', () => {
         const text = `*Funil - ${f.cliente}*\nStatus: ${f.status}\nFoco: ${f.foco || '-'}\nCidade: ${f.cidade || '-'}\nVL Mensal: ${formatCurrency(f.vlMensal) || '-'}\nAtualização: ${f.atualizacao || f.data || '-'}`;
