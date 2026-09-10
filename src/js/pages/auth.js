@@ -1,4 +1,4 @@
-import { state, navigateTo } from '../app.js';
+import { state, navigateTo, consumeDeepLink } from '../app.js';
 import { callAPI, persistUser } from '../api.js';
 import { escapeHtml } from '../utils/format.js';
 import { setSaving, showToast } from '../utils/dom.js';
@@ -186,7 +186,7 @@ function wirePasswordLoginForm() {
                 } else {
                     await maybeOfferPinSetup(acctEmail);
                 }
-                await navigateTo('dashboard');
+                await navigateTo(...((dl => dl ? [dl.page, dl.options] : ['dashboard'])(consumeDeepLink())));
                 return;
             }
             errorText.textContent = result.message || 'Credenciais inválidas.';
@@ -311,7 +311,7 @@ function wirePinLoginForm() {
                 setPinEmail(result.userData.email || email);
                 state.currentUser = { ...result.userData, accessToken: result.accessToken };
                 persistUser(state.currentUser);
-                await navigateTo('dashboard');
+                await navigateTo(...((dl => dl ? [dl.page, dl.options] : ['dashboard'])(consumeDeepLink())));
                 return;
             }
             setBusy(false); submitting = false;
@@ -480,7 +480,7 @@ export async function performLogin(email, password) {
             if (isFirstToday) {
                 await showWelcomeSplash(result.userData);
             }
-            await navigateTo('dashboard');
+            await navigateTo(...((dl => dl ? [dl.page, dl.options] : ['dashboard'])(consumeDeepLink())));
             return;
         }
         errorEl.textContent = result.message;

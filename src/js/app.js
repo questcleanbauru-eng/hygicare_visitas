@@ -72,6 +72,19 @@ export function clearDocumentClickListeners() {
 }
 
 
+// Deep-link por URL: /c/<id> abre a tela de "preencher campanha". Só há
+// esse caso hoje. Consome uma vez e limpa a URL pra um reload não repetir.
+export function consumeDeepLink() {
+    try {
+        const m = String(window.location.pathname || '').match(/^\/c\/([A-Za-z0-9_-]{4,})\/?$/);
+        if (m) {
+            try { window.history.replaceState({}, '', '/'); } catch (e) {}
+            return { page: 'campanha-preencher', options: { id: m[1] } };
+        }
+    } catch (e) {}
+    return null;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Wake up GAS immediately — covers both logged-in and login-screen flows
     fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'ping', payload: {} }) }).catch(function() {});
@@ -101,6 +114,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
         }
+        const dl = consumeDeepLink();
+        if (dl) { await navigateTo(dl.page, dl.options); return; }
         // Kick off dashboard fetch now; renderDashboard reuses the same inflight promise
         getDashboardData().catch(() => {});
         await navigateTo('dashboard');
@@ -332,6 +347,12 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
             break;
         case 'report':
             await (await import('./pages/report.js')).renderReportPage();
+            break;
+        case 'campanhas':
+            await (await import('./pages/campanhas.js')).renderCampanhasPage();
+            break;
+        case 'campanha-preencher':
+            await (await import('./pages/campanhas.js')).renderCampanhaPreencherPage(options.id);
             break;
         default:
             await renderDashboard();

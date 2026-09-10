@@ -24,6 +24,7 @@ export function fillProposalsContent(mainContent, proposals) {
     let quickEdit = isAdmin && (() => { try { return localStorage.getItem('proposals_quick_edit') === '1'; } catch (e) { return false; } })();
     let qeSelectedId = null;
     const qeActive = () => quickEdit && isAdmin && window.innerWidth >= 1024;
+    let _propsCampanhaList = [];
 
     const newProposalDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de propostas."';
 
@@ -76,6 +77,7 @@ export function fillProposalsContent(mainContent, proposals) {
         <div class="page-header">
             <div><h2>Propostas</h2><p class="page-subtitle">${normalized.length} proposta(s)</p></div>
             <div class="page-header-actions">
+                ${isAdmGer ? '<button type="button" class="mini-button" id="proposals-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
                 ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, uma proposta após a outra">⚡ Edição rápida</button>` : ''}
                 <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
             </div>
@@ -241,6 +243,7 @@ export function fillProposalsContent(mainContent, proposals) {
             const db = parseDisplayDate(b.data) || parseDisplayDate(b.atualizacao);
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
+        _propsCampanhaList = sorted.map((p) => ({ id: p.id, cliente: p.cliente, cidade: p.cidade, extra: [p.foco, p.produto || p.produtos].filter(Boolean).join(' · ') }));
 
         const byMonth = sorted.reduce((groups, p) => {
             const d = parseDisplayDate(p.data) || parseDisplayDate(p.atualizacao);
@@ -508,6 +511,10 @@ export function fillProposalsContent(mainContent, proposals) {
     });
 
     document.getElementById('btn-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
+    document.getElementById('proposals-campanha-btn')?.addEventListener('click', async () => {
+        const { openSelecionarClientesModal } = await import('./campanhas.js');
+        openSelecionarClientesModal('proposta', _propsCampanhaList);
+    });
     document.getElementById('qe-toggle')?.addEventListener('click', (e) => {
         quickEdit = !quickEdit;
         try { localStorage.setItem('proposals_quick_edit', quickEdit ? '1' : '0'); } catch (err) {}

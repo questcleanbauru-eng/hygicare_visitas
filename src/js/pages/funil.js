@@ -24,6 +24,7 @@ export function fillFunilContent(mainContent, funil) {
     let quickEdit = isAdminUser && (() => { try { return localStorage.getItem('funil_quick_edit') === '1'; } catch (e) { return false; } })();
     let qeSelectedId = null;
     const qeActive = () => quickEdit && isAdminUser && window.innerWidth >= 1024;
+    let _funilCampanhaList = [];
 
     const newFunilDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."';
 
@@ -86,6 +87,7 @@ export function fillFunilContent(mainContent, funil) {
                 <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
             </div>
             <div class="page-header-actions">
+                ${isAdmGer ? '<button type="button" class="mini-button" id="funil-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
                 ${isAdminUser ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, um registro após o outro">⚡ Edição rápida</button>` : ''}
                 <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
             </div>
@@ -256,6 +258,7 @@ export function fillFunilContent(mainContent, funil) {
             const db = parseDisplayDate(b.data) || parseDisplayDate(b.atualizacao);
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
+        _funilCampanhaList = sorted.map((f) => ({ id: f.id, cliente: f.cliente, cidade: f.cidade, extra: [f.foco, f.atuacao].filter(Boolean).join(' · ') }));
 
         const byMonth = sorted.reduce((groups, f) => {
             const d = parseDisplayDate(f.data) || parseDisplayDate(f.atualizacao);
@@ -497,6 +500,10 @@ export function fillFunilContent(mainContent, funil) {
     });
 
     document.getElementById('btn-new-funil')?.addEventListener('click', () => navigateTo('funil-new'));
+    document.getElementById('funil-campanha-btn')?.addEventListener('click', async () => {
+        const { openSelecionarClientesModal } = await import('./campanhas.js');
+        openSelecionarClientesModal('funil', _funilCampanhaList);
+    });
     document.getElementById('qe-toggle')?.addEventListener('click', (e) => {
         quickEdit = !quickEdit;
         try { localStorage.setItem('funil_quick_edit', quickEdit ? '1' : '0'); } catch (err) {}

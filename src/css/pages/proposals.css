@@ -66,3 +66,32 @@
     cursor: pointer;
 }
 .ct-anexo-view:hover { background: #dbeafe; }
+
+/* ── Campanhas de atualização ─────────────────────────────────────── */
+.camp-sel-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.45rem 0.2rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.86rem;
+    cursor: pointer;
+}
+.camp-sel-row:last-child { border-bottom: none; }
+.camp-sel-row input { width: auto; margin-top: 0.15rem; accent-color: var(--primary); flex-shrink: 0; }
+
+.camp-progress {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+}
+.camp-progress-bar { height: 100%; background: var(--primary); transition: width 0.2s; }
+
+.camp-cards { display: flex; flex-direction: column; gap: 0.75rem; }
+.camp-card .camp-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.camp-card-done { opacity: 0.75; }
+.camp-tag-ok { font-size: 0.72rem; font-weight: 700; color: #15803d; white-space: nowrap; }
+.camp-card .qe-status-row { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.25rem; }
+.camp-card textarea { width: 100%; }
+.camp-admin-row + .camp-admin-row { margin-top: 0; }

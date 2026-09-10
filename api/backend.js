@@ -7,6 +7,9 @@ import {
     handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDebugFunilHeaders
 } from '../lib/handlers/funil.js';
 import {
+    handleCriarCampanha, handleGetCampanha, handleResponderCampanhaItem, handleGetCampanhas, handleDeleteCampanha
+} from '../lib/handlers/campanhas.js';
+import {
     handleGetContratos, handleGetContratoById, handleCreateContrato, handleUpdateContrato, handleDeleteContrato,
     handleUploadContratoPdf
 } from '../lib/handlers/contratos.js';
@@ -75,6 +78,11 @@ const HANDLERS = {
     createFunil: handleCreateFunil,
     updateFunil: handleUpdateFunil,
     deleteFunil: handleDeleteFunil,
+    criarCampanha: handleCriarCampanha,
+    getCampanha: handleGetCampanha,
+    responderCampanhaItem: handleResponderCampanhaItem,
+    getCampanhas: handleGetCampanhas,
+    deleteCampanha: handleDeleteCampanha,
     debugFunilHeaders: handleDebugFunilHeaders,
     getContratos: handleGetContratos,
     getContratoById: handleGetContratoById,
