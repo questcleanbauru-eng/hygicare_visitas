@@ -970,8 +970,12 @@ export async function renderManutencaoFormPage(record, options) {
             <div class="form-group full-width">
                 <label>Fotos</label>
                 <div id="mnt-fotos-grid" class="mnt-fotos-grid"></div>
-                <label class="mini-button mnt-foto-add" for="mnt-foto-input">📷 Adicionar foto</label>
-                <input type="file" id="mnt-foto-input" accept="image/*" capture="environment" multiple hidden>
+                <div class="mnt-foto-actions">
+                    <label class="mini-button mnt-foto-add" for="mnt-foto-camera">📷 Câmera</label>
+                    <label class="mini-button mnt-foto-add" for="mnt-foto-galeria">🖼️ Galeria</label>
+                </div>
+                <input type="file" id="mnt-foto-camera" accept="image/*" capture="environment" multiple hidden>
+                <input type="file" id="mnt-foto-galeria" accept="image/*" multiple hidden>
                 <p class="field-helper-text" id="mnt-foto-hint">As fotos vão pra pasta do Drive e aparecem no relatório/PDF.</p>
             </div>
 
@@ -1015,7 +1019,6 @@ export async function renderManutencaoFormPage(record, options) {
     // ── Fotos (Drive) ──────────────────────────────────────────────────
     const fotoIds = Array.isArray(m.fotos) ? m.fotos.slice() : [];
     const fotosGrid = document.getElementById('mnt-fotos-grid');
-    const fotoInput = document.getElementById('mnt-foto-input');
     const fotoHint = document.getElementById('mnt-foto-hint');
     const renderFotos = () => {
         fotosGrid.innerHTML = fotoIds.map((id) => `
@@ -1035,9 +1038,7 @@ export async function renderManutencaoFormPage(record, options) {
         });
     };
     renderFotos();
-    fotoInput.addEventListener('change', async () => {
-        const files = Array.from(fotoInput.files || []);
-        fotoInput.value = '';
+    const enviarFotos = async (files) => {
         if (!files.length) return;
         fotoHint.textContent = `Enviando ${files.length} foto(s)...`;
         for (const file of files) {
@@ -1060,6 +1061,14 @@ export async function renderManutencaoFormPage(record, options) {
             }
         }
         fotoHint.textContent = 'As fotos vão pra pasta do Drive e aparecem no relatório/PDF.';
+    };
+    ['mnt-foto-camera', 'mnt-foto-galeria'].forEach((inputId) => {
+        const el = document.getElementById(inputId);
+        el?.addEventListener('change', async () => {
+            const files = Array.from(el.files || []);
+            el.value = '';
+            await enviarFotos(files);
+        });
     });
 
     initializeSearchableInput({

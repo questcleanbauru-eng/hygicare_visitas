@@ -209,6 +209,7 @@
     cursor: pointer;
 }
 .mnt-foto-add { display: inline-block; cursor: pointer; }
+.mnt-foto-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
 /* Legenda dos tipos de relatório (abaixo dos botões do cabeçalho) */
 .mnt-tipo-legenda {
