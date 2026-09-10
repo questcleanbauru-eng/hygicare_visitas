@@ -518,12 +518,8 @@ export function fillProposalsContent(mainContent, proposals) {
         document.getElementById('main-content')?.classList.toggle('qe-focus', goingOn);
         renderFiltered();
         requestAnimationFrame(() => {
-            if (goingOn) {
-                document.getElementById('proposal-list-container')?.scrollIntoView({ block: 'start', behavior: 'auto' });
-            } else {
-                document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
-                window.scrollTo({ top: 0, behavior: 'auto' });
-            }
+            document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
+            window.scrollTo({ top: 0, behavior: 'auto' });
         });
     });
     document.getElementById('proposals-csv-btn')?.addEventListener('click', () => {

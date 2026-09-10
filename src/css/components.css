@@ -2119,13 +2119,19 @@ input[type="date"] {
     color: #fff;
 }
 
-/* Modo foco da Edição rápida: some com busca, filtros e barra de período —
-   sobra só o cabeçalho + a lista + o painel de edição. */
+/* Modo foco da Edição rápida: some com busca, filtros, barra de período e o
+   título da página — sobra só a linha de botões + a lista + o painel de
+   edição, tudo no topo (sem precisar rolar). */
 #main-content.qe-focus .search-bar-wrapper,
 #main-content.qe-focus .visits-filter-card,
 #main-content.qe-focus .funil-filter-card,
-#main-content.qe-focus .scope-banner {
+#main-content.qe-focus .scope-banner,
+#main-content.qe-focus .page-header > div:first-child {
     display: none;
+}
+#main-content.qe-focus .page-header {
+    justify-content: flex-end;
+    margin-bottom: 0.5rem;
 }
 
 .qe-layout {

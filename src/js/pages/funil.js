@@ -507,12 +507,8 @@ export function fillFunilContent(mainContent, funil) {
         document.getElementById('main-content')?.classList.toggle('qe-focus', goingOn);
         renderFiltered();
         requestAnimationFrame(() => {
-            if (goingOn) {
-                document.getElementById('funil-list-container')?.scrollIntoView({ block: 'start', behavior: 'auto' });
-            } else {
-                document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
-                window.scrollTo({ top: 0, behavior: 'auto' });
-            }
+            document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
+            window.scrollTo({ top: 0, behavior: 'auto' });
         });
     });
     document.getElementById('update-summary-btn')?.addEventListener('click', () => {

@@ -557,12 +557,9 @@ export async function renderVisitsPage() {
         document.getElementById('main-content')?.classList.toggle('qe-focus', goingOn);
         _visitsRenderFiltered?.();
         requestAnimationFrame(() => {
-            if (goingOn) {
-                document.getElementById('visits-list-container')?.scrollIntoView({ block: 'start', behavior: 'auto' });
-            } else {
-                document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
-                window.scrollTo({ top: 0, behavior: 'auto' });
-            }
+            // Modo foco já colapsa o cabeçalho — o topo passa a ser a lista.
+            document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
+            window.scrollTo({ top: 0, behavior: 'auto' });
         });
     });
 
