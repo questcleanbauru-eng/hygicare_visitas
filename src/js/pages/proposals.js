@@ -513,10 +513,10 @@ export function fillProposalsContent(mainContent, proposals) {
         try { localStorage.setItem('proposals_quick_edit', quickEdit ? '1' : '0'); } catch (err) {}
         e.currentTarget.classList.toggle('is-on', quickEdit);
         qeSelectedId = null;
-        renderFiltered();
-        // Ao LIGAR: rola até a lista (esconde busca/filtros), pra a área de
-        // edição rápida ocupar a tela toda. Ao DESLIGAR: volta pro topo.
         const goingOn = quickEdit;
+        // Ao LIGAR: esconde busca/filtros/período (só lista + painel).
+        document.getElementById('main-content')?.classList.toggle('qe-focus', goingOn);
+        renderFiltered();
         requestAnimationFrame(() => {
             if (goingOn) {
                 document.getElementById('proposal-list-container')?.scrollIntoView({ block: 'start', behavior: 'auto' });
@@ -561,6 +561,7 @@ export async function renderProposalsPage() {
     ensureStyles('proposals');
     // Edição rápida sempre começa desligada — o usuário liga clicando.
     try { localStorage.removeItem('proposals_quick_edit'); } catch (e) {}
+    document.getElementById('main-content')?.classList.remove('qe-focus');
     const mainContent = document.getElementById('main-content');
     const loadAll = state.navLoadAll === 'proposals';
     state.navLoadAll = null;

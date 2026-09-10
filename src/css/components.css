@@ -2119,6 +2119,15 @@ input[type="date"] {
     color: #fff;
 }
 
+/* Modo foco da Edição rápida: some com busca, filtros e barra de período —
+   sobra só o cabeçalho + a lista + o painel de edição. */
+#main-content.qe-focus .search-bar-wrapper,
+#main-content.qe-focus .visits-filter-card,
+#main-content.qe-focus .funil-filter-card,
+#main-content.qe-focus .scope-banner {
+    display: none;
+}
+
 .qe-layout {
     display: grid;
     grid-template-columns: minmax(300px, 380px) 1fr;

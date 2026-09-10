@@ -524,6 +524,7 @@ export async function renderVisitsPage() {
     ensureStyles('visits');
     // Edição rápida sempre começa desligada — o usuário liga clicando.
     try { localStorage.removeItem('visits_quick_edit'); } catch (e) {}
+    document.getElementById('main-content')?.classList.remove('qe-focus');
     const mainContent = document.getElementById('main-content');
     const cachedAllRaw = loadCache('visits_all');
     const cached3mRaw  = loadCache('visits');
@@ -550,10 +551,11 @@ export async function renderVisitsPage() {
         const on = (() => { try { return localStorage.getItem('visits_quick_edit') === '1'; } catch (err) { return false; } })();
         try { localStorage.setItem('visits_quick_edit', on ? '0' : '1'); } catch (err) {}
         e.currentTarget.classList.toggle('is-on', !on);
-        _visitsRenderFiltered?.();
-        // Ao LIGAR: rola até a lista (esconde busca/filtros/período), pra a
-        // área de edição rápida ocupar a tela toda. Ao DESLIGAR: volta pro topo.
+        // Ao LIGAR: esconde busca/filtros/período (só lista + painel) e rola
+        // pro topo da lista. Ao DESLIGAR: mostra tudo de novo e volta ao topo.
         const goingOn = !on;
+        document.getElementById('main-content')?.classList.toggle('qe-focus', goingOn);
+        _visitsRenderFiltered?.();
         requestAnimationFrame(() => {
             if (goingOn) {
                 document.getElementById('visits-list-container')?.scrollIntoView({ block: 'start', behavior: 'auto' });
