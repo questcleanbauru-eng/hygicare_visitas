@@ -441,6 +441,8 @@ export function normalizeFormData(data) {
         equipamentos: data.equipamentos || [],
         tiposVisita,
         clientes,
+        vendedores: Array.isArray(data.vendedores) ? data.vendedores : [],
+        multiTipoVisita: !!data.multiTipoVisita,
         veiculos: data.veiculos || ['Particular', 'Empresa'],
         logoEmpresa: data.logoEmpresa || ''
     };
