@@ -8,7 +8,9 @@ const PROP_STATUS = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
 const FUNIL_STATUS = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
 
 function campanhaLink(id) {
-    return `${window.location.origin}/c/${id}`;
+    // ?c=<id> (não /c/<id>): mantém o path na raiz pra os assets relativos
+    // do app carregarem quando o link é aberto num navegador limpo.
+    return `${window.location.origin}/?c=${id}`;
 }
 
 // ── Modal "Selecionar clientes" (aberto pelas telas Propostas/Funil) ────
@@ -21,7 +23,7 @@ export function openSelecionarClientesModal(tipo, items) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left;max-width:480px">
+        <div class="modal-card camp-modal" style="text-align:left;max-width:480px">
             <h3 style="margin-top:0">🔗 Campanha de atualização</h3>
             <p class="helper-text" style="margin:-0.3rem 0 0.6rem">Marque os clientes que o vendedor deve atualizar (${tipo === 'funil' ? 'Funil' : 'Propostas'}).</p>
             <input type="text" id="camp-sel-search" class="form-input" placeholder="Filtrar…" style="margin-bottom:0.5rem">
@@ -71,7 +73,7 @@ export async function openGerarCampanhaModal(tipo, itemIds) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left;max-width:440px">
+        <div class="modal-card camp-modal" style="text-align:left;max-width:440px">
             <h3 style="margin-top:0">🔗 Gerar link de atualização</h3>
             <p class="helper-text" style="margin:-0.3rem 0 0.9rem">${itemIds.length} ${tipo === 'funil' ? 'oportunidade(s) do Funil' : 'proposta(s)'} selecionada(s).</p>
             <div class="form-group full-width">
@@ -80,10 +82,10 @@ export async function openGerarCampanhaModal(tipo, itemIds) {
             </div>
             <div class="form-group full-width">
                 <label for="camp-vendedor">Vendedor que vai preencher</label>
-                <div class="searchable-select">
-                    <input type="text" id="camp-vendedor" placeholder="Escolha o vendedor" autocomplete="off">
-                    <div class="searchable-select-menu" id="camp-vendedor-menu"></div>
-                </div>
+                <select id="camp-vendedor">
+                    <option value="">Escolha o vendedor</option>
+                    ${vendedores.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
+                </select>
             </div>
             <div class="form-group full-width">
                 <label for="camp-prazo">Prazo (opcional)</label>
@@ -99,14 +101,6 @@ export async function openGerarCampanhaModal(tipo, itemIds) {
     const close = () => overlay.remove();
     overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
     overlay.querySelector('#camp-cancel').addEventListener('click', close);
-
-    import('../utils/dom.js').then(({ initializeSearchableInput }) => {
-        initializeSearchableInput({
-            input: overlay.querySelector('#camp-vendedor'),
-            menu: overlay.querySelector('#camp-vendedor-menu'),
-            items: vendedores
-        });
-    });
 
     overlay.querySelector('#camp-gerar').addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;

@@ -72,14 +72,19 @@ export function clearDocumentClickListeners() {
 }
 
 
-// Deep-link por URL: /c/<id> abre a tela de "preencher campanha". Só há
-// esse caso hoje. Consome uma vez e limpa a URL pra um reload não repetir.
+// Deep-link por URL: ?c=<id> (ou /c/<id> antigo) abre a tela de "preencher
+// campanha". Consome uma vez e limpa a URL pra um reload não repetir.
 export function consumeDeepLink() {
     try {
-        const m = String(window.location.pathname || '').match(/^\/c\/([A-Za-z0-9_-]{4,})\/?$/);
-        if (m) {
+        let id = '';
+        try { id = new URLSearchParams(window.location.search || '').get('c') || ''; } catch (e) {}
+        if (!id) {
+            const m = String(window.location.pathname || '').match(/^\/c\/([A-Za-z0-9_-]{4,})\/?$/);
+            if (m) id = m[1];
+        }
+        if (/^[A-Za-z0-9_-]{4,}$/.test(id)) {
             try { window.history.replaceState({}, '', '/'); } catch (e) {}
-            return { page: 'campanha-preencher', options: { id: m[1] } };
+            return { page: 'campanha-preencher', options: { id } };
         }
     } catch (e) {}
     return null;

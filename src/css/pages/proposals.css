@@ -95,3 +95,14 @@
 .camp-card .qe-status-row { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.25rem; }
 .camp-card textarea { width: 100%; }
 .camp-admin-row + .camp-admin-row { margin-top: 0; }
+
+.camp-modal {
+    max-height: 88dvh;
+    display: flex;
+    flex-direction: column;
+}
+.camp-modal > h3, .camp-modal > .helper-text, .camp-modal > .form-group,
+.camp-modal > #camp-result, .camp-modal > input, .camp-modal > label { flex-shrink: 0; }
+.camp-modal #camp-sel-list { flex: 1; min-height: 0; max-height: none; }
+.camp-modal .form-actions { flex-shrink: 0; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+.camp-modal select, .camp-modal input[type="date"] { min-height: 42px; }
