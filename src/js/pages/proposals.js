@@ -5,7 +5,7 @@ import {
     formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml,
     formatInputDateFromDisplay, formatDateFromDisplay,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
-    clienteSearchItem
+    clienteSearchItem, findClienteByNome
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
@@ -1029,7 +1029,7 @@ export async function renderProposalCreatePage() {
         items: clientes.map((c) => clienteSearchItem(c)),
         allowFreeText: true,
         onSelect: (value) => {
-            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+            const match = findClienteByNome(clientes, value);
             if (!match) return;
             if (match.cidade) document.getElementById('pc-cidade').value = match.cidade;
             if (match.potencialCliente) document.getElementById('pc-foco').value = match.potencialCliente;

@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase, clienteSearchItem } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase, clienteSearchItem, findClienteByNome } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, showToast, actionIcon,
     skeletonList, skeletonDetail, addScrollTop, setSaving, openExternal
@@ -1078,7 +1078,7 @@ export async function renderManutencaoFormPage(record, options) {
         allowFreeText: true,
         // Escolher um cliente já cadastrado preenche a cidade sozinho.
         onSelect: (value) => {
-            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+            const match = findClienteByNome(clientes, value);
             if (match && match.cidade) document.getElementById('mnt-cidade').value = match.cidade;
         }
     });

@@ -8,7 +8,7 @@ import {
     normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
     calculateDaysFromDisplayDate,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
-    clienteSearchItem
+    clienteSearchItem, findClienteByNome, clienteNomeParaGravar
 } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
@@ -1372,17 +1372,16 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     };
 
     const fillClientData = (clientName) => {
-        const normalizedName = String(clientName || '').trim().toLowerCase();
-        const client = state.formData.clientes.find((item) => String(item.nome || '').trim().toLowerCase() === normalizedName);
+        const client = findClienteByNome(state.formData.clientes, clientName);
         if (!client) {
             contatoInput.disabled = false;
             return;
         }
-        // A busca de "Cliente cadastrado" pode ter sido feita pelo Nome
-        // Fantasia — depois de achar o cliente, o campo mostra só o nome
-        // oficial (o que de fato é gravado na visita).
-        clienteSelect.value = client.nome || '';
-        clienteInput.value = client.nome || '';
+        // O que fica gravado na visita é o Nome Fantasia (nome oficial só
+        // quando o cliente não tem fantasia cadastrado) — regra do negócio.
+        const nomeGravar = clienteNomeParaGravar(client);
+        clienteSelect.value = nomeGravar;
+        clienteInput.value = nomeGravar;
         if (client.contato) {
             contatoInput.value = client.contato;
             contatoInput.disabled = false;
@@ -2260,7 +2259,7 @@ export async function showCreateAgendamentoModal(onCreated) {
             items: clientes.map((c) => clienteSearchItem(c)),
             allowFreeText: true,
             onSelect: (value) => {
-                const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+                const match = findClienteByNome(clientes, value);
                 if (match && match.cidade) {
                     overlay.querySelector('#newag-cidade').value = match.cidade;
                 }

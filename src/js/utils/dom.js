@@ -143,10 +143,13 @@ function normalizeSearchableItem(raw) {
         const value = String(raw.value ?? '').trim();
         const label = String(raw.label ?? raw.value ?? '').trim();
         const search = String(raw.search ?? raw.label ?? raw.value ?? '').trim();
-        return { value, label, search };
+        // alts: outros textos que contam como "bate exato" no blur (ex.: o
+        // nome oficial do cliente, quando o valor gravado é o fantasia).
+        const alts = Array.isArray(raw.alts) ? raw.alts.map((a) => String(a ?? '').trim()).filter(Boolean) : [];
+        return { value, label, search, alts };
     }
     const s = String(raw ?? '').trim();
-    return { value: s, label: s, search: s };
+    return { value: s, label: s, search: s, alts: [] };
 }
 
 export function initializeSearchableInput({ input, menu, items = [], onSelect = null, multiSelect = false, maxSelections = 1, selectedItems = [], selectedContainer = null, selectionLabel = 'item', onSelectionChange = null, allowFreeText = false }) {
@@ -171,7 +174,10 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
     // Bate tanto pelo valor gravado (ex.: nome oficial) quanto pelo rótulo
     // mostrado na lista (ex.: nome fantasia) — quem digitou um dos dois por
     // completo não pode ser tratado como "não encontrado".
-    const exactMatch = (value) => normalizedItems.find((item) => matchKey(item.value) === matchKey(value) || matchKey(item.label) === matchKey(value));
+    const exactMatch = (value) => {
+        const k = matchKey(value);
+        return normalizedItems.find((item) => matchKey(item.value) === k || matchKey(item.label) === k || item.alts.some((a) => matchKey(a) === k));
+    };
 
     const renderSelectedItems = () => {
         if (!selectedContainer) {

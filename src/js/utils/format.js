@@ -529,17 +529,40 @@ export function formatMonthKey(monthKey) {
 }
 
 
+// Nome pelo qual o cliente é gravado nas visitas/propostas/funil/relatórios:
+// o Nome Fantasia quando existe, senão o nome oficial (regra do negócio —
+// é como a loja é conhecida no dia a dia).
+export function clienteNomeParaGravar(client) {
+    const nome = String((client && client.nome) || '').trim();
+    const fantasia = String((client && client.nomeFantasia) || '').trim();
+    return fantasia || nome;
+}
+
+// Acha o cliente pelo texto selecionado/digitado: primeiro pelo fantasia
+// (que é o que fica gravado), depois pelo nome oficial — assim registros
+// antigos, gravados com o nome oficial, ainda casam.
+export function findClienteByNome(clientes, value) {
+    const alvo = String(value || '').trim().toLowerCase();
+    if (!alvo) return null;
+    const list = clientes || [];
+    return list.find((c) => String((c && c.nomeFantasia) || '').trim().toLowerCase() === alvo)
+        || list.find((c) => String((c && c.nome) || '').trim().toLowerCase() === alvo)
+        || null;
+}
+
 // "Cliente cadastrado": item pro initializeSearchableInput (aceita
-// { value, label, search }) — a lista mostra o Nome Fantasia (cai pro nome
-// oficial quando o cliente não tem um cadastrado), a busca bate pelos dois,
-// e o valor gravado quando seleciona é sempre o nome oficial.
+// { value, label, search, alts }) — a lista mostra e GRAVA o Nome Fantasia
+// (cai pro nome oficial quando não tem), a busca bate pelos dois, e o nome
+// oficial ainda conta como "bate exato" (alts) pra editar registro antigo.
 export function clienteSearchItem(client) {
     const nome = String((client && client.nome) || '').trim();
     const fantasia = String((client && client.nomeFantasia) || '').trim();
+    const gravar = fantasia || nome;
     return {
-        value: nome,
-        label: fantasia || nome,
-        search: fantasia && fantasia.toLowerCase() !== nome.toLowerCase() ? `${nome} ${fantasia}` : nome
+        value: gravar,
+        label: gravar,
+        search: fantasia && fantasia.toLowerCase() !== nome.toLowerCase() ? `${nome} ${fantasia}` : nome,
+        alts: nome && nome !== gravar ? [nome] : []
     };
 }
 

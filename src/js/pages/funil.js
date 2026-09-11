@@ -5,7 +5,7 @@ import {
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
     funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
-    clienteSearchItem
+    clienteSearchItem, findClienteByNome
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
@@ -1037,7 +1037,7 @@ export async function renderFunilCreatePage() {
         items: clientes.map((c) => clienteSearchItem(c)),
         allowFreeText: true,
         onSelect: (value) => {
-            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+            const match = findClienteByNome(clientes, value);
             if (!match) return;
             if (match.cidade) document.getElementById('fc-cidade').value = match.cidade;
             if (match.potencialCliente) document.getElementById('fc-foco').value = match.potencialCliente;

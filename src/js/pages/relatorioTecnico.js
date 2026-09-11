@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, titleCase, clienteSearchItem } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, titleCase, clienteSearchItem, findClienteByNome } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, showToast, skeletonList, skeletonDetail,
     addScrollTop, setSaving, openExternal
@@ -595,7 +595,7 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
         items: clientes.map((c) => clienteSearchItem(c)),
         allowFreeText: true,
         onSelect: (value) => {
-            const c = clientes.find((x) => String((x['Nome do Cliente'] || x.nome) || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+            const c = findClienteByNome(clientes, value);
             if (!c) return;
             const cidadeEl = document.getElementById('rt-cidade');
             if (c.Cidade && !cidadeEl.value) { cidadeEl.value = c.Cidade; aplicarEstadoDaCidade(c.Cidade); }
