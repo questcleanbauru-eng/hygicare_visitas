@@ -260,6 +260,7 @@ export async function renderCampanhaPreencherPage(id) {
                 ${it.respondidoEm ? '<span class="camp-tag-ok">✓ atualizado</span>' : ''}
             </div>
             <p class="helper-text" style="margin:0.15rem 0 0.5rem">${escapeHtml(ctx || '-')}<br>Status atual: <strong>${escapeHtml(it.status || '-')}</strong> · última atualização ${escapeHtml(it.atualizacao || '-')}</p>
+            ${it.resumo ? `<details class="detail-resumo camp-resumo"><summary>Ver itens da proposta</summary><p>${escapeHtml(it.resumo).replace(/\s*\/\s*(?=Item\s+\d)/gi, '<br>')}</p></details>` : ''}
             <label style="font-size:0.8rem;font-weight:600">Status</label>
             <div class="qe-status-row camp-status-row" data-idx="${idx}">
                 ${statuses.map((s) => `<button type="button" class="qe-status-btn${s === (it.status || '') ? ' is-active' : ''}" data-s="${s}">${s}</button>`).join('')}

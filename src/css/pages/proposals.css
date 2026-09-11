@@ -96,6 +96,20 @@
 .camp-card textarea { width: 100%; }
 .camp-admin-row + .camp-admin-row { margin-top: 0; }
 
+/* Resumo da proposta (itens importados) — recolhido por padrão, são
+   muitos itens por linha. Usado no detalhe da Proposta e no card da campanha. */
+.detail-resumo {
+    margin: 0.5rem 0;
+    padding: 0.45rem 0.7rem;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+}
+.detail-resumo summary { cursor: pointer; font-weight: 600; color: var(--primary); }
+.detail-resumo p { margin: 0.45rem 0 0; line-height: 1.45; color: var(--text); white-space: normal; }
+.camp-resumo { margin: 0 0 0.55rem; }
+
 /* Lista de campanhas do admin — cards compactos, sem esticar até metade
    da tela num monitor largo (era .visits-list, 2 colunas de ~50% cada). */
 .camp-list {

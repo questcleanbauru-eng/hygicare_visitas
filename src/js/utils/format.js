@@ -50,6 +50,7 @@ export function normalizeProposal(proposal) {
         obs: proposal['Observação'] || proposal['Observacao'] || proposal['Atualizar/OBS'] || proposal.obs || proposal.observacao || '',
         dataLimite: proposal['Data Limite'] || proposal.dataLimite || '',
         email: proposal['E-mail'] || proposal.email || '',
+        resumo: proposal.Resumo || proposal.resumo || '',
         atrasada: (proposal.Status || proposal.status || '').toUpperCase() === 'AGUARDANDO' && daysWithoutUpdate > 30,
         diasAtraso: daysWithoutUpdate,
         _pending: !!proposal._pending

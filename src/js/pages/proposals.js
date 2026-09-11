@@ -682,6 +682,7 @@ export async function renderProposalDetailPage(id) {
             ${renderDetailRow('Última Atualização', proposal.atualizacao)}
             ${renderDetailRow('Hora', proposal.hora)}
             ${renderDetailRow('Obs', proposal.obs || '-')}
+            ${proposal.resumo ? `<details class="detail-resumo"><summary>Itens da proposta (Resumo)</summary><p>${escapeHtml(proposal.resumo).replace(/\s*\/\s*(?=Item\s+\d)/gi, '<br>')}</p></details>` : ''}
             ${renderDetailRow('Data Limite', proposal.dataLimite || '-')}
             ${renderDetailRow('E-mail', proposal.email || '-')}
         </div>
