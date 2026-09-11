@@ -1761,8 +1761,11 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 const _toastBtn = document.getElementById('app-toast')?.querySelector('.toast-undo-btn');
                 if (_toastBtn) _toastBtn.textContent = '+ Nova Visita';
             }
-            // Oferece jogar esse cliente no Funil de Vendas na sequência.
-            if (payload.cliente && state.canCreateProposalFunil &&
+            // Oferece jogar esse cliente no Funil de Vendas na sequência —
+            // só faz sentido pra prospecção (cliente novo, ainda sem
+            // cadastro); cliente já cadastrado normalmente já está no Funil
+            // ou não é o caso de abrir oportunidade agora.
+            if (payload.cliente && payload.prospeccao === 'Sim' && state.canCreateProposalFunil &&
                 await showAddToFunilModal(payload.cliente)) {
                 state.funilPrefill = {
                     cliente: payload.cliente,
