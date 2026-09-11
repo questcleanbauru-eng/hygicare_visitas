@@ -2,7 +2,7 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
-    calculateDaysFromDisplayDate, formatDateForDisplay, formatDateFromDisplay, formatInputDateFromDisplay,
+    calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
     funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine
 } from '../utils/format.js';
@@ -804,6 +804,14 @@ export async function renderFunilCreatePage() {
     const clientes = (fdResult.data && fdResult.data.clientes) || [];
     const aplicacoes = (fdResult.data && fdResult.data.aplicacoes) || [];
     const equipamentosList = (fdResult.data && fdResult.data.equipamentos) || [];
+    const vendedoresList = (fdResult.data && fdResult.data.vendedores) || [];
+    const isAdminUser = String(state.currentUser.profile || '').trim().toLowerCase() === 'admin';
+
+    // Conclusão nasce com +30 dias da data de hoje (usuário pode mudar) —
+    // igual ao que já fazíamos pra Data Limite das Propostas.
+    const conclusaoPadrao = new Date();
+    conclusaoPadrao.setDate(conclusaoPadrao.getDate() + 30);
+    const conclusaoPadraoInput = formatDateForInput(conclusaoPadrao);
 
     mainContent.innerHTML = `
         <div class="page-header compact-header">
@@ -819,6 +827,14 @@ export async function renderFunilCreatePage() {
                     <div class="searchable-select-menu" id="fc-cliente-menu"></div>
                 </div>
             </div>
+            ${isAdminUser ? `
+            <div class="form-group full-width">
+                <label for="fc-vendedor">Vendedor (Admin pode registrar por outro)</label>
+                <select id="fc-vendedor">
+                    <option value="">${escapeHtml(state.currentUser.name || '')} (eu)</option>
+                    ${vendedoresList.map((v) => `<option value="${escapeHtml(v.nome)}">${escapeHtml(v.nome)}</option>`).join('')}
+                </select>
+            </div>` : ''}
             <div class="form-group">
                 <label for="fc-cidade">Cidade</label>
                 <div class="searchable-select">
@@ -866,7 +882,7 @@ export async function renderFunilCreatePage() {
             </div>
             <div class="form-group">
                 <label for="fc-conclusao">Conclusão (data)</label>
-                <input type="date" id="fc-conclusao">
+                <input type="date" id="fc-conclusao" value="${conclusaoPadraoInput}">
             </div>
             <div class="form-group full-width">
                 <label for="fc-inf">Informações Importantes</label>
@@ -952,8 +968,10 @@ export async function renderFunilCreatePage() {
         setSaving(true, btn, 'Salvando...');
 
         const conclusaoValue = document.getElementById('fc-conclusao').value;
+        const vendedorEscolhido = document.getElementById('fc-vendedor') ? document.getElementById('fc-vendedor').value.trim() : '';
         const funilPayload = {
             cliente:        document.getElementById('fc-cliente').value.trim(),
+            vendedor:       vendedorEscolhido || state.currentUser.name,
             cidade:         document.getElementById('fc-cidade').value.trim(),
             foco:           document.getElementById('fc-foco').value.trim(),
             atuacao:        document.getElementById('fc-atuacao').value.trim(),
