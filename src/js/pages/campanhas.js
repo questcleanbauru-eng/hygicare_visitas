@@ -210,6 +210,21 @@ export async function renderCampanhaPreencherPage(id) {
     }
     const camp = r.campanha;
     const statuses = camp.tipo === 'funil' ? FUNIL_STATUS : PROP_STATUS;
+    const primeiroNome = String(camp.vendedorDestino || '').trim().split(' ')[0] || 'tudo bem';
+
+    const renderObrigado = () => {
+        main.innerHTML = `
+            ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: 'Atualização' }])}
+            <div class="empty-state">
+                <span class="empty-state-icon">✅</span>
+                <h2 style="margin:0.4rem 0 0.2rem">Obrigado, ${escapeHtml(primeiroNome)}!</h2>
+                <p class="helper-text">Suas atualizações foram enviadas com sucesso.</p>
+                <button type="button" class="btn-add" id="camp-done-home">Ir para o início</button>
+            </div>
+        `;
+        document.getElementById('camp-done-home')?.addEventListener('click', () => navigateTo('dashboard'));
+        addScrollTop();
+    };
 
     const render = (itens) => {
         const done = itens.filter((i) => i.respondidoEm).length;
@@ -217,7 +232,8 @@ export async function renderCampanhaPreencherPage(id) {
             ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: 'Atualização' }])}
             <div class="page-header"><div>
                 <h2>${escapeHtml(camp.titulo || 'Atualização de clientes')}</h2>
-                <p class="page-subtitle">Enviado por ${escapeHtml(camp.criadaPor || '-')}${camp.prazoAte ? ` · prazo ${escapeHtml(camp.prazoAte)}` : ''}</p>
+                <p class="page-subtitle">Olá, ${escapeHtml(camp.vendedorDestino || primeiroNome)}! ${escapeHtml(camp.criadaPor || 'Seu gestor')} pediu a atualização destes clientes.</p>
+                ${camp.prazoAte ? `<p class="page-subtitle" style="color:var(--warning);font-weight:600">Solicitado resposta até ${escapeHtml(camp.prazoAte)}.</p>` : ''}
             </div></div>
             <div class="camp-progress"><div class="camp-progress-bar" style="width:${itens.length ? Math.round(done / itens.length * 100) : 0}%"></div></div>
             <p class="helper-text" style="margin:0.3rem 0 0.9rem">${done} de ${itens.length} atualizados</p>
@@ -279,8 +295,12 @@ export async function renderCampanhaPreencherPage(id) {
                 it.respondidoEm = 'agora';
                 it.status = sel;
                 it.comentarios = comentario;
-                showToast(rr.concluida ? 'Tudo atualizado. Obrigado!' : 'Salvo.');
-                render(itens);
+                if (rr.concluida) {
+                    renderObrigado();
+                } else {
+                    showToast('Salvo.');
+                    render(itens);
+                }
             } else {
                 showToast((rr && rr.message) || 'Não foi possível salvar.', true);
                 setSaving(false, btn);
