@@ -840,7 +840,8 @@ export function bindAdminEvents(data) {
                 const pin = overlay.querySelector('.uif-pin-input').value.trim();
                 if (!/^\d{4}$/.test(pin)) { showToast('O PIN precisa ter 4 dígitos.', true); return; }
                 setSaving(true, b, 'Salvando...');
-                const r = await callAPI('adminSetPin', { email, pin }).catch((e) => ({ status: 'error', message: e.message }));
+                const nomeLoginVal = overlay.querySelector('.uif-nome-login').value.trim();
+                const r = await callAPI('adminSetPin', { email, pin, nomeLogin: nomeLoginVal }).catch((e) => ({ status: 'error', message: e.message }));
                 if (r && r.status === 'success') {
                     showToast('PIN salvo.');
                     close();
