@@ -1236,6 +1236,7 @@ function bindImportarTab() {
                 <p style="margin:0 0 0.3rem"><strong>${r.novas || 0}</strong> ${label}(s) novo(s)</p>
                 ${r.atualizadas ? `<p style="margin:0 0 0.3rem"><strong>${r.atualizadas}</strong> ${label}(s) a atualizar</p>` : ''}
                 ${r.puladas ? `<p style="margin:0 0 0.3rem"><strong>${r.puladas}</strong> já existente(s) — serão puladas</p>` : ''}
+                ${r.puladasDuplicadas ? `<p style="margin:0 0 0.3rem"><strong>${r.puladasDuplicadas}</strong> duplicada(s) por conteúdo (mesmo cliente, cidade, foco, data e vendedor, com Id diferente) — serão puladas</p>` : ''}
                 ${r.descartadas ? `<p style="margin:0 0 0.3rem"><strong>${r.descartadas}</strong> linha(s) desconsiderada(s) na sua escolha de vendedor</p>` : ''}
                 <p style="margin:0">${r.ignoradas || 0} linha(s) sem identificação — ignoradas</p>
             </div>
@@ -1448,7 +1449,7 @@ function bindImportarTab() {
         resultado.innerHTML = `
             <div class="card" style="padding:0.9rem;margin-top:0.85rem;background:var(--bg)">
                 <p style="margin:0 0 0.3rem">✅ <strong>${r.novas || 0}</strong> ${label}(s) novo(s)${r.atualizadas ? ` · <strong>${r.atualizadas}</strong> atualizado(s)` : ''}</p>
-                <p style="margin:0">${r.puladas || 0} pulada(s) · ${r.descartadas || 0} desconsiderada(s) · ${r.ignoradas || 0} ignorada(s)</p>
+                <p style="margin:0">${r.puladas || 0} pulada(s) · ${r.puladasDuplicadas || 0} duplicada(s) · ${r.descartadas || 0} desconsiderada(s) · ${r.ignoradas || 0} ignorada(s)</p>
             </div>
         `;
         showToast('Importação concluída.');
