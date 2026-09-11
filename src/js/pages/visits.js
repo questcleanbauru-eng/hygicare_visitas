@@ -2303,32 +2303,74 @@ export function getWhatsappConfigForVisit(tipoVisita) {
 }
 
 
+// Observação pro compartilhamento: quem cola uma conversa do WhatsApp na
+// visita traz linhas como "[16:02, 03/09/2026] Fulano: texto" — no texto
+// enviado isso vira só "texto". Com mais de uma linha, vira lista com
+// marcador numa linha própria (fica legível no WhatsApp); uma linha só
+// continua inline depois do rótulo. Só afeta o texto compartilhado, não
+// o que está salvo.
+function observacaoParaCompartilhar(observacao) {
+    const linhas = String(observacao || '')
+        .split('\n')
+        .map((l) => l.replace(/^\s*\[\d{1,2}:\d{2},\s*\d{1,2}\/\d{1,2}\/\d{2,4}\]\s*[^:\n]{1,60}:\s*/, '').trim())
+        .filter(Boolean);
+    if (linhas.length <= 1) return linhas[0] || '';
+    return '\n' + linhas.map((l) => `• ${l}`).join('\n');
+}
+
 export function buildWhatsappMessage(template, visit) {
-    const defaultTemplate = '📋 {{data}}\n*Cliente:* {{cliente}}\n*Tipo:* {{tipoVisita}}\n*Observação:* {{observacao}}';
+    // Mesmo padrão do compartilhamento do Funil (título em negrito com o
+    // cliente). Sem emoji no começo — chegava como caractere quebrado em
+    // alguns aparelhos. Linha cujo campo estiver vazio é removida abaixo.
+    const defaultTemplate = [
+        '*Visita - {{cliente}}*',
+        '*Data:* {{dataHora}}',
+        '*Vendedor:* {{vendedor}}',
+        '*Tipo:* {{tipoVisita}}',
+        '*Cidade:* {{cidade}}',
+        '*Contato:* {{contato}}',
+        '*Prospecção:* {{prospeccao}}',
+        '*Observação:* {{observacao}}'
+    ].join('\n');
     const messageTemplate = template || defaultTemplate;
     const values = {
         cliente: visit.cliente,
         tipoVisita: visit.tipoVisita,
-        observacao: visit.observacao,
+        observacao: observacaoParaCompartilhar(visit.observacao),
         vendedor: visit.vendedorGerente,
         cidade: visit.cidade,
-        data: visit.dataVisita
+        contato: visit.contato,
+        data: visit.dataVisita,
+        horario: visit.horario,
+        dataHora: visit.dataVisita ? `${visit.dataVisita}${visit.horario ? ' às ' + visit.horario : ''}` : '',
+        // Só aparece quando é prospecção — "Não" não acrescenta nada.
+        prospeccao: visit.prospeccao === 'Sim' ? 'Sim' : ''
     };
 
-    return messageTemplate.replace(/{{\s*([a-zA-Z]+)\s*}}/g, (_, key) => values[key] || '');
+    // Campo vazio marca a linha; se sobrou só o rótulo ("*Contato:*"), a
+    // linha inteira some — vale pro modelo padrão e pros configurados no
+    // Admin (Notificações), que usam os mesmos {{campos}}.
+    const VAZIO = String.fromCharCode(0);
+    const preenchido = messageTemplate.replace(/{{\s*([a-zA-Z]+)\s*}}/g, (_, key) => {
+        const v = values[key];
+        return (v === undefined || v === null || String(v).trim() === '') ? VAZIO : String(v);
+    });
+    return preenchido
+        .split('\n')
+        .filter((line) => {
+            if (!line.includes(VAZIO)) return true;
+            const resto = line.split(VAZIO).join('').trim();
+            return !(resto === '' || /:\*?$/.test(resto));
+        })
+        .join('\n')
+        .split(VAZIO).join('')
+        .trim();
 }
 
 
 export function shareVisit(visit) {
-    const lines = [
-        `*Visita - ${visit.cliente || 'Cliente não informado'}*`,
-        `Data: ${visit.dataVisita || '-'}${visit.horario ? ' às ' + visit.horario : ''}`,
-        `Tipo: ${visit.tipoVisita || '-'}`,
-        `Cidade: ${visit.cidade || '-'}`,
-        visit.contato   ? `Contato: ${visit.contato}`          : null,
-        visit.prospeccao === 'Sim' ? 'Prospecção'              : null,
-        visit.observacao ? `Obs: ${visit.observacao}`          : null,
-    ].filter(Boolean).join('\n');
+    // Mesmo texto do botão de WhatsApp do detalhe, pra não ter dois formatos.
+    const lines = buildWhatsappMessage(null, visit);
 
     if (navigator.share) {
         navigator.share({ title: `Visita - ${visit.cliente || ''}`, text: lines }).catch(() => {});
