@@ -663,8 +663,24 @@ export function bindAdminEvents(data) {
         setSaving(true, btn, 'Atualizando...');
         const r = await callAPI('forceRefreshData', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
         setSaving(false, btn);
-        if (r && r.status === 'success') showToast(r.message || 'Atualizado.');
-        else showToast((r && r.message) || 'Não foi possível atualizar.', true);
+        if (r && r.status === 'success') {
+            // Avisar o servidor não basta: o próprio aparelho de quem
+            // clicou ainda tem o formData salvo em localStorage, e só
+            // rechecaria a versão em segundo plano (sem refletir na tela já
+            // renderizada). Limpa aqui também pra valer imediatamente pra
+            // quem clicou, sem precisar de um segundo reload.
+            try {
+                const email = state.currentUser && state.currentUser.email;
+                if (email) {
+                    localStorage.removeItem('apv_fd3_' + email);
+                    localStorage.removeItem('apv_fdv_' + email);
+                }
+            } catch (e) {}
+            state.formData = null;
+            showToast(r.message || 'Atualizado.');
+        } else {
+            showToast((r && r.message) || 'Não foi possível atualizar.', true);
+        }
     });
 
     document.getElementById('btn-new-user').addEventListener('click', () => {
