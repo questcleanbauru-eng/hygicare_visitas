@@ -7,7 +7,8 @@ import {
     formatDateFieldValue, normalizeDisplayDateValue, formatTimeFieldValue, normalizeTimeValue,
     normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
     calculateDaysFromDisplayDate,
-    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine
+    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
+    clienteSearchLabel, clienteNomeFromLabel
 } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
@@ -1292,8 +1293,8 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     initializeSearchableInput({
         input: clienteSelect,
         menu: document.getElementById('cliente-existente-menu'),
-        items: formData.clientes.map((client) => client.nome),
-        onSelect: (value) => fillClientData(value)
+        items: formData.clientes.map((client) => clienteSearchLabel(client)),
+        onSelect: (value) => fillClientData(clienteNomeFromLabel(value))
     });
     initializeSearchableInput({
         input: cidadeSelect,
@@ -1366,6 +1367,10 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             contatoInput.disabled = false;
             return;
         }
+        // A busca de "Cliente cadastrado" pode ter sido feita pelo Nome
+        // Fantasia — depois de achar o cliente, o campo mostra só o nome
+        // oficial (o que de fato é gravado na visita).
+        clienteSelect.value = client.nome || '';
         clienteInput.value = client.nome || '';
         if (client.contato) {
             contatoInput.value = client.contato;

@@ -422,6 +422,7 @@ export function normalizeFormData(data) {
         ? data.clientes.map((client, index) => ({
             id: String(client.id || client.ID_Cliente || index + 1),
             nome: client.nome || client['Nome do Cliente'] || '',
+            nomeFantasia: client.nomeFantasia || client['Nome Fantasia'] || '',
             contato: client.contato || client['Contato Padrão'] || client.Contato || '',
             telefone: client.telefone || client.Telefone || '',
             cidade: client.cidade || client.Cidade || '',

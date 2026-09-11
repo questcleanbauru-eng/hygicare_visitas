@@ -528,6 +528,23 @@ export function formatMonthKey(monthKey) {
 }
 
 
+// "Cliente cadastrado": a busca (initializeSearchableInput) usa a mesma
+// string pra exibir/buscar/preencher no clique, então pra achar um cliente
+// pelo Nome Fantasia sem que o campo real acabe salvando o rótulo composto,
+// a lista mostra "Nome — Fantasia" (Fantasia entra na busca) e quem recebe
+// o clique separa de volta só o Nome antes de gravar.
+export function clienteSearchLabel(client) {
+    const nome = String((client && client.nome) || '').trim();
+    const fantasia = String((client && client.nomeFantasia) || '').trim();
+    if (!fantasia || fantasia.toLowerCase() === nome.toLowerCase()) return nome;
+    return `${nome} — ${fantasia}`;
+}
+
+export function clienteNomeFromLabel(label) {
+    return String(label || '').split(' — ')[0].trim();
+}
+
+
 export function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')

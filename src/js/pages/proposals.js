@@ -4,7 +4,8 @@ import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
     formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml,
     formatInputDateFromDisplay, formatDateFromDisplay,
-    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine
+    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
+    clienteSearchLabel, clienteNomeFromLabel
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
@@ -1024,11 +1025,15 @@ export async function renderProposalCreatePage() {
     initializeSearchableInput({
         input: document.getElementById('pc-cliente'),
         menu: document.getElementById('pc-cliente-menu'),
-        items: clientes.map((c) => c.nome).filter(Boolean),
+        items: clientes.map((c) => clienteSearchLabel(c)).filter(Boolean),
         allowFreeText: true,
         onSelect: (value) => {
-            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
+            const nome = clienteNomeFromLabel(value);
+            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === nome.toLowerCase());
             if (!match) return;
+            // A busca pode ter sido pelo Nome Fantasia — o campo grava só o
+            // nome oficial do cliente.
+            document.getElementById('pc-cliente').value = match.nome || '';
             if (match.cidade) document.getElementById('pc-cidade').value = match.cidade;
             if (match.potencialCliente) document.getElementById('pc-foco').value = match.potencialCliente;
         }
