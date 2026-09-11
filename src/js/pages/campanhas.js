@@ -175,22 +175,24 @@ export async function openGerarCampanhaModal(tipo, itemIds, selectedItems) {
             </div>`;
         btn.remove();
         overlay.querySelector('#camp-cancel').textContent = 'Concluir';
-        overlay.querySelector('#camp-copy').addEventListener('click', () => {
-            navigator.clipboard?.writeText(link).then(() => showToast('Link copiado.'));
-            overlay.querySelector('#camp-link').select();
-        });
-        overlay.querySelector('#camp-wa').addEventListener('click', () => {
+        const buildMsg = () => {
             const primeiroNome = vendedorDestino.split(' ')[0];
             const clientesTxt = (selectedItems || [])
                 .map((it) => `• ${it.cliente || 'Cliente'}${it.cidade ? ' — ' + it.cidade : ''}`)
                 .join('\n');
-            const msg = [
+            return [
                 `Oi ${primeiroNome}! Preciso que você atualize o status ${tipo === 'funil' ? 'destas oportunidades do Funil' : 'destas propostas'}:`,
                 clientesTxt,
                 prazoAte ? `\nPrazo: ${prazoAte}` : '',
                 `\n${link}`
             ].filter(Boolean).join('\n');
-            openExternal(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+        };
+        overlay.querySelector('#camp-copy').addEventListener('click', () => {
+            navigator.clipboard?.writeText(buildMsg()).then(() => showToast('Mensagem copiada.'));
+            overlay.querySelector('#camp-link').select();
+        });
+        overlay.querySelector('#camp-wa').addEventListener('click', () => {
+            openExternal(`https://wa.me/?text=${encodeURIComponent(buildMsg())}`);
         });
         document.dispatchEvent(new CustomEvent('campanha-criada'));
     });
