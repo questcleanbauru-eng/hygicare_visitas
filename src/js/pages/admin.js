@@ -212,7 +212,6 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <h2 class="admin-hero-title">Painel Administrativo</h2>
                 <p class="admin-hero-sub">Gerencie usuários, notificações e configurações</p>
             </div>
-            <button type="button" class="mini-button" id="admin-campanhas-btn" style="margin-left:auto;align-self:center">🔗 Campanhas</button>
         </div>
 
         <div class="admin-tabs-bar">
@@ -658,7 +657,6 @@ export function bindAdminEvents(data) {
         });
     });
 
-    document.getElementById('admin-campanhas-btn')?.addEventListener('click', () => navigateTo('campanhas'));
     document.getElementById('btn-new-user').addEventListener('click', () => {
         if (document.querySelector('.uif-modal-overlay')) {
             document.querySelector('.uif-modal-overlay .uif-nome').focus();
@@ -686,8 +684,8 @@ export function bindAdminEvents(data) {
                         <input type="text" class="uif-nome-login" placeholder="Opcional — em branco usa o nome completo">
                     </div>
                     <div class="uif-field">
-                        <label>Senha <span class="uif-req">*</span></label>
-                        <input type="password" class="uif-senha" placeholder="••••••••" autocomplete="new-password">
+                        <label>Senha <span class="uif-req">*</span> <span class="uif-hint">(4 números)</span></label>
+                        <input type="password" class="uif-senha" placeholder="0000" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password">
                     </div>
                     <div class="uif-field">
                         <label>Região</label>
@@ -720,7 +718,7 @@ export function bindAdminEvents(data) {
         overlay.querySelector('.uif-save').addEventListener('click', async () => {
             const senha = overlay.querySelector('.uif-senha').value.trim();
             if (!senha) { showToast('Informe a senha para o novo usuário.', true); return; }
-            if (senha.length < 6) { showToast('A senha precisa ter pelo menos 6 caracteres.', true); return; }
+            if (!/^\d{4}$/.test(senha)) { showToast('A senha precisa ter exatamente 4 números.', true); return; }
             const saveBtn = overlay.querySelector('.uif-save');
             setSaving(true, saveBtn, 'Criando...');
             const result = await saveUser({
@@ -789,8 +787,8 @@ export function bindAdminEvents(data) {
                             <input type="text" class="uif-nome-login" value="${escapeHtml(nomeLogin)}" placeholder="Opcional — em branco usa o nome completo">
                         </div>
                         <div class="uif-field">
-                            <label>Senha <span class="uif-hint">(em branco = manter)</span></label>
-                            <input type="password" class="uif-senha" placeholder="••••••••" autocomplete="new-password">
+                            <label>Senha <span class="uif-hint">(4 números — em branco = manter)</span></label>
+                            <input type="password" class="uif-senha" placeholder="0000" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password">
                         </div>
                         <div class="uif-field">
                             <label>Região</label>
@@ -903,7 +901,7 @@ export function bindAdminEvents(data) {
             });
             overlay.querySelector('.uif-save').addEventListener('click', async () => {
                 const senhaEdit = overlay.querySelector('.uif-senha').value.trim();
-                if (senhaEdit && senhaEdit.length < 6) { showToast('A senha precisa ter pelo menos 6 caracteres.', true); return; }
+                if (senhaEdit && !/^\d{4}$/.test(senhaEdit)) { showToast('A senha precisa ter exatamente 4 números.', true); return; }
                 const saveBtn = overlay.querySelector('.uif-save');
                 setSaving(true, saveBtn, 'Salvando...');
                 const result = await saveUser({
