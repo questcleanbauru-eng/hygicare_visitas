@@ -212,6 +212,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <h2 class="admin-hero-title">Painel Administrativo</h2>
                 <p class="admin-hero-sub">Gerencie usuários, notificações e configurações</p>
             </div>
+            <button type="button" class="mini-button" id="admin-force-refresh-btn" style="margin-left:auto;align-self:center" title="Use depois de editar a planilha (ex.: Clientes) direto no Google Sheets">🔄 Atualizar dados</button>
         </div>
 
         <div class="admin-tabs-bar">
@@ -655,6 +656,15 @@ export function bindAdminEvents(data) {
             if (tab.dataset.tab === 'saude') { loadSaudeTab(); }
             if (tab.dataset.tab === 'listas') { loadClientesPrincipaisTab(); }
         });
+    });
+
+    document.getElementById('admin-force-refresh-btn')?.addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        setSaving(true, btn, 'Atualizando...');
+        const r = await callAPI('forceRefreshData', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+        setSaving(false, btn);
+        if (r && r.status === 'success') showToast(r.message || 'Atualizado.');
+        else showToast((r && r.message) || 'Não foi possível atualizar.', true);
     });
 
     document.getElementById('btn-new-user').addEventListener('click', () => {

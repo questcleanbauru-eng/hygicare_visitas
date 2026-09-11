@@ -39,7 +39,7 @@ import {
     handleGetRelatorioTecnicoModelos, handleSaveRelatorioTecnicoModelo, handleDeleteRelatorioTecnicoModelo
 } from '../lib/handlers/relatorioTecnico.js';
 import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
-import { handleGetAdminData, handleSaveUser, handleSetUserAtivo, handleDeleteUser, handleSaveNotificationConfig, handleSaveLookupList, handleGetHealthPanel } from '../lib/handlers/admin.js';
+import { handleGetAdminData, handleSaveUser, handleSetUserAtivo, handleDeleteUser, handleSaveNotificationConfig, handleSaveLookupList, handleGetHealthPanel, handleForceRefreshData } from '../lib/handlers/admin.js';
 import { handleGetFormData } from '../lib/handlers/formdata.js';
 import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig, handleGetManutencao } from '../lib/handlers/config.js';
 import { handleGetAuditoria } from '../lib/audit.js';
@@ -139,6 +139,7 @@ const HANDLERS = {
     getManutencao: handleGetManutencao,
     getAuditoria: handleGetAuditoria,
     getHealthPanel: handleGetHealthPanel,
+    forceRefreshData: handleForceRefreshData,
     getRelatoriosTecnicos: handleGetRelatoriosTecnicos,
     getRelatorioTecnicoById: handleGetRelatorioTecnicoById,
     createRelatorioTecnico: handleCreateRelatorioTecnico,
