@@ -450,15 +450,22 @@ export function normalizeFormData(data) {
 }
 
 
-export function logout() {
-    resetNavCache();
-    clearUserCache();
+// Esquece o formData (clientes, cidades, listas…) guardado neste aparelho —
+// o próximo ensureFormData() vai buscar tudo de novo do servidor. Usado no
+// logout, no "Atualizar dados" do Admin e no botão de atualizar do cabeçalho.
+export function clearFormDataCache() {
     if (state.currentUser && state.currentUser.email) {
         try { localStorage.removeItem('apv_fd3_' + state.currentUser.email); } catch(e) {}
         try { localStorage.removeItem('apv_fdv_' + state.currentUser.email); } catch(e) {}
     }
-    state.currentUser = null;
     state.formData = null;
+}
+
+export function logout() {
+    resetNavCache();
+    clearUserCache();
+    clearFormDataCache();
+    state.currentUser = null;
     state.currentPage = 'login';
     localStorage.removeItem(STORAGE_KEY);
     renderLoginPage();

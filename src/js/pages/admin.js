@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
+import { callAPI, saveCache, loadCache, ensureFormData, clearFormDataCache } from '../api.js';
 import { escapeHtml, titleCase, getInitials, profileClass, clienteSearchItem } from '../utils/format.js';
 import { showToast, loadingState, renderSimpleOptions, showRefreshIndicator, hideRefreshIndicator, setSaving, initializeSearchableInput } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
@@ -667,16 +667,8 @@ export function bindAdminEvents(data) {
             // Avisar o servidor não basta: o próprio aparelho de quem
             // clicou ainda tem o formData salvo em localStorage, e só
             // rechecaria a versão em segundo plano (sem refletir na tela já
-            // renderizada). Limpa aqui também pra valer imediatamente pra
-            // quem clicou, sem precisar de um segundo reload.
-            try {
-                const email = state.currentUser && state.currentUser.email;
-                if (email) {
-                    localStorage.removeItem('apv_fd3_' + email);
-                    localStorage.removeItem('apv_fdv_' + email);
-                }
-            } catch (e) {}
-            state.formData = null;
+            // renderizada). Limpa aqui também pra valer imediatamente.
+            clearFormDataCache();
             showToast(r.message || 'Atualizado.');
         } else {
             showToast((r && r.message) || 'Não foi possível atualizar.', true);

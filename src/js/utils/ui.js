@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, normalizeContrato, normalizeManutencao } from './format.js';
 import { debounce, showToast } from './dom.js';
-import { ensureFormData, logout, saveCache } from '../api.js';
+import { ensureFormData, logout, saveCache, callAPI, clearFormDataCache } from '../api.js';
 
 // Chaves de cache (localStorage) que o botão Atualizar zera antes de
 // re-renderizar a página. Página que não está aqui ainda é atualizada —
@@ -42,7 +42,18 @@ function refreshCurrentPage() {
     } else {
         (REFRESHABLE_PAGE_CACHE_KEYS[page] || []).forEach((k) => saveCache(k, null));
     }
-    Promise.resolve(navigateTo(page)).catch(() => {}).finally(() => btn?.classList.remove('spinning'));
+    // Também zera o formData (clientes, cidades, listas…) — esse cache local
+    // não expira sozinho, então é o único jeito de pegar uma edição feita
+    // direto na planilha. Admin limpa o cache do servidor antes, senão a
+    // rebusca pode voltar a mesma cópia de até 5 min atrás.
+    const isAdmin = String((state.currentUser && state.currentUser.profile) || '').trim().toLowerCase() === 'admin';
+    const serverRefresh = isAdmin
+        ? callAPI('forceRefreshData', { user: state.currentUser }).catch(() => {})
+        : Promise.resolve();
+    serverRefresh
+        .then(() => { clearFormDataCache(); return navigateTo(page); })
+        .catch(() => {})
+        .finally(() => btn?.classList.remove('spinning'));
 }
 
 export let _installPrompt = null;
