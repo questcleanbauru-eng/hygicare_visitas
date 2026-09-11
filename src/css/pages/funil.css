@@ -85,6 +85,48 @@
     color: #92400e;
 }
 
+/* Modo seleção (apagar vários de uma vez) */
+.funil-sel-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding: 0.55rem 0.75rem;
+    margin-bottom: 0.75rem;
+    background: #fffbeb;
+    border: 1px solid #f59e0b;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+}
+.funil-sel-bar strong { margin-right: auto; }
+.funil-sel-box {
+    display: inline-block;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-right: 0.35rem;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    vertical-align: -3px;
+    background: #fff;
+    position: relative;
+}
+.funil-card.is-selected { outline: 2px solid var(--primary); background: var(--primary-light); }
+.funil-card.is-selected .funil-sel-box { background: var(--primary); border-color: var(--primary); }
+.funil-card.is-selected .funil-sel-box::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
 /* Novo/Editar Funil em tela larga: 2 colunas pra caber tudo sem rolar
    (no celular continua empilhado — .form-layout-stack normal). */
 @media (min-width: 900px) {

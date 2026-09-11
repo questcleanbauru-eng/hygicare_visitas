@@ -26,6 +26,14 @@ export function fillFunilContent(mainContent, funil) {
     let qeSelectedId = null;
     const qeActive = () => quickEdit && isAdminUser && window.innerWidth >= 1024;
     let _funilCampanhaList = [];
+    // Modo seleção: marcar vários cards e apagar de uma vez (limpar
+    // duplicados de reimportação, principalmente). Só pra quem pode apagar.
+    let selectMode = false;
+    const selectedIds = new Set();
+    // "Duplicado exato" = mesmo cliente/cidade/foco/vendedor/data/valor —
+    // exatamente o que uma reimportação com Id novo produz.
+    const funilDupKey = (f) => [f.cliente, f.cidade, f.foco, f.vendedor, f.data, f.vlMensal]
+        .map((v) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ')).join('|');
 
     const newFunilDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."';
 
@@ -88,6 +96,7 @@ export function fillFunilContent(mainContent, funil) {
                 <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
             </div>
             <div class="page-header-actions">
+                ${state.canDelete ? '<button type="button" class="mini-button" id="funil-select-toggle" title="Marcar vários registros para apagar de uma vez">☑️ Selecionar</button>' : ''}
                 ${isAdmGer ? '<button type="button" class="mini-button" id="funil-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
                 ${isAdminUser ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, um registro após o outro">⚡ Edição rápida</button>` : ''}
                 <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
@@ -280,10 +289,10 @@ export function fillFunilContent(mainContent, funil) {
                         && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
                         && calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30;
                     return `
-                    <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}${f.funilDiversey === 'Sim' ? ' funil-card-diversey' : ''}" data-funil-id="${escapeHtml(f.id)}">
+                    <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}${f.funilDiversey === 'Sim' ? ' funil-card-diversey' : ''}${selectMode && selectedIds.has(String(f.id)) ? ' is-selected' : ''}" data-funil-id="${escapeHtml(f.id)}">
                         <div class="visit-card-header">
                             <strong>
-                                <span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
+                                ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
                                 ${f.funilDiversey === 'Sim' ? '<span class="funil-diversey-tag" title="Funil Diversey — acompanhar de perto">⭐ Diversey</span>' : ''}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
                             </strong>
@@ -310,6 +319,16 @@ export function fillFunilContent(mainContent, funil) {
         } else {
             container.classList.remove('qe-layout');
             container.innerHTML = groupsHtml;
+        }
+        if (selectMode) {
+            container.insertAdjacentHTML('afterbegin', `
+                <div class="funil-sel-bar" id="funil-sel-bar">
+                    <strong id="funil-sel-count">${selectedIds.size} selecionado(s)</strong>
+                    <button type="button" class="mini-button" id="funil-sel-dups" title="Marca os repetidos exatos (mesmo cliente, cidade, foco, vendedor, data e valor), deixando o primeiro de cada grupo">Marcar duplicados</button>
+                    <button type="button" class="mini-button" id="funil-sel-all">Marcar todos</button>
+                    <button type="button" class="mini-button" id="funil-sel-none">Limpar</button>
+                    <button type="button" class="mini-button mini-button-danger" id="funil-sel-delete" ${selectedIds.size ? '' : 'disabled'}>🗑️ Excluir selecionados</button>
+                </div>`);
         }
 
         wireFunilCardEvents(container);
@@ -409,12 +428,81 @@ export function fillFunilContent(mainContent, funil) {
         });
     }
 
+    function setCardSelected(id, on, cardEl) {
+        const key = String(id);
+        if (on) selectedIds.add(key); else selectedIds.delete(key);
+        const el = cardEl || document.querySelector(`#funil-list-container .funil-card[data-funil-id="${CSS.escape(key)}"]`);
+        el?.classList.toggle('is-selected', on);
+    }
+
+    function refreshSelBar() {
+        const count = document.getElementById('funil-sel-count');
+        if (count) count.textContent = `${selectedIds.size} selecionado(s)`;
+        const del = document.getElementById('funil-sel-delete');
+        if (del) del.disabled = selectedIds.size === 0;
+    }
+
     function wireFunilCardEvents(container) {
         container.querySelectorAll('[data-funil-id]').forEach((btn) => {
             btn.addEventListener('click', () => {
+                if (selectMode) {
+                    setCardSelected(btn.dataset.funilId, !selectedIds.has(String(btn.dataset.funilId)), btn);
+                    refreshSelBar();
+                    return;
+                }
                 if (qeActive()) { openFunilQuickPanel(btn.dataset.funilId); return; }
                 navigateTo('funil-detail', { id: btn.dataset.funilId });
             });
+        });
+
+        // Barra do modo seleção (re-renderizada junto com a lista).
+        container.querySelector('#funil-sel-dups')?.addEventListener('click', () => {
+            // Só entre os cards visíveis (respeita os filtros), na ordem da
+            // lista: o primeiro de cada grupo fica, os demais são marcados.
+            const seen = new Set();
+            let marked = 0;
+            container.querySelectorAll('[data-funil-id]').forEach((card) => {
+                const f = funilData.find((x) => String(x.id) === String(card.dataset.funilId));
+                if (!f) return;
+                const k = funilDupKey(f);
+                if (seen.has(k)) { setCardSelected(f.id, true, card); marked++; }
+                else seen.add(k);
+            });
+            refreshSelBar();
+            showToast(marked ? `${marked} duplicado(s) marcado(s).` : 'Nenhum duplicado exato entre os registros visíveis.', !marked);
+        });
+        container.querySelector('#funil-sel-all')?.addEventListener('click', () => {
+            container.querySelectorAll('[data-funil-id]').forEach((card) => setCardSelected(card.dataset.funilId, true, card));
+            refreshSelBar();
+        });
+        container.querySelector('#funil-sel-none')?.addEventListener('click', () => {
+            container.querySelectorAll('[data-funil-id]').forEach((card) => setCardSelected(card.dataset.funilId, false, card));
+            selectedIds.clear();
+            refreshSelBar();
+        });
+        container.querySelector('#funil-sel-delete')?.addEventListener('click', async (e) => {
+            const ids = Array.from(selectedIds);
+            if (!ids.length) return;
+            if (!confirm(`Apagar ${ids.length} registro(s) do Funil? Essa ação não pode ser desfeita.`)) return;
+            const btn = e.currentTarget;
+            setSaving(true, btn, 'Apagando...');
+            const r = await callAPI('deleteFunilBatch', { ids, user: state.currentUser })
+                .catch((err) => ({ status: 'error', message: err.message }));
+            if (r && r.status === 'success') {
+                const gone = new Set((r.deleted || ids).map(String));
+                state.funil = (state.funil || []).filter((x) => !gone.has(String(x.id)));
+                funilData = state.funil;
+                saveCache('funil', state.funil);
+                if (state.funilScope === 'all') saveCache('funil_all', state.funil);
+                selectedIds.clear();
+                const sub = document.querySelector('.page-header .page-subtitle');
+                if (sub) sub.textContent = `${funilData.length} oportunidade(s)`;
+                showToast(r.message || `${gone.size} registro(s) apagado(s).`);
+                renderFiltered();
+            } else {
+                showToast((r && r.message) || 'Não foi possível apagar.', true);
+                setSaving(false, btn);
+            }
         });
         container.querySelectorAll('[data-funil-quick]').forEach((el) => {
             el.addEventListener('click', (e) => {
@@ -504,6 +592,12 @@ export function fillFunilContent(mainContent, funil) {
     document.getElementById('funil-campanha-btn')?.addEventListener('click', async () => {
         const { openSelecionarClientesModal } = await import('./campanhas.js');
         openSelecionarClientesModal('funil', _funilCampanhaList);
+    });
+    document.getElementById('funil-select-toggle')?.addEventListener('click', (e) => {
+        selectMode = !selectMode;
+        if (!selectMode) selectedIds.clear();
+        e.currentTarget.classList.toggle('is-on', selectMode);
+        renderFiltered();
     });
     document.getElementById('qe-toggle')?.addEventListener('click', (e) => {
         quickEdit = !quickEdit;

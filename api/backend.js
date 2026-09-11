@@ -4,7 +4,7 @@ import { handleLogin, handleForgotPassword, handleLoginWithPin, handleSetupPin, 
 import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit } from '../lib/handlers/visits.js';
 import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal } from '../lib/handlers/proposals.js';
 import {
-    handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDebugFunilHeaders
+    handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDeleteFunilBatch, handleDebugFunilHeaders
 } from '../lib/handlers/funil.js';
 import {
     handleCriarCampanha, handleGetCampanha, handleResponderCampanhaItem, handleGetCampanhas, handleDeleteCampanha
@@ -79,6 +79,7 @@ const HANDLERS = {
     createFunil: handleCreateFunil,
     updateFunil: handleUpdateFunil,
     deleteFunil: handleDeleteFunil,
+    deleteFunilBatch: handleDeleteFunilBatch,
     criarCampanha: handleCriarCampanha,
     getCampanha: handleGetCampanha,
     responderCampanhaItem: handleResponderCampanhaItem,
