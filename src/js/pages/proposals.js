@@ -940,6 +940,8 @@ export async function renderProposalCreatePage() {
     const cidades = (fdResult.data && fdResult.data.cidades) || [];
     const potenciais = (fdResult.data && fdResult.data.potenciaisCliente) || [];
     const clientes = (fdResult.data && fdResult.data.clientes) || [];
+    const vendedoresList = (fdResult.data && fdResult.data.vendedores) || [];
+    const isAdminUser = String(state.currentUser.profile || '').trim().toLowerCase() === 'admin';
 
     const dataLimite30 = new Date();
     dataLimite30.setDate(dataLimite30.getDate() + 30);
@@ -959,6 +961,14 @@ export async function renderProposalCreatePage() {
                     <div class="searchable-select-menu" id="pc-cliente-menu"></div>
                 </div>
             </div>
+            ${isAdminUser ? `
+            <div class="form-group">
+                <label for="pc-vendedor">Vendedor (Admin pode registrar por outro)</label>
+                <select id="pc-vendedor">
+                    <option value="">${escapeHtml(state.currentUser.name || '')} (eu)</option>
+                    ${vendedoresList.map((v) => `<option value="${escapeHtml(v.nome)}">${escapeHtml(v.nome)}</option>`).join('')}
+                </select>
+            </div>` : ''}
             <div class="form-group">
                 <label for="pc-cidade">Cidade</label>
                 <div class="searchable-select">
@@ -1046,13 +1056,15 @@ export async function renderProposalCreatePage() {
         const produtosVal = document.getElementById('pc-produtos').value.trim();
         const statusVal   = document.getElementById('pc-status').value;
         const obsVal      = stripEmptyDatedLine(document.getElementById('pc-obs').value);
+        const vendedorEscolhido = document.getElementById('pc-vendedor') ? document.getElementById('pc-vendedor').value.trim() : '';
+        const vendedorVal = vendedorEscolhido || state.currentUser.name;
 
         const tempPId = 'temp_' + Date.now();
         const nowPDisplay = formatDateForDisplay(new Date());
         const optimisticProposal = normalizeProposal({
             Id: tempPId,
             Data: nowPDisplay,
-            Vendedor: state.currentUser.name,
+            Vendedor: vendedorVal,
             Cliente: clienteVal,
             Foco: focoVal,
             Produtos: produtosVal,
@@ -1069,7 +1081,7 @@ export async function renderProposalCreatePage() {
         navigateTo('proposals');
 
         attemptOrQueue('createProposal', { cliente: clienteVal, cidade: cidadeVal, foco: focoVal,
-            produtos: produtosVal, status: statusVal, obs: obsVal, user: state.currentUser },
+            produtos: produtosVal, status: statusVal, obs: obsVal, vendedor: vendedorVal, user: state.currentUser },
             { entity: 'proposals', tempId: tempPId })
             .then(result => {
                 if (result && result.status === 'success') {

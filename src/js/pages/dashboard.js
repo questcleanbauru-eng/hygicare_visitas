@@ -166,6 +166,26 @@ export function fillDashboard(mainContent, data, user) {
             </div>
         </div>` : ''}
 
+        ${isAdminOrGerente ? `
+        <div class="dash-metric-group">
+            <p class="dash-metric-group-label">Campanhas</p>
+            <div class="metrics-grid">
+                <button class="metric-card metric-card-blue" data-nav="campanhas" type="button">
+                    <span class="metric-label">Links criados</span>
+                    <strong class="metric-value">${data.campanhasTotal || 0}</strong>
+                </button>
+                <button class="metric-card metric-card-green" data-nav="campanhas" type="button">
+                    <span class="metric-label">Respondidas</span>
+                    <strong class="metric-value">${data.campanhasRespondidas || 0}</strong>
+                </button>
+                <button class="metric-card metric-card-orange" data-nav="campanhas" type="button">
+                    <span class="metric-label">Não respondidas</span>
+                    <strong class="metric-value">${data.campanhasPendentes || 0}</strong>
+                    ${(data.campanhasPendentes || 0) > 0 ? '<span class="metric-badge-urgent">Ação necessária</span>' : ''}
+                </button>
+            </div>
+        </div>` : ''}
+
         ${data.canAccessRadar ? `
         <div class="dash-metric-group">
             <p class="dash-metric-group-label">Radar</p>
