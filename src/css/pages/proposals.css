@@ -96,6 +96,19 @@
 .camp-card textarea { width: 100%; }
 .camp-admin-row + .camp-admin-row { margin-top: 0; }
 
+/* Lista de campanhas do admin — cards compactos, sem esticar até metade
+   da tela num monitor largo (era .visits-list, 2 colunas de ~50% cada). */
+.camp-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 400px));
+    gap: 0.6rem;
+}
+.camp-admin-row { padding: 0.8rem 0.9rem; }
+.camp-admin-meta { margin: 0.1rem 0 0.4rem; line-height: 1.4; }
+.camp-admin-count { margin: 0.3rem 0 0.55rem; }
+.camp-admin-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.camp-admin-actions .mini-button { padding: 0.32rem 0.6rem; font-size: 0.78rem; }
+
 .camp-modal {
     max-height: 88dvh;
     display: flex;

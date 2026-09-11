@@ -330,7 +330,7 @@ export async function renderCampanhasPage() {
         </div></div>
         ${campanhas.length === 0
             ? '<div class="empty-state"><span class="empty-state-icon">🔗</span><p>Nenhuma campanha ainda. Crie uma pela tela de Propostas ou Funil (botão "🔗 Campanha").</p></div>'
-            : `<div class="visits-list">${campanhas.map(campanhaRow).join('')}</div>`}
+            : `<div class="camp-list">${campanhas.map(campanhaRow).join('')}</div>`}
     `;
     main.querySelectorAll('[data-camp-copy]').forEach((el) => el.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -359,17 +359,15 @@ function campanhaRow(c) {
             <strong>${escapeHtml(c.titulo)}</strong>
             <span class="status-pill ${c.status === 'concluida' ? 'funil-status-concluido' : 'funil-status-proposta'}">${c.status === 'concluida' ? 'Concluída' : 'Aberta'}</span>
         </div>
-        <p class="helper-text" style="margin:0.15rem 0 0.4rem">
-            ${c.tipo === 'funil' ? 'Funil' : 'Propostas'} · para ${escapeHtml(c.vendedorDestino || '-')} · criada por ${escapeHtml(c.criadaPor || '-')} em ${escapeHtml(c.criadaEm || '-')}${c.prazoAte ? ` · prazo ${escapeHtml(c.prazoAte)}` : ''}
-        </p>
-        <p class="helper-text" style="margin:0 0 0.4rem">
+        <p class="helper-text camp-admin-meta">
+            ${c.tipo === 'funil' ? 'Funil' : 'Propostas'} · para ${escapeHtml(c.vendedorDestino || '-')}${c.prazoAte ? ` · prazo ${escapeHtml(c.prazoAte)}` : ''}<br>
             ${c.primeiroAcessoEm
                 ? `👁️ Acessou em ${escapeHtml(c.primeiroAcessoEm)}${c.ultimoAcessoEm && c.ultimoAcessoEm !== c.primeiroAcessoEm ? ` (última vez ${escapeHtml(c.ultimoAcessoEm)})` : ''}`
                 : '⏳ Ainda não abriu o link'}
         </p>
         <div class="camp-progress"><div class="camp-progress-bar" style="width:${pct}%"></div></div>
-        <p class="helper-text" style="margin:0.25rem 0 0.5rem">${c.respondidos} de ${c.total} atualizados</p>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <p class="helper-text camp-admin-count">${c.respondidos} de ${c.total} atualizados</p>
+        <div class="camp-admin-actions">
             <button type="button" class="mini-button" data-camp-copy="${escapeHtml(c.id)}">Copiar link</button>
             <button type="button" class="mini-button mini-button-whatsapp" data-camp-wa="${escapeHtml(c.id)}">WhatsApp</button>
             <button type="button" class="mini-button mini-button-danger" data-camp-del="${escapeHtml(c.id)}">Apagar</button>
