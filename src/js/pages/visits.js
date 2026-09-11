@@ -1150,7 +1150,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 </div>
             </div>
 
-            <div class="form-group ${isAdminUser ? '' : 'readonly-group'} full-width">
+            <div class="form-group ${isAdminUser ? '' : 'readonly-group'}">
                 <label for="vendedor-gerente">Vendedor / Gerente${isAdminUser ? ' (Admin pode registrar por outro)' : ''}</label>
                 ${isAdminUser ? `
                 <div class="searchable-select">
@@ -1379,6 +1379,20 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         areaSelect.value = client.areaAtuacao || '';
         if (prospeccaoSelect.value === 'Sim') {
             potencialSelect.value = client.potencialCliente || '';
+        }
+        // Admin escolhendo um cliente já cadastrado: sugere o vendedor
+        // responsável por ele (coluna "Vendedores" do cadastro), sem travar
+        // — o admin ainda pode trocar depois.
+        if (isAdminUser && client.vendedores) {
+            const vendedorInput = document.getElementById('vendedor-gerente');
+            if (vendedorInput) {
+                const primeiroNome = String(client.vendedores).split(/[,;/]/)[0].trim();
+                if (primeiroNome) {
+                    const match = (formData.vendedores || [])
+                        .find((v) => String(v.nome || '').trim().toLowerCase() === primeiroNome.toLowerCase());
+                    vendedorInput.value = match ? match.nome : primeiroNome;
+                }
+            }
         }
     };
 

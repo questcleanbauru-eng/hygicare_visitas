@@ -32,6 +32,18 @@
     margin: 0;
 }
 
+/* Nova/Editar Visita em tela larga: 2 colunas pra caber tudo sem rolar
+   (no celular continua empilhado, ver override acima). */
+@media (min-width: 900px) {
+    #visit-form.visit-form-layout {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem 1rem;
+    }
+    #visit-form.visit-form-layout .form-row-pair {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 /* Nova Visita: enquanto Prospecção (Sim/Não) não for escolhida, só esse
    campo aparece — o resto do formulário fica oculto. */
 #visit-form.prospeccao-pendente > .form-group:not(#prospeccao-field),
