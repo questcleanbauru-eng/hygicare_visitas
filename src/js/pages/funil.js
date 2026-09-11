@@ -828,7 +828,7 @@ export async function renderFunilCreatePage() {
                 </div>
             </div>
             ${isAdminUser ? `
-            <div class="form-group full-width">
+            <div class="form-group">
                 <label for="fc-vendedor">Vendedor (Admin pode registrar por outro)</label>
                 <select id="fc-vendedor">
                     <option value="">${escapeHtml(state.currentUser.name || '')} (eu)</option>

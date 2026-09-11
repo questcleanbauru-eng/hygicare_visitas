@@ -84,3 +84,17 @@
     border-color: #f59e0b;
     color: #92400e;
 }
+
+/* Novo/Editar Funil em tela larga: 2 colunas pra caber tudo sem rolar
+   (no celular continua empilhado — .form-layout-stack normal). */
+@media (min-width: 900px) {
+    #funil-create-form.form-layout-stack,
+    #funil-form.form-layout-stack {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.55rem 1rem;
+    }
+    #funil-create-form.form-layout-stack .form-row-pair,
+    #funil-form.form-layout-stack .form-row-pair {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
