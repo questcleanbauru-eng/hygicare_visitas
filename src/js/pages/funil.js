@@ -30,10 +30,11 @@ export function fillFunilContent(mainContent, funil) {
     // duplicados de reimportação, principalmente). Só pra quem pode apagar.
     let selectMode = false;
     const selectedIds = new Set();
-    // "Duplicado exato" = mesmo cliente/cidade/foco/vendedor/data/valor —
-    // exatamente o que uma reimportação com Id novo produz.
-    const funilDupKey = (f) => [f.cliente, f.cidade, f.foco, f.vendedor, f.data, f.vlMensal]
-        .map((v) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ')).join('|');
+    // "Duplicado" = mesmo cliente + mesmo foco (regra do negócio: uma
+    // oportunidade por cliente/foco). Vale pro destaque na lista e pro
+    // "Marcar duplicados" do modo seleção.
+    const funilDupKey = (f) => [f.cliente, f.foco]
+        .map((v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')).join('|');
 
     const newFunilDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."';
 
@@ -270,6 +271,13 @@ export function fillFunilContent(mainContent, funil) {
         });
         _funilCampanhaList = sorted.map((f) => ({ id: f.id, cliente: f.cliente, cidade: f.cidade, extra: [f.foco, f.atuacao].filter(Boolean).join(' · ') }));
 
+        // Destaque de duplicado: conta sobre tudo que está carregado (não só
+        // o filtrado), senão um filtro esconderia o "gêmeo" e o card
+        // deixaria de aparecer como repetido.
+        const dupCounts = new Map();
+        funilData.forEach((f) => { const k = funilDupKey(f); dupCounts.set(k, (dupCounts.get(k) || 0) + 1); });
+        const isDup = (f) => (dupCounts.get(funilDupKey(f)) || 0) > 1;
+
         const byMonth = sorted.reduce((groups, f) => {
             const d = parseDisplayDate(f.data) || parseDisplayDate(f.atualizacao);
             const key = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'Sem data';
@@ -289,11 +297,12 @@ export function fillFunilContent(mainContent, funil) {
                         && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
                         && calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30;
                     return `
-                    <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}${f.funilDiversey === 'Sim' ? ' funil-card-diversey' : ''}${selectMode && selectedIds.has(String(f.id)) ? ' is-selected' : ''}" data-funil-id="${escapeHtml(f.id)}">
+                    <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}${f.funilDiversey === 'Sim' ? ' funil-card-diversey' : ''}${selectMode && selectedIds.has(String(f.id)) ? ' is-selected' : ''}${isDup(f) ? ' funil-card-dup' : ''}" data-funil-id="${escapeHtml(f.id)}">
                         <div class="visit-card-header">
                             <strong>
                                 ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
                                 ${f.funilDiversey === 'Sim' ? '<span class="funil-diversey-tag" title="Funil Diversey — acompanhar de perto">⭐ Diversey</span>' : ''}
+                                ${isDup(f) ? '<span class="funil-dup-tag" title="Existe outro registro com o mesmo cliente e foco">⚠️ Duplicado</span>' : ''}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
                             </strong>
                             ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(f.status || '-')}" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(f.status || '')}">${escapeHtml(f.status || '-')}</span>`}
@@ -324,7 +333,7 @@ export function fillFunilContent(mainContent, funil) {
             container.insertAdjacentHTML('afterbegin', `
                 <div class="funil-sel-bar" id="funil-sel-bar">
                     <strong id="funil-sel-count">${selectedIds.size} selecionado(s)</strong>
-                    <button type="button" class="mini-button" id="funil-sel-dups" title="Marca os repetidos exatos (mesmo cliente, cidade, foco, vendedor, data e valor), deixando o primeiro de cada grupo">Marcar duplicados</button>
+                    <button type="button" class="mini-button" id="funil-sel-dups" title="Marca os repetidos (mesmo cliente e foco), deixando o primeiro de cada grupo">Marcar duplicados</button>
                     <button type="button" class="mini-button" id="funil-sel-all">Marcar todos</button>
                     <button type="button" class="mini-button" id="funil-sel-none">Limpar</button>
                     <button type="button" class="mini-button mini-button-danger" id="funil-sel-delete" ${selectedIds.size ? '' : 'disabled'}>🗑️ Excluir selecionados</button>

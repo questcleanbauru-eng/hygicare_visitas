@@ -85,6 +85,24 @@
     color: #92400e;
 }
 
+/* Duplicado (mesmo cliente + foco) — roxo, pra não confundir com o âmbar
+   do Diversey nem com o vermelho de "sem atualização". */
+.funil-card-dup { border-left: 3px solid #a855f7; background: #faf5ff; }
+.funil-dup-tag {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.02rem 0.4rem;
+    border-radius: 999px;
+    background: #f3e8ff;
+    color: #6b21a8;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
 /* Modo seleção (apagar vários de uma vez) */
 .funil-sel-bar {
     position: sticky;
