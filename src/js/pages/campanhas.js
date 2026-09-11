@@ -1,6 +1,9 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, ensureFormData } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, formatCurrency } from '../utils/format.js';
+import {
+    escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, formatCurrency,
+    formatDateFieldValue, normalizeDisplayDateValue
+} from '../utils/format.js';
 import { showToast, setSaving, skeletonList, addScrollTop, openExternal } from '../utils/dom.js';
 import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 
@@ -89,7 +92,7 @@ export async function openGerarCampanhaModal(tipo, itemIds) {
             </div>
             <div class="form-group full-width">
                 <label for="camp-prazo">Prazo (opcional)</label>
-                <input type="date" id="camp-prazo">
+                <input type="text" id="camp-prazo" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10">
             </div>
             <div id="camp-result" hidden style="margin:0.5rem 0 0.75rem"></div>
             <div class="form-actions full-width" style="display:flex;gap:0.5rem">
@@ -101,6 +104,13 @@ export async function openGerarCampanhaModal(tipo, itemIds) {
     const close = () => overlay.remove();
     overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
     overlay.querySelector('#camp-cancel').addEventListener('click', close);
+
+    const prazoInput = overlay.querySelector('#camp-prazo');
+    prazoInput.addEventListener('input', () => { prazoInput.value = formatDateFieldValue(prazoInput.value); });
+    prazoInput.addEventListener('blur', () => {
+        if (!prazoInput.value.trim()) return;
+        prazoInput.value = normalizeDisplayDateValue(prazoInput.value) || prazoInput.value;
+    });
 
     overlay.querySelector('#camp-gerar').addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;
