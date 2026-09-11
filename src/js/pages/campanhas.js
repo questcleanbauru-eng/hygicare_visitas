@@ -61,13 +61,16 @@ export function openSelecionarClientesModal(tipo, items) {
     overlay.querySelector('#camp-sel-next').addEventListener('click', () => {
         const ids = rows().filter((r) => r.checked).map((r) => r.value);
         if (!ids.length) { showToast('Marque ao menos um cliente.', true); return; }
+        const selected = list.filter((it) => ids.includes(String(it.id)));
         close();
-        openGerarCampanhaModal(tipo, ids);
+        openGerarCampanhaModal(tipo, ids, selected);
     });
 }
 
 // ── Modal "Gerar link de atualização" (chamado das telas Propostas/Funil) ──
-export async function openGerarCampanhaModal(tipo, itemIds) {
+// selectedItems: [{ id, cliente, cidade, extra }] — os mesmos itens marcados
+// no modal de seleção, só pra montar a mensagem do WhatsApp com os nomes.
+export async function openGerarCampanhaModal(tipo, itemIds, selectedItems) {
     if (!itemIds || !itemIds.length) { showToast('Selecione ao menos um cliente.', true); return; }
     ensureStyles('proposals');
     const fd = await ensureFormData().then((r) => r.data).catch(() => null);
@@ -92,7 +95,13 @@ export async function openGerarCampanhaModal(tipo, itemIds) {
             </div>
             <div class="form-group full-width">
                 <label for="camp-prazo">Prazo (opcional)</label>
-                <input type="text" id="camp-prazo" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10">
+                <div class="date-input-group">
+                    <input type="text" id="camp-prazo" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10">
+                    <button type="button" class="date-picker-button" id="camp-prazo-open" aria-label="Abrir calendário">📅</button>
+                    <div class="picker-menu" id="camp-prazo-menu">
+                        <input type="date" id="camp-prazo-picker" class="picker-native-input">
+                    </div>
+                </div>
             </div>
             <div id="camp-result" hidden style="margin:0.5rem 0 0.75rem"></div>
             <div class="form-actions full-width" style="display:flex;gap:0.5rem">
@@ -101,27 +110,51 @@ export async function openGerarCampanhaModal(tipo, itemIds) {
             </div>
         </div>`;
     document.body.appendChild(overlay);
-    const close = () => overlay.remove();
+    const close = () => { overlay.remove(); document.removeEventListener('click', closePrazoMenuOnOutsideClick); };
     overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
     overlay.querySelector('#camp-cancel').addEventListener('click', close);
 
     const prazoInput = overlay.querySelector('#camp-prazo');
+    const prazoMenu = overlay.querySelector('#camp-prazo-menu');
+    const prazoPicker = overlay.querySelector('#camp-prazo-picker');
+    const prazoOpenBtn = overlay.querySelector('#camp-prazo-open');
     prazoInput.addEventListener('input', () => { prazoInput.value = formatDateFieldValue(prazoInput.value); });
     prazoInput.addEventListener('blur', () => {
-        if (!prazoInput.value.trim()) return;
-        prazoInput.value = normalizeDisplayDateValue(prazoInput.value) || prazoInput.value;
+        setTimeout(() => {
+            if (!prazoInput.value.trim()) return;
+            prazoInput.value = normalizeDisplayDateValue(prazoInput.value) || prazoInput.value;
+        }, 150);
     });
+    prazoOpenBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const opening = !prazoMenu.classList.contains('visible');
+        prazoMenu.classList.remove('visible');
+        if (opening) { prazoMenu.classList.add('visible'); prazoPicker.focus(); }
+    });
+    prazoPicker.addEventListener('change', () => {
+        if (!prazoPicker.value) return;
+        const d = new Date(`${prazoPicker.value}T00:00:00`);
+        if (!Number.isNaN(d.getTime())) {
+            prazoInput.value = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+            prazoMenu.classList.remove('visible');
+        }
+    });
+    function closePrazoMenuOnOutsideClick(e) {
+        if (!prazoMenu.contains(e.target) && e.target !== prazoOpenBtn) prazoMenu.classList.remove('visible');
+    }
+    document.addEventListener('click', closePrazoMenuOnOutsideClick);
 
     overlay.querySelector('#camp-gerar').addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;
         const vendedorDestino = overlay.querySelector('#camp-vendedor').value.trim();
         if (!vendedorDestino) { showToast('Escolha o vendedor.', true); return; }
+        const prazoAte = prazoInput.value.trim();
         setSaving(true, btn, 'Gerando...');
         const r = await callAPI('criarCampanha', {
             tipo,
             titulo: overlay.querySelector('#camp-titulo').value.trim(),
             vendedorDestino,
-            prazoAte: overlay.querySelector('#camp-prazo').value || '',
+            prazoAte,
             itemIds,
             user: state.currentUser
         }).catch(() => null);
@@ -134,7 +167,7 @@ export async function openGerarCampanhaModal(tipo, itemIds) {
         const box = overlay.querySelector('#camp-result');
         box.hidden = false;
         box.innerHTML = `
-            <p class="helper-text" style="margin:0 0 0.35rem">Link pronto — mande pro ${escapeHtml(vendedorDestino)}:</p>
+            <p class="helper-text" style="margin:0 0 0.35rem">Link pronto — mande pro ${escapeHtml(vendedorDestino)}${prazoAte ? ` (prazo ${escapeHtml(prazoAte)})` : ''}:</p>
             <input type="text" id="camp-link" readonly value="${escapeHtml(link)}" style="font-size:0.82rem">
             <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
                 <button type="button" class="mini-button" id="camp-copy">Copiar</button>
@@ -147,7 +180,16 @@ export async function openGerarCampanhaModal(tipo, itemIds) {
             overlay.querySelector('#camp-link').select();
         });
         overlay.querySelector('#camp-wa').addEventListener('click', () => {
-            const msg = `Oi! Preciso que você atualize o status desses clientes: ${link}`;
+            const primeiroNome = vendedorDestino.split(' ')[0];
+            const clientesTxt = (selectedItems || [])
+                .map((it) => `• ${it.cliente || 'Cliente'}${it.cidade ? ' — ' + it.cidade : ''}`)
+                .join('\n');
+            const msg = [
+                `Oi ${primeiroNome}! Preciso que você atualize o status ${tipo === 'funil' ? 'destas oportunidades do Funil' : 'destas propostas'}:`,
+                clientesTxt,
+                prazoAte ? `\nPrazo: ${prazoAte}` : '',
+                `\n${link}`
+            ].filter(Boolean).join('\n');
             openExternal(`https://wa.me/?text=${encodeURIComponent(msg)}`);
         });
         document.dispatchEvent(new CustomEvent('campanha-criada'));
@@ -297,6 +339,11 @@ function campanhaRow(c) {
         </div>
         <p class="helper-text" style="margin:0.15rem 0 0.4rem">
             ${c.tipo === 'funil' ? 'Funil' : 'Propostas'} · para ${escapeHtml(c.vendedorDestino || '-')} · criada por ${escapeHtml(c.criadaPor || '-')} em ${escapeHtml(c.criadaEm || '-')}${c.prazoAte ? ` · prazo ${escapeHtml(c.prazoAte)}` : ''}
+        </p>
+        <p class="helper-text" style="margin:0 0 0.4rem">
+            ${c.primeiroAcessoEm
+                ? `👁️ Acessou em ${escapeHtml(c.primeiroAcessoEm)}${c.ultimoAcessoEm && c.ultimoAcessoEm !== c.primeiroAcessoEm ? ` (última vez ${escapeHtml(c.ultimoAcessoEm)})` : ''}`
+                : '⏳ Ainda não abriu o link'}
         </p>
         <div class="camp-progress"><div class="camp-progress-bar" style="width:${pct}%"></div></div>
         <p class="helper-text" style="margin:0.25rem 0 0.5rem">${c.respondidos} de ${c.total} atualizados</p>
