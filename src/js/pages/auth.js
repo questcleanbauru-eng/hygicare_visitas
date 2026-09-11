@@ -1,4 +1,4 @@
-import { state, navigateTo, consumeDeepLink } from '../app.js';
+import { state, navigateTo, peekCampanhaId, goAfterLogin } from '../app.js';
 import { callAPI, persistUser } from '../api.js';
 import { escapeHtml } from '../utils/format.js';
 import { setSaving, showToast } from '../utils/dom.js';
@@ -8,6 +8,9 @@ import { isPinSupported, hasPinEmail, getPinEmail, setPinEmail, clearPinEmail } 
 // Fica "grudado" entre re-renders (ex.: mostrar erro) e é escolhido pelas
 // abas no topo do card.
 let _loginMode = null;
+// Link de campanha força a tela de PIN — esse escape hatch ("Entrar com
+// e-mail e senha") desliga isso pro resto da sessão de login.
+let _skipForcePin = false;
 
 // Coluna de marca compartilhada entre a tela de login e a de PIN.
 function loginBrandHtml() {
@@ -54,7 +57,12 @@ export function renderLoginPage() {
     mainContent.style.cssText = 'max-width:none;margin:0;padding:0;overflow:hidden;';
 
     const pinAvailable = isPinSupported();
-    if (!_loginMode) _loginMode = (pinAvailable && hasPinEmail()) ? 'pin' : 'password';
+    // Veio de um link de campanha (mandado pra um vendedor preencher) — só
+    // a tela de PIN, sem aba pra trocar. Quem não tem PIN cadastrado ainda
+    // usa o link "Entrar com e-mail e senha" abaixo do formulário.
+    const forcePin = pinAvailable && !_skipForcePin && !!peekCampanhaId();
+    if (forcePin) _loginMode = 'pin';
+    else if (!_loginMode) _loginMode = (pinAvailable && hasPinEmail()) ? 'pin' : 'password';
     if (!pinAvailable) _loginMode = 'password';
     const mode = _loginMode;
 
@@ -71,12 +79,13 @@ export function renderLoginPage() {
                     <span class="lml-tag">Gerencie visitas e propostas</span>
                 </div>
                 <div class="login-form-card">
-                    ${pinAvailable ? `
+                    ${pinAvailable && !forcePin ? `
                     <div class="login-mode-tabs" role="tablist" aria-label="Como entrar">
                         <button type="button" class="login-mode-tab ${mode === 'password' ? 'active' : ''}" data-mode="password">E-mail e senha</button>
                         <button type="button" class="login-mode-tab ${mode === 'pin' ? 'active' : ''}" data-mode="pin">PIN</button>
                     </div>` : ''}
                     <div id="login-mode-body">${mode === 'pin' ? pinLoginFormHtml() : passwordLoginFormHtml()}</div>
+                    ${forcePin ? '<p class="login-forgot-row"><button type="button" class="login-forgot-link" id="login-use-password">Ainda não tem PIN? Entrar com e-mail e senha</button></p>' : ''}
                     <p class="login-help">Problemas para entrar? Fale com o administrador.</p>
                 </div>
             </div>
@@ -89,6 +98,11 @@ export function renderLoginPage() {
             _loginMode = tab.dataset.mode;
             renderLoginPage();
         });
+    });
+    document.getElementById('login-use-password')?.addEventListener('click', () => {
+        _skipForcePin = true;
+        _loginMode = 'password';
+        renderLoginPage();
     });
 
     if (mode === 'pin') { wirePinLoginForm(); }
@@ -186,7 +200,7 @@ function wirePasswordLoginForm() {
                 } else {
                     await maybeOfferPinSetup(acctEmail);
                 }
-                await navigateTo(...((dl => dl ? [dl.page, dl.options] : ['dashboard'])(consumeDeepLink())));
+                await goAfterLogin();
                 return;
             }
             errorText.textContent = result.message || 'Credenciais inválidas.';
@@ -311,7 +325,7 @@ function wirePinLoginForm() {
                 setPinEmail(result.userData.email || email);
                 state.currentUser = { ...result.userData, accessToken: result.accessToken };
                 persistUser(state.currentUser);
-                await navigateTo(...((dl => dl ? [dl.page, dl.options] : ['dashboard'])(consumeDeepLink())));
+                await goAfterLogin();
                 return;
             }
             setBusy(false); submitting = false;
@@ -480,7 +494,7 @@ export async function performLogin(email, password) {
             if (isFirstToday) {
                 await showWelcomeSplash(result.userData);
             }
-            await navigateTo(...((dl => dl ? [dl.page, dl.options] : ['dashboard'])(consumeDeepLink())));
+            await goAfterLogin();
             return;
         }
         errorEl.textContent = result.message;

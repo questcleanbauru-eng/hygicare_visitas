@@ -73,8 +73,9 @@ export function clearDocumentClickListeners() {
 
 
 // Deep-link por URL: ?c=<id> (ou /c/<id> antigo) abre a tela de "preencher
-// campanha". Consome uma vez e limpa a URL pra um reload não repetir.
-export function consumeDeepLink() {
+// campanha". peekCampanhaId só espia (usado na tela de login, antes de
+// autenticar); consumeDeepLink lê e já limpa a URL, pra um reload não repetir.
+export function peekCampanhaId() {
     try {
         let id = '';
         try { id = new URLSearchParams(window.location.search || '').get('c') || ''; } catch (e) {}
@@ -82,12 +83,23 @@ export function consumeDeepLink() {
             const m = String(window.location.pathname || '').match(/^\/c\/([A-Za-z0-9_-]{4,})\/?$/);
             if (m) id = m[1];
         }
-        if (/^[A-Za-z0-9_-]{4,}$/.test(id)) {
-            try { window.history.replaceState({}, '', '/'); } catch (e) {}
-            return { page: 'campanha-preencher', options: { id } };
-        }
-    } catch (e) {}
-    return null;
+        return /^[A-Za-z0-9_-]{4,}$/.test(id) ? id : null;
+    } catch (e) { return null; }
+}
+
+export function consumeDeepLink() {
+    const id = peekCampanhaId();
+    if (!id) return null;
+    try { window.history.replaceState({}, '', '/'); } catch (e) {}
+    return { page: 'campanha-preencher', options: { id } };
+}
+
+// Depois de logar: se veio de um link de campanha, cai direto nela (sem
+// menu/nav — ver navigateTo); senão, segue pro Início normal.
+export async function goAfterLogin() {
+    const dl = consumeDeepLink();
+    if (dl) return navigateTo(dl.page, dl.options);
+    return navigateTo('dashboard');
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -240,7 +252,9 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
     const header = document.querySelector('header');
     const bottomNav = document.getElementById('bottom-nav');
 
-    if (page === 'login' || page === 'forgot-password') {
+    // campanha-preencher: link mandado pro vendedor preencher uma coisa só —
+    // sem menu/nav, é a única tela que ele precisa ver.
+    if (page === 'login' || page === 'forgot-password' || page === 'campanha-preencher') {
         header.style.display = 'none';
         bottomNav.style.display = 'none';
     } else {
