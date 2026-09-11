@@ -11,6 +11,10 @@ let _loginMode = null;
 // No login por PIN, o identificador pode ser e-mail ou nome — só faz
 // sentido pro PIN (a senha continua exigindo e-mail, mais seguro).
 let _pinIdentifierMode = 'email';
+// Evita reaplicar o default de "nome" (abaixo) a cada re-render de um
+// link de campanha — só na primeira vez, senão desfaz o toggle manual do
+// usuário ("Prefere entrar com o e-mail?") a cada erro de PIN.
+let _pinIdentifierDefaultedForCampanha = false;
 // Link de campanha força a tela de PIN — esse escape hatch ("Entrar com
 // e-mail e senha") desliga isso pro resto da sessão de login.
 let _skipForcePin = false;
@@ -64,7 +68,15 @@ export function renderLoginPage() {
     // a tela de PIN, sem aba pra trocar. Quem não tem PIN cadastrado ainda
     // usa o link "Entrar com e-mail e senha" abaixo do formulário.
     const forcePin = pinAvailable && !_skipForcePin && !!peekCampanhaId();
-    if (forcePin) _loginMode = 'pin';
+    if (forcePin) {
+        _loginMode = 'pin';
+        // Mensagem da campanha (WhatsApp/link) instrui "login: seu nome" —
+        // a tela já abre nesse modo pra bater com a instrução.
+        if (!_pinIdentifierDefaultedForCampanha) {
+            _pinIdentifierMode = 'nome';
+            _pinIdentifierDefaultedForCampanha = true;
+        }
+    }
     else if (!_loginMode) _loginMode = (pinAvailable && hasPinEmail()) ? 'pin' : 'password';
     if (!pinAvailable) _loginMode = 'password';
     const mode = _loginMode;

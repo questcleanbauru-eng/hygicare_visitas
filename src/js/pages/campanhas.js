@@ -184,6 +184,7 @@ export async function openGerarCampanhaModal(tipo, itemIds, selectedItems) {
                 `Oi ${primeiroNome}! Preciso que você atualize o status ${tipo === 'funil' ? 'destas oportunidades do Funil' : 'destas propostas'}:`,
                 clientesTxt,
                 prazoAte ? `\nPrazo: ${prazoAte}` : '',
+                `\nPra entrar: login é seu nome (em minúsculo) e PIN são os 4 últimos números do seu celular.`,
                 `\n${link}`
             ].filter(Boolean).join('\n');
         };
