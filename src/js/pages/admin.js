@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
-import { escapeHtml, titleCase, getInitials, profileClass } from '../utils/format.js';
+import { escapeHtml, titleCase, getInitials, profileClass, clienteSearchItem } from '../utils/format.js';
 import { showToast, loadingState, renderSimpleOptions, showRefreshIndicator, hideRefreshIndicator, setSaving, initializeSearchableInput } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 
@@ -578,7 +578,7 @@ async function loadClientesPrincipaisTab() {
             if (input && menu) {
                 initializeSearchableInput({
                     input, menu,
-                    items: clientes.map((c) => c.nome).filter(Boolean),
+                    items: clientes.map((c) => clienteSearchItem(c)),
                     onSelect: async (nome) => {
                         input.value = '';
                         const result = await callAPI('addClientePrincipal', { cliente: nome, user: state.currentUser });

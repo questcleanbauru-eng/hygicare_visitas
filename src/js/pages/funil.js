@@ -5,7 +5,7 @@ import {
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
     funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
-    clienteSearchLabel, clienteNomeFromLabel
+    clienteSearchItem
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
@@ -931,15 +931,11 @@ export async function renderFunilCreatePage() {
     initializeSearchableInput({
         input: document.getElementById('fc-cliente'),
         menu: document.getElementById('fc-cliente-menu'),
-        items: clientes.map((c) => clienteSearchLabel(c)).filter(Boolean),
+        items: clientes.map((c) => clienteSearchItem(c)),
         allowFreeText: true,
         onSelect: (value) => {
-            const nome = clienteNomeFromLabel(value);
-            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === nome.toLowerCase());
+            const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());
             if (!match) return;
-            // A busca pode ter sido pelo Nome Fantasia — o campo grava só o
-            // nome oficial do cliente.
-            document.getElementById('fc-cliente').value = match.nome || '';
             if (match.cidade) document.getElementById('fc-cidade').value = match.cidade;
             if (match.potencialCliente) document.getElementById('fc-foco').value = match.potencialCliente;
             if (match.areaAtuacao) document.getElementById('fc-atuacao').value = match.areaAtuacao;

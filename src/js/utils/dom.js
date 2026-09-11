@@ -133,19 +133,45 @@ export function renderYearChips(container, dates, selectedYear, onSelectYear) {
 }
 
 
+// Um item da lista pode ser uma string simples (a maioria dos campos:
+// cidade, tipo de visita, área de atuação…) ou um objeto rico
+// { value, label, search } — usado pelo picker de "Cliente cadastrado" pra
+// mostrar o Nome Fantasia na lista mas continuar buscando pelo nome oficial
+// também, e selecionar sempre gravando o nome oficial (value).
+function normalizeSearchableItem(raw) {
+    if (raw && typeof raw === 'object') {
+        const value = String(raw.value ?? '').trim();
+        const label = String(raw.label ?? raw.value ?? '').trim();
+        const search = String(raw.search ?? raw.label ?? raw.value ?? '').trim();
+        return { value, label, search };
+    }
+    const s = String(raw ?? '').trim();
+    return { value: s, label: s, search: s };
+}
+
 export function initializeSearchableInput({ input, menu, items = [], onSelect = null, multiSelect = false, maxSelections = 1, selectedItems = [], selectedContainer = null, selectionLabel = 'item', onSelectionChange = null, allowFreeText = false }) {
     if (!input || !menu) {
         return;
     }
 
-    const normalizedItems = Array.from(new Set((Array.isArray(items) ? items : []).filter(Boolean)));
+    const seenValues = new Set();
+    const normalizedItems = [];
+    (Array.isArray(items) ? items : []).forEach((raw) => {
+        const item = normalizeSearchableItem(raw);
+        if (!item.value || seenValues.has(item.value)) return;
+        seenValues.add(item.value);
+        normalizedItems.push(item);
+    });
     const selectedValues = Array.isArray(selectedItems) ? selectedItems : [];
 
     // Ignora acento na busca ("sao paulo" acha "São Paulo") e serve também
     // pra checar no blur se o texto digitado bate com alguma opção real.
     const stripAccents = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
     const matchKey = (s) => stripAccents(s).trim().toLowerCase();
-    const exactMatch = (value) => normalizedItems.find((item) => matchKey(item) === matchKey(value));
+    // Bate tanto pelo valor gravado (ex.: nome oficial) quanto pelo rótulo
+    // mostrado na lista (ex.: nome fantasia) — quem digitou um dos dois por
+    // completo não pode ser tratado como "não encontrado".
+    const exactMatch = (value) => normalizedItems.find((item) => matchKey(item.value) === matchKey(value) || matchKey(item.label) === matchKey(value));
 
     const renderSelectedItems = () => {
         if (!selectedContainer) {
@@ -188,7 +214,7 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
     const openMenu = (query = '') => {
         const normalizedQuery = matchKey(query);
         const filteredItems = normalizedQuery
-            ? normalizedItems.filter((item) => matchKey(item).includes(normalizedQuery))
+            ? normalizedItems.filter((item) => matchKey(item.search).includes(normalizedQuery))
             : normalizedItems;
 
         if (filteredItems.length === 0) {
@@ -196,8 +222,11 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
             return;
         }
 
+        // data-value é o que de fato é gravado (ex.: nome oficial do
+        // cliente); o texto do botão é o rótulo mostrado (ex.: nome
+        // fantasia) — podem ser diferentes.
         menu.innerHTML = filteredItems.slice(0, 150).map((item) => `
-            <button type="button" class="searchable-select-option" data-value="${escapeHtml(item)}">${escapeHtml(item)}</button>
+            <button type="button" class="searchable-select-option" data-value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</button>
         `).join('');
         menu.classList.add('visible');
 

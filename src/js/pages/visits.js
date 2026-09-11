@@ -8,7 +8,7 @@ import {
     normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
     calculateDaysFromDisplayDate,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
-    clienteSearchLabel, clienteNomeFromLabel
+    clienteSearchItem
 } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
@@ -1298,8 +1298,8 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     initializeSearchableInput({
         input: clienteSelect,
         menu: document.getElementById('cliente-existente-menu'),
-        items: formData.clientes.map((client) => clienteSearchLabel(client)),
-        onSelect: (value) => fillClientData(clienteNomeFromLabel(value))
+        items: formData.clientes.map((client) => clienteSearchItem(client)),
+        onSelect: (value) => fillClientData(value)
     });
     initializeSearchableInput({
         input: cidadeSelect,
@@ -2257,7 +2257,7 @@ export async function showCreateAgendamentoModal(onCreated) {
         initializeSearchableInput({
             input: overlay.querySelector('#newag-cliente'),
             menu: overlay.querySelector('#newag-cliente-menu'),
-            items: clientes.map((c) => c.nome).filter(Boolean),
+            items: clientes.map((c) => clienteSearchItem(c)),
             allowFreeText: true,
             onSelect: (value) => {
                 const match = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === String(value || '').trim().toLowerCase());

@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase, clienteSearchItem } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, showToast, actionIcon,
     skeletonList, skeletonDetail, addScrollTop, setSaving, openExternal
@@ -1074,7 +1074,7 @@ export async function renderManutencaoFormPage(record, options) {
     initializeSearchableInput({
         input: document.getElementById('mnt-cliente'),
         menu: document.getElementById('mnt-cliente-menu'),
-        items: clientes.map((c) => c.nome),
+        items: clientes.map((c) => clienteSearchItem(c)),
         allowFreeText: true,
         // Escolher um cliente já cadastrado preenche a cidade sozinho.
         onSelect: (value) => {
