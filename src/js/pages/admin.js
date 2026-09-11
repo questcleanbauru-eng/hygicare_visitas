@@ -682,6 +682,10 @@ export function bindAdminEvents(data) {
                         <input type="email" class="uif-email" placeholder="email@empresa.com">
                     </div>
                     <div class="uif-field">
+                        <label>Nome de login <span class="uif-hint">(pra entrar com PIN, ex.: "bruno")</span></label>
+                        <input type="text" class="uif-nome-login" placeholder="Opcional — em branco usa o nome completo">
+                    </div>
+                    <div class="uif-field">
                         <label>Senha <span class="uif-req">*</span></label>
                         <input type="password" class="uif-senha" placeholder="••••••••" autocomplete="new-password">
                     </div>
@@ -723,6 +727,7 @@ export function bindAdminEvents(data) {
                 originalEmail: '',
                 emailLogin: overlay.querySelector('.uif-email').value.trim(),
                 nomeVendedor: overlay.querySelector('.uif-nome').value.trim(),
+                nomeLogin: overlay.querySelector('.uif-nome-login').value.trim(),
                 senha,
                 gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
                 perfil: overlay.querySelector('.uif-perfil').value,
@@ -754,6 +759,7 @@ export function bindAdminEvents(data) {
             const perfil = user.perfil || user.Perfil || user.profile || '';
             const gerencia = (user.gerencia || user.Gerencia || '') === '-' ? '' : (user.gerencia || user.Gerencia || '');
             const metaVisitasMes = user.metaVisitasMes || user.MetaVisitasMes || '';
+            const nomeLogin = user.nomeLogin || user.NomeLogin || '';
             const perms = {
                 permDelete: user.permDelete || user.PermDelete || '',
                 permCriarPropostaFunil: user.permCriarPropostaFunil || user.PermCriarPropostaFunil || '',
@@ -777,6 +783,10 @@ export function bindAdminEvents(data) {
                         <div class="uif-field">
                             <label>E-mail</label>
                             <input type="email" class="uif-email" value="${escapeHtml(email)}" placeholder="E-mail">
+                        </div>
+                        <div class="uif-field">
+                            <label>Nome de login <span class="uif-hint">(pra entrar com PIN, ex.: "bruno")</span></label>
+                            <input type="text" class="uif-nome-login" value="${escapeHtml(nomeLogin)}" placeholder="Opcional — em branco usa o nome completo">
                         </div>
                         <div class="uif-field">
                             <label>Senha <span class="uif-hint">(em branco = manter)</span></label>
@@ -899,6 +909,7 @@ export function bindAdminEvents(data) {
                     originalEmail: email,
                     emailLogin: overlay.querySelector('.uif-email').value.trim(),
                     nomeVendedor: overlay.querySelector('.uif-nome').value.trim(),
+                    nomeLogin: overlay.querySelector('.uif-nome-login').value.trim(),
                     senha: senhaEdit,
                     gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
                     perfil: overlay.querySelector('.uif-perfil').value,

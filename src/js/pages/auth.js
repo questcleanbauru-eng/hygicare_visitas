@@ -271,7 +271,7 @@ function pinLoginFormHtml() {
                 ${byNome
                     ? `<input type="text" id="pin-identifier" autocomplete="name" required placeholder=" ">`
                     : `<input type="email" id="pin-identifier" autocomplete="email" required placeholder=" " value="${escapeHtml(savedEmail)}">`}
-                <label for="pin-identifier" class="login-field-label">${byNome ? 'Nome completo' : 'E-mail'}</label>
+                <label for="pin-identifier" class="login-field-label">${byNome ? 'Nome' : 'E-mail'}</label>
             </div>
             <p class="login-forgot-row" style="margin:-0.35rem 0 0.6rem">
                 <button type="button" class="login-forgot-link" id="pin-identifier-toggle">${byNome ? 'Prefere entrar com o e-mail?' : 'Prefere entrar com o nome?'}</button>
