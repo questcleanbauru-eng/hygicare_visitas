@@ -2,12 +2,12 @@ import { state, navigateTo, peekCampanhaId, goAfterLogin } from '../app.js';
 import { callAPI, persistUser } from '../api.js';
 import { escapeHtml } from '../utils/format.js';
 import { setSaving, showToast } from '../utils/dom.js';
-import { isPinSupported, hasPinEmail, getPinEmail, setPinEmail, clearPinEmail } from '../utils/pin.js';
+import { isPinSupported, getPinEmail, setPinEmail, clearPinEmail } from '../utils/pin.js';
 
-// Forma de entrar escolhida na tela de login: 'password' | 'pin'.
-// Fica "grudado" entre re-renders (ex.: mostrar erro) e é escolhido pelas
-// abas no topo do card.
-let _loginMode = null;
+// Login unificado em PIN — a tela só mostra e-mail/senha se o usuário pedir
+// explicitamente ("Ainda não tem PIN?"), pra quem ainda não tem um
+// cadastrado. Fica "grudado" entre re-renders (erro de PIN, etc).
+let _pinOptedOut = false;
 // No login por PIN, o identificador pode ser e-mail ou nome — só faz
 // sentido pro PIN (a senha continua exigindo e-mail, mais seguro).
 let _pinIdentifierMode = 'email';
@@ -15,9 +15,6 @@ let _pinIdentifierMode = 'email';
 // link de campanha — só na primeira vez, senão desfaz o toggle manual do
 // usuário ("Prefere entrar com o e-mail?") a cada erro de PIN.
 let _pinIdentifierDefaultedForCampanha = false;
-// Link de campanha força a tela de PIN — esse escape hatch ("Entrar com
-// e-mail e senha") desliga isso pro resto da sessão de login.
-let _skipForcePin = false;
 
 // Coluna de marca compartilhada entre a tela de login e a de PIN.
 function loginBrandHtml() {
@@ -64,22 +61,16 @@ export function renderLoginPage() {
     mainContent.style.cssText = 'max-width:none;margin:0;padding:0;overflow:hidden;';
 
     const pinAvailable = isPinSupported();
-    // Veio de um link de campanha (mandado pra um vendedor preencher) — só
-    // a tela de PIN, sem aba pra trocar. Quem não tem PIN cadastrado ainda
-    // usa o link "Entrar com e-mail e senha" abaixo do formulário.
-    const forcePin = pinAvailable && !_skipForcePin && !!peekCampanhaId();
-    if (forcePin) {
-        _loginMode = 'pin';
-        // Mensagem da campanha (WhatsApp/link) instrui "login: seu nome" —
-        // a tela já abre nesse modo pra bater com a instrução.
-        if (!_pinIdentifierDefaultedForCampanha) {
-            _pinIdentifierMode = 'nome';
-            _pinIdentifierDefaultedForCampanha = true;
-        }
+    // PIN é o único jeito de entrar mostrado por padrão — e-mail/senha só
+    // aparece se o usuário pedir explicitamente (ainda não tem PIN).
+    const mode = (pinAvailable && !_pinOptedOut) ? 'pin' : 'password';
+    // Veio de um link de campanha (mandado pra um vendedor preencher) — a
+    // mensagem (WhatsApp/link) instrui "login: seu nome", então a tela já
+    // abre pedindo o nome em vez do e-mail pra bater com a instrução.
+    if (mode === 'pin' && !!peekCampanhaId() && !_pinIdentifierDefaultedForCampanha) {
+        _pinIdentifierMode = 'nome';
+        _pinIdentifierDefaultedForCampanha = true;
     }
-    else if (!_loginMode) _loginMode = (pinAvailable && hasPinEmail()) ? 'pin' : 'password';
-    if (!pinAvailable) _loginMode = 'password';
-    const mode = _loginMode;
 
     mainContent.innerHTML = `
         <div class="login-split">
@@ -94,29 +85,24 @@ export function renderLoginPage() {
                     <span class="lml-tag">Gerencie visitas e propostas</span>
                 </div>
                 <div class="login-form-card">
-                    ${pinAvailable && !forcePin ? `
-                    <div class="login-mode-tabs" role="tablist" aria-label="Como entrar">
-                        <button type="button" class="login-mode-tab ${mode === 'password' ? 'active' : ''}" data-mode="password">E-mail e senha</button>
-                        <button type="button" class="login-mode-tab ${mode === 'pin' ? 'active' : ''}" data-mode="pin">PIN</button>
-                    </div>` : ''}
                     <div id="login-mode-body">${mode === 'pin' ? pinLoginFormHtml() : passwordLoginFormHtml()}</div>
-                    ${forcePin ? '<p class="login-forgot-row"><button type="button" class="login-forgot-link" id="login-use-password">Ainda não tem PIN? Entrar com e-mail e senha</button></p>' : ''}
+                    <p class="login-forgot-row">
+                        ${mode === 'pin'
+                            ? '<button type="button" class="login-forgot-link" id="login-use-password">Ainda não tem PIN? Entrar com e-mail e senha</button>'
+                            : (pinAvailable ? '<button type="button" class="login-forgot-link" id="login-use-pin">Prefere entrar com PIN?</button>' : '')}
+                    </p>
                     <p class="login-help">Problemas para entrar? Fale com o administrador.</p>
                 </div>
             </div>
         </div>
     `;
 
-    mainContent.querySelectorAll('.login-mode-tab').forEach((tab) => {
-        tab.addEventListener('click', () => {
-            if (tab.dataset.mode === _loginMode) return;
-            _loginMode = tab.dataset.mode;
-            renderLoginPage();
-        });
-    });
     document.getElementById('login-use-password')?.addEventListener('click', () => {
-        _skipForcePin = true;
-        _loginMode = 'password';
+        _pinOptedOut = true;
+        renderLoginPage();
+    });
+    document.getElementById('login-use-pin')?.addEventListener('click', () => {
+        _pinOptedOut = false;
         renderLoginPage();
     });
 
