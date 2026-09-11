@@ -1256,7 +1256,12 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     document.getElementById('back-to-visits').addEventListener('click', () => { if (isEdit) exitVisitEdit(); else navigateTo('visits'); });
     document.getElementById('cancel-visit').addEventListener('click', () => { if (isEdit) exitVisitEdit(); else navigateTo('visits'); });
 
-    const prospeccaoSelect = { get value() { return document.querySelector('input[name="prospeccao"]:checked')?.value || 'Sim'; } };
+    // Sem fallback pra 'Sim': enquanto Prospecção não foi respondida, isso
+    // fazia o syncProspectionMode() inicial (chamado incondicionalmente,
+    // logo abaixo) tratar como "Sim" e mostrar "Potencial do Cliente" via
+    // style inline — que vence a regra CSS que esconde o resto do form
+    // (.prospeccao-pendente) por ser mais específica.
+    const prospeccaoSelect = { get value() { return document.querySelector('input[name="prospeccao"]:checked')?.value || ''; } };
     const clienteSelect = document.getElementById('cliente-existente');
     const clienteInput = document.getElementById('cliente');
     const contatoInput = document.getElementById('contato');
@@ -1338,6 +1343,12 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     }
 
     const syncProspectionMode = () => {
+        // Prospecção ainda não respondida: nem entra aqui pra mexer em
+        // estilo inline nenhum — quem manda nesse estado é só a classe CSS
+        // .prospeccao-pendente (esconde tudo menos a própria pergunta). Um
+        // inline style setado aqui venceria essa regra e vazaria algum
+        // campo antes da hora (era o caso de "Potencial do Cliente").
+        if (!document.querySelector('input[name="prospeccao"]:checked')) return;
         const isProspection = prospeccaoSelect.value === 'Sim';
         document.querySelector('.client-select-group').style.display = isProspection ? 'none' : 'block';
         const clienteGroup = document.getElementById('cliente-group');
