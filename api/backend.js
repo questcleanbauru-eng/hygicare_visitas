@@ -1,6 +1,6 @@
 import { checkRateLimit } from '../lib/common.js';
 import { readSession } from '../lib/security.js';
-import { handleLogin, handleForgotPassword, handleLoginWithPin, handleSetupPin, handleRemovePin } from '../lib/handlers/auth.js';
+import { handleLogin, handleForgotPassword, handleLoginWithPin, handleSetupPin, handleRemovePin, handleAdminSetPin } from '../lib/handlers/auth.js';
 import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit } from '../lib/handlers/visits.js';
 import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal } from '../lib/handlers/proposals.js';
 import {
@@ -61,6 +61,7 @@ const HANDLERS = {
     login: handleLogin,
     loginWithPin: handleLoginWithPin,
     setupPin: handleSetupPin,
+    adminSetPin: handleAdminSetPin,
     removePin: handleRemovePin,
     forgotPassword: handleForgotPassword,
     getVisits: handleGetVisits,

@@ -647,6 +647,21 @@
     color: var(--text-muted-strong);
 }
 
+.uif-pin-set {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.uif-pin-input {
+    width: 7.5rem;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+}
+
 /* Excluir / desativar usuário (modal Editar Usuário) */
 .uif-danger-zone {
     display: flex;

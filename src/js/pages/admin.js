@@ -799,6 +799,10 @@ export function bindAdminEvents(data) {
                     </div>
                     <div class="uif-pin-row">
                         <span>PIN de acesso rápido: <strong>${user.hasPin ? 'ativo' : 'não cadastrado'}</strong></span>
+                        <div class="uif-pin-set">
+                            <input type="text" class="uif-pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Novo PIN (4 dígitos)">
+                            <button type="button" class="mini-button uif-pin-save">${user.hasPin ? 'Trocar PIN' : 'Definir PIN'}</button>
+                        </div>
                         ${user.hasPin ? '<button type="button" class="mini-button uif-pin-remove">Remover PIN</button>' : ''}
                     </div>
                     <div class="uif-danger-zone">
@@ -821,6 +825,21 @@ export function bindAdminEvents(data) {
             overlay.querySelector('.uif-nome').focus();
 
             overlay.querySelector('.uif-cancel').addEventListener('click', close);
+            overlay.querySelector('.uif-pin-save').addEventListener('click', async (ev) => {
+                const b = ev.currentTarget;
+                const pin = overlay.querySelector('.uif-pin-input').value.trim();
+                if (!/^\d{4}$/.test(pin)) { showToast('O PIN precisa ter 4 dígitos.', true); return; }
+                setSaving(true, b, 'Salvando...');
+                const r = await callAPI('adminSetPin', { email, pin }).catch((e) => ({ status: 'error', message: e.message }));
+                if (r && r.status === 'success') {
+                    showToast('PIN salvo.');
+                    close();
+                    renderAdminPage();
+                } else {
+                    showToast((r && r.message) || 'Não foi possível salvar o PIN.', true);
+                    setSaving(false, b);
+                }
+            });
             overlay.querySelector('.uif-pin-remove')?.addEventListener('click', async (ev) => {
                 const b = ev.currentTarget;
                 b.disabled = true;

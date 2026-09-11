@@ -8,6 +8,9 @@ import { isPinSupported, hasPinEmail, getPinEmail, setPinEmail, clearPinEmail } 
 // Fica "grudado" entre re-renders (ex.: mostrar erro) e é escolhido pelas
 // abas no topo do card.
 let _loginMode = null;
+// No login por PIN, o identificador pode ser e-mail ou nome — só faz
+// sentido pro PIN (a senha continua exigindo e-mail, mais seguro).
+let _pinIdentifierMode = 'email';
 // Link de campanha força a tela de PIN — esse escape hatch ("Entrar com
 // e-mail e senha") desliga isso pro resto da sessão de login.
 let _skipForcePin = false;
@@ -251,6 +254,7 @@ function wirePinBoxes(container, onComplete) {
 
 function pinLoginFormHtml() {
     const savedEmail = getPinEmail();
+    const byNome = _pinIdentifierMode === 'nome';
     return `
         <div class="pin-lock-badge" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -260,11 +264,18 @@ function pinLoginFormHtml() {
         <form id="pin-form" novalidate>
             <div class="login-field">
                 <span class="login-field-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+                    ${byNome
+                        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+                        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>'}
                 </span>
-                <input type="email" id="pin-email" autocomplete="email" required placeholder=" " value="${escapeHtml(savedEmail)}">
-                <label for="pin-email" class="login-field-label">E-mail</label>
+                ${byNome
+                    ? `<input type="text" id="pin-identifier" autocomplete="name" required placeholder=" ">`
+                    : `<input type="email" id="pin-identifier" autocomplete="email" required placeholder=" " value="${escapeHtml(savedEmail)}">`}
+                <label for="pin-identifier" class="login-field-label">${byNome ? 'Nome completo' : 'E-mail'}</label>
             </div>
+            <p class="login-forgot-row" style="margin:-0.35rem 0 0.6rem">
+                <button type="button" class="login-forgot-link" id="pin-identifier-toggle">${byNome ? 'Prefere entrar com o e-mail?' : 'Prefere entrar com o nome?'}</button>
+            </p>
             <div class="pin-boxes" id="pin-boxes">
                 ${[0, 1, 2, 3].map(() => '<input type="password" class="pin-box" inputmode="numeric" autocomplete="off" maxlength="1" pattern="[0-9]*" aria-label="Dígito do PIN">').join('')}
             </div>
@@ -280,7 +291,7 @@ function pinLoginFormHtml() {
 }
 
 function wirePinLoginForm() {
-    const emailInput = document.getElementById('pin-email');
+    const identifierInput = document.getElementById('pin-identifier');
     const btn = document.getElementById('pin-button');
     const label = document.getElementById('pin-btn-label');
     const spinner = document.getElementById('pin-btn-spinner');
@@ -293,26 +304,35 @@ function wirePinLoginForm() {
     };
     const showErr = (msg) => { errText.textContent = msg; errBox.style.display = 'flex'; };
 
+    document.getElementById('pin-identifier-toggle').addEventListener('click', () => {
+        _pinIdentifierMode = _pinIdentifierMode === 'nome' ? 'email' : 'nome';
+        document.getElementById('login-mode-body').innerHTML = pinLoginFormHtml();
+        wirePinLoginForm();
+    });
+
     let submitting = false;
     const boxes = wirePinBoxes(document.getElementById('pin-boxes'), () => {
         if (!submitting) document.getElementById('pin-form').requestSubmit();
     });
     document.getElementById('pin-boxes').addEventListener('input', () => { errBox.style.display = 'none'; });
-    setTimeout(() => (emailInput.value.trim() ? boxes.focus() : emailInput.focus()), 60);
+    setTimeout(() => (identifierInput.value.trim() ? boxes.focus() : identifierInput.focus()), 60);
 
     document.getElementById('pin-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         if (submitting) return;
-        const email = emailInput.value.trim().toLowerCase();
+        const byNome = _pinIdentifierMode === 'nome';
+        const identifier = identifierInput.value.trim();
         const pin = boxes.value();
-        if (!email) { showErr('Informe o e-mail.'); emailInput.focus(); return; }
+        if (!identifier) { showErr(byNome ? 'Informe o nome.' : 'Informe o e-mail.'); identifierInput.focus(); return; }
         if (!/^\d{4}$/.test(pin)) { showErr('Digite os 4 dígitos do PIN.'); return; }
         submitting = true;
         setBusy(true);
         errBox.style.display = 'none';
 
         try {
-            const result = await callAPI('loginWithPin', { email, pin });
+            const result = await callAPI('loginWithPin', byNome
+                ? { nome: identifier, pin }
+                : { email: identifier.toLowerCase(), pin });
             if (result.status === 'success') {
                 if (String(result.userData.profile || '').trim().toLowerCase() !== 'admin') {
                     const manut = await callAPI('getManutencao', {}).catch(() => null);
@@ -322,7 +342,7 @@ function wirePinLoginForm() {
                         return;
                     }
                 }
-                setPinEmail(result.userData.email || email);
+                setPinEmail(result.userData.email || (byNome ? '' : identifier));
                 state.currentUser = { ...result.userData, accessToken: result.accessToken };
                 persistUser(state.currentUser);
                 await goAfterLogin();
