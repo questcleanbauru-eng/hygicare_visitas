@@ -2154,6 +2154,25 @@ input[type="date"] {
    individual (KPI ou barra), que aí sim nunca deveria partir ao meio. */
 @media print {
     .report-kpi-row, .report-bar-row, .report-top-row { break-inside: avoid; }
+
+    /* Esses tamanhos/respiros foram pensados pra tela (dedo, não cursor) —
+       no papel só sobra espaço em branco. Aperta tudo pra caber mais
+       relatório por folha. */
+    .report-kpi-row { gap: 0.4rem; margin-bottom: 0.5rem; }
+    .report-kpi { padding: 0.35rem 0.3rem; }
+    .report-kpi strong { font-size: 1.05rem; }
+    .report-kpi span { font-size: 0.62rem; }
+
+    .report-subtitle { margin: 0.35rem 0 0.2rem; font-size: 0.72rem; }
+
+    .report-bar-list { gap: 0.2rem; }
+    .report-bar-row { font-size: 0.72rem; gap: 0.35rem; }
+    .report-bar-label { flex-basis: 120px; }
+    .report-bar-track { height: 6px; }
+
+    .report-top-list { gap: 0.18rem; }
+    .report-top-row { padding: 0.25rem 0.4rem; font-size: 0.72rem; }
+    .report-top-rank { flex: 0 0 16px; height: 16px; font-size: 0.58rem; }
 }
 
 /* ── Edição rápida (split: lista + painel de edição), admin/desktop ──
