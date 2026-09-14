@@ -1428,6 +1428,12 @@ export async function renderFunilFormPage(funil) {
                 <input type="date" id="funil-conclusao" value="${escapeHtml(formatInputDateFromDisplay(f.conclusao) || '')}">
             </div>
             <div class="form-group full-width">
+                <label for="funil-diversey" class="qe-diversey-check" style="display:flex;align-items:center;gap:0.5rem;font-weight:600;cursor:pointer">
+                    <input type="checkbox" id="funil-diversey" ${f.funilDiversey === 'Sim' ? 'checked' : ''} style="width:auto;accent-color:var(--primary)">
+                    ⭐ Funil Diversey <span class="helper-text" style="font-weight:400">(acompanhar de perto)</span>
+                </label>
+            </div>
+            <div class="form-group full-width">
                 <label for="funil-inf">Informações Importantes</label>
                 <input type="text" id="funil-inf" value="${escapeHtml(f.infImportantes || '')}" placeholder="Informações relevantes">
             </div>
@@ -1463,6 +1469,12 @@ export async function renderFunilFormPage(funil) {
             <div class="form-group">
                 <label for="funil-conclusao">Conclusão (data)</label>
                 <input type="date" id="funil-conclusao" value="${escapeHtml(formatInputDateFromDisplay(f.conclusao) || '')}">
+            </div>
+            <div class="form-group full-width">
+                <label for="funil-diversey" class="qe-diversey-check" style="display:flex;align-items:center;gap:0.5rem;font-weight:600;cursor:pointer">
+                    <input type="checkbox" id="funil-diversey" ${f.funilDiversey === 'Sim' ? 'checked' : ''} style="width:auto;accent-color:var(--primary)">
+                    ⭐ Funil Diversey <span class="helper-text" style="font-weight:400">(acompanhar de perto)</span>
+                </label>
             </div>
             <div class="form-group full-width">
                 <label for="funil-inf">Informações Importantes</label>
@@ -1501,6 +1513,7 @@ export async function renderFunilFormPage(funil) {
         const newFStatus   = document.getElementById('funil-status').value;
         const newFVl       = document.getElementById('funil-vl-mensal').value.trim();
         const newFConcl    = conclusaoValue ? formatDateFromDisplay(conclusaoValue) : '';
+        const newFDiversey = document.getElementById('funil-diversey')?.checked ? 'Sim' : 'Nao';
         const newFInf      = document.getElementById('funil-inf').value.trim();
         const newFComent   = stripEmptyDatedLine(document.getElementById('funil-comentarios').value);
 
@@ -1523,7 +1536,7 @@ export async function renderFunilFormPage(funil) {
 
         if (fIdx >= 0) {
             state.funil[fIdx] = { ...state.funil[fIdx], status: newFStatus, vlMensal: newFVl,
-                conclusao: newFConcl, infImportantes: newFInf, comentarios: newFComent, atualizacao: nowFDisplay,
+                conclusao: newFConcl, funilDiversey: newFDiversey === 'Sim' ? 'Sim' : '', infImportantes: newFInf, comentarios: newFComent, atualizacao: nowFDisplay,
                 ...(isAdminUser ? {
                     cliente: adminFields.cliente, cidade: adminFields.cidade,
                     vendedor: adminFields.vendedor, gerencia: adminFields.gerencia,
@@ -1541,7 +1554,7 @@ export async function renderFunilFormPage(funil) {
         // admin, alguns parágrafos acima) — newFConcl (dd/mm/aaaa) fica só
         // pro estado local otimista.
         attemptOrQueue('updateFunil', { id: f.id, status: newFStatus, vlMensal: newFVl,
-            conclusao: conclusaoValue, infImportantes: newFInf, comentarios: newFComent, user: state.currentUser, ...adminFields },
+            conclusao: conclusaoValue, funilDiversey: newFDiversey, infImportantes: newFInf, comentarios: newFComent, user: state.currentUser, ...adminFields },
             { entity: 'funil', tempId: f.id })
             .then(result => {
                 if (result && result.status === 'success') {
