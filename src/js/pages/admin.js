@@ -805,7 +805,7 @@ export function bindAdminEvents(data) {
                             <input type="text" class="uif-nome-login" value="${escapeHtml(nomeLogin)}" placeholder="Opcional — em branco usa o nome completo">
                         </div>
                         <div class="uif-field">
-                            <label>Senha <span class="uif-hint">(4 números — em branco = manter)</span></label>
+                            <label>Senha: <strong>cadastrada</strong> <span class="uif-hint">(4 números — em branco = manter)</span></label>
                             <input type="password" class="uif-senha" placeholder="0000" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password">
                         </div>
                         <div class="uif-field">
