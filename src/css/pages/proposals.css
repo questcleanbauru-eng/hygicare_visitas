@@ -123,6 +123,12 @@
 .camp-admin-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .camp-admin-actions .mini-button { padding: 0.32rem 0.6rem; font-size: 0.78rem; }
 
+/* Modo seleção (apagar várias de uma vez) — .funil-sel-bar vem de
+   funil.css (eager, sempre carregado junto com proposals.css). */
+.camp-admin-row.is-selected { outline: 2px solid var(--primary); background: var(--primary-light); }
+.camp-sel-check { display: inline-flex; margin-right: 0.4rem; vertical-align: -2px; }
+.camp-sel-check input { width: auto; min-height: 0; accent-color: var(--primary); }
+
 .camp-modal {
     max-height: 88dvh;
     display: flex;

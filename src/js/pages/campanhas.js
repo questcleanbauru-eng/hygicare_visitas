@@ -10,6 +10,12 @@ import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 const PROP_STATUS = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
 const FUNIL_STATUS = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
 
+// Modo seleção da lista de campanhas (apagar várias de uma vez) — em nível
+// de módulo porque renderCampanhasPage se rechama depois de cada ação
+// (apagar, etc.), então precisa sobreviver a esses re-renders.
+let campSelectMode = false;
+const campSelectedIds = new Set();
+
 function campanhaLink(id, loginNome) {
     // ?c=<id> (não /c/<id>): mantém o path na raiz pra os assets relativos
     // do app carregarem quando o link é aberto num navegador limpo.
@@ -335,16 +341,32 @@ export async function renderCampanhasPage() {
     main.innerHTML = skeletonList(4);
     const r = await callAPI('getCampanhas', { user: state.currentUser }).catch(() => null);
     const campanhas = (r && r.status === 'success') ? r.campanhas : [];
+    // Campanha apagada em outra visita não fica mais na lista — tira do
+    // conjunto marcado pra não sobrar id fantasma no contador/toolbar.
+    const idsAtuais = new Set(campanhas.map((c) => String(c.id)));
+    Array.from(campSelectedIds).forEach((id) => { if (!idsAtuais.has(id)) campSelectedIds.delete(id); });
 
     main.innerHTML = `
         ${renderBreadcrumb([{ label: 'Admin', page: 'admin' }, { label: 'Campanhas' }])}
-        <div class="page-header"><div>
-            <h2>Campanhas de atualização</h2>
-            <p class="page-subtitle">${campanhas.length} campanha(s)</p>
-        </div></div>
+        <div class="page-header">
+            <div>
+                <h2>Campanhas de atualização</h2>
+                <p class="page-subtitle">${campanhas.length} campanha(s)</p>
+            </div>
+            ${campanhas.length ? `<div class="page-header-actions">
+                <button type="button" class="mini-button${campSelectMode ? ' is-on' : ''}" id="camp-select-toggle" title="Marcar várias campanhas para apagar de uma vez">☑️ Selecionar</button>
+            </div>` : ''}
+        </div>
         ${campanhas.length === 0
             ? '<div class="empty-state"><span class="empty-state-icon">🔗</span><p>Nenhuma campanha ainda. Crie uma pela tela de Propostas ou Funil (botão "🔗 Campanha").</p></div>'
-            : `<div class="camp-list">${campanhas.map(campanhaRow).join('')}</div>`}
+            : `${campSelectMode ? `
+                <div class="funil-sel-bar" id="camp-sel-bar">
+                    <strong id="camp-sel-count">${campSelectedIds.size} selecionada(s)</strong>
+                    <button type="button" class="mini-button" id="camp-sel-all">Marcar todas</button>
+                    <button type="button" class="mini-button" id="camp-sel-none">Limpar</button>
+                    <button type="button" class="mini-button mini-button-danger" id="camp-sel-delete" ${campSelectedIds.size ? '' : 'disabled'}>🗑️ Excluir selecionadas</button>
+                </div>` : ''}
+              <div class="camp-list">${campanhas.map((c) => campanhaRow(c, campSelectMode)).join('')}</div>`}
     `;
     main.querySelectorAll('[data-camp-copy]').forEach((el) => el.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -362,15 +384,59 @@ export async function renderCampanhasPage() {
         if (rr && rr.status === 'success') { showToast('Campanha apagada.'); renderCampanhasPage(); }
         else showToast((rr && rr.message) || 'Não foi possível apagar.', true);
     }));
+
+    const refreshCampSelBar = () => {
+        const count = document.getElementById('camp-sel-count');
+        if (count) count.textContent = `${campSelectedIds.size} selecionada(s)`;
+        const del = document.getElementById('camp-sel-delete');
+        if (del) del.disabled = campSelectedIds.size === 0;
+    };
+    main.querySelectorAll('[data-camp-select]').forEach((el) => el.addEventListener('change', (e) => {
+        const id = String(el.dataset.campSelect);
+        if (e.target.checked) campSelectedIds.add(id); else campSelectedIds.delete(id);
+        el.closest('.camp-admin-row')?.classList.toggle('is-selected', e.target.checked);
+        refreshCampSelBar();
+    }));
+    document.getElementById('camp-select-toggle')?.addEventListener('click', () => {
+        campSelectMode = !campSelectMode;
+        if (!campSelectMode) campSelectedIds.clear();
+        renderCampanhasPage();
+    });
+    document.getElementById('camp-sel-all')?.addEventListener('click', () => {
+        campanhas.forEach((c) => campSelectedIds.add(String(c.id)));
+        renderCampanhasPage();
+    });
+    document.getElementById('camp-sel-none')?.addEventListener('click', () => {
+        campSelectedIds.clear();
+        renderCampanhasPage();
+    });
+    document.getElementById('camp-sel-delete')?.addEventListener('click', async (e) => {
+        const ids = Array.from(campSelectedIds);
+        if (!ids.length) return;
+        if (!confirm(`Apagar ${ids.length} campanha(s)? Os links param de funcionar (o histórico já salvo nas propostas/funil fica). Essa ação não pode ser desfeita.`)) return;
+        const btn = e.currentTarget;
+        setSaving(true, btn, 'Apagando...');
+        const rr = await callAPI('deleteCampanhaBatch', { ids, user: state.currentUser }).catch((err) => ({ status: 'error', message: err.message }));
+        if (rr && rr.status === 'success') {
+            const gone = new Set((rr.deleted || ids).map(String));
+            gone.forEach((id) => campSelectedIds.delete(id));
+            showToast(rr.message || `${gone.size} campanha(s) apagada(s).`);
+            renderCampanhasPage();
+        } else {
+            showToast((rr && rr.message) || 'Não foi possível apagar.', true);
+            setSaving(false, btn);
+        }
+    });
     addScrollTop();
 }
 
-function campanhaRow(c) {
+function campanhaRow(c, selectMode) {
     const pct = c.total ? Math.round(c.respondidos / c.total * 100) : 0;
+    const id = String(c.id);
     return `
-    <div class="card camp-admin-row">
+    <div class="card camp-admin-row${selectMode && campSelectedIds.has(id) ? ' is-selected' : ''}">
         <div class="camp-card-head">
-            <strong>${escapeHtml(c.titulo)}</strong>
+            <strong>${selectMode ? `<label class="camp-sel-check"><input type="checkbox" data-camp-select="${escapeHtml(id)}" ${campSelectedIds.has(id) ? 'checked' : ''}></label>` : ''}${escapeHtml(c.titulo)}</strong>
             <span class="status-pill ${c.status === 'concluida' ? 'funil-status-concluido' : 'funil-status-proposta'}">${c.status === 'concluida' ? 'Concluída' : 'Aberta'}</span>
         </div>
         <p class="helper-text camp-admin-meta">
