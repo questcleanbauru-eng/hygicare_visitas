@@ -27,6 +27,9 @@ export function fillProposalsContent(mainContent, proposals) {
     let qeSelectedId = null;
     const qeActive = () => quickEdit && isAdmin && window.innerWidth >= 1024;
     let _propsCampanhaList = [];
+    // "Duplicado" = mesmo cliente + mesmo foco (mesmo critério do Funil).
+    const propostaDupKey = (p) => [p.cliente, p.foco]
+        .map((v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')).join('|');
 
     const newProposalDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de propostas."';
 
@@ -118,6 +121,13 @@ export function fillProposalsContent(mainContent, proposals) {
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="pf-dup">${filterLabelHtml('Duplicidade')}</label>
+                    <select id="pf-dup">
+                        <option value="">Todas</option>
+                        <option value="sim">Só duplicadas (mesmo cliente + foco)</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="pf-period">${filterLabelHtml('Período')}</label>
                     <select id="pf-period">
                         <option value="">Todos</option>
@@ -165,7 +175,7 @@ export function fillProposalsContent(mainContent, proposals) {
     // aos outros campos.
     state.proposalFilters = state.proposalFilters || {};
     const persistProposalFilters = () => {
-        ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor', 'pf-date-from', 'pf-date-to']
+        ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-dup', 'pf-period', 'pf-vendor', 'pf-date-from', 'pf-date-to']
             .forEach((id) => { const el = document.getElementById(id); if (el) state.proposalFilters[id] = el.value; });
     };
 
@@ -197,7 +207,17 @@ export function fillProposalsContent(mainContent, proposals) {
         const vendor    = (document.getElementById('pf-vendor')?.value || '').split(',').filter(Boolean);
         const dateFrom  = document.getElementById('pf-date-from')?.value || '';
         const dateTo    = document.getElementById('pf-date-to')?.value || '';
+        const dupFilter = document.getElementById('pf-dup')?.value || '';
         const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(period);
+
+        // Duplicado = mesmo cliente + foco — conta sobre tudo que está
+        // carregado (não só o já filtrado por outros campos), senão um
+        // filtro escondendo o "gêmeo" faria o outro parar de contar como
+        // repetido. Calculado antes do filtro principal pra poder ser
+        // usado tanto no filtro "Só duplicadas" quanto no destaque visual.
+        const dupCounts = new Map();
+        normalized.forEach((p) => { const k = propostaDupKey(p); dupCounts.set(k, (dupCounts.get(k) || 0) + 1); });
+        const isDup = (p) => (dupCounts.get(propostaDupKey(p)) || 0) > 1;
 
         const filtered = normalized.filter((p) => {
             const matchSearch   = !search  || [p.cliente, p.cidade, p.obs, p.vendedor, p.foco].some((v) => String(v || '').toLowerCase().includes(search));
@@ -210,7 +230,8 @@ export function fillProposalsContent(mainContent, proposals) {
             const matchFrom = !dateFrom || (criacaoDate && criacaoDate >= parseInputDate(dateFrom));
             const matchTo   = !dateTo   || (criacaoDate && criacaoDate <= parseInputDate(dateTo));
             const matchYear = !state.proposalsYearFilter || (criacaoDate && criacaoDate.getFullYear() === state.proposalsYearFilter);
-            return matchSearch && matchStatus && matchCidade && matchAtrasada && matchVendor && matchPeriod && matchFrom && matchTo && matchYear;
+            const matchDup  = !dupFilter || isDup(p);
+            return matchSearch && matchStatus && matchCidade && matchAtrasada && matchVendor && matchPeriod && matchFrom && matchTo && matchYear && matchDup;
         });
 
         const container = document.getElementById('proposal-list-container');
@@ -243,10 +264,11 @@ export function fillProposalsContent(mainContent, proposals) {
                     <span>${byMonth[key].length} proposta(s)</span>
                 </div>
                 <div class="visits-list">${byMonth[key].map((p) => `
-                    <button type="button" class="proposal-card ${p.atrasada ? 'proposal-card-alert' : ''}" data-proposal-id="${escapeHtml(p.id)}">
+                    <button type="button" class="proposal-card ${p.atrasada ? 'proposal-card-alert' : ''}${isDup(p) ? ' funil-card-dup' : ''}" data-proposal-id="${escapeHtml(p.id)}">
                         <div class="visit-card-header">
                             <strong>
                                 <span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
+                                ${isDup(p) ? '<span class="funil-dup-tag" title="Existe outra proposta com o mesmo cliente e foco">⚠️ Duplicado</span>' : ''}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-proposal-quick="${escapeHtml(p.id)}">⚡</span>
                                 ${state.canCreateProposalFunil && p.cliente ? (() => {
                                     const _fi = funilItemForProposta(p.cliente, p.foco);
@@ -398,7 +420,7 @@ export function fillProposalsContent(mainContent, proposals) {
         });
     }
 
-    const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor',
+    const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-dup', 'pf-period', 'pf-vendor',
         'pf-date-from', 'pf-date-to'];
     wireMultiCheckFilter({ triggerId: 'pf-status-trigger', inputId: 'pf-status', menuId: 'pf-status-menu', options: availableStatuses });
     wireMultiCheckFilter({ triggerId: 'pf-cidade-trigger', inputId: 'pf-cidade', menuId: 'pf-cidade-menu', options: availableCities });

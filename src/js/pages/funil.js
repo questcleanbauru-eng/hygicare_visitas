@@ -152,6 +152,13 @@ export function fillFunilContent(mainContent, funil) {
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="funil-filter-dup">${filterLabelHtml('Duplicidade')}</label>
+                    <select id="funil-filter-dup">
+                        <option value="">Todos</option>
+                        <option value="sim">Só duplicados (mesmo cliente + foco)</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="funil-filter-period">${filterLabelHtml('Período')}</label>
                     <select id="funil-filter-period">
                         <option value="">Todos</option>
@@ -218,7 +225,17 @@ export function fillFunilContent(mainContent, funil) {
         const period       = document.getElementById('funil-filter-period')?.value || '';
         const vendorFilter = (document.getElementById('funil-filter-vendor')?.value || '').split(',').filter(Boolean);
         const vlMin        = Number(document.getElementById('funil-filter-vl')?.value || 0);
+        const dupFilter     = document.getElementById('funil-filter-dup')?.value || '';
         const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(period);
+
+        // Duplicado = mesmo cliente + foco — conta sobre tudo que está
+        // carregado (não só o já filtrado por outros campos), senão um
+        // filtro escondendo o "gêmeo" faria o outro parar de contar como
+        // repetido. Calculado antes do filtro principal pra poder ser
+        // usado tanto no filtro "Só duplicados" quanto no destaque visual.
+        const dupCounts = new Map();
+        funilData.forEach((f) => { const k = funilDupKey(f); dupCounts.set(k, (dupCounts.get(k) || 0) + 1); });
+        const isDup = (f) => (dupCounts.get(funilDupKey(f)) || 0) > 1;
 
         const filtered = funilData.filter((f) => {
             const matchSearch  = !search || [f.cliente, f.cidade, f.foco, f.atuacao, f.comentarios].some((v) => String(v || '').toLowerCase().includes(search));
@@ -236,7 +253,8 @@ export function fillFunilContent(mainContent, funil) {
             const matchPeriod  = !period || (atuDate && atuDate >= periodStart && atuDate <= periodEnd);
             const matchVl      = !vlMin || parseCurrencyBR(f.vlMensal) >= vlMin;
             const matchYear    = !state.funilYearFilter || (atuDate && atuDate.getFullYear() === state.funilYearFilter);
-            return matchSearch && matchStatus && matchCidade && matchAtivo && matchAtrasado && matchDiversey && matchVendor && matchPeriod && matchVl && matchYear;
+            const matchDup     = !dupFilter || isDup(f);
+            return matchSearch && matchStatus && matchCidade && matchAtivo && matchAtrasado && matchDiversey && matchVendor && matchPeriod && matchVl && matchYear && matchDup;
         });
 
         const container = document.getElementById('funil-list-container');
@@ -253,13 +271,6 @@ export function fillFunilContent(mainContent, funil) {
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
         _funilCampanhaList = sorted.map((f) => ({ id: f.id, cliente: f.cliente, cidade: f.cidade, extra: [f.foco, f.atuacao].filter(Boolean).join(' · ') }));
-
-        // Destaque de duplicado: conta sobre tudo que está carregado (não só
-        // o filtrado), senão um filtro esconderia o "gêmeo" e o card
-        // deixaria de aparecer como repetido.
-        const dupCounts = new Map();
-        funilData.forEach((f) => { const k = funilDupKey(f); dupCounts.set(k, (dupCounts.get(k) || 0) + 1); });
-        const isDup = (f) => (dupCounts.get(funilDupKey(f)) || 0) > 1;
 
         const byMonth = sorted.reduce((groups, f) => {
             const d = parseDisplayDate(f.data) || parseDisplayDate(f.atualizacao);
@@ -516,7 +527,7 @@ export function fillFunilContent(mainContent, funil) {
     }
 
     const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
-        'funil-filter-atrasado', 'funil-filter-diversey', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
+        'funil-filter-atrasado', 'funil-filter-diversey', 'funil-filter-dup', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
     wireMultiCheckFilter({ triggerId: 'funil-filter-status-trigger', inputId: 'funil-filter-status', menuId: 'funil-filter-status-menu', options: availableStatuses });
     wireMultiCheckFilter({ triggerId: 'funil-filter-cidade-trigger', inputId: 'funil-filter-cidade', menuId: 'funil-filter-cidade-menu', options: availableCidades });
     if (isAdmGer) {

@@ -86,7 +86,9 @@
 }
 
 /* Duplicado (mesmo cliente + foco) — roxo, pra não confundir com o âmbar
-   do Diversey nem com o vermelho de "sem atualização". */
+   do Diversey nem com o vermelho de "sem atualização". Reaproveitado por
+   proposals.js também (funil.css e proposals.css são eager, sempre
+   carregados juntos — mesmo padrão já usado por .proposal-card-alert). */
 .funil-card-dup { border-left: 3px solid #a855f7; background: #faf5ff; }
 .funil-dup-tag {
     display: inline-block;
