@@ -2185,10 +2185,11 @@ input[type="date"] {
     color: #fff;
 }
 
-/* Modo foco da Edição rápida: some com busca, filtros e barra de período —
-   fica só o título da tela + a lista + o painel de edição, tudo no topo
-   (sem precisar rolar). O cabeçalho continua visível. */
-#main-content.qe-focus .search-bar-wrapper,
+/* Modo foco da Edição rápida: some com filtros e barra de período — fica
+   só o título da tela + a busca + a lista + o painel de edição, tudo no
+   topo (sem precisar rolar). O cabeçalho continua visível. A busca fica
+   (diferente dos filtros) porque é o jeito mais rápido de achar um
+   cliente específico pra editar, sem precisar sair do modo foco. */
 #main-content.qe-focus .visits-filter-card,
 #main-content.qe-focus .funil-filter-card,
 #main-content.qe-focus .scope-banner {
