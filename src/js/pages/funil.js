@@ -1,4 +1,4 @@
-import { state, navigateTo } from '../app.js';
+import { state, navigateTo, addDocumentClickListener } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
@@ -10,7 +10,7 @@ import {
 import {
     debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addScrollTop,
-    openExternal, initializeSearchableInput, renderYearChips, setSaving, renderSavedFilters
+    openExternal, initializeSearchableInput, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
@@ -125,9 +125,10 @@ export function fillFunilContent(mainContent, funil) {
             <div class="saved-filters-row" id="funil-saved-filters"></div>
             <div class="visits-filter-grid" id="funil-filter-panel">
                 <div class="form-group">
-                    <label for="funil-filter-status">${filterLabelHtml('Status')}</label>
+                    <label for="funil-filter-status-trigger">${filterLabelHtml('Status')}</label>
                     <div class="searchable-select">
-                        <input type="text" id="funil-filter-status" placeholder="Todos" autocomplete="off">
+                        <button type="button" class="multi-check-trigger" id="funil-filter-status-trigger">Todos</button>
+                        <input type="hidden" id="funil-filter-status" value="">
                         <div class="searchable-select-menu" id="funil-filter-status-menu"></div>
                     </div>
                 </div>
@@ -207,6 +208,64 @@ export function fillFunilContent(mainContent, funil) {
         filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
     });
 
+    // Filtro de Status com mais de uma opção marcada ao mesmo tempo. O valor
+    // de verdade (o que "Salvar filtro atual"/"Limpar" leem e escrevem, sem
+    // precisar saber que esse campo é diferente dos outros) continua sendo
+    // uma string simples — só que agora "IDENTIFICAR,PROPOSTA" — guardada
+    // num <input type="hidden">; o botão visível só mostra um resumo.
+    const statusInput = () => document.getElementById('funil-filter-status');
+    const statusTrigger = () => document.getElementById('funil-filter-status-trigger');
+    const syncStatusFilterTrigger = () => {
+        const trigger = statusTrigger();
+        if (!trigger) return;
+        const sel = (statusInput()?.value || '').split(',').filter(Boolean);
+        trigger.textContent = sel.length === 0 ? 'Todos' : sel.length === 1 ? sel[0] : `${sel.length} selecionados`;
+        trigger.classList.toggle('has-value', sel.length > 0);
+    };
+    // As opções podem mudar (ex.: "Ver tudo" carrega o histórico completo,
+    // com outro conjunto de status presentes) — fica numa variável à parte
+    // pra poder atualizar sem reanexar os listeners de clique a cada vez
+    // (o botão/menu continuam os mesmos elementos do DOM; reanexar de novo
+    // faria o clique abrir-e-fechar o menu no mesmo toque).
+    let _statusFilterOptions = [];
+    let _statusFilterMenuWired = false;
+    function wireStatusFilterMenu(options) {
+        _statusFilterOptions = options;
+        const input = statusInput();
+        const trigger = statusTrigger();
+        const menu = document.getElementById('funil-filter-status-menu');
+        if (!input || !trigger || !menu) return;
+        syncStatusFilterTrigger();
+        if (_statusFilterMenuWired) return;
+        _statusFilterMenuWired = true;
+        const renderMenu = () => {
+            const sel = new Set((input.value || '').split(',').filter(Boolean));
+            menu.innerHTML = _statusFilterOptions.map((s) => `
+                <label class="searchable-select-option multi-check-option">
+                    <input type="checkbox" value="${escapeHtml(s)}" ${sel.has(s) ? 'checked' : ''}>
+                    <span>${escapeHtml(s)}</span>
+                </label>
+            `).join('');
+            menu.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+                cb.addEventListener('change', () => {
+                    const cur = new Set((input.value || '').split(',').filter(Boolean));
+                    if (cb.checked) cur.add(cb.value); else cur.delete(cb.value);
+                    input.value = Array.from(cur).join(',');
+                    syncStatusFilterTrigger();
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            });
+        };
+        trigger.addEventListener('click', () => {
+            const opening = !menu.classList.contains('visible');
+            menu.classList.toggle('visible', opening);
+            if (opening) renderMenu();
+        });
+        addDocumentClickListener((event) => {
+            if (!menu.contains(event.target) && event.target !== trigger) menu.classList.remove('visible');
+        });
+    }
+
     const renderFiltered = async () => {
         const dateFromCheck = document.getElementById('funil-filter-date-from')?.value || '';
         if (state.funilScope !== 'all' && dateFromCheck) {
@@ -227,7 +286,7 @@ export function fillFunilContent(mainContent, funil) {
             }
         }
         const search       = document.getElementById('funil-filter-search')?.value.trim().toLowerCase() || '';
-        const statusFilter = document.getElementById('funil-filter-status')?.value || '';
+        const statusFilter = (document.getElementById('funil-filter-status')?.value || '').split(',').filter(Boolean);
         const cidadeFilter = document.getElementById('funil-filter-cidade')?.value || '';
         const ativoFilter  = document.getElementById('funil-filter-ativo')?.value || '';
         const atrasadoFilter = document.getElementById('funil-filter-atrasado')?.value || '';
@@ -239,7 +298,7 @@ export function fillFunilContent(mainContent, funil) {
 
         const filtered = funilData.filter((f) => {
             const matchSearch  = !search || [f.cliente, f.cidade, f.foco, f.atuacao, f.comentarios].some((v) => String(v || '').toLowerCase().includes(search));
-            const matchStatus  = !statusFilter || f.status === statusFilter;
+            const matchStatus  = !statusFilter.length || statusFilter.includes(f.status);
             const matchCidade  = !cidadeFilter || f.cidade === cidadeFilter;
             const matchAtivo   = !ativoFilter || (ativoFilter === 'SIM' ? String(f.ativo).toLowerCase() === 'sim' : String(f.ativo).toLowerCase() !== 'sim');
             const isOverdue    = String(f.ativo || '').toLowerCase() === 'sim'
@@ -374,8 +433,16 @@ export function fillFunilContent(mainContent, funil) {
         const STAT = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
         panel.innerHTML = `
             <div class="qe-panel-inner">
-                <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
-                <p class="helper-text" style="margin:0.15rem 0 0.6rem;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.atualizacao || f.data].filter(Boolean).join(' · '))}</p>
+                <div class="qe-panel-header">
+                    <div>
+                        <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
+                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.atualizacao || f.data].filter(Boolean).join(' · '))}</p>
+                    </div>
+                    <div class="qe-panel-header-actions">
+                        <button type="button" class="primary-button" id="qe-save">Salvar</button>
+                        <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta oportunidade">Editar tudo</button>
+                    </div>
+                </div>
                 <div class="qe-info qe-info-edit">
                     ${searchField('Cidade', 'qe-cidade', f.cidade)}
                     ${searchField('Foco', 'qe-foco', f.foco)}
@@ -396,10 +463,6 @@ export function fillFunilContent(mainContent, funil) {
                 </label>
                 <label style="margin-top:0.7rem">Comentários</label>
                 <textarea id="qe-coment" rows="8">${escapeHtml(withDatedNoteHeader(f.comentarios))}</textarea>
-                <div style="display:flex;gap:0.5rem;margin-top:0.7rem">
-                    <button type="button" class="primary-button" id="qe-save" style="flex:2">Salvar</button>
-                    <button type="button" class="secondary-button" id="qe-full" style="flex:1" title="Abrir a edição completa desta oportunidade">Editar tudo</button>
-                </div>
             </div>`;
 
         initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
@@ -530,13 +593,13 @@ export function fillFunilContent(mainContent, funil) {
 
     const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
         'funil-filter-atrasado', 'funil-filter-diversey', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
-    initializeSearchableInput({ input: document.getElementById('funil-filter-status'), menu: document.getElementById('funil-filter-status-menu'), items: availableStatuses });
+    wireStatusFilterMenu(availableStatuses);
     initializeSearchableInput({ input: document.getElementById('funil-filter-cidade'), menu: document.getElementById('funil-filter-cidade-menu'), items: availableCidades });
     if (isAdmGer) {
         initializeSearchableInput({ input: document.getElementById('funil-filter-vendor'), menu: document.getElementById('funil-filter-vendor-menu'), items: availableVendors });
     }
 
-    const _funilTextFilterIds = new Set(['funil-filter-search', 'funil-filter-vl', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-vendor']);
+    const _funilTextFilterIds = new Set(['funil-filter-search', 'funil-filter-vl', 'funil-filter-cidade', 'funil-filter-vendor']);
     const _debouncedFunilFilter = debounce(renderFiltered, 250);
     _funilFilterIds.forEach((id) => {
         const el = document.getElementById(id);
@@ -549,11 +612,13 @@ export function fillFunilContent(mainContent, funil) {
 
     renderSavedFilters(document.getElementById('funil-saved-filters'), 'funil', _funilFilterIds, (values) => {
         _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
+        syncStatusFilterTrigger();
         renderFiltered();
     });
 
     document.getElementById('funil-filter-clear')?.addEventListener('click', () => {
         _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        syncStatusFilterTrigger();
         state.funilYearFilter = null;
         renderFiltered();
         updateYearChips();
@@ -588,7 +653,7 @@ export function fillFunilContent(mainContent, funil) {
                 saveCache('funil_all', state.funil);
                 funilData = state.funil;
                 document.querySelector('.scope-banner')?.remove();
-                initializeSearchableInput({ input: document.getElementById('funil-filter-status'), menu: document.getElementById('funil-filter-status-menu'), items: Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))) });
+                wireStatusFilterMenu(Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))));
                 initializeSearchableInput({ input: document.getElementById('funil-filter-cidade'), menu: document.getElementById('funil-filter-cidade-menu'), items: Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort() });
                 if (isAdmGer) initializeSearchableInput({ input: document.getElementById('funil-filter-vendor'), menu: document.getElementById('funil-filter-vendor-menu'), items: Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort() });
                 renderFiltered();
@@ -1066,6 +1131,7 @@ export async function renderFunilCreatePage() {
     document.getElementById('back-funil-create').addEventListener('click', () => navigateTo('funil'));
     document.getElementById('cancel-funil-create').addEventListener('click', () => navigateTo('funil'));
 
+    preventEnterSubmit(document.getElementById('funil-create-form'));
     document.getElementById('funil-create-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const btn = document.getElementById('save-funil-create');
@@ -1409,6 +1475,7 @@ export async function renderFunilFormPage(funil) {
     document.getElementById('back-funil-detail').addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
     document.getElementById('cancel-funil').addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
 
+    preventEnterSubmit(document.getElementById('funil-form'));
     document.getElementById('funil-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const btn = document.getElementById('save-funil');

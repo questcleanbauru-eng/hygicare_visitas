@@ -435,6 +435,22 @@ export function updatePendingSyncBanner(count) {
 }
 
 
+// Enter num campo de texto normalmente submete o form — perigoso em
+// formulários longos (Nova/Editar Visita, Proposta, Funil) com campo de
+// busca (Tipo da Visita, Cidade…): apertar Enter pra tentar selecionar uma
+// opção da lista submetia o form no meio do caminho, salvando o que
+// estivesse digitado até ali (ex.: "op" em vez de "OPORTUNIDADE"). Só o
+// botão de salvar deve submeter; Enter numa textarea continua normal
+// (quebra de linha).
+export function preventEnterSubmit(form) {
+    if (!form) return;
+    form.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.target.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+    });
+}
+
+
 // Trava um botão de salvar/excluir enquanto uma chamada assíncrona está em
 // voo, restaurando o texto original ao final (sucesso ou erro).
 export function setSaving(active, btn, loadingText = 'Salvando...') {

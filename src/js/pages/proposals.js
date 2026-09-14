@@ -10,7 +10,7 @@ import {
 import {
     debounce, downloadCSV, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
-    loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters
+    loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
@@ -365,8 +365,16 @@ export function fillProposalsContent(mainContent, proposals) {
         const STAT = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
         panel.innerHTML = `
             <div class="qe-panel-inner">
-                <strong class="qe-panel-title">${escapeHtml(p.cliente || 'Cliente')}</strong>
-                <p class="helper-text" style="margin:0.15rem 0 0.6rem;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.atualizacao].filter(Boolean).join(' · '))}</p>
+                <div class="qe-panel-header">
+                    <div>
+                        <strong class="qe-panel-title">${escapeHtml(p.cliente || 'Cliente')}</strong>
+                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.atualizacao].filter(Boolean).join(' · '))}</p>
+                    </div>
+                    <div class="qe-panel-header-actions">
+                        <button type="button" class="primary-button" id="qe-save">Salvar</button>
+                        <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta proposta">Editar tudo</button>
+                    </div>
+                </div>
                 <div class="qe-info qe-info-edit">
                     ${searchField('Cidade', 'qe-cidade', p.cidade, listaCidades)}
                     ${searchField('Foco', 'qe-foco', p.foco, listaFoco)}
@@ -378,10 +386,6 @@ export function fillProposalsContent(mainContent, proposals) {
                 </div>
                 <label style="margin-top:0.7rem">Atualizar / OBS</label>
                 <textarea id="qe-obs" rows="8">${escapeHtml(withDatedNoteHeader(p.obs))}</textarea>
-                <div style="display:flex;gap:0.5rem;margin-top:0.7rem">
-                    <button type="button" class="primary-button" id="qe-save" style="flex:2">Salvar</button>
-                    <button type="button" class="secondary-button" id="qe-full" style="flex:1" title="Abrir a edição completa desta proposta">Editar tudo</button>
-                </div>
             </div>`;
 
         initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
@@ -832,6 +836,7 @@ export async function renderProposalFormPage(proposal) {
     document.getElementById('back-proposal-detail').addEventListener('click', () => navigateTo('proposal-detail', { id: normalized.id }));
     document.getElementById('cancel-proposal').addEventListener('click', () => navigateTo('proposal-detail', { id: normalized.id }));
 
+    preventEnterSubmit(document.getElementById('proposal-form'));
     document.getElementById('proposal-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const button = document.getElementById('save-proposal');
@@ -1047,6 +1052,7 @@ export async function renderProposalCreatePage() {
     document.getElementById('back-proposal-create').addEventListener('click', () => navigateTo('proposals'));
     document.getElementById('cancel-proposal-create').addEventListener('click', () => navigateTo('proposals'));
 
+    preventEnterSubmit(document.getElementById('proposal-create-form'));
     document.getElementById('proposal-create-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const btn = document.getElementById('save-proposal-create');

@@ -1025,6 +1025,53 @@ textarea { resize: vertical; }
     border-top: 1px solid var(--border);
 }
 
+/* Filtro de múltipla escolha (ex.: Status do Funil) — botão que abre o
+   mesmo menu do searchable-select, só que com checkbox em cada opção. */
+.multi-check-trigger {
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 0.7rem 1.9rem 0.7rem 0.8rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background-color: var(--surface);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 16px;
+    text-align: left;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.multi-check-trigger::after {
+    content: '';
+    position: absolute;
+    right: 0.85rem;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    transform: translateY(-70%) rotate(45deg);
+    pointer-events: none;
+}
+.multi-check-trigger.has-value { color: var(--text); border-color: var(--primary); font-weight: 600; }
+
+.multi-check-option {
+    display: flex !important;
+    align-items: center;
+    gap: 0.55rem;
+    cursor: pointer;
+}
+.multi-check-option input[type="checkbox"] {
+    width: auto;
+    min-height: 0;
+    accent-color: var(--primary);
+    flex-shrink: 0;
+}
+
 .searchable-select-option:hover,
 
 .searchable-select-option:focus {
@@ -2152,6 +2199,31 @@ input[type="date"] {
 .qe-panel-inner { padding: 1rem 1.1rem 1.2rem; display: flex; flex-direction: column; }
 
 .qe-panel-title { font-size: 1rem; }
+
+/* Nome do cliente + Salvar/Editar tudo lado a lado, fixo no topo do painel
+   (que rola por dentro — .qe-panel tem overflow-y:auto) — assim os botões
+   continuam à vista mesmo depois de rolar até o fim de um formulário longo,
+   sem precisar descer até o rodapé. */
+.qe-panel-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin: -1rem -1.1rem 0.7rem;
+    padding: 1rem 1.1rem 0.7rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+.qe-panel-header-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+.qe-panel-header-actions .primary-button,
+.qe-panel-header-actions .secondary-button {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
 
 .qe-panel-inner label {
     display: block;

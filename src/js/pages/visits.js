@@ -14,7 +14,7 @@ import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
     loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
-    buildIcsContent, downloadIcs, renderSavedFilters
+    buildIcsContent, downloadIcs, renderSavedFilters, preventEnterSubmit
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { ensureFunilForDedup, funilItemFor, funilEmAlerta } from '../utils/funilLink.js';
@@ -404,14 +404,18 @@ export function fillVisitsContent(container, visits) {
         });
         panel.innerHTML = `
             <div class="qe-panel-inner">
-                <strong class="qe-panel-title">${escapeHtml(v.cliente || 'Cliente')}</strong>
-                <p class="helper-text" style="margin:0.15rem 0 0.85rem;text-align:left">${escapeHtml([v.tipoVisita, v.cidade, v.dataVisita].filter(Boolean).join(' · '))}</p>
+                <div class="qe-panel-header">
+                    <div>
+                        <strong class="qe-panel-title">${escapeHtml(v.cliente || 'Cliente')}</strong>
+                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([v.tipoVisita, v.cidade, v.dataVisita].filter(Boolean).join(' · '))}</p>
+                    </div>
+                    <div class="qe-panel-header-actions">
+                        <button type="button" class="primary-button" id="qe-save">Salvar</button>
+                        <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta visita">Editar tudo</button>
+                    </div>
+                </div>
                 <label>Observação</label>
                 <textarea id="qe-obs" rows="9">${escapeHtml(withDatedNoteHeader(v.observacao))}</textarea>
-                <div style="display:flex;gap:0.5rem;margin-top:0.7rem">
-                    <button type="button" class="primary-button" id="qe-save" style="flex:2">Salvar</button>
-                    <button type="button" class="secondary-button" id="qe-full" style="flex:1" title="Abrir a edição completa desta visita">Editar tudo</button>
-                </div>
             </div>`;
         const ta = panel.querySelector('#qe-obs');
         const hl = datedNoteHeader().length;
@@ -1592,6 +1596,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         formEl._draftKey = visitDraftKey;
     }
 
+    preventEnterSubmit(document.getElementById('visit-form'));
     document.getElementById('visit-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!document.querySelector('input[name="prospeccao"]:checked')) {
