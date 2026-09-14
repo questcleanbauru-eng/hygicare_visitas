@@ -123,6 +123,25 @@
 .camp-admin-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .camp-admin-actions .mini-button { padding: 0.32rem 0.6rem; font-size: 0.78rem; }
 
+/* Lista de clientes da campanha ("Ver clientes") — quem já atualizou e
+   quem ainda falta, sem precisar abrir o link do vendedor pra saber. */
+.camp-admin-itens {
+    margin-top: 0.6rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.camp-admin-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+}
+.camp-admin-item-nome { flex: 1; color: var(--text); }
+.camp-admin-item-done .camp-admin-item-nome { color: var(--text-muted-strong); }
+
 /* Modo seleção (apagar várias de uma vez) — .funil-sel-bar vem de
    funil.css (eager, sempre carregado junto com proposals.css). */
 .camp-admin-row.is-selected { outline: 2px solid var(--primary); background: var(--primary-light); }

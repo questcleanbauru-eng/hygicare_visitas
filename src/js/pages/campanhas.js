@@ -377,6 +377,33 @@ export async function renderCampanhasPage() {
         e.stopPropagation();
         openExternal(`https://wa.me/?text=${encodeURIComponent(campanhaLink(el.dataset.campWa))}`);
     }));
+    main.querySelectorAll('[data-camp-details]').forEach((btn) => btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.campDetails;
+        const box = document.getElementById('camp-itens-' + id);
+        if (!box) return;
+        // Alterna mostrar/esconder — busca os itens só na primeira vez que
+        // abre (fica guardado no próprio elemento pra reabrir sem refetch).
+        if (!box.hidden) { box.hidden = true; btn.textContent = 'Ver clientes'; return; }
+        if (box.dataset.loaded) { box.hidden = false; btn.textContent = 'Ocultar clientes'; return; }
+        btn.disabled = true;
+        const rr = await callAPI('getCampanha', { id, user: state.currentUser }).catch((err) => ({ status: 'error', message: err.message }));
+        btn.disabled = false;
+        if (!rr || rr.status !== 'success') {
+            showToast((rr && rr.message) || 'Não foi possível carregar os clientes.', true);
+            return;
+        }
+        const itens = rr.itens || [];
+        box.innerHTML = itens.map((it) => `
+            <div class="camp-admin-item${it.respondidoEm ? ' camp-admin-item-done' : ''}">
+                <span>${it.respondidoEm ? '✓' : '⏳'}</span>
+                <span class="camp-admin-item-nome">${escapeHtml(it.ausente ? 'Registro não encontrado (pode ter sido apagado)' : (it.cliente || 'Cliente'))}</span>
+                <span class="helper-text">${it.respondidoEm ? `atualizado em ${escapeHtml(it.respondidoEm)}` : 'pendente'}</span>
+            </div>`).join('');
+        box.dataset.loaded = '1';
+        box.hidden = false;
+        btn.textContent = 'Ocultar clientes';
+    }));
     main.querySelectorAll('[data-camp-del]').forEach((el) => el.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!confirm('Apagar esta campanha? O link para de funcionar (o histórico já salvo nas propostas/funil fica).')) return;
@@ -448,9 +475,11 @@ function campanhaRow(c, selectMode) {
         <div class="camp-progress"><div class="camp-progress-bar" style="width:${pct}%"></div></div>
         <p class="helper-text camp-admin-count">${c.respondidos} de ${c.total} atualizados</p>
         <div class="camp-admin-actions">
+            <button type="button" class="mini-button" data-camp-details="${escapeHtml(c.id)}">Ver clientes</button>
             <button type="button" class="mini-button" data-camp-copy="${escapeHtml(c.id)}">Copiar link</button>
             <button type="button" class="mini-button mini-button-whatsapp" data-camp-wa="${escapeHtml(c.id)}">WhatsApp</button>
             <button type="button" class="mini-button mini-button-danger" data-camp-del="${escapeHtml(c.id)}">Apagar</button>
         </div>
+        <div class="camp-admin-itens" id="camp-itens-${escapeHtml(c.id)}" hidden></div>
     </div>`;
 }
