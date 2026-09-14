@@ -1258,6 +1258,7 @@ export async function renderFunilDetailPage(id, _revalidated) {
                 ${f.cliente ? `<button type="button" class="mini-button mini-button-icon" id="funil-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
                 <button type="button" class="mini-button funil-diversey-btn${f.funilDiversey === 'Sim' ? ' is-on' : ''}" id="toggle-funil-diversey" title="Funil Diversey — acompanhar de perto">⭐ Diversey</button>
                 <button type="button" class="mini-button" id="edit-funil">Editar</button>
+                ${state.canCreateProposalFunil ? `<button type="button" class="mini-button" id="duplicate-funil" title="Criar uma cópia desta oportunidade — útil pra mesmo cliente, outra aplicação">Duplicar</button>` : ''}
                 <button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="share-funil-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 </button>
@@ -1289,6 +1290,32 @@ export async function renderFunilDetailPage(id, _revalidated) {
 
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => navigateTo('funil')));
     document.getElementById('edit-funil').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
+    // Duplica a oportunidade inteira (cliente, cidade, vendedor, foco,
+    // comentários...) — pra quando o mesmo cliente tem mais de uma frente
+    // (ex.: outra aplicação) em vez de recomeçar o cadastro do zero. Os
+    // comentários vão como estão HOJE (uma cópia do texto atual) — depois
+    // de criada, as duas oportunidades são independentes: editar uma não
+    // muda a outra.
+    document.getElementById('duplicate-funil')?.addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        setSaving(true, btn, 'Duplicando...');
+        const r = await callAPI('createFunil', {
+            cliente: f.cliente, vendedor: f.vendedor, cidade: f.cidade,
+            foco: f.foco, atuacao: f.atuacao, aplicacao: f.aplicacao, equipamentos: f.equipamentos,
+            status: f.status, vlMensal: f.vlMensal, infImportantes: f.infImportantes, comentarios: f.comentarios,
+            funilDiversey: f.funilDiversey,
+            user: state.currentUser
+        }).catch((e) => ({ status: 'error', message: e.message }));
+        if (r && r.status === 'success' && r.funil) {
+            state.funil = [r.funil, ...(state.funil || [])];
+            saveCache('funil', state.funil);
+            showToast('Oportunidade duplicada — agora é só ajustar o que muda (ex.: Aplicação).');
+            navigateTo('funil-edit', { funil: r.funil });
+        } else {
+            showToast((r && r.message) || 'Não foi possível duplicar.', true);
+            setSaving(false, btn);
+        }
+    });
     document.getElementById('toggle-funil-diversey')?.addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;
         const novo = f.funilDiversey === 'Sim' ? 'Nao' : 'Sim';
