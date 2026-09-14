@@ -318,10 +318,13 @@ function wirePinLoginForm() {
     document.getElementById('pin-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         if (submitting) return;
-        const byNome = _pinIdentifierMode === 'nome';
         const identifier = identifierInput.value.trim();
+        // Decide pelo conteúdo, não pelo modo da tela: tem "@" é e-mail,
+        // senão é nome de login — quem digita "bruno" no campo de e-mail
+        // não pode cair em "nenhum PIN cadastrado" só por causa da aba.
+        const byNome = !identifier.includes('@');
         const pin = boxes.value();
-        if (!identifier) { showErr(byNome ? 'Informe o nome.' : 'Informe o e-mail.'); identifierInput.focus(); return; }
+        if (!identifier) { showErr(_pinIdentifierMode === 'nome' ? 'Informe o nome.' : 'Informe o e-mail.'); identifierInput.focus(); return; }
         if (!/^\d{4}$/.test(pin)) { showErr('Digite os 4 dígitos do PIN.'); return; }
         submitting = true;
         setBusy(true);
@@ -348,7 +351,11 @@ function wirePinLoginForm() {
             }
             setBusy(false); submitting = false;
             boxes.clear();
-            showErr(result.message || 'Não foi possível entrar com o PIN.');
+            let msg = result.message || 'Não foi possível entrar com o PIN.';
+            if (byNome && /nenhum pin/i.test(msg)) {
+                msg = 'Nome de login não encontrado ou sem PIN. Use exatamente o nome que o admin cadastrou (ex.: "bruno"), ou entre com e-mail e senha.';
+            }
+            showErr(msg);
         } catch (error) {
             setBusy(false); submitting = false;
             showErr('Não foi possível conectar ao servidor.');
