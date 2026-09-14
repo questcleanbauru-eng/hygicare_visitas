@@ -377,15 +377,15 @@ export function fillFunilContent(mainContent, funil) {
                 <div class="qe-status-row">
                     ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (f.status || '') ? ' is-active' : ''}" data-s="${s}">${s}</button>`).join('')}
                 </div>
-                <div id="qe-motivo-wrap" style="margin-top:0.7rem;display:${f.status === 'PERDIDO' ? '' : 'none'}">
+                <div id="qe-motivo-wrap" style="margin-top:0.5rem;display:${f.status === 'PERDIDO' ? '' : 'none'}">
                     <label>Motivo da perda</label>
                     <input type="text" id="qe-motivo" value="${escapeHtml(f.motivoPerda || '')}" placeholder="Ex.: preço, concorrência...">
                 </div>
-                <label class="qe-diversey-check" style="margin-top:0.7rem;display:flex;align-items:center;gap:0.5rem;font-weight:600;cursor:pointer">
+                <label class="qe-diversey-check" style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;font-weight:600;cursor:pointer">
                     <input type="checkbox" id="qe-diversey" ${f.funilDiversey === 'Sim' ? 'checked' : ''} style="width:auto;accent-color:var(--primary)">
                     ⭐ Funil Diversey <span class="helper-text" style="font-weight:400">(acompanhar de perto)</span>
                 </label>
-                <label style="margin-top:0.7rem">Comentários</label>
+                <label style="margin-top:0.5rem">Comentários</label>
                 <textarea id="qe-coment" rows="8">${escapeHtml(withDatedNoteHeader(f.comentarios))}</textarea>
             </div>`;
 

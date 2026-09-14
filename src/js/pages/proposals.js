@@ -366,7 +366,7 @@ export function fillProposalsContent(mainContent, proposals) {
                 <div class="qe-status-row">
                     ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (p.status || '') ? ' is-active' : ''}" data-s="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
                 </div>
-                <label style="margin-top:0.7rem">Atualizar / OBS</label>
+                <label style="margin-top:0.5rem">Atualizar / OBS</label>
                 <textarea id="qe-obs" rows="8">${escapeHtml(withDatedNoteHeader(p.obs))}</textarea>
             </div>`;
 
