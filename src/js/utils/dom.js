@@ -275,7 +275,16 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
     // pré-preenchido (edição) que o usuário só tabulou sem tocar nunca é
     // apagado, mesmo que não bata 100% com a lista atual de opções.
     let dirty = false;
-    input.addEventListener('focus', () => openMenu(input.value));
+    input.addEventListener('focus', () => {
+        // Valor já bate exato com uma opção (ex.: campo "Vendedor" do admin,
+        // pré-preenchido com o próprio nome) — abre com a lista inteira em
+        // vez de filtrar só por esse valor, senão só apareceria a própria
+        // opção, escondendo todo mundo que dava pra escolher no lugar. Some
+        // o texto selecionado também, pra digitar já substituir.
+        const showAll = !!exactMatch(input.value);
+        if (showAll) input.select();
+        openMenu(showAll ? '' : input.value);
+    });
     input.addEventListener('input', () => { dirty = true; openMenu(input.value); });
     input.addEventListener('blur', () => {
         // Atraso pra deixar o click numa opção do menu (que também dispara
