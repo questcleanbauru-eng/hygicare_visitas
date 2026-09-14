@@ -13,7 +13,7 @@ import {
     loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
-import { trackUpdate, getSummaryCount, shareSummaryAndClear } from '../utils/updateSummary.js';
+import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
 import { ensureFunilForDedup, funilItemFor as funilItemForProposta, funilEmAlerta } from '../utils/funilLink.js';
 
 export function fillProposalsContent(mainContent, proposals) {
@@ -545,10 +545,7 @@ export function fillProposalsContent(mainContent, proposals) {
         ]);
     });
     document.getElementById('update-summary-btn')?.addEventListener('click', () => {
-        if (confirm('Compartilhar o resumo de atualizações no WhatsApp e limpar a lista?')) {
-            shareSummaryAndClear();
-            navigateTo('proposals');
-        }
+        openSummaryModal(() => navigateTo('proposals'));
     });
     renderFiltered();
 
@@ -895,14 +892,14 @@ export async function renderProposalFormPage(proposal) {
                     saveCache('proposals', null);
                     saveCache('dashboard', null);
                     state.proposals = [];
-                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, vendedor: normalized.vendedor, status: newStatus });
+                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, vendedor: normalized.vendedor, gerencia: normalized.gerencia, status: newStatus });
                 } else if (result && result.status === 'queued') {
                     if (idx >= 0) {
                         state.proposals[idx] = { ...state.proposals[idx], _pending: true };
                         saveCache('proposals', state.proposals);
                     }
                     showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, vendedor: normalized.vendedor, status: newStatus });
+                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, vendedor: normalized.vendedor, gerencia: normalized.gerencia, status: newStatus });
                 } else {
                     // Revert on failure
                     if (idx >= 0 && original) {
@@ -1248,11 +1245,11 @@ function applyProposalQuickPatch(p, patch, onDone) {
         { entity: 'proposals', tempId: p.id })
         .then((result) => {
             if (result && result.status === 'success') {
-                trackUpdate('proposals', { id: p.id, cliente: p.cliente, vendedor: p.vendedor, status });
+                trackUpdate('proposals', { id: p.id, cliente: p.cliente, vendedor: p.vendedor, gerencia: p.gerencia, status });
             } else if (result && result.status === 'queued') {
                 if (idx >= 0) { state.proposals[idx] = { ...state.proposals[idx], _pending: true }; saveCache('proposals', state.proposals); }
                 showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                trackUpdate('proposals', { id: p.id, cliente: p.cliente, vendedor: p.vendedor, status });
+                trackUpdate('proposals', { id: p.id, cliente: p.cliente, vendedor: p.vendedor, gerencia: p.gerencia, status });
                 if (onDone) onDone();
             } else {
                 if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
@@ -1303,18 +1300,19 @@ export function openInlineStatusEditor(pill, proposalId, currentStatus) {
                 .then((result) => {
                     const clienteNome = original ? (original.cliente || original.Cliente || '') : '';
                     const vendedorNome = original ? (original.vendedor || original.Vendedor || '') : '';
+                    const gerenciaNome = original ? (original.gerencia || original.Gerencia || '') : '';
                     if (result && result.status === 'queued') {
                         if (idx >= 0) {
                             state.proposals[idx] = { ...state.proposals[idx], _pending: true };
                             saveCache('proposals', state.proposals);
                         }
                         showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, vendedor: vendedorNome, status: newStatus });
+                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, vendedor: vendedorNome, gerencia: gerenciaNome, status: newStatus });
                     } else if (!result || result.status !== 'success') {
                         if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
                         showToast((result && result.message) || 'Erro ao atualizar status.', true);
                     } else {
-                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, vendedor: vendedorNome, status: newStatus });
+                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, vendedor: vendedorNome, gerencia: gerenciaNome, status: newStatus });
                     }
                 })
                 .catch(() => {
