@@ -120,6 +120,28 @@ function groupedVendorTables(items, vendedorOf, dateOf, headers, rowOf) {
     }).join('');
 }
 
+// Igual ao groupedVendorTables, mas com um nível extra de agrupamento por
+// Gerência acima do vendedor. Se só existir uma gerência nos dados (ex.:
+// usuário gerente vendo só a própria equipe), pula direto pra agrupar por
+// vendedor — não faz sentido mostrar um grupo único de gerência.
+function groupedGerenciaVendorTables(items, gerenciaOf, vendedorOf, dateOf, headers, rowOf) {
+    const groups = {};
+    items.forEach((it) => {
+        const k = titleCase(gerenciaOf(it)) || 'Sem gerência';
+        (groups[k] = groups[k] || []).push(it);
+    });
+    const gerenciaKeys = Object.keys(groups);
+    if (gerenciaKeys.length <= 1) {
+        return groupedVendorTables(items, vendedorOf, dateOf, headers, rowOf);
+    }
+    return gerenciaKeys.sort((a, b) => a.localeCompare(b, 'pt-BR')).map((ger) => `
+        <div class="report-group report-group-gerencia">
+            <h3 class="report-group-head-gerencia">${escapeHtml(ger)} <span>${groups[ger].length}</span></h3>
+            ${groupedVendorTables(groups[ger], vendedorOf, dateOf, headers, rowOf)}
+        </div>
+    `).join('');
+}
+
 function countBy(items, keyFn) {
     const counts = {};
     items.forEach((item) => {
@@ -415,7 +437,11 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         <div class="report-section report-section-visitas${secOpen('visitas') ? '' : ' is-collapsed'}" data-section-key="visitas">
             <div class="report-section-head">
                 <h3>📋 Visitas</h3>
-                <div class="report-section-actions no-print">${secToggle('visitas')}</div>
+                <div class="report-section-actions no-print">
+                    ${isAdmGer ? '<button type="button" class="mini-button" id="pdf-det-visitas">📄 Por gerência/vendedor</button>' : ''}
+                    <button type="button" class="mini-button" id="csv-visitas">📥 CSV</button>
+                    ${secToggle('visitas')}
+                </div>
             </div>
             <div class="report-section-body">
             <div class="report-kpi-row">
@@ -563,6 +589,33 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.atualizacao || '-'), escapeHtml(formatAge(f.data))
             ]
         ));
+    });
+    document.getElementById('pdf-det-visitas')?.addEventListener('click', () => {
+        if (!visits.length) { showToast('Nenhuma visita no período.', true); return; }
+        printDetalhe('Visitas — detalhado por gerência e vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${visits.length} visita(s)`, groupedGerenciaVendorTables(
+            visits, (v) => v.gerencia, (v) => v.vendedorGerente, (v) => v.dataVisita,
+            ['Data', 'Cliente', 'Tipo da Visita', 'Cidade', 'Contato'],
+            (v) => [
+                escapeHtml(v.dataVisita || '-'), escapeHtml(titleCase(v.cliente) || '-'), escapeHtml(v.tipoVisita || '-'),
+                escapeHtml(titleCase(v.cidade) || '-'), escapeHtml(v.contato || '-')
+            ]
+        ));
+    });
+    document.getElementById('csv-visitas')?.addEventListener('click', () => {
+        const rows = visits
+            .slice()
+            .sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0))
+            .map((v) => ({
+                data: v.dataVisita || '', vendedor: titleCase(v.vendedorGerente), gerencia: titleCase(v.gerencia),
+                cliente: titleCase(v.cliente), cidade: titleCase(v.cidade), tipoVisita: v.tipoVisita || '',
+                areaAtuacao: v.areaAtuacao || '', contato: v.contato || '', prospeccao: v.prospeccao || ''
+            }));
+        if (!rows.length) { showToast('Nenhuma visita no período.', true); return; }
+        downloadCSV(rows, `visitas-${_stamp}.csv`, [
+            { key: 'data', label: 'Data' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
+            { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'tipoVisita', label: 'Tipo da Visita' },
+            { key: 'areaAtuacao', label: 'Área de Atuação' }, { key: 'contato', label: 'Contato' }, { key: 'prospeccao', label: 'Prospecção' }
+        ]);
     });
     document.getElementById('csv-propostas')?.addEventListener('click', () => {
         const rows = proposals

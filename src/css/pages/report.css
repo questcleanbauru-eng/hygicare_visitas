@@ -164,6 +164,41 @@
     letter-spacing: 0;
 }
 
+/* Grupo de Gerência (um nível acima do vendedor) — só aparece quando o
+   relatório mistura mais de uma gerência, então precisa se destacar mais
+   que o cabeçalho de vendedor pra não confundir os dois níveis. */
+.report-group-gerencia {
+    margin: 1.1rem 0 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 2px solid var(--border);
+}
+
+.report-group-gerencia:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.report-group-head-gerencia {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0.3rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.report-group-head-gerencia span {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.05rem 0.5rem;
+}
+
 @media print {
     .report-table th { background: #f1f5f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .report-table-wrap { overflow-x: visible; }
@@ -227,6 +262,24 @@
         color: #000;
     }
     #report-detail-print .report-group-head span {
+        border: none;
+        background: none;
+        padding: 0;
+        color: #555;
+    }
+    #report-detail-print .report-group-gerencia {
+        margin: 8px 0 4px;
+        padding-top: 5px;
+        border-top: 1px solid #999;
+    }
+    #report-detail-print .report-group-gerencia:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+    #report-detail-print .report-group-head-gerencia {
+        font-size: 10.5px;
+        margin-bottom: 2px;
+        break-after: avoid;
+        color: #000;
+    }
+    #report-detail-print .report-group-head-gerencia span {
         border: none;
         background: none;
         padding: 0;
