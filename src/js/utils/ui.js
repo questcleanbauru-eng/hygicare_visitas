@@ -863,6 +863,11 @@ function showUpdateBanner(worker) {
     document.body.appendChild(banner);
     requestAnimationFrame(() => banner.classList.add('visible'));
     document.getElementById('update-banner-btn').addEventListener('click', () => {
+        // Atualizar recarrega a página na hora — se tiver algo digitado e
+        // ainda não salvo (comentário, formulário...), some sem aviso. Um
+        // caso real: vendedor preenchendo uma campanha pelo celular clicou
+        // aqui com o comentário ainda não salvo e perdeu o texto.
+        if (!confirm('Atualizar agora vai recarregar a página. Se tiver algo digitado e ainda não salvo, será perdido. Continuar?')) return;
         worker.postMessage({ type: 'SKIP_WAITING' });
     });
 }
