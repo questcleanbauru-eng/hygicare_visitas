@@ -1,9 +1,10 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, contratoSituacaoIcon, filterLabelHtml } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, contratoSituacaoIcon, filterLabelHtml, multiCheckFilterFieldHtml } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon, showToast,
-    loadingState, skeletonDetail, addScrollTop, openExternal, setSaving
+    loadingState, skeletonDetail, addScrollTop, openExternal, setSaving,
+    wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 
@@ -74,21 +75,8 @@ export function fillContratosContent(mainContent, contratos) {
                         <option value="ativo">Ativo</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="ct-cidade">${filterLabelHtml('Cidade')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="ct-cidade" placeholder="Todas" autocomplete="off">
-                        <div class="searchable-select-menu" id="ct-cidade-menu"></div>
-                    </div>
-                </div>
-                ${isAdmGer ? `
-                <div class="form-group">
-                    <label for="ct-vendor">${filterLabelHtml('Vendedor')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="ct-vendor" placeholder="Todos" autocomplete="off">
-                        <div class="searchable-select-menu" id="ct-vendor-menu"></div>
-                    </div>
-                </div>` : ''}
+                ${multiCheckFilterFieldHtml('Cidade', 'ct-cidade', 'Todas')}
+                ${isAdmGer ? multiCheckFilterFieldHtml('Vendedor', 'ct-vendor') : ''}
             </div>
         </div>
         <div id="contratos-list-container"></div>
@@ -109,13 +97,13 @@ export function fillContratosContent(mainContent, contratos) {
     const renderFiltered = () => {
         const search   = document.getElementById('ct-search')?.value.trim().toLowerCase() || '';
         const situacao = document.getElementById('ct-situacao')?.value || '';
-        const cidade   = document.getElementById('ct-cidade')?.value || '';
-        const vendor   = document.getElementById('ct-vendor')?.value || '';
+        const cidade   = (document.getElementById('ct-cidade')?.value || '').split(',').filter(Boolean);
+        const vendor   = (document.getElementById('ct-vendor')?.value || '').split(',').filter(Boolean);
 
         const filtered = normalized.filter((c) => {
             const matchSearch = !search || [c.cliente, c.cidade, c.vendedor].some((v) => String(v || '').toLowerCase().includes(search));
-            const matchCidade = !cidade || c.cidade === cidade;
-            const matchVendor = !vendor || c.vendedor === vendor;
+            const matchCidade = !cidade.length || cidade.includes(c.cidade);
+            const matchVendor = !vendor.length || vendor.includes(c.vendedor);
             const matchSituacao = !situacao
                 || (situacao === 'vencido' && c.vencido)
                 || (situacao === 'vence-breve' && c.venceEmBreve)
@@ -347,13 +335,13 @@ export function fillContratosContent(mainContent, contratos) {
         });
     }
 
-    initializeSearchableInput({ input: document.getElementById('ct-cidade'), menu: document.getElementById('ct-cidade-menu'), items: availableCities });
+    wireMultiCheckFilter({ triggerId: 'ct-cidade-trigger', inputId: 'ct-cidade', menuId: 'ct-cidade-menu', options: availableCities });
     if (isAdmGer) {
-        initializeSearchableInput({ input: document.getElementById('ct-vendor'), menu: document.getElementById('ct-vendor-menu'), items: availableVendors });
+        wireMultiCheckFilter({ triggerId: 'ct-vendor-trigger', inputId: 'ct-vendor', menuId: 'ct-vendor-menu', options: availableVendors });
     }
 
     const _ctFilterIds = ['ct-search', 'ct-situacao', 'ct-cidade', 'ct-vendor'];
-    const _ctTextFilterIds = new Set(['ct-search', 'ct-cidade', 'ct-vendor']);
+    const _ctTextFilterIds = new Set(['ct-search']);
     const _debouncedFilter = debounce(renderFiltered, 250);
     _ctFilterIds.forEach((id) => {
         const el = document.getElementById(id);
@@ -363,6 +351,8 @@ export function fillContratosContent(mainContent, contratos) {
 
     document.getElementById('ct-filter-clear')?.addEventListener('click', () => {
         _ctFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        syncMultiCheckFilterLabel('ct-cidade-trigger', 'ct-cidade');
+        syncMultiCheckFilterLabel('ct-vendor-trigger', 'ct-vendor');
         renderFiltered();
     });
 

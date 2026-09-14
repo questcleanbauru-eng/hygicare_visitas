@@ -1,9 +1,10 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase, clienteSearchItem, findClienteByNome } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase, clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, showToast, actionIcon,
-    skeletonList, skeletonDetail, addScrollTop, setSaving, openExternal
+    skeletonList, skeletonDetail, addScrollTop, setSaving, openExternal,
+    wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 import { compressImageFile } from '../utils/image.js';
@@ -192,21 +193,8 @@ export function fillManutencaoContent(mainContent, itens) {
                         <option value="manutencao">Manutenção</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="mnt-cidade">Cidade</label>
-                    <div class="searchable-select">
-                        <input type="text" id="mnt-cidade" placeholder="Todas" autocomplete="off">
-                        <div class="searchable-select-menu" id="mnt-cidade-menu"></div>
-                    </div>
-                </div>
-                ${isAdmGer ? `
-                <div class="form-group">
-                    <label for="mnt-tecnico">Técnico</label>
-                    <div class="searchable-select">
-                        <input type="text" id="mnt-tecnico" placeholder="Todos" autocomplete="off">
-                        <div class="searchable-select-menu" id="mnt-tecnico-menu"></div>
-                    </div>
-                </div>` : ''}
+                ${multiCheckFilterFieldHtml('Cidade', 'mnt-cidade', 'Todas')}
+                ${isAdmGer ? multiCheckFilterFieldHtml('Técnico', 'mnt-tecnico') : ''}
             </div>
         </div>
         <div id="manutencao-list-container"></div>
@@ -227,14 +215,14 @@ export function fillManutencaoContent(mainContent, itens) {
     const renderFiltered = () => {
         const search  = document.getElementById('mnt-search')?.value.trim().toLowerCase() || '';
         const tipo    = document.getElementById('mnt-tipo')?.value || '';
-        const cidade  = document.getElementById('mnt-cidade')?.value || '';
-        const tecnico = document.getElementById('mnt-tecnico')?.value || '';
+        const cidade  = (document.getElementById('mnt-cidade')?.value || '').split(',').filter(Boolean);
+        const tecnico = (document.getElementById('mnt-tecnico')?.value || '').split(',').filter(Boolean);
 
         const filtered = normalized.filter((m) => {
             const matchSearch  = !search || [m.cliente, m.cidade, m.tecnico].some((v) => String(v || '').toLowerCase().includes(search));
             const matchTipo    = !tipo || m._tipo === tipo;
-            const matchCidade  = !cidade || m.cidade === cidade;
-            const matchTecnico = !tecnico || m.tecnico === tecnico;
+            const matchCidade  = !cidade.length || cidade.includes(m.cidade);
+            const matchTecnico = !tecnico.length || tecnico.includes(m.tecnico);
             return matchSearch && matchTipo && matchCidade && matchTecnico;
         });
 
@@ -307,13 +295,13 @@ export function fillManutencaoContent(mainContent, itens) {
         });
     };
 
-    initializeSearchableInput({ input: document.getElementById('mnt-cidade'), menu: document.getElementById('mnt-cidade-menu'), items: availableCidades });
+    wireMultiCheckFilter({ triggerId: 'mnt-cidade-trigger', inputId: 'mnt-cidade', menuId: 'mnt-cidade-menu', options: availableCidades });
     if (isAdmGer) {
-        initializeSearchableInput({ input: document.getElementById('mnt-tecnico'), menu: document.getElementById('mnt-tecnico-menu'), items: availableTecnicos });
+        wireMultiCheckFilter({ triggerId: 'mnt-tecnico-trigger', inputId: 'mnt-tecnico', menuId: 'mnt-tecnico-menu', options: availableTecnicos });
     }
 
     const _filterIds = ['mnt-search', 'mnt-tipo', 'mnt-cidade', 'mnt-tecnico'];
-    const _textFilterIds = new Set(['mnt-search', 'mnt-cidade', 'mnt-tecnico']);
+    const _textFilterIds = new Set(['mnt-search']);
     const _debouncedFilter = debounce(renderFiltered, 250);
     _filterIds.forEach((id) => {
         const isText = _textFilterIds.has(id);
@@ -321,6 +309,8 @@ export function fillManutencaoContent(mainContent, itens) {
     });
     document.getElementById('mnt-filter-clear')?.addEventListener('click', () => {
         _filterIds.forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+        syncMultiCheckFilterLabel('mnt-cidade-trigger', 'mnt-cidade');
+        syncMultiCheckFilterLabel('mnt-tecnico-trigger', 'mnt-tecnico');
         renderFiltered();
     });
 
