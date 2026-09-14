@@ -789,11 +789,11 @@ function applyFunilQuickPatch(f, patch, onDone) {
             if (result && result.status === 'success') {
                 state.funil = state.funil.map((item) => String(item.id) === String(f.id) ? result.funil : item);
                 saveCache('funil', state.funil);
-                trackUpdate('funil', { id: f.id, cliente: f.cliente, status });
+                trackUpdate('funil', { id: f.id, cliente: f.cliente, vendedor: f.vendedor, status });
             } else if (result && result.status === 'queued') {
                 if (idx >= 0) { state.funil[idx] = { ...state.funil[idx], _pending: true }; saveCache('funil', state.funil); }
                 showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                trackUpdate('funil', { id: f.id, cliente: f.cliente, status });
+                trackUpdate('funil', { id: f.id, cliente: f.cliente, vendedor: f.vendedor, status });
             } else {
                 if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
                 showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
@@ -850,15 +850,16 @@ function openFunilInlineStatusEditor(pill, funilId, currentStatus) {
                 { entity: 'funil', tempId: String(funilId) })
                 .then((result) => {
                     const clienteNome = original ? (original.cliente || '') : '';
+                    const vendedorNome = original ? (original.vendedor || '') : '';
                     if (result && result.status === 'queued') {
                         if (idx >= 0) { state.funil[idx] = { ...state.funil[idx], _pending: true }; saveCache('funil', state.funil); }
                         showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                        trackUpdate('funil', { id: funilId, cliente: clienteNome, status: newStatus });
+                        trackUpdate('funil', { id: funilId, cliente: clienteNome, vendedor: vendedorNome, status: newStatus });
                     } else if (!result || result.status !== 'success') {
                         if (idx >= 0 && original) { state.funil[idx] = original; saveCache('funil', state.funil); }
                         showToast((result && result.message) || 'Erro ao atualizar status.', true);
                     } else {
-                        trackUpdate('funil', { id: funilId, cliente: clienteNome, status: newStatus });
+                        trackUpdate('funil', { id: funilId, cliente: clienteNome, vendedor: vendedorNome, status: newStatus });
                     }
                 })
                 .catch(() => {
@@ -1531,14 +1532,14 @@ export async function renderFunilFormPage(funil) {
                 if (result && result.status === 'success') {
                     state.funil = state.funil.map(item => String(item.id) === String(f.id) ? result.funil : item);
                     saveCache('funil', state.funil);
-                    trackUpdate('funil', { id: f.id, cliente: f.cliente, status: newFStatus });
+                    trackUpdate('funil', { id: f.id, cliente: f.cliente, vendedor: f.vendedor, status: newFStatus });
                 } else if (result && result.status === 'queued') {
                     if (fIdx >= 0) {
                         state.funil[fIdx] = { ...state.funil[fIdx], _pending: true };
                         saveCache('funil', state.funil);
                     }
                     showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                    trackUpdate('funil', { id: f.id, cliente: f.cliente, status: newFStatus });
+                    trackUpdate('funil', { id: f.id, cliente: f.cliente, vendedor: f.vendedor, status: newFStatus });
                 } else {
                     if (fIdx >= 0 && fOriginal) { state.funil[fIdx] = fOriginal; saveCache('funil', state.funil); }
                     showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);

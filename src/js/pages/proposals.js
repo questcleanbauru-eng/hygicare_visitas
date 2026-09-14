@@ -895,14 +895,14 @@ export async function renderProposalFormPage(proposal) {
                     saveCache('proposals', null);
                     saveCache('dashboard', null);
                     state.proposals = [];
-                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, status: newStatus });
+                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, vendedor: normalized.vendedor, status: newStatus });
                 } else if (result && result.status === 'queued') {
                     if (idx >= 0) {
                         state.proposals[idx] = { ...state.proposals[idx], _pending: true };
                         saveCache('proposals', state.proposals);
                     }
                     showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, status: newStatus });
+                    trackUpdate('proposals', { id: proposalId, cliente: normalized.cliente, vendedor: normalized.vendedor, status: newStatus });
                 } else {
                     // Revert on failure
                     if (idx >= 0 && original) {
@@ -1248,11 +1248,11 @@ function applyProposalQuickPatch(p, patch, onDone) {
         { entity: 'proposals', tempId: p.id })
         .then((result) => {
             if (result && result.status === 'success') {
-                trackUpdate('proposals', { id: p.id, cliente: p.cliente, status });
+                trackUpdate('proposals', { id: p.id, cliente: p.cliente, vendedor: p.vendedor, status });
             } else if (result && result.status === 'queued') {
                 if (idx >= 0) { state.proposals[idx] = { ...state.proposals[idx], _pending: true }; saveCache('proposals', state.proposals); }
                 showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                trackUpdate('proposals', { id: p.id, cliente: p.cliente, status });
+                trackUpdate('proposals', { id: p.id, cliente: p.cliente, vendedor: p.vendedor, status });
                 if (onDone) onDone();
             } else {
                 if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
@@ -1302,18 +1302,19 @@ export function openInlineStatusEditor(pill, proposalId, currentStatus) {
                 { entity: 'proposals', tempId: String(proposalId) })
                 .then((result) => {
                     const clienteNome = original ? (original.cliente || original.Cliente || '') : '';
+                    const vendedorNome = original ? (original.vendedor || original.Vendedor || '') : '';
                     if (result && result.status === 'queued') {
                         if (idx >= 0) {
                             state.proposals[idx] = { ...state.proposals[idx], _pending: true };
                             saveCache('proposals', state.proposals);
                         }
                         showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
-                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, status: newStatus });
+                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, vendedor: vendedorNome, status: newStatus });
                     } else if (!result || result.status !== 'success') {
                         if (idx >= 0 && original) { state.proposals[idx] = original; saveCache('proposals', state.proposals); }
                         showToast((result && result.message) || 'Erro ao atualizar status.', true);
                     } else {
-                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, status: newStatus });
+                        trackUpdate('proposals', { id: proposalId, cliente: clienteNome, vendedor: vendedorNome, status: newStatus });
                     }
                 })
                 .catch(() => {
