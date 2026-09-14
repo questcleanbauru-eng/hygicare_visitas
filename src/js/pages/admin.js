@@ -851,34 +851,71 @@ export function bindAdminEvents(data) {
             overlay.querySelector('.uif-nome').focus();
 
             overlay.querySelector('.uif-cancel').addEventListener('click', close);
+
+            // Validação + payload do formulário principal, reaproveitados
+            // pelos botões de PIN abaixo — eles fechavam o modal na hora,
+            // descartando qualquer edição pendente (ex.: senha digitada)
+            // que o admin ainda não tivesse confirmado em "Salvar".
+            const validateSenha = () => {
+                const senhaEdit = overlay.querySelector('.uif-senha').value.trim();
+                if (senhaEdit && !/^\d{4}$/.test(senhaEdit)) { showToast('A senha precisa ter exatamente 4 números.', true); return null; }
+                return senhaEdit;
+            };
+            const buildUserPayload = (senhaEdit) => ({
+                originalEmail: email,
+                emailLogin: overlay.querySelector('.uif-email').value.trim(),
+                nomeVendedor: overlay.querySelector('.uif-nome').value.trim(),
+                nomeLogin: overlay.querySelector('.uif-nome-login').value.trim(),
+                senha: senhaEdit,
+                gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
+                perfil: overlay.querySelector('.uif-perfil').value,
+                metaVisitasMes: overlay.querySelector('.uif-meta').value.trim(),
+                ...readPermFieldsValue(overlay),
+                ...readTelasFieldValue(overlay)
+            });
+
             overlay.querySelector('.uif-pin-save').addEventListener('click', async (ev) => {
                 const b = ev.currentTarget;
                 const pin = overlay.querySelector('.uif-pin-input').value.trim();
                 if (!/^\d{4}$/.test(pin)) { showToast('O PIN precisa ter 4 dígitos.', true); return; }
+                const senhaEdit = validateSenha();
+                if (senhaEdit === null) return;
                 setSaving(true, b, 'Salvando...');
                 const nomeLoginVal = overlay.querySelector('.uif-nome-login').value.trim();
-                const r = await callAPI('adminSetPin', { email, pin, nomeLogin: nomeLoginVal }).catch((e) => ({ status: 'error', message: e.message }));
-                if (r && r.status === 'success') {
-                    showToast('PIN salvo.');
-                    close();
-                    renderAdminPage();
-                } else {
-                    showToast((r && r.message) || 'Não foi possível salvar o PIN.', true);
+                const pinResult = await callAPI('adminSetPin', { email, pin, nomeLogin: nomeLoginVal }).catch((e) => ({ status: 'error', message: e.message }));
+                if (!pinResult || pinResult.status !== 'success') {
+                    showToast((pinResult && pinResult.message) || 'Não foi possível salvar o PIN.', true);
                     setSaving(false, b);
+                    return;
                 }
+                // Salva o resto do formulário logo em seguida (o PIN precisa
+                // terminar de gravar primeiro — se rodasse em paralelo, o
+                // salvamento do formulário poderia ler a linha antes do PIN
+                // chegar na planilha e sobrescrever o PIN novo com o antigo).
+                const userResult = await saveUser(buildUserPayload(senhaEdit));
+                showToast(userResult.status === 'success'
+                    ? 'PIN e usuário salvos.'
+                    : 'PIN salvo, mas ' + (userResult.message || 'não foi possível salvar o restante do usuário.'), userResult.status !== 'success');
+                close();
+                renderAdminPage();
             });
             overlay.querySelector('.uif-pin-remove')?.addEventListener('click', async (ev) => {
                 const b = ev.currentTarget;
+                const senhaEdit = validateSenha();
+                if (senhaEdit === null) return;
                 b.disabled = true;
-                const r = await callAPI('removePin', { email }).catch(() => null);
-                if (r && r.status === 'success') {
-                    showToast('PIN removido.');
-                    close();
-                    renderAdminPage();
-                } else {
-                    showToast((r && r.message) || 'Não foi possível remover o PIN.', true);
+                const pinResult = await callAPI('removePin', { email }).catch(() => null);
+                if (!pinResult || pinResult.status !== 'success') {
+                    showToast((pinResult && pinResult.message) || 'Não foi possível remover o PIN.', true);
                     b.disabled = false;
+                    return;
                 }
+                const userResult = await saveUser(buildUserPayload(senhaEdit));
+                showToast(userResult.status === 'success'
+                    ? 'PIN removido e usuário salvo.'
+                    : 'PIN removido, mas ' + (userResult.message || 'não foi possível salvar o restante do usuário.'), userResult.status !== 'success');
+                close();
+                renderAdminPage();
             });
             overlay.querySelector('.uif-toggle-ativo').addEventListener('click', async (ev) => {
                 const b = ev.currentTarget;
@@ -918,22 +955,11 @@ export function bindAdminEvents(data) {
                 }
             });
             overlay.querySelector('.uif-save').addEventListener('click', async () => {
-                const senhaEdit = overlay.querySelector('.uif-senha').value.trim();
-                if (senhaEdit && !/^\d{4}$/.test(senhaEdit)) { showToast('A senha precisa ter exatamente 4 números.', true); return; }
+                const senhaEdit = validateSenha();
+                if (senhaEdit === null) return;
                 const saveBtn = overlay.querySelector('.uif-save');
                 setSaving(true, saveBtn, 'Salvando...');
-                const result = await saveUser({
-                    originalEmail: email,
-                    emailLogin: overlay.querySelector('.uif-email').value.trim(),
-                    nomeVendedor: overlay.querySelector('.uif-nome').value.trim(),
-                    nomeLogin: overlay.querySelector('.uif-nome-login').value.trim(),
-                    senha: senhaEdit,
-                    gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
-                    perfil: overlay.querySelector('.uif-perfil').value,
-                    metaVisitasMes: overlay.querySelector('.uif-meta').value.trim(),
-                    ...readPermFieldsValue(overlay),
-                    ...readTelasFieldValue(overlay)
-                });
+                const result = await saveUser(buildUserPayload(senhaEdit));
                 if (result.status === 'success') {
                     showToast('Usuário salvo.');
                     close();
