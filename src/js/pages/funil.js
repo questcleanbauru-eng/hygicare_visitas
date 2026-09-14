@@ -377,6 +377,7 @@ export function fillFunilContent(mainContent, funil) {
         const listaFoco = (fd && fd.potenciaisCliente) || [];
         const listaAtuacao = (fd && fd.areasAtuacao) || [];
         const listaAplicacao = (fd && fd.aplicacoes) || [];
+        const listaVendedores = (fd && fd.vendedores) || [];
         if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
 
         const searchField = (label, id, value) => `
@@ -402,6 +403,7 @@ export function fillFunilContent(mainContent, funil) {
                 </div>
                 <div class="qe-info qe-info-edit">
                     ${searchField('Cidade', 'qe-cidade', f.cidade)}
+                    ${searchField('Vendedor', 'qe-vendedor', f.vendedor)}
                     ${searchField('Foco', 'qe-foco', f.foco)}
                     ${searchField('Atuação', 'qe-atuacao', f.atuacao)}
                     ${searchField('Aplicação', 'qe-aplicacao', f.aplicacao)}
@@ -423,6 +425,19 @@ export function fillFunilContent(mainContent, funil) {
             </div>`;
 
         initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
+        // Gerência acompanha o vendedor escolhido (não fica campo visível
+        // aqui, é só pra não desalinhar cidade/vendedor do registro) — só
+        // muda se o admin selecionar alguém da lista; digitar livre mantém
+        // a gerência que já estava.
+        let selGerencia = f.gerencia || '';
+        initializeSearchableInput({
+            input: panel.querySelector('#qe-vendedor'), menu: panel.querySelector('#qe-vendedor-menu'),
+            items: listaVendedores.map((v) => v.nome), allowFreeText: true,
+            onSelect: (value) => {
+                const v = listaVendedores.find((x) => x.nome === value);
+                if (v) selGerencia = v.gerencia || selGerencia;
+            }
+        });
         initializeSearchableInput({ input: panel.querySelector('#qe-foco'), menu: panel.querySelector('#qe-foco-menu'), items: listaFoco, allowFreeText: true });
         initializeSearchableInput({ input: panel.querySelector('#qe-atuacao'), menu: panel.querySelector('#qe-atuacao-menu'), items: listaAtuacao, allowFreeText: true });
         initializeSearchableInput({ input: panel.querySelector('#qe-aplicacao'), menu: panel.querySelector('#qe-aplicacao-menu'), items: listaAplicacao, allowFreeText: true });
@@ -444,6 +459,7 @@ export function fillFunilContent(mainContent, funil) {
             if (selStatus === 'PERDIDO' && !motivo) { showToast('Informe o motivo da perda.', true); return; }
             const coment = stripEmptyDatedLine(ta.value);
             const cidade = panel.querySelector('#qe-cidade')?.value.trim();
+            const vendedor = panel.querySelector('#qe-vendedor')?.value.trim();
             const foco = panel.querySelector('#qe-foco')?.value.trim();
             const atuacao = panel.querySelector('#qe-atuacao')?.value.trim();
             const aplicacao = panel.querySelector('#qe-aplicacao')?.value.trim();
@@ -456,7 +472,7 @@ export function fillFunilContent(mainContent, funil) {
             // pra processar a fila inteira sem reselecionar manualmente.
             const idsBefore = Array.from(document.querySelectorAll('#funil-list-container [data-funil-id]')).map((el) => el.dataset.funilId);
             const posBefore = idsBefore.indexOf(String(f.id));
-            applyFunilQuickPatch(f, { status: selStatus, comentarios: coment, motivoPerda: motivo, cidade, foco, atuacao, aplicacao, funilDiversey }, () => {
+            applyFunilQuickPatch(f, { status: selStatus, comentarios: coment, motivoPerda: motivo, cidade, vendedor, gerencia: selGerencia, foco, atuacao, aplicacao, funilDiversey }, () => {
                 funilData = state.funil;
                 renderFiltered();
                 const idsAfter = new Set(Array.from(document.querySelectorAll('#funil-list-container [data-funil-id]')).map((el) => el.dataset.funilId));
@@ -751,14 +767,17 @@ function openFunilQuickUpdateModal(f, onUpdated) {
 // Update otimista + attemptOrQueue + rollback compartilhado entre o modal de
 // atualização rápida e o painel de edição rápida (split view do admin).
 function applyFunilQuickPatch(f, patch, onDone) {
-    const { status, comentarios, motivoPerda, cidade, foco, atuacao, aplicacao, funilDiversey } = patch;
+    const { status, comentarios, motivoPerda, cidade, vendedor, gerencia, foco, atuacao, aplicacao, funilDiversey } = patch;
     const idx = state.funil.findIndex((item) => String(item.id) === String(f.id));
     const original = idx >= 0 ? { ...state.funil[idx] } : null;
     const nowDisplay = formatDateForDisplay(new Date());
-    // Cidade/Foco/Atuação/Aplicação só chegam preenchidos quando o painel
-    // tinha os campos (admin) — undefined não sobrescreve o que já tinha.
+    // Cidade/Vendedor/Foco/Atuação/Aplicação só chegam preenchidos quando o
+    // painel tinha os campos (admin) — undefined não sobrescreve o que já
+    // tinha.
     const camposLivres = {};
     if (cidade !== undefined) camposLivres.cidade = cidade;
+    if (vendedor !== undefined) camposLivres.vendedor = vendedor;
+    if (gerencia !== undefined) camposLivres.gerencia = gerencia;
     if (foco !== undefined) camposLivres.foco = foco;
     if (atuacao !== undefined) camposLivres.atuacao = atuacao;
     if (aplicacao !== undefined) camposLivres.aplicacao = aplicacao;
