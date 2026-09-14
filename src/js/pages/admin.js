@@ -769,6 +769,7 @@ export function bindAdminEvents(data) {
                 return;
             }
             const user = state.adminData.users[Number(btn.dataset.userIndex)];
+            const id = user.id || user.Id || '';
             const email = user.emailLogin || user.EmailLogin || user.email || '';
             const nome = user.nomeVendedor || user.NomeVendedor || user.name || '';
             const inativo = user.ativo === false;
@@ -862,6 +863,7 @@ export function bindAdminEvents(data) {
                 return senhaEdit;
             };
             const buildUserPayload = (senhaEdit) => ({
+                id,
                 originalEmail: email,
                 emailLogin: overlay.querySelector('.uif-email').value.trim(),
                 nomeVendedor: overlay.querySelector('.uif-nome').value.trim(),
@@ -882,7 +884,7 @@ export function bindAdminEvents(data) {
                 if (senhaEdit === null) return;
                 setSaving(true, b, 'Salvando...');
                 const nomeLoginVal = overlay.querySelector('.uif-nome-login').value.trim();
-                const pinResult = await callAPI('adminSetPin', { email, pin, nomeLogin: nomeLoginVal }).catch((e) => ({ status: 'error', message: e.message }));
+                const pinResult = await callAPI('adminSetPin', { id, email, pin, nomeLogin: nomeLoginVal }).catch((e) => ({ status: 'error', message: e.message }));
                 if (!pinResult || pinResult.status !== 'success') {
                     showToast((pinResult && pinResult.message) || 'Não foi possível salvar o PIN.', true);
                     setSaving(false, b);
@@ -904,7 +906,7 @@ export function bindAdminEvents(data) {
                 const senhaEdit = validateSenha();
                 if (senhaEdit === null) return;
                 b.disabled = true;
-                const pinResult = await callAPI('removePin', { email }).catch(() => null);
+                const pinResult = await callAPI('removePin', { id, email }).catch(() => null);
                 if (!pinResult || pinResult.status !== 'success') {
                     showToast((pinResult && pinResult.message) || 'Não foi possível remover o PIN.', true);
                     b.disabled = false;
@@ -922,7 +924,7 @@ export function bindAdminEvents(data) {
                 const acao = inativo ? 'Reativar' : 'Desativar';
                 if (!confirm(`${acao} o usuário "${titleCase(nome)}"?${inativo ? '' : ' Ele deixa de conseguir entrar no app, mas todo o histórico é mantido.'}`)) return;
                 setSaving(true, b, `${acao === 'Reativar' ? 'Reativando' : 'Desativando'}...`);
-                const r = await callAPI('setUserAtivo', { emailLogin: email, ativo: inativo ? 'Sim' : 'Nao', user: state.currentUser }).catch(() => null);
+                const r = await callAPI('setUserAtivo', { id, emailLogin: email, ativo: inativo ? 'Sim' : 'Nao', user: state.currentUser }).catch(() => null);
                 if (r && r.status === 'success') {
                     showToast(r.message || 'Feito.');
                     close();
@@ -936,7 +938,7 @@ export function bindAdminEvents(data) {
                 const b = ev.currentTarget;
                 if (!confirm(`Excluir o usuário "${titleCase(nome)}" de vez? Não dá pra desfazer.`)) return;
                 setSaving(true, b, 'Excluindo...');
-                const r = await callAPI('deleteUser', { emailLogin: email, user: state.currentUser }).catch(() => null);
+                const r = await callAPI('deleteUser', { id, emailLogin: email, user: state.currentUser }).catch(() => null);
                 if (r && r.status === 'success') {
                     showToast(r.message || 'Usuário excluído.');
                     close();
@@ -945,7 +947,7 @@ export function bindAdminEvents(data) {
                     setSaving(false, b);
                     if (confirm(`${r.message}\n\nDesativar agora?`)) {
                         setSaving(true, b, 'Desativando...');
-                        const r2 = await callAPI('setUserAtivo', { emailLogin: email, ativo: 'Nao', user: state.currentUser }).catch(() => null);
+                        const r2 = await callAPI('setUserAtivo', { id, emailLogin: email, ativo: 'Nao', user: state.currentUser }).catch(() => null);
                         if (r2 && r2.status === 'success') { showToast(r2.message || 'Usuário desativado.'); close(); renderAdminPage(); }
                         else { showToast((r2 && r2.message) || 'Não foi possível desativar.', true); setSaving(false, b); }
                     }
