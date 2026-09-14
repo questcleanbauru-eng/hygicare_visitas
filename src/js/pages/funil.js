@@ -32,10 +32,12 @@ export function fillFunilContent(mainContent, funil) {
     // duplicados de reimportação, principalmente). Só pra quem pode apagar.
     let selectMode = false;
     const selectedIds = new Set();
-    // "Duplicado" = mesmo cliente + mesmo foco (regra do negócio: uma
-    // oportunidade por cliente/foco). Vale pro destaque na lista e pro
-    // "Marcar duplicados" do modo seleção.
-    const funilDupKey = (f) => [f.cliente, f.foco]
+    // "Duplicado" = mesmo cliente + mesmo foco + mesma aplicação (regra do
+    // negócio: uma oportunidade por cliente/foco/aplicação — o mesmo
+    // cliente pode ter mais de uma frente com o mesmo foco desde que a
+    // aplicação seja diferente, ex.: "Duplicar" pra trocar só a aplicação).
+    // Vale pro destaque na lista e pro "Marcar duplicados" do modo seleção.
+    const funilDupKey = (f) => [f.cliente, f.foco, f.aplicacao]
         .map((v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')).join('|');
 
     const newFunilDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."';
@@ -156,7 +158,7 @@ export function fillFunilContent(mainContent, funil) {
                     <label for="funil-filter-dup">${filterLabelHtml('Duplicidade')}</label>
                     <select id="funil-filter-dup">
                         <option value="">Todos</option>
-                        <option value="sim">Só duplicados (mesmo cliente + foco)</option>
+                        <option value="sim">Só duplicados (mesmo cliente + foco + aplicação)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -229,7 +231,7 @@ export function fillFunilContent(mainContent, funil) {
         const dupFilter     = document.getElementById('funil-filter-dup')?.value || '';
         const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(period);
 
-        // Duplicado = mesmo cliente + foco — calculado sobre tudo que está
+        // Duplicado = mesmo cliente + foco + aplicação — calculado sobre tudo que está
         // carregado (não só o já filtrado por outros campos), senão um
         // filtro escondendo o "gêmeo" faria o outro parar de contar como
         // repetido. Marca só os excedentes de cada grupo (mantém o mais
@@ -311,7 +313,7 @@ export function fillFunilContent(mainContent, funil) {
                             <strong>
                                 ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
                                 ${f.funilDiversey === 'Sim' ? '<span class="funil-diversey-tag" title="Funil Diversey — acompanhar de perto">⭐ Diversey</span>' : ''}
-                                ${isDup(f) ? '<span class="funil-dup-tag" title="Existe outro registro com o mesmo cliente e foco">⚠️ Duplicado</span>' : ''}
+                                ${isDup(f) ? '<span class="funil-dup-tag" title="Existe outro registro com o mesmo cliente, foco e aplicação">⚠️ Duplicado</span>' : ''}
                                 ${(() => {
                                     const _pi = propostaItemFor(f.cliente, f.foco);
                                     if (!_pi) return '';
@@ -349,7 +351,7 @@ export function fillFunilContent(mainContent, funil) {
             container.insertAdjacentHTML('afterbegin', `
                 <div class="funil-sel-bar" id="funil-sel-bar">
                     <strong id="funil-sel-count">${selectedIds.size} selecionado(s)</strong>
-                    <button type="button" class="mini-button" id="funil-sel-dups" title="Marca os repetidos (mesmo cliente e foco), deixando sem marca o mais recente de cada grupo">Marcar duplicados</button>
+                    <button type="button" class="mini-button" id="funil-sel-dups" title="Marca os repetidos (mesmo cliente, foco e aplicação), deixando sem marca o mais recente de cada grupo">Marcar duplicados</button>
                     <button type="button" class="mini-button" id="funil-sel-all">Marcar todos</button>
                     <button type="button" class="mini-button" id="funil-sel-none">Limpar</button>
                     <button type="button" class="mini-button mini-button-danger" id="funil-sel-delete" ${selectedIds.size ? '' : 'disabled'}>🗑️ Excluir selecionados</button>
