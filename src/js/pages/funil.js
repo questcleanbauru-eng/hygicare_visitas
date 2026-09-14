@@ -442,9 +442,26 @@ export function fillFunilContent(mainContent, funil) {
             const funilDiversey = panel.querySelector('#qe-diversey')?.checked ? 'Sim' : 'Nao';
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
+            // Se o novo status tirar esse card do filtro atual (ex.: filtrado
+            // por "Proposta" e o card virou "Concluído"), pula pro próximo da
+            // lista em vez de continuar mostrando um card que já sumiu — dá
+            // pra processar a fila inteira sem reselecionar manualmente.
+            const idsBefore = Array.from(document.querySelectorAll('#funil-list-container [data-funil-id]')).map((el) => el.dataset.funilId);
+            const posBefore = idsBefore.indexOf(String(f.id));
             applyFunilQuickPatch(f, { status: selStatus, comentarios: coment, motivoPerda: motivo, cidade, foco, atuacao, aplicacao, funilDiversey }, () => {
                 funilData = state.funil;
                 renderFiltered();
+                const idsAfter = new Set(Array.from(document.querySelectorAll('#funil-list-container [data-funil-id]')).map((el) => el.dataset.funilId));
+                if (!idsAfter.has(String(f.id)) && posBefore > -1) {
+                    const nextId = idsBefore.slice(posBefore + 1).find((id) => idsAfter.has(id));
+                    if (nextId) {
+                        openFunilQuickPanel(nextId);
+                    } else {
+                        qeSelectedId = null;
+                        const qePanel = document.getElementById('qe-panel');
+                        if (qePanel) qePanel.innerHTML = `<p class="helper-text" style="padding:1.25rem;text-align:left">Tudo processado por aqui — clique numa oportunidade da lista pra continuar editando.</p>`;
+                    }
+                }
             });
         });
     }

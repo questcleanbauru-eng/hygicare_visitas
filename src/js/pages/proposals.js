@@ -508,9 +508,26 @@ export function fillProposalsContent(mainContent, proposals) {
             const produtos = panel.querySelector('#qe-produtos')?.value.trim();
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
+            // Se o novo status tirar esse card do filtro atual (ex.: filtrado
+            // por "Aguardando" e o card virou "Ganhamos"), pula pro próximo
+            // da lista em vez de continuar mostrando um card que já sumiu —
+            // dá pra processar a fila inteira sem reselecionar manualmente.
+            const idsBefore = Array.from(document.querySelectorAll('#proposal-list-container [data-proposal-id]')).map((el) => el.dataset.proposalId);
+            const posBefore = idsBefore.indexOf(String(p.id));
             applyProposalQuickPatch(p, { status: selStatus, obs, cidade, foco, produtos }, () => {
                 normalized = state.proposals.map(normalizeProposal);
                 renderFiltered();
+                const idsAfter = new Set(Array.from(document.querySelectorAll('#proposal-list-container [data-proposal-id]')).map((el) => el.dataset.proposalId));
+                if (!idsAfter.has(String(p.id)) && posBefore > -1) {
+                    const nextId = idsBefore.slice(posBefore + 1).find((id) => idsAfter.has(id));
+                    if (nextId) {
+                        openProposalQuickPanel(nextId);
+                    } else {
+                        qeSelectedId = null;
+                        const qePanel = document.getElementById('qe-panel');
+                        if (qePanel) qePanel.innerHTML = `<p class="helper-text" style="padding:1.25rem;text-align:left">Tudo processado por aqui — clique numa proposta da lista pra continuar editando.</p>`;
+                    }
+                }
             });
         });
     }
