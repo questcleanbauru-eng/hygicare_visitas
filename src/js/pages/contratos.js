@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, contratoSituacaoIcon, filterLabelHtml, multiCheckFilterFieldHtml } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, contratoSituacaoIcon, filterLabelHtml, multiCheckFilterFieldHtml, clienteSearchItem, findClienteByNome } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon, showToast,
     loadingState, skeletonDetail, addScrollTop, openExternal, setSaving,
@@ -537,13 +537,17 @@ export async function renderContratoFormPage(contrato) {
 
     const fdResult = await ensureFormData();
     const cidades = (fdResult.data && fdResult.data.cidades) || [];
+    const clientes = (fdResult.data && fdResult.data.clientes) || [];
 
     const wrapper = document.getElementById('contrato-form-wrapper');
     wrapper.innerHTML = `
         <form id="contrato-form" class="form-layout">
             <div class="form-group full-width">
                 <label for="ctf-cliente">Cliente *</label>
-                <input type="text" id="ctf-cliente" value="${escapeHtml(normalized.cliente)}" placeholder="Nome do cliente" required>
+                <div class="searchable-select">
+                    <input type="text" id="ctf-cliente" value="${escapeHtml(normalized.cliente)}" placeholder="Busque ou digite o cliente" autocomplete="off" required>
+                    <div class="searchable-select-menu" id="ctf-cliente-menu"></div>
+                </div>
             </div>
             <div class="form-group">
                 <label for="ctf-cidade">Cidade</label>
@@ -611,6 +615,22 @@ export async function renderContratoFormPage(contrato) {
     `;
 
     initializeSearchableInput({ input: document.getElementById('ctf-cidade'), menu: document.getElementById('ctf-cidade-menu'), items: cidades });
+    // Escolher um cliente já cadastrado preenche a cidade sozinho —
+    // allowFreeText porque o contrato também vale pra quem ainda não tem
+    // cadastro. Busca considera o Nome Fantasia; o campo grava o nome que
+    // fica no contrato (fantasia quando existir, senão o nome oficial).
+    initializeSearchableInput({
+        input: document.getElementById('ctf-cliente'),
+        menu: document.getElementById('ctf-cliente-menu'),
+        items: clientes.map((c) => clienteSearchItem(c)),
+        allowFreeText: true,
+        onSelect: (value) => {
+            const match = findClienteByNome(clientes, value);
+            if (match && match.cidade && !document.getElementById('ctf-cidade').value) {
+                document.getElementById('ctf-cidade').value = match.cidade;
+            }
+        }
+    });
     document.getElementById('cancel-contrato-form').addEventListener('click', () => navigateTo(isEdit ? 'contrato-detail' : 'contratos', { id: normalized.id }));
 
     // Upload do PDF pro Drive (pasta "Contratos App") — preenche o campo anexo.
