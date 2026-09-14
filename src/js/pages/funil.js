@@ -317,7 +317,7 @@ export function fillFunilContent(mainContent, funil) {
                         </div>
                         <div class="proposal-meta">
                             <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}</span>
-                            <span>${isAdmGer && f.vendedor ? escapeHtml(f.vendedor) + ' · ' : ''}${escapeHtml(f.atualizacao || f.data || '-')}${f.vlMensal ? ` · <span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}</span>
+                            <span>${isAdmGer && f.vendedor ? escapeHtml(f.vendedor) + ' · ' : ''}${escapeHtml(f.data || f.atualizacao || '-')}${f.vlMensal ? ` · <span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}</span>
                         </div>
                         ${overdue ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
                     </button>
@@ -385,7 +385,7 @@ export function fillFunilContent(mainContent, funil) {
                 <div class="qe-panel-header">
                     <div>
                         <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
-                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.atualizacao || f.data].filter(Boolean).join(' · '))}</p>
+                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.data || f.atualizacao].filter(Boolean).join(' · '))}</p>
                     </div>
                     <div class="qe-panel-header-actions">
                         <button type="button" class="primary-button" id="qe-save">Salvar</button>

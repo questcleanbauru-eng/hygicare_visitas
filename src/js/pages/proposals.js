@@ -303,7 +303,7 @@ export function fillProposalsContent(mainContent, proposals) {
                         </div>
                         <div class="proposal-meta">
                             <span>${escapeHtml([p.cidade, p.foco].filter(Boolean).join(' · ') || '-')}</span>
-                            <span>${isAdmGer && p.vendedor ? escapeHtml(p.vendedor) + ' · ' : ''}${escapeHtml(p.atualizacao || '-')}</span>
+                            <span>${isAdmGer && p.vendedor ? escapeHtml(p.vendedor) + ' · ' : ''}${escapeHtml(p.data || '-')}</span>
                         </div>
                         ${p.atrasada ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
                     </button>
@@ -467,7 +467,7 @@ export function fillProposalsContent(mainContent, proposals) {
                 <div class="qe-panel-header">
                     <div>
                         <strong class="qe-panel-title">${escapeHtml(p.cliente || 'Cliente')}</strong>
-                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.atualizacao].filter(Boolean).join(' · '))}</p>
+                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.data].filter(Boolean).join(' · '))}</p>
                     </div>
                     <div class="qe-panel-header-actions">
                         <button type="button" class="primary-button" id="qe-save">Salvar</button>
