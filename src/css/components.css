@@ -1179,6 +1179,10 @@ input:disabled {
 
 .visits-filter-grid .form-group { min-width: 0; }
 
+/* Chips de ano (Todos/2026/2025/...), quando ficam dentro do card de
+   filtros (Propostas) em vez de soltos abaixo dele. */
+.visits-filter-card .year-chips-row { margin: 0.6rem 0 0; }
+
 /* iOS Safari desenha input[type=date] com o valor por extenso no idioma do
    aparelho ("20 de jul. de 2026"), bem mais largo que o "20/07/2026"
    compacto que o Chromium sempre mostra — por isso não reproduzia em teste

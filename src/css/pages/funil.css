@@ -11,6 +11,7 @@
 .status-pill.funil-status-retomar     { background: #f1f5f9; color: #475569; }
 
 .funil-filter-card { padding: 0.85rem; margin-bottom: 0.75rem; }
+.funil-filter-card .year-chips-row { margin: 0.6rem 0 0; }
 
 .funil-status-banner {
     text-align: center;

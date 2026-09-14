@@ -150,6 +150,7 @@ export function fillProposalsContent(mainContent, proposals) {
                     <input type="date" id="pf-date-to">
                 </div>
             </div>
+            <div id="proposal-year-chips" class="year-chips-row"></div>
         </div>
         <div class="scope-banner scope-days-ctrl">
             <label for="scope-dias-input">Período:</label>
@@ -158,7 +159,6 @@ export function fillProposalsContent(mainContent, proposals) {
             <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
             <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
         </div>
-        <div id="proposal-year-chips" class="year-chips-row"></div>
         <div id="proposal-list-container"></div>
     `;
 
