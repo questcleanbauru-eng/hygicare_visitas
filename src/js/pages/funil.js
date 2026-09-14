@@ -1063,6 +1063,12 @@ export async function renderFunilCreatePage() {
                 <input type="date" id="fc-conclusao" value="${conclusaoPadraoInput}">
             </div>
             <div class="form-group full-width">
+                <label for="fc-diversey" class="qe-diversey-check" style="display:flex;align-items:center;gap:0.5rem;font-weight:600;cursor:pointer">
+                    <input type="checkbox" id="fc-diversey" style="width:auto;accent-color:var(--primary)">
+                    ⭐ Funil Diversey <span class="helper-text" style="font-weight:400">(acompanhar de perto)</span>
+                </label>
+            </div>
+            <div class="form-group full-width">
                 <label for="fc-inf">Informações Importantes</label>
                 <input type="text" id="fc-inf" placeholder="Informações relevantes">
             </div>
@@ -1161,6 +1167,7 @@ export async function renderFunilCreatePage() {
             conclusao:      conclusaoValue ? formatDateFromDisplay(conclusaoValue) : '',
             infImportantes: document.getElementById('fc-inf').value.trim(),
             comentarios:    stripEmptyDatedLine(document.getElementById('fc-comentarios').value),
+            funilDiversey:  document.getElementById('fc-diversey').checked ? 'Sim' : 'Nao',
         };
 
         const tempFCId = 'temp_' + Date.now();
