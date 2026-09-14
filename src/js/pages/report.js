@@ -177,6 +177,7 @@ export async function renderReportPage() {
     if (!Array.isArray(state.reportPropStatus)) { state.reportPropStatus = []; }
     if (!Array.isArray(state.reportFunilStatus)) { state.reportFunilStatus = []; }
     state.reportCollapsedSections = state.reportCollapsedSections || [];
+    if (state.reportFilterCollapsed === undefined) { state.reportFilterCollapsed = null; }
 
     if (visitsRes.status !== 'success' || proposalsRes.status !== 'success' || funilRes.status !== 'success') {
         // Não renderiza um relatório "zerado" quando a busca falhou de
@@ -347,12 +348,20 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>
         <div class="card report-period-card no-print">
+            <div class="visits-filter-header">
+                <strong>Filtros</strong>
+                <div class="visits-filter-header-actions">
+                    <button type="button" class="mini-button" id="report-filter-clear">Limpar</button>
+                    <button type="button" class="mini-button" id="report-filter-toggle">Ocultar</button>
+                </div>
+            </div>
             <div class="report-period-buttons">
                 <button type="button" class="mini-button ${period === 'semana-atual' ? 'active' : ''}" data-period="semana-atual">Semana atual</button>
                 <button type="button" class="mini-button ${period === 'mes-atual' ? 'active' : ''}" data-period="mes-atual">Mês atual</button>
                 <button type="button" class="mini-button ${period === 'ultimos-3m' ? 'active' : ''}" data-period="ultimos-3m">Últimos 3 meses</button>
                 <button type="button" class="mini-button ${period === 'personalizado' ? 'active' : ''}" data-period="personalizado">Personalizado</button>
             </div>
+            <div class="visits-filter-grid" id="report-filter-panel">
             ${period === 'personalizado' ? `
             <div class="report-custom-range">
                 <div class="form-group"><label for="report-date-from">De</label><input type="date" id="report-date-from" value="${escapeHtml(state.reportCustomFrom)}"></div>
@@ -393,6 +402,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 </div>
                 <div class="selected-types" id="report-funil-status-selected" style="margin-top:0.3rem"></div>
             </div>` : ''}
+            </div>
         </div>
 
         <div class="report-jump-nav no-print">
@@ -492,6 +502,31 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             state.reportPeriod = btn.dataset.period;
             renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
         });
+    });
+
+    const filterToggle = document.getElementById('report-filter-toggle');
+    const filterPanel = document.getElementById('report-filter-panel');
+    if (filterToggle && filterPanel) {
+        const isMobile = window.matchMedia('(max-width: 640px)').matches;
+        if (state.reportFilterCollapsed === null) { state.reportFilterCollapsed = isMobile; }
+        let collapsed = state.reportFilterCollapsed;
+        filterPanel.classList.toggle('collapsed', collapsed);
+        filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
+        filterToggle.addEventListener('click', () => {
+            collapsed = !collapsed;
+            state.reportFilterCollapsed = collapsed;
+            filterPanel.classList.toggle('collapsed', collapsed);
+            filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
+        });
+    }
+    document.getElementById('report-filter-clear')?.addEventListener('click', () => {
+        state.reportCustomFrom = '';
+        state.reportCustomTo = '';
+        state.reportGerencia = '';
+        state.reportArea = '';
+        state.reportPropStatus = [];
+        state.reportFunilStatus = [];
+        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
     });
 
     const _stamp = new Date().toISOString().slice(0, 10);
