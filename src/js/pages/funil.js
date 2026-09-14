@@ -348,7 +348,7 @@ export function fillFunilContent(mainContent, funil) {
                 </div>`);
         }
 
-        wireFunilCardEvents(container);
+        wireFunilCardEvents(container, isDup);
         if (qeActive() && qeSelectedId) { openFunilQuickPanel(qeSelectedId); }
     };
 
@@ -480,7 +480,7 @@ export function fillFunilContent(mainContent, funil) {
         if (del) del.disabled = selectedIds.size === 0;
     }
 
-    function wireFunilCardEvents(container) {
+    function wireFunilCardEvents(container, isDup) {
         container.querySelectorAll('[data-funil-id]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 if (selectMode) {
