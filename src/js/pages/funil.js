@@ -15,6 +15,7 @@ import {
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
+import { ensurePropostasForDedup, propostaItemFor, propostaEmAlerta } from '../utils/funilLink.js';
 
 export function fillFunilContent(mainContent, funil) {
     let funilData = funil || [];
@@ -311,6 +312,13 @@ export function fillFunilContent(mainContent, funil) {
                                 ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
                                 ${f.funilDiversey === 'Sim' ? '<span class="funil-diversey-tag" title="Funil Diversey — acompanhar de perto">⭐ Diversey</span>' : ''}
                                 ${isDup(f) ? '<span class="funil-dup-tag" title="Existe outro registro com o mesmo cliente e foco">⚠️ Duplicado</span>' : ''}
+                                ${(() => {
+                                    const _pi = propostaItemFor(f.cliente, f.foco);
+                                    if (!_pi) return '';
+                                    const _alerta = propostaEmAlerta(_pi);
+                                    const _st = escapeHtml(String(_pi.status || _pi.Status || ''));
+                                    return `<span class="card-in-funil${_alerta ? ' card-in-funil-alert' : ''}" role="button" tabindex="0" aria-label="Já tem proposta pra esse cliente/foco" title="Tem proposta${_st ? ' (' + _st + ')' : ''} — abrir" data-proposta-id="${escapeHtml(String(_pi.id || _pi.Id || ''))}">📄</span>`;
+                                })()}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
                             </strong>
                             ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(f.status || '-')}" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(f.status || '')}">${escapeHtml(f.status || '-')}</span>`}
@@ -492,6 +500,12 @@ export function fillFunilContent(mainContent, funil) {
                 navigateTo('funil-detail', { id: btn.dataset.funilId });
             });
         });
+        container.querySelectorAll('[data-proposta-id]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                navigateTo('proposal-detail', { id: el.dataset.propostaId });
+            });
+        });
 
         // Barra do modo seleção (re-renderizada junto com a lista).
         container.querySelector('#funil-sel-dups')?.addEventListener('click', () => {
@@ -661,6 +675,14 @@ export function fillFunilContent(mainContent, funil) {
     });
 
     renderFiltered();
+
+    // Carrega Propostas em 2º plano só pra marcar as oportunidades que já
+    // têm proposta (ícone 📄). Re-renderiza a lista quando chegar.
+    if (state.canCreateProposalFunil && (!Array.isArray(state.proposals) || !state.proposals.length)) {
+        ensurePropostasForDedup().then(() => {
+            if (state.currentPage === 'funil') renderFiltered();
+        });
+    }
 }
 
 

@@ -30,3 +30,28 @@ export function funilItemFor(cliente, foco) {
 export function funilEmAlerta(item) {
     return /PERDID|RETOMAR/i.test(String((item && (item.status || item.Status)) || ''));
 }
+
+// Reverso: "essa oportunidade do Funil já tem Proposta?" — mesmo critério
+// de match (cliente + foco), usado no Funil pra indicar visualmente quando
+// já existe uma proposta em andamento pra aquele cliente/foco.
+export async function ensurePropostasForDedup() {
+    if (Array.isArray(state.proposals) && state.proposals.length) return;
+    try {
+        const { getProposals } = await import('../pages/proposals.js');
+        const r = await getProposals(0);
+        if (r && r.status === 'success') state.proposals = r.proposals || state.proposals || [];
+    } catch (e) { /* best-effort */ }
+}
+
+export function propostaItemFor(cliente, foco) {
+    const kc = _key(cliente);
+    if (!kc) return null;
+    const kf = _key(foco);
+    return (state.proposals || []).find((p) =>
+        _key(p.cliente || p.Cliente) === kc && _key(p.foco || p.Foco) === kf) || null;
+}
+
+// Proposta "em alerta" (Perdido) → indicador em vermelho.
+export function propostaEmAlerta(item) {
+    return /PERDID/i.test(String((item && (item.status || item.Status)) || ''));
+}
