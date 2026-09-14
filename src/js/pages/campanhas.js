@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { callAPI, ensureFormData } from '../api.js';
+import { callAPI, ensureFormData, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, formatCurrency,
     formatDateFieldValue, normalizeDisplayDateValue
@@ -310,9 +310,16 @@ export async function renderCampanhaPreencherPage(id) {
             const motivoPerda = card.querySelector('.camp-motivo-input')?.value.trim() || '';
             if (camp.tipo === 'funil' && sel === 'PERDIDO' && !motivoPerda) { showToast('Informe o motivo da perda.', true); return; }
             setSaving(true, btn, 'Salvando...');
-            const rr = await callAPI('responderCampanhaItem', {
+            // attemptOrQueue (não callAPI direto): sem conexão ou com a rede
+            // instável — bem comum pra quem preenche isso do celular, em
+            // campo — a resposta ficava só na tela e nunca chegava no
+            // servidor, sem nenhum aviso claro nem tentativa automática
+            // depois. Igual todo outro salvamento do app (Visita/Proposta/
+            // Funil), agora fica na fila e reenvia sozinho quando a conexão
+            // voltar.
+            const rr = await attemptOrQueue('responderCampanhaItem', {
                 campanhaId: camp.id, itemId: it.id, status: sel, comentario, motivoPerda, user: state.currentUser
-            }).catch((e) => ({ status: 'error', message: e.message }));
+            }, { entity: 'campanha', tempId: it.id }).catch((e) => ({ status: 'error', message: e.message }));
             if (rr && rr.status === 'success') {
                 it.respondidoEm = 'agora';
                 it.status = sel;
@@ -323,6 +330,12 @@ export async function renderCampanhaPreencherPage(id) {
                     showToast('Salvo.');
                     render(itens);
                 }
+            } else if (rr && rr.status === 'queued') {
+                it.respondidoEm = 'agora';
+                it.status = sel;
+                it.comentarios = comentario;
+                showToast('Sem conexão agora — vai ser enviado sozinho assim que a internet voltar.');
+                render(itens);
             } else {
                 showToast((rr && rr.message) || 'Não foi possível salvar.', true);
                 setSaving(false, btn);
