@@ -210,14 +210,28 @@ export function fillProposalsContent(mainContent, proposals) {
         const dupFilter = document.getElementById('pf-dup')?.value || '';
         const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(period);
 
-        // Duplicado = mesmo cliente + foco — conta sobre tudo que está
+        // Duplicado = mesmo cliente + foco — calculado sobre tudo que está
         // carregado (não só o já filtrado por outros campos), senão um
         // filtro escondendo o "gêmeo" faria o outro parar de contar como
-        // repetido. Calculado antes do filtro principal pra poder ser
-        // usado tanto no filtro "Só duplicadas" quanto no destaque visual.
-        const dupCounts = new Map();
-        normalized.forEach((p) => { const k = propostaDupKey(p); dupCounts.set(k, (dupCounts.get(k) || 0) + 1); });
-        const isDup = (p) => (dupCounts.get(propostaDupKey(p)) || 0) > 1;
+        // repetido. Marca só os excedentes de cada grupo (mantém a mais
+        // recente sem marca, como a "titular") em vez de marcar as duas —
+        // assim dá pra saber direto qual apagar, sem ambiguidade. A ordem
+        // usada aqui (data desc) é sempre a mesma independente dos filtros
+        // ativos no momento, pra não trocar qual registro é "a duplicada"
+        // conforme a tela é filtrada.
+        const dupSortedAll = [...normalized].sort((a, b) => {
+            const da = parseDisplayDate(a.data) || parseDisplayDate(a.atualizacao);
+            const db = parseDisplayDate(b.data) || parseDisplayDate(b.atualizacao);
+            return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+        });
+        const dupSeenKeys = new Set();
+        const dupMarkedIds = new Set();
+        dupSortedAll.forEach((p) => {
+            const k = propostaDupKey(p);
+            if (dupSeenKeys.has(k)) { dupMarkedIds.add(String(p.id)); }
+            else { dupSeenKeys.add(k); }
+        });
+        const isDup = (p) => dupMarkedIds.has(String(p.id));
 
         const filtered = normalized.filter((p) => {
             const matchSearch   = !search  || [p.cliente, p.cidade, p.obs, p.vendedor, p.foco].some((v) => String(v || '').toLowerCase().includes(search));

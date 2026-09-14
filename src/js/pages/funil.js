@@ -228,14 +228,28 @@ export function fillFunilContent(mainContent, funil) {
         const dupFilter     = document.getElementById('funil-filter-dup')?.value || '';
         const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(period);
 
-        // Duplicado = mesmo cliente + foco — conta sobre tudo que está
+        // Duplicado = mesmo cliente + foco — calculado sobre tudo que está
         // carregado (não só o já filtrado por outros campos), senão um
         // filtro escondendo o "gêmeo" faria o outro parar de contar como
-        // repetido. Calculado antes do filtro principal pra poder ser
-        // usado tanto no filtro "Só duplicados" quanto no destaque visual.
-        const dupCounts = new Map();
-        funilData.forEach((f) => { const k = funilDupKey(f); dupCounts.set(k, (dupCounts.get(k) || 0) + 1); });
-        const isDup = (f) => (dupCounts.get(funilDupKey(f)) || 0) > 1;
+        // repetido. Marca só os excedentes de cada grupo (mantém o mais
+        // recente sem marca, como o "titular") em vez de marcar os dois —
+        // assim dá pra saber direto qual apagar, sem ambiguidade. A ordem
+        // usada aqui (data desc) é sempre a mesma independente dos filtros
+        // ativos no momento, pra não trocar qual registro é "o duplicado"
+        // conforme a tela é filtrada.
+        const dupSortedAll = [...funilData].sort((a, b) => {
+            const da = parseDisplayDate(a.data) || parseDisplayDate(a.atualizacao);
+            const db = parseDisplayDate(b.data) || parseDisplayDate(b.atualizacao);
+            return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+        });
+        const dupSeenKeys = new Set();
+        const dupMarkedIds = new Set();
+        dupSortedAll.forEach((f) => {
+            const k = funilDupKey(f);
+            if (dupSeenKeys.has(k)) { dupMarkedIds.add(String(f.id)); }
+            else { dupSeenKeys.add(k); }
+        });
+        const isDup = (f) => dupMarkedIds.has(String(f.id));
 
         const filtered = funilData.filter((f) => {
             const matchSearch  = !search || [f.cliente, f.cidade, f.foco, f.atuacao, f.comentarios].some((v) => String(v || '').toLowerCase().includes(search));
@@ -327,7 +341,7 @@ export function fillFunilContent(mainContent, funil) {
             container.insertAdjacentHTML('afterbegin', `
                 <div class="funil-sel-bar" id="funil-sel-bar">
                     <strong id="funil-sel-count">${selectedIds.size} selecionado(s)</strong>
-                    <button type="button" class="mini-button" id="funil-sel-dups" title="Marca os repetidos (mesmo cliente e foco), deixando o primeiro de cada grupo">Marcar duplicados</button>
+                    <button type="button" class="mini-button" id="funil-sel-dups" title="Marca os repetidos (mesmo cliente e foco), deixando sem marca o mais recente de cada grupo">Marcar duplicados</button>
                     <button type="button" class="mini-button" id="funil-sel-all">Marcar todos</button>
                     <button type="button" class="mini-button" id="funil-sel-none">Limpar</button>
                     <button type="button" class="mini-button mini-button-danger" id="funil-sel-delete" ${selectedIds.size ? '' : 'disabled'}>🗑️ Excluir selecionados</button>
@@ -464,16 +478,13 @@ export function fillFunilContent(mainContent, funil) {
 
         // Barra do modo seleção (re-renderizada junto com a lista).
         container.querySelector('#funil-sel-dups')?.addEventListener('click', () => {
-            // Só entre os cards visíveis (respeita os filtros), na ordem da
-            // lista: o primeiro de cada grupo fica, os demais são marcados.
-            const seen = new Set();
+            // Usa o mesmo isDup do destaque roxo/filtro — o titular de cada
+            // grupo (o mais recente) nunca é marcado, só os excedentes.
             let marked = 0;
             container.querySelectorAll('[data-funil-id]').forEach((card) => {
                 const f = funilData.find((x) => String(x.id) === String(card.dataset.funilId));
                 if (!f) return;
-                const k = funilDupKey(f);
-                if (seen.has(k)) { setCardSelected(f.id, true, card); marked++; }
-                else seen.add(k);
+                if (isDup(f)) { setCardSelected(f.id, true, card); marked++; }
             });
             refreshSelBar();
             showToast(marked ? `${marked} duplicado(s) marcado(s).` : 'Nenhum duplicado exato entre os registros visíveis.', !marked);
