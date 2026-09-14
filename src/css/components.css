@@ -32,7 +32,7 @@
 .card {
     background-color: var(--surface);
     border-radius: var(--radius);
-    padding: 1rem;
+    padding: 0.85rem;
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--border);
 }
@@ -1087,8 +1087,8 @@ textarea { resize: vertical; }
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.55rem 1rem;
+    gap: 0.6rem;
+    padding: 0.4rem 0.85rem;
     border-bottom: 1px solid var(--border);
 }
 
@@ -1109,12 +1109,12 @@ textarea { resize: vertical; }
 }
 
 .detail-label {
-    font-size: 0.75rem;
+    font-size: 0.71rem;
     font-weight: 500;
     color: var(--text-muted-strong);
     flex-shrink: 0;
-    min-width: 96px;
-    line-height: 1.4;
+    min-width: 88px;
+    line-height: 1.35;
 }
 
 .detail-label-icon {
@@ -1129,7 +1129,7 @@ textarea { resize: vertical; }
 .detail-label-icon svg { display: block; }
 
 .detail-value {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--text);
     text-align: right;
@@ -1137,7 +1137,7 @@ textarea { resize: vertical; }
        cabe era cortado silenciosamente pelo overflow:hidden do .detail-card. */
     min-width: 0;
     overflow-wrap: anywhere;
-    line-height: 1.4;
+    line-height: 1.35;
 }
 
 /* Telas bem estreitas: empilha rótulo e valor (label em cima, valor embaixo
