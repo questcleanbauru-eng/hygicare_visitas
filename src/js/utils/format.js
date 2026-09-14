@@ -336,6 +336,22 @@ export function filterLabelHtml(label) {
     return `${icon ? `<span class="detail-label-icon" aria-hidden="true">${icon}</span>` : ''}${escapeHtml(label)}`;
 }
 
+// Campo de filtro de múltipla escolha (ver wireMultiCheckFilter, dom.js) —
+// mesmo markup em Visitas/Propostas/Funil: rótulo + botão-resumo + menu de
+// checkbox, escondidos atrás de um <input type="hidden"> que guarda o valor
+// de verdade (string separada por vírgula).
+export function multiCheckFilterFieldHtml(label, id, placeholder = 'Todos') {
+    return `
+        <div class="form-group">
+            <label for="${id}-trigger">${filterLabelHtml(label)}</label>
+            <div class="searchable-select">
+                <button type="button" class="multi-check-trigger" id="${id}-trigger">${escapeHtml(placeholder)}</button>
+                <input type="hidden" id="${id}" value="">
+                <div class="searchable-select-menu" id="${id}-menu"></div>
+            </div>
+        </div>`;
+}
+
 
 export function getDateRangeForPeriod(period) {
     const now = new Date();

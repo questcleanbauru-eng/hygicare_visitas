@@ -5,12 +5,13 @@ import {
     formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml,
     formatInputDateFromDisplay, formatDateFromDisplay,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
-    clienteSearchItem, findClienteByNome
+    clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml
 } from '../utils/format.js';
 import {
     debounce, downloadCSV, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
-    loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit
+    loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit,
+    wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
@@ -106,21 +107,8 @@ export function fillProposalsContent(mainContent, proposals) {
             </div>
             <div class="saved-filters-row" id="proposal-saved-filters"></div>
             <div class="visits-filter-grid" id="proposal-filter-panel">
-                <div class="form-group">
-                    <label for="pf-status">${filterLabelHtml('Status')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="pf-status" placeholder="Todos (marque um ou mais)" autocomplete="off">
-                        <div class="searchable-select-menu" id="pf-status-menu"></div>
-                    </div>
-                    <div class="selected-types" id="pf-status-selected" style="margin-top:0.3rem"></div>
-                </div>
-                <div class="form-group">
-                    <label for="pf-cidade">${filterLabelHtml('Cidade')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="pf-cidade" placeholder="Todas" autocomplete="off">
-                        <div class="searchable-select-menu" id="pf-cidade-menu"></div>
-                    </div>
-                </div>
+                ${multiCheckFilterFieldHtml('Status', 'pf-status')}
+                ${multiCheckFilterFieldHtml('Cidade', 'pf-cidade', 'Todas')}
                 <div class="form-group">
                     <label for="pf-atrasada">${filterLabelHtml('Situação')}</label>
                     <select id="pf-atrasada">
@@ -137,14 +125,7 @@ export function fillProposalsContent(mainContent, proposals) {
                         <option value="ultimos-3m">Últimos 3 meses</option>
                     </select>
                 </div>
-                ${isAdmGer ? `
-                <div class="form-group">
-                    <label for="pf-vendor">${filterLabelHtml('Vendedor')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="pf-vendor" placeholder="Todos" autocomplete="off">
-                        <div class="searchable-select-menu" id="pf-vendor-menu"></div>
-                    </div>
-                </div>` : ''}
+                ${isAdmGer ? multiCheckFilterFieldHtml('Vendedor', 'pf-vendor') : ''}
                 <div class="form-group">
                     <label for="pf-date-from">${filterLabelHtml('Criação de')}</label>
                     <input type="date" id="pf-date-from">
@@ -178,14 +159,14 @@ export function fillProposalsContent(mainContent, proposals) {
         filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
     });
 
-    // Lembra os filtros entre navegações (ex.: ir pro Funil e voltar).
+    // Lembra os filtros entre navegações (ex.: ir pro Funil e voltar) — Status/
+    // Cidade/Vendedor guardam string separada por vírgula (ver
+    // wireMultiCheckFilter, dom.js), então contam como texto simples igual
+    // aos outros campos.
     state.proposalFilters = state.proposalFilters || {};
-    // Status: multi-seleção (array de valores). Os demais são texto simples.
-    const _pfStatusSel = Array.isArray(state.proposalFilters.statusMulti) ? state.proposalFilters.statusMulti.slice() : [];
     const persistProposalFilters = () => {
-        ['pf-search', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor', 'pf-date-from', 'pf-date-to']
+        ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor', 'pf-date-from', 'pf-date-to']
             .forEach((id) => { const el = document.getElementById(id); if (el) state.proposalFilters[id] = el.value; });
-        state.proposalFilters.statusMulti = _pfStatusSel.slice();
     };
 
     const renderFiltered = async () => {
@@ -209,20 +190,21 @@ export function fillProposalsContent(mainContent, proposals) {
             }
         }
         const search    = document.getElementById('pf-search')?.value.trim().toLowerCase() || '';
-        const cidade    = document.getElementById('pf-cidade')?.value || '';
+        const statusSel = (document.getElementById('pf-status')?.value || '').split(',').filter(Boolean);
+        const cidade    = (document.getElementById('pf-cidade')?.value || '').split(',').filter(Boolean);
         const atrasada  = document.getElementById('pf-atrasada')?.value || '';
         const period    = document.getElementById('pf-period')?.value || '';
-        const vendor    = document.getElementById('pf-vendor')?.value || '';
+        const vendor    = (document.getElementById('pf-vendor')?.value || '').split(',').filter(Boolean);
         const dateFrom  = document.getElementById('pf-date-from')?.value || '';
         const dateTo    = document.getElementById('pf-date-to')?.value || '';
         const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(period);
 
         const filtered = normalized.filter((p) => {
             const matchSearch   = !search  || [p.cliente, p.cidade, p.obs, p.vendedor, p.foco].some((v) => String(v || '').toLowerCase().includes(search));
-            const matchStatus   = !_pfStatusSel.length || _pfStatusSel.includes(p.status);
-            const matchCidade   = !cidade  || p.cidade === cidade;
+            const matchStatus   = !statusSel.length || statusSel.includes(p.status);
+            const matchCidade   = !cidade.length || cidade.includes(p.cidade);
             const matchAtrasada = !atrasada || (atrasada === 'sim' ? p.atrasada : !p.atrasada);
-            const matchVendor   = !vendor  || p.vendedor === vendor;
+            const matchVendor   = !vendor.length || vendor.includes(p.vendedor);
             const criacaoDate = parseDisplayDate(p.data);
             const matchPeriod = !period || (criacaoDate && criacaoDate >= periodStart && criacaoDate <= periodEnd);
             const matchFrom = !dateFrom || (criacaoDate && criacaoDate >= parseInputDate(dateFrom));
@@ -416,23 +398,12 @@ export function fillProposalsContent(mainContent, proposals) {
         });
     }
 
-    const _proposalFilterIds = ['pf-search', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor',
+    const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-period', 'pf-vendor',
         'pf-date-from', 'pf-date-to'];
-    const initStatusFilter = () => initializeSearchableInput({
-        input: document.getElementById('pf-status'),
-        menu: document.getElementById('pf-status-menu'),
-        items: availableStatuses,
-        multiSelect: true,
-        maxSelections: 99,
-        selectedItems: _pfStatusSel,
-        selectedContainer: document.getElementById('pf-status-selected'),
-        selectionLabel: 'status',
-        onSelectionChange: () => renderFiltered()
-    });
-    initStatusFilter();
-    initializeSearchableInput({ input: document.getElementById('pf-cidade'), menu: document.getElementById('pf-cidade-menu'), items: availableCities });
+    wireMultiCheckFilter({ triggerId: 'pf-status-trigger', inputId: 'pf-status', menuId: 'pf-status-menu', options: availableStatuses });
+    wireMultiCheckFilter({ triggerId: 'pf-cidade-trigger', inputId: 'pf-cidade', menuId: 'pf-cidade-menu', options: availableCities });
     if (isAdmGer) {
-        initializeSearchableInput({ input: document.getElementById('pf-vendor'), menu: document.getElementById('pf-vendor-menu'), items: availableVendors });
+        wireMultiCheckFilter({ triggerId: 'pf-vendor-trigger', inputId: 'pf-vendor', menuId: 'pf-vendor-menu', options: availableVendors });
     }
 
     // Restaura os filtros lembrados da última visita a esta tela.
@@ -440,25 +411,27 @@ export function fillProposalsContent(mainContent, proposals) {
         const el = document.getElementById(id);
         if (el && state.proposalFilters[id]) el.value = state.proposalFilters[id];
     });
+    const syncProposalMultiCheckLabels = () => {
+        syncMultiCheckFilterLabel('pf-status-trigger', 'pf-status');
+        syncMultiCheckFilterLabel('pf-cidade-trigger', 'pf-cidade');
+        syncMultiCheckFilterLabel('pf-vendor-trigger', 'pf-vendor');
+    };
+    syncProposalMultiCheckLabels();
 
-    const _proposalTextFilterIds = new Set(['pf-search', 'pf-cidade', 'pf-vendor']);
+    const _proposalTextFilterIds = new Set(['pf-search']);
     const _debouncedProposalFilter = debounce(renderFiltered, 250);
     _proposalFilterIds.forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
         if (_proposalTextFilterIds.has(id)) { el.addEventListener('input', _debouncedProposalFilter); }
-        // 'change' cobre <select> e o clique numa opção do searchable-select
-        // (Status/Cidade/Vendedor), que só dispara 'change'.
+        // 'change' cobre <select> e o clique numa opção do filtro de múltipla
+        // escolha (Status/Cidade/Vendedor), que só dispara 'change'.
         el.addEventListener('change', renderFiltered);
     });
 
     document.getElementById('proposal-filter-clear')?.addEventListener('click', () => {
         _proposalFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
-        _pfStatusSel.length = 0;
-        const pfStatusInput = document.getElementById('pf-status');
-        if (pfStatusInput) pfStatusInput.value = '';
-        const pfStatusSelEl = document.getElementById('pf-status-selected');
-        if (pfStatusSelEl) pfStatusSelEl.innerHTML = '';
+        syncProposalMultiCheckLabels();
         state.proposalFilters = {};
         state.proposalsYearFilter = null;
         renderFiltered();
@@ -467,6 +440,7 @@ export function fillProposalsContent(mainContent, proposals) {
 
     renderSavedFilters(document.getElementById('proposal-saved-filters'), 'proposals', _proposalFilterIds, (values) => {
         _proposalFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
+        syncProposalMultiCheckLabels();
         renderFiltered();
     });
 
@@ -499,16 +473,9 @@ export function fillProposalsContent(mainContent, proposals) {
                 saveCache('proposals_all', state.proposals);
                 normalized = state.proposals.map(normalizeProposal);
                 document.querySelector('.scope-banner')?.remove();
-                initializeSearchableInput({
-                    input: document.getElementById('pf-status'),
-                    menu: document.getElementById('pf-status-menu'),
-                    items: Array.from(new Set(normalized.map((p) => p.status).filter(Boolean))),
-                    multiSelect: true, maxSelections: 99, selectedItems: _pfStatusSel,
-                    selectedContainer: document.getElementById('pf-status-selected'),
-                    selectionLabel: 'status', onSelectionChange: () => renderFiltered()
-                });
-                initializeSearchableInput({ input: document.getElementById('pf-cidade'), menu: document.getElementById('pf-cidade-menu'), items: Array.from(new Set(normalized.map((p) => p.cidade).filter(Boolean))).sort() });
-                if (isAdmGer) initializeSearchableInput({ input: document.getElementById('pf-vendor'), menu: document.getElementById('pf-vendor-menu'), items: Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort() });
+                wireMultiCheckFilter({ triggerId: 'pf-status-trigger', inputId: 'pf-status', menuId: 'pf-status-menu', options: Array.from(new Set(normalized.map((p) => p.status).filter(Boolean))) });
+                wireMultiCheckFilter({ triggerId: 'pf-cidade-trigger', inputId: 'pf-cidade', menuId: 'pf-cidade-menu', options: Array.from(new Set(normalized.map((p) => p.cidade).filter(Boolean))).sort() });
+                if (isAdmGer) wireMultiCheckFilter({ triggerId: 'pf-vendor-trigger', inputId: 'pf-vendor', menuId: 'pf-vendor-menu', options: Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort() });
                 renderFiltered();
                 updateYearChips();
             }

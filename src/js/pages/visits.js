@@ -8,13 +8,14 @@ import {
     normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
     calculateDaysFromDisplayDate,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
-    clienteSearchItem, findClienteByNome, clienteNomeParaGravar
+    clienteSearchItem, findClienteByNome, clienteNomeParaGravar, multiCheckFilterFieldHtml
 } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
     loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
-    buildIcsContent, downloadIcs, renderSavedFilters, preventEnterSubmit
+    buildIcsContent, downloadIcs, renderSavedFilters, preventEnterSubmit,
+    wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { ensureFunilForDedup, funilItemFor, funilEmAlerta } from '../utils/funilLink.js';
@@ -169,20 +170,8 @@ export function fillVisitsContent(container, visits) {
                         <option value="ultimos-3m">Últimos 3 meses</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="visit-filter-type">${filterLabelHtml('Tipo da Visita')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="visit-filter-type" placeholder="Todos" autocomplete="off">
-                        <div class="searchable-select-menu" id="visit-filter-type-menu"></div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="visit-filter-city">${filterLabelHtml('Cidade')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="visit-filter-city" placeholder="Todas" autocomplete="off">
-                        <div class="searchable-select-menu" id="visit-filter-city-menu"></div>
-                    </div>
-                </div>
+                ${multiCheckFilterFieldHtml('Tipo da Visita', 'visit-filter-type')}
+                ${multiCheckFilterFieldHtml('Cidade', 'visit-filter-city', 'Todas')}
                 <div class="form-group">
                     <label for="visit-filter-prospeccao">${filterLabelHtml('Prospecção')}</label>
                     <select id="visit-filter-prospeccao">
@@ -191,14 +180,7 @@ export function fillVisitsContent(container, visits) {
                         <option value="Nao">Não</option>
                     </select>
                 </div>
-                ${isAdmGer && availableVendors.length > 0 ? `
-                <div class="form-group">
-                    <label for="visit-filter-vendor">${filterLabelHtml('Vendedor')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="visit-filter-vendor" placeholder="Todos" autocomplete="off">
-                        <div class="searchable-select-menu" id="visit-filter-vendor-menu"></div>
-                    </div>
-                </div>` : ''}
+                ${isAdmGer && availableVendors.length > 0 ? multiCheckFilterFieldHtml('Vendedor', 'visit-filter-vendor') : ''}
                 <div class="form-group">
                     <label for="visit-filter-date-from">${filterLabelHtml('Data inicial')}</label>
                     <input type="date" id="visit-filter-date-from">
@@ -240,10 +222,10 @@ export function fillVisitsContent(container, visits) {
         setFiltersCollapsed(!filtersPanel.classList.contains('collapsed'));
     });
 
-    initializeSearchableInput({ input: document.getElementById('visit-filter-type'), menu: document.getElementById('visit-filter-type-menu'), items: availableTypes });
-    initializeSearchableInput({ input: document.getElementById('visit-filter-city'), menu: document.getElementById('visit-filter-city-menu'), items: availableCities });
+    wireMultiCheckFilter({ triggerId: 'visit-filter-type-trigger', inputId: 'visit-filter-type', menuId: 'visit-filter-type-menu', options: availableTypes });
+    wireMultiCheckFilter({ triggerId: 'visit-filter-city-trigger', inputId: 'visit-filter-city', menuId: 'visit-filter-city-menu', options: availableCities });
     if (isAdmGer) {
-        initializeSearchableInput({ input: document.getElementById('visit-filter-vendor'), menu: document.getElementById('visit-filter-vendor-menu'), items: availableVendors });
+        wireMultiCheckFilter({ triggerId: 'visit-filter-vendor-trigger', inputId: 'visit-filter-vendor', menuId: 'visit-filter-vendor-menu', options: availableVendors });
     }
 
     // Guarda a última lista filtrada pro botão "Excel" exportar exatamente o
@@ -270,11 +252,11 @@ export function fillVisitsContent(container, visits) {
             }
         }
         const searchValue     = String(document.getElementById('visit-filter-search')?.value || '').trim().toLowerCase();
-        const typeValue       = document.getElementById('visit-filter-type')?.value || '';
-        const cityValue       = document.getElementById('visit-filter-city')?.value || '';
+        const typeValue       = (document.getElementById('visit-filter-type')?.value || '').split(',').filter(Boolean);
+        const cityValue       = (document.getElementById('visit-filter-city')?.value || '').split(',').filter(Boolean);
         const prospectionValue = document.getElementById('visit-filter-prospeccao')?.value || '';
         const periodValue     = document.getElementById('visit-filter-period')?.value || '';
-        const vendorValue     = document.getElementById('visit-filter-vendor')?.value || '';
+        const vendorValue     = (document.getElementById('visit-filter-vendor')?.value || '').split(',').filter(Boolean);
         const dateFromValue   = document.getElementById('visit-filter-date-from')?.value || '';
         const dateToValue     = document.getElementById('visit-filter-date-to')?.value || '';
         const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(periodValue);
@@ -282,10 +264,10 @@ export function fillVisitsContent(container, visits) {
         const filteredVisits = normalizedVisits.filter((visit) => {
             const matchesSearch = !searchValue || [visit.cliente, visit.contato, visit.observacao, visit.tipoVisita, visit.cidade, visit.vendedorGerente]
                 .some((value) => String(value || '').toLowerCase().includes(searchValue));
-            const matchesType   = !typeValue || visit.tipoVisita === typeValue;
-            const matchesCity   = !cityValue || visit.cidade === cityValue;
+            const matchesType   = !typeValue.length || typeValue.includes(visit.tipoVisita);
+            const matchesCity   = !cityValue.length || cityValue.includes(visit.cidade);
             const matchesProspection = !prospectionValue || visit.prospeccao === prospectionValue;
-            const matchesVendor = !vendorValue || visit.vendedorGerente === vendorValue;
+            const matchesVendor = !vendorValue.length || vendorValue.includes(visit.vendedorGerente);
             const visitDate     = parseDisplayDate(visit.dataVisita);
             const matchesPeriod = !periodStart || (visitDate && visitDate >= periodStart && visitDate <= periodEnd);
             const matchesDateFrom = !dateFromValue || (visitDate && visitDate >= parseInputDate(dateFromValue));
@@ -434,7 +416,7 @@ export function fillVisitsContent(container, visits) {
 
     const _visitFilterIds = ['visit-filter-search', 'visit-filter-type', 'visit-filter-city', 'visit-filter-prospeccao',
         'visit-filter-period', 'visit-filter-vendor', 'visit-filter-date-from', 'visit-filter-date-to'];
-    const _visitTextFilterIds = new Set(['visit-filter-search', 'visit-filter-type', 'visit-filter-city', 'visit-filter-vendor']);
+    const _visitTextFilterIds = new Set(['visit-filter-search']);
     const _debouncedVisitFilter = debounce(renderFilteredVisits, 250);
     _visitFilterIds.forEach((id) => {
             const element = document.getElementById(id);
@@ -444,12 +426,20 @@ export function fillVisitsContent(container, visits) {
             const isText = _visitTextFilterIds.has(id);
             if (isText) { element.addEventListener('input', _debouncedVisitFilter); }
             // 'change' pega tanto os <select> quanto o clique numa opção do
-            // searchable-select (Vendedor/Cidade/Tipo), que só dispara 'change'.
+            // filtro de múltipla escolha (Vendedor/Cidade/Tipo), que só dispara
+            // 'change'.
             element.addEventListener('change', renderFilteredVisits);
         });
 
+    const syncVisitMultiCheckLabels = () => {
+        syncMultiCheckFilterLabel('visit-filter-type-trigger', 'visit-filter-type');
+        syncMultiCheckFilterLabel('visit-filter-city-trigger', 'visit-filter-city');
+        syncMultiCheckFilterLabel('visit-filter-vendor-trigger', 'visit-filter-vendor');
+    };
+
     document.getElementById('visit-filters-clear')?.addEventListener('click', () => {
         _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        syncVisitMultiCheckLabels();
         state.visitsYearFilter = null;
         renderFilteredVisits();
         updateYearChips();
@@ -457,6 +447,7 @@ export function fillVisitsContent(container, visits) {
 
     renderSavedFilters(document.getElementById('visit-saved-filters'), 'visits', _visitFilterIds, (values) => {
         _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
+        syncVisitMultiCheckLabels();
         renderFilteredVisits();
     });
 
@@ -504,9 +495,9 @@ export function fillVisitsContent(container, visits) {
                 saveCache('visits_all', state.visits);
                 normalizedVisits = state.visits.map((v) => normalizeVisit(v)).sort((a, b) => compareVisitsByDateDesc(a, b));
                 document.querySelector('.scope-banner')?.remove();
-                initializeSearchableInput({ input: document.getElementById('visit-filter-type'), menu: document.getElementById('visit-filter-type-menu'), items: Array.from(new Set(normalizedVisits.map((v) => v.tipoVisita).filter(Boolean))).sort() });
-                initializeSearchableInput({ input: document.getElementById('visit-filter-city'), menu: document.getElementById('visit-filter-city-menu'), items: Array.from(new Set(normalizedVisits.map((v) => v.cidade).filter(Boolean))).sort() });
-                if (isAdmGer) initializeSearchableInput({ input: document.getElementById('visit-filter-vendor'), menu: document.getElementById('visit-filter-vendor-menu'), items: Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort() });
+                wireMultiCheckFilter({ triggerId: 'visit-filter-type-trigger', inputId: 'visit-filter-type', menuId: 'visit-filter-type-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.tipoVisita).filter(Boolean))).sort() });
+                wireMultiCheckFilter({ triggerId: 'visit-filter-city-trigger', inputId: 'visit-filter-city', menuId: 'visit-filter-city-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.cidade).filter(Boolean))).sort() });
+                if (isAdmGer) wireMultiCheckFilter({ triggerId: 'visit-filter-vendor-trigger', inputId: 'visit-filter-vendor', menuId: 'visit-filter-vendor-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort() });
                 renderFilteredVisits();
                 updateYearChips();
             }

@@ -1,16 +1,17 @@
-import { state, navigateTo, addDocumentClickListener } from '../app.js';
+import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
     funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
-    clienteSearchItem, findClienteByNome
+    clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addScrollTop,
-    openExternal, initializeSearchableInput, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit
+    openExternal, initializeSearchableInput, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit,
+    wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
@@ -124,21 +125,8 @@ export function fillFunilContent(mainContent, funil) {
             </div>
             <div class="saved-filters-row" id="funil-saved-filters"></div>
             <div class="visits-filter-grid" id="funil-filter-panel">
-                <div class="form-group">
-                    <label for="funil-filter-status-trigger">${filterLabelHtml('Status')}</label>
-                    <div class="searchable-select">
-                        <button type="button" class="multi-check-trigger" id="funil-filter-status-trigger">Todos</button>
-                        <input type="hidden" id="funil-filter-status" value="">
-                        <div class="searchable-select-menu" id="funil-filter-status-menu"></div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="funil-filter-cidade">${filterLabelHtml('Cidade')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="funil-filter-cidade" placeholder="Todas" autocomplete="off">
-                        <div class="searchable-select-menu" id="funil-filter-cidade-menu"></div>
-                    </div>
-                </div>
+                ${multiCheckFilterFieldHtml('Status', 'funil-filter-status')}
+                ${multiCheckFilterFieldHtml('Cidade', 'funil-filter-cidade', 'Todas')}
                 <div class="form-group">
                     <label for="funil-filter-ativo">${filterLabelHtml('Ativo')}</label>
                     <select id="funil-filter-ativo">
@@ -171,14 +159,7 @@ export function fillFunilContent(mainContent, funil) {
                         <option value="ultimos-3m">Últimos 3 meses</option>
                     </select>
                 </div>
-                ${isAdmGer ? `
-                <div class="form-group">
-                    <label for="funil-filter-vendor">${filterLabelHtml('Vendedor')}</label>
-                    <div class="searchable-select">
-                        <input type="text" id="funil-filter-vendor" placeholder="Todos" autocomplete="off">
-                        <div class="searchable-select-menu" id="funil-filter-vendor-menu"></div>
-                    </div>
-                </div>` : ''}
+                ${isAdmGer ? multiCheckFilterFieldHtml('Vendedor', 'funil-filter-vendor') : ''}
                 <div class="form-group">
                     <label for="funil-filter-vl">${filterLabelHtml('Valor minimo R$')}</label>
                     <input type="number" id="funil-filter-vl" placeholder="0" min="0">
@@ -208,63 +189,6 @@ export function fillFunilContent(mainContent, funil) {
         filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
     });
 
-    // Filtro de Status com mais de uma opção marcada ao mesmo tempo. O valor
-    // de verdade (o que "Salvar filtro atual"/"Limpar" leem e escrevem, sem
-    // precisar saber que esse campo é diferente dos outros) continua sendo
-    // uma string simples — só que agora "IDENTIFICAR,PROPOSTA" — guardada
-    // num <input type="hidden">; o botão visível só mostra um resumo.
-    const statusInput = () => document.getElementById('funil-filter-status');
-    const statusTrigger = () => document.getElementById('funil-filter-status-trigger');
-    const syncStatusFilterTrigger = () => {
-        const trigger = statusTrigger();
-        if (!trigger) return;
-        const sel = (statusInput()?.value || '').split(',').filter(Boolean);
-        trigger.textContent = sel.length === 0 ? 'Todos' : sel.length === 1 ? sel[0] : `${sel.length} selecionados`;
-        trigger.classList.toggle('has-value', sel.length > 0);
-    };
-    // As opções podem mudar (ex.: "Ver tudo" carrega o histórico completo,
-    // com outro conjunto de status presentes) — fica numa variável à parte
-    // pra poder atualizar sem reanexar os listeners de clique a cada vez
-    // (o botão/menu continuam os mesmos elementos do DOM; reanexar de novo
-    // faria o clique abrir-e-fechar o menu no mesmo toque).
-    let _statusFilterOptions = [];
-    let _statusFilterMenuWired = false;
-    function wireStatusFilterMenu(options) {
-        _statusFilterOptions = options;
-        const input = statusInput();
-        const trigger = statusTrigger();
-        const menu = document.getElementById('funil-filter-status-menu');
-        if (!input || !trigger || !menu) return;
-        syncStatusFilterTrigger();
-        if (_statusFilterMenuWired) return;
-        _statusFilterMenuWired = true;
-        const renderMenu = () => {
-            const sel = new Set((input.value || '').split(',').filter(Boolean));
-            menu.innerHTML = _statusFilterOptions.map((s) => `
-                <label class="searchable-select-option multi-check-option">
-                    <input type="checkbox" value="${escapeHtml(s)}" ${sel.has(s) ? 'checked' : ''}>
-                    <span>${escapeHtml(s)}</span>
-                </label>
-            `).join('');
-            menu.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-                cb.addEventListener('change', () => {
-                    const cur = new Set((input.value || '').split(',').filter(Boolean));
-                    if (cb.checked) cur.add(cb.value); else cur.delete(cb.value);
-                    input.value = Array.from(cur).join(',');
-                    syncStatusFilterTrigger();
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-            });
-        };
-        trigger.addEventListener('click', () => {
-            const opening = !menu.classList.contains('visible');
-            menu.classList.toggle('visible', opening);
-            if (opening) renderMenu();
-        });
-        addDocumentClickListener((event) => {
-            if (!menu.contains(event.target) && event.target !== trigger) menu.classList.remove('visible');
-        });
-    }
 
     const renderFiltered = async () => {
         const dateFromCheck = document.getElementById('funil-filter-date-from')?.value || '';
@@ -287,19 +211,19 @@ export function fillFunilContent(mainContent, funil) {
         }
         const search       = document.getElementById('funil-filter-search')?.value.trim().toLowerCase() || '';
         const statusFilter = (document.getElementById('funil-filter-status')?.value || '').split(',').filter(Boolean);
-        const cidadeFilter = document.getElementById('funil-filter-cidade')?.value || '';
+        const cidadeFilter = (document.getElementById('funil-filter-cidade')?.value || '').split(',').filter(Boolean);
         const ativoFilter  = document.getElementById('funil-filter-ativo')?.value || '';
         const atrasadoFilter = document.getElementById('funil-filter-atrasado')?.value || '';
         const diverseyFilter = document.getElementById('funil-filter-diversey')?.value || '';
         const period       = document.getElementById('funil-filter-period')?.value || '';
-        const vendorFilter = document.getElementById('funil-filter-vendor')?.value || '';
+        const vendorFilter = (document.getElementById('funil-filter-vendor')?.value || '').split(',').filter(Boolean);
         const vlMin        = Number(document.getElementById('funil-filter-vl')?.value || 0);
         const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(period);
 
         const filtered = funilData.filter((f) => {
             const matchSearch  = !search || [f.cliente, f.cidade, f.foco, f.atuacao, f.comentarios].some((v) => String(v || '').toLowerCase().includes(search));
             const matchStatus  = !statusFilter.length || statusFilter.includes(f.status);
-            const matchCidade  = !cidadeFilter || f.cidade === cidadeFilter;
+            const matchCidade  = !cidadeFilter.length || cidadeFilter.includes(f.cidade);
             const matchAtivo   = !ativoFilter || (ativoFilter === 'SIM' ? String(f.ativo).toLowerCase() === 'sim' : String(f.ativo).toLowerCase() !== 'sim');
             const isOverdue    = String(f.ativo || '').toLowerCase() === 'sim'
                 && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
@@ -307,7 +231,7 @@ export function fillFunilContent(mainContent, funil) {
             const matchAtrasado = !atrasadoFilter || (atrasadoFilter === 'sim' ? isOverdue : !isOverdue);
             const isDiversey    = f.funilDiversey === 'Sim';
             const matchDiversey = !diverseyFilter || (diverseyFilter === 'sim' ? isDiversey : !isDiversey);
-            const matchVendor  = !vendorFilter || f.vendedor === vendorFilter;
+            const matchVendor  = !vendorFilter.length || vendorFilter.includes(f.vendedor);
             const atuDate      = parseDisplayDate(f.atualizacao) || parseDisplayDate(f.data);
             const matchPeriod  = !period || (atuDate && atuDate >= periodStart && atuDate <= periodEnd);
             const matchVl      = !vlMin || parseCurrencyBR(f.vlMensal) >= vlMin;
@@ -593,13 +517,13 @@ export function fillFunilContent(mainContent, funil) {
 
     const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
         'funil-filter-atrasado', 'funil-filter-diversey', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
-    wireStatusFilterMenu(availableStatuses);
-    initializeSearchableInput({ input: document.getElementById('funil-filter-cidade'), menu: document.getElementById('funil-filter-cidade-menu'), items: availableCidades });
+    wireMultiCheckFilter({ triggerId: 'funil-filter-status-trigger', inputId: 'funil-filter-status', menuId: 'funil-filter-status-menu', options: availableStatuses });
+    wireMultiCheckFilter({ triggerId: 'funil-filter-cidade-trigger', inputId: 'funil-filter-cidade', menuId: 'funil-filter-cidade-menu', options: availableCidades });
     if (isAdmGer) {
-        initializeSearchableInput({ input: document.getElementById('funil-filter-vendor'), menu: document.getElementById('funil-filter-vendor-menu'), items: availableVendors });
+        wireMultiCheckFilter({ triggerId: 'funil-filter-vendor-trigger', inputId: 'funil-filter-vendor', menuId: 'funil-filter-vendor-menu', options: availableVendors });
     }
 
-    const _funilTextFilterIds = new Set(['funil-filter-search', 'funil-filter-vl', 'funil-filter-cidade', 'funil-filter-vendor']);
+    const _funilTextFilterIds = new Set(['funil-filter-search', 'funil-filter-vl']);
     const _debouncedFunilFilter = debounce(renderFiltered, 250);
     _funilFilterIds.forEach((id) => {
         const el = document.getElementById(id);
@@ -610,15 +534,21 @@ export function fillFunilContent(mainContent, funil) {
         el.addEventListener('change', renderFiltered);
     });
 
+    const syncFunilMultiCheckLabels = () => {
+        syncMultiCheckFilterLabel('funil-filter-status-trigger', 'funil-filter-status');
+        syncMultiCheckFilterLabel('funil-filter-cidade-trigger', 'funil-filter-cidade');
+        syncMultiCheckFilterLabel('funil-filter-vendor-trigger', 'funil-filter-vendor');
+    };
+
     renderSavedFilters(document.getElementById('funil-saved-filters'), 'funil', _funilFilterIds, (values) => {
         _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
-        syncStatusFilterTrigger();
+        syncFunilMultiCheckLabels();
         renderFiltered();
     });
 
     document.getElementById('funil-filter-clear')?.addEventListener('click', () => {
         _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
-        syncStatusFilterTrigger();
+        syncFunilMultiCheckLabels();
         state.funilYearFilter = null;
         renderFiltered();
         updateYearChips();
@@ -653,9 +583,9 @@ export function fillFunilContent(mainContent, funil) {
                 saveCache('funil_all', state.funil);
                 funilData = state.funil;
                 document.querySelector('.scope-banner')?.remove();
-                wireStatusFilterMenu(Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))));
-                initializeSearchableInput({ input: document.getElementById('funil-filter-cidade'), menu: document.getElementById('funil-filter-cidade-menu'), items: Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort() });
-                if (isAdmGer) initializeSearchableInput({ input: document.getElementById('funil-filter-vendor'), menu: document.getElementById('funil-filter-vendor-menu'), items: Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort() });
+                wireMultiCheckFilter({ triggerId: 'funil-filter-status-trigger', inputId: 'funil-filter-status', menuId: 'funil-filter-status-menu', options: Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))) });
+                wireMultiCheckFilter({ triggerId: 'funil-filter-cidade-trigger', inputId: 'funil-filter-cidade', menuId: 'funil-filter-cidade-menu', options: Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort() });
+                if (isAdmGer) wireMultiCheckFilter({ triggerId: 'funil-filter-vendor-trigger', inputId: 'funil-filter-vendor', menuId: 'funil-filter-vendor-menu', options: Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort() });
                 renderFiltered();
                 updateYearChips();
             }

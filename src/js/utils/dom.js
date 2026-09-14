@@ -312,6 +312,75 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
 }
 
 
+// Filtro de múltipla escolha (Status, Cidade, Vendedor, Tipo…): um botão
+// mostra um resumo ("Todos" / "IDENTIFICAR" / "3 selecionados") e abre um
+// menu com checkbox por opção. O valor de verdade fica num
+// <input type="hidden"> como string separada por vírgula — lido/escrito
+// com `.value` igual a qualquer outro campo, então "Salvar filtro atual",
+// "Limpar" e o "lembrar filtro entre navegações" de cada tela continuam
+// funcionando sem precisar saber que esse campo é diferente dos outros.
+// `options` pode mudar depois (ex.: "Ver tudo" carregando mais status) —
+// chamar de novo com a lista atualizada não reanexa os listeners de clique
+// (senão um toque no botão abriria e fechunderia o menu ao mesmo tempo).
+export function wireMultiCheckFilter({ triggerId, inputId, menuId, options }) {
+    const trigger = document.getElementById(triggerId);
+    const input = document.getElementById(inputId);
+    const menu = document.getElementById(menuId);
+    if (!trigger || !input || !menu) return;
+
+    trigger._multiCheckOptions = options;
+    const sync = () => {
+        const sel = (input.value || '').split(',').filter(Boolean);
+        trigger.textContent = sel.length === 0 ? 'Todos' : sel.length === 1 ? sel[0] : `${sel.length} selecionados`;
+        trigger.classList.toggle('has-value', sel.length > 0);
+    };
+    sync();
+    if (trigger.dataset.multiCheckWired) return;
+    trigger.dataset.multiCheckWired = '1';
+
+    const renderMenu = () => {
+        const sel = new Set((input.value || '').split(',').filter(Boolean));
+        const opts = trigger._multiCheckOptions || [];
+        menu.innerHTML = opts.map((o) => `
+            <label class="searchable-select-option multi-check-option">
+                <input type="checkbox" value="${escapeHtml(o)}" ${sel.has(o) ? 'checked' : ''}>
+                <span>${escapeHtml(o)}</span>
+            </label>
+        `).join('');
+        menu.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+            cb.addEventListener('change', () => {
+                const cur = new Set((input.value || '').split(',').filter(Boolean));
+                if (cb.checked) cur.add(cb.value); else cur.delete(cb.value);
+                input.value = Array.from(cur).join(',');
+                sync();
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        });
+    };
+    trigger.addEventListener('click', () => {
+        const opening = !menu.classList.contains('visible');
+        menu.classList.toggle('visible', opening);
+        if (opening) renderMenu();
+    });
+    addDocumentClickListener((event) => {
+        if (!menu.contains(event.target) && event.target !== trigger) menu.classList.remove('visible');
+    });
+}
+
+// Sincroniza só o rótulo do botão (ex.: depois de "Limpar"/aplicar um
+// filtro salvo, que mexe direto no <input type="hidden"> sem passar pelo
+// wireMultiCheckFilter) — sem isso o botão continuaria mostrando a seleção
+// antiga até o usuário abrir o menu de novo.
+export function syncMultiCheckFilterLabel(triggerId, inputId) {
+    const trigger = document.getElementById(triggerId);
+    const input = document.getElementById(inputId);
+    if (!trigger || !input) return;
+    const sel = (input.value || '').split(',').filter(Boolean);
+    trigger.textContent = sel.length === 0 ? 'Todos' : sel.length === 1 ? sel[0] : `${sel.length} selecionados`;
+    trigger.classList.toggle('has-value', sel.length > 0);
+}
+
+
 // Ícones de ação (grupo do cabeçalho de detalhe: Cliente 360°, Apagar, "Ao
 // Funil"...). SVG stroke em currentColor, não emoji — os emojis renderizavam
 // multicoloridos, com baseline/tamanho variáveis e sem herdar a cor do botão
