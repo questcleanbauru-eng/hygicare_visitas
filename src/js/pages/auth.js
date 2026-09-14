@@ -1,6 +1,6 @@
-import { state, navigateTo, peekCampanhaId, goAfterLogin } from '../app.js';
+import { state, navigateTo, peekCampanhaId, peekCampanhaNome, goAfterLogin } from '../app.js';
 import { callAPI, persistUser } from '../api.js';
-import { escapeHtml } from '../utils/format.js';
+import { escapeHtml, titleCase } from '../utils/format.js';
 import { setSaving, showToast } from '../utils/dom.js';
 import { isPinSupported, getPinEmail, setPinEmail, clearPinEmail } from '../utils/pin.js';
 
@@ -15,6 +15,10 @@ let _pinIdentifierMode = 'email';
 // link de campanha — só na primeira vez, senão desfaz o toggle manual do
 // usuário ("Prefere entrar com o e-mail?") a cada erro de PIN.
 let _pinIdentifierDefaultedForCampanha = false;
+// Link de campanha já vem com o login do vendedor (?n=) — a tela mostra só
+// o PIN nesse caso. "Não é você?" desativa isso e volta pro formulário
+// normal, ficando assim até a página recarregar.
+let _campanhaPrefillDismissed = false;
 
 // Coluna de marca compartilhada entre a tela de login e a de PIN.
 function loginBrandHtml() {
@@ -71,6 +75,9 @@ export function renderLoginPage() {
         _pinIdentifierMode = 'nome';
         _pinIdentifierDefaultedForCampanha = true;
     }
+    // Link de campanha mais novo já vem com o próprio nome de login (?n=) —
+    // nesse caso nem precisa perguntar quem é, só o PIN.
+    const campanhaNome = (mode === 'pin' && !!peekCampanhaId() && !_campanhaPrefillDismissed) ? peekCampanhaNome() : '';
 
     mainContent.innerHTML = `
         <div class="login-split">
@@ -85,7 +92,7 @@ export function renderLoginPage() {
                     <span class="lml-tag">Gerencie visitas e propostas</span>
                 </div>
                 <div class="login-form-card">
-                    <div id="login-mode-body">${mode === 'pin' ? pinLoginFormHtml() : passwordLoginFormHtml()}</div>
+                    <div id="login-mode-body">${mode === 'pin' ? pinLoginFormHtml(campanhaNome) : passwordLoginFormHtml()}</div>
                     <p class="login-forgot-row">
                         ${mode === 'pin'
                             ? '<button type="button" class="login-forgot-link" id="login-use-password">Ainda não tem PIN? Entrar com e-mail e senha</button>'
@@ -250,9 +257,43 @@ function wirePinBoxes(container, onComplete) {
     return { value, clear, focus: () => boxes[0].focus() };
 }
 
-function pinLoginFormHtml() {
+function pinLoginFormHtml(prefillNome) {
     const savedEmail = getPinEmail();
     const byNome = _pinIdentifierMode === 'nome';
+    const pinBoxesHtml = `<div class="pin-boxes" id="pin-boxes">
+            ${[0, 1, 2, 3].map(() => '<input type="password" class="pin-box" inputmode="numeric" autocomplete="off" maxlength="1" pattern="[0-9]*" aria-label="Dígito do PIN">').join('')}
+        </div>`;
+    const errorBoxHtml = `<div id="pin-error-box" class="login-error-msg" style="display:none" role="alert">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="pin-error-text"></span>
+        </div>`;
+    const submitBtnHtml = `<button type="submit" id="pin-button" class="login-submit-btn">
+            <span id="pin-btn-label">Entrar</span>
+            <span id="pin-btn-spinner" class="login-spinner" style="display:none"></span>
+        </button>`;
+
+    // Link de campanha já trouxe o login do vendedor — pula direto pro PIN,
+    // sem pedir nome/e-mail de novo. "Não é você?" é a saída pra quem abriu
+    // o link errado ou está com outra conta.
+    if (prefillNome) {
+        const primeiroNome = prefillNome.trim().split(' ')[0] || prefillNome;
+        return `
+        <div class="pin-lock-badge" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h1 class="login-heading">Olá, ${escapeHtml(titleCase(primeiroNome))}!</h1>
+        <p class="login-subheading">Informe seu PIN de 4 dígitos pra continuar</p>
+        <form id="pin-form" novalidate>
+            <input type="hidden" id="pin-identifier" value="${escapeHtml(prefillNome)}">
+            ${pinBoxesHtml}
+            ${errorBoxHtml}
+            ${submitBtnHtml}
+        </form>
+        <p class="login-forgot-row" style="margin:0.6rem 0 0">
+            <button type="button" class="login-forgot-link" id="pin-campanha-notyou">Não é você? Entrar com outro usuário</button>
+        </p>`;
+    }
+
     return `
         <div class="pin-lock-badge" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -274,17 +315,9 @@ function pinLoginFormHtml() {
             <p class="login-forgot-row" style="margin:-0.35rem 0 0.6rem">
                 <button type="button" class="login-forgot-link" id="pin-identifier-toggle">${byNome ? 'Prefere entrar com o e-mail?' : 'Prefere entrar com o nome?'}</button>
             </p>
-            <div class="pin-boxes" id="pin-boxes">
-                ${[0, 1, 2, 3].map(() => '<input type="password" class="pin-box" inputmode="numeric" autocomplete="off" maxlength="1" pattern="[0-9]*" aria-label="Dígito do PIN">').join('')}
-            </div>
-            <div id="pin-error-box" class="login-error-msg" style="display:none" role="alert">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span id="pin-error-text"></span>
-            </div>
-            <button type="submit" id="pin-button" class="login-submit-btn">
-                <span id="pin-btn-label">Entrar</span>
-                <span id="pin-btn-spinner" class="login-spinner" style="display:none"></span>
-            </button>
+            ${pinBoxesHtml}
+            ${errorBoxHtml}
+            ${submitBtnHtml}
         </form>`;
 }
 
@@ -302,8 +335,13 @@ function wirePinLoginForm() {
     };
     const showErr = (msg) => { errText.textContent = msg; errBox.style.display = 'flex'; };
 
-    document.getElementById('pin-identifier-toggle').addEventListener('click', () => {
+    document.getElementById('pin-identifier-toggle')?.addEventListener('click', () => {
         _pinIdentifierMode = _pinIdentifierMode === 'nome' ? 'email' : 'nome';
+        document.getElementById('login-mode-body').innerHTML = pinLoginFormHtml();
+        wirePinLoginForm();
+    });
+    document.getElementById('pin-campanha-notyou')?.addEventListener('click', () => {
+        _campanhaPrefillDismissed = true;
         document.getElementById('login-mode-body').innerHTML = pinLoginFormHtml();
         wirePinLoginForm();
     });

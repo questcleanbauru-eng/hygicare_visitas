@@ -10,10 +10,13 @@ import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 const PROP_STATUS = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
 const FUNIL_STATUS = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
 
-function campanhaLink(id) {
+function campanhaLink(id, loginNome) {
     // ?c=<id> (não /c/<id>): mantém o path na raiz pra os assets relativos
     // do app carregarem quando o link é aberto num navegador limpo.
-    return `${window.location.origin}/?c=${id}`;
+    // &n=<nome> (opcional): login do vendedor destino já embutido no link,
+    // pra tela de login pré-preencher e pedir só o PIN.
+    const n = loginNome ? `&n=${encodeURIComponent(loginNome)}` : '';
+    return `${window.location.origin}/?c=${id}${n}`;
 }
 
 // ── Modal "Selecionar clientes" (aberto pelas telas Propostas/Funil) ────
@@ -74,7 +77,13 @@ export async function openGerarCampanhaModal(tipo, itemIds, selectedItems) {
     if (!itemIds || !itemIds.length) { showToast('Selecione ao menos um cliente.', true); return; }
     ensureStyles('proposals');
     const fd = await ensureFormData().then((r) => r.data).catch(() => null);
-    const vendedores = ((fd && fd.vendedores) || []).map((v) => v.nome).filter(Boolean);
+    const vendedoresRaw = ((fd && fd.vendedores) || []).filter((v) => v.nome);
+    const vendedores = vendedoresRaw.map((v) => v.nome);
+    // Nome de login de cada vendedor (o que ele usa pra entrar com PIN) —
+    // pra embutir no link e a tela de login já vir preenchida. Cai pro nome
+    // completo quando o vendedor não tem um "nome de login" cadastrado
+    // (mesmo fallback que o login por PIN já usa).
+    const loginNomeByVendedor = new Map(vendedoresRaw.map((v) => [v.nome, v.nomeLogin || v.nome]));
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -163,7 +172,8 @@ export async function openGerarCampanhaModal(tipo, itemIds, selectedItems) {
             setSaving(false, btn);
             return;
         }
-        const link = campanhaLink(r.id);
+        const loginNome = loginNomeByVendedor.get(vendedorDestino) || '';
+        const link = campanhaLink(r.id, loginNome);
         const box = overlay.querySelector('#camp-result');
         box.hidden = false;
         box.innerHTML = `
@@ -184,7 +194,9 @@ export async function openGerarCampanhaModal(tipo, itemIds, selectedItems) {
                 `Oi ${primeiroNome}! Preciso que você atualize o status ${tipo === 'funil' ? 'destas oportunidades do Funil' : 'destas propostas'}:`,
                 clientesTxt,
                 prazoAte ? `\nPrazo: ${prazoAte}` : '',
-                `\nPra entrar: login é seu nome (em minúsculo) e PIN são os 4 últimos números do seu celular.`,
+                loginNome
+                    ? `\nPra entrar, é só abrir o link e informar seu PIN (4 últimos números do seu celular) — seu login já vem preenchido.`
+                    : `\nPra entrar: login é seu nome (em minúsculo) e PIN são os 4 últimos números do seu celular.`,
                 `\n${link}`
             ].filter(Boolean).join('\n');
         };

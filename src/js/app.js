@@ -87,6 +87,15 @@ export function peekCampanhaId() {
     } catch (e) { return null; }
 }
 
+// Nome de login do vendedor destino, embutido no link da campanha (?n=) —
+// deixa a tela de login já saber quem é, sem precisar digitar. Só um espia
+// igual peekCampanhaId (não some da URL até o login terminar).
+export function peekCampanhaNome() {
+    try {
+        return new URLSearchParams(window.location.search || '').get('n') || '';
+    } catch (e) { return ''; }
+}
+
 export function consumeDeepLink() {
     const id = peekCampanhaId();
     if (!id) return null;
