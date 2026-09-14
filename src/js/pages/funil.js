@@ -1086,27 +1086,27 @@ export async function renderFunilCreatePage() {
     initializeSearchableInput({
         input: document.getElementById('fc-cidade'),
         menu: document.getElementById('fc-cidade-menu'),
-        items: cidades
+        items: cidades, allowFreeText: true
     });
     initializeSearchableInput({
         input: document.getElementById('fc-foco'),
         menu: document.getElementById('fc-foco-menu'),
-        items: potenciais
+        items: potenciais, allowFreeText: true
     });
     initializeSearchableInput({
         input: document.getElementById('fc-atuacao'),
         menu: document.getElementById('fc-atuacao-menu'),
-        items: areas
+        items: areas, allowFreeText: true
     });
     initializeSearchableInput({
         input: document.getElementById('fc-aplicacao'),
         menu: document.getElementById('fc-aplicacao-menu'),
-        items: aplicacoes
+        items: aplicacoes, allowFreeText: true
     });
     initializeSearchableInput({
         input: document.getElementById('fc-equipamentos'),
         menu: document.getElementById('fc-equipamentos-menu'),
-        items: equipamentosList
+        items: equipamentosList, allowFreeText: true
     });
     // Escolher um cliente já cadastrado preenche cidade, foco e área de
     // atuação sozinho — allowFreeText porque o funil também nasce de
@@ -1481,11 +1481,11 @@ export async function renderFunilFormPage(funil) {
     `;
 
     if (isAdminUser) {
-        initializeSearchableInput({ input: document.getElementById('funil-cidade'), menu: document.getElementById('funil-cidade-menu'), items: cidades });
-        initializeSearchableInput({ input: document.getElementById('funil-foco'), menu: document.getElementById('funil-foco-menu'), items: potenciais });
-        initializeSearchableInput({ input: document.getElementById('funil-atuacao'), menu: document.getElementById('funil-atuacao-menu'), items: areas });
-        initializeSearchableInput({ input: document.getElementById('funil-aplicacao'), menu: document.getElementById('funil-aplicacao-menu'), items: aplicacoes });
-        initializeSearchableInput({ input: document.getElementById('funil-equipamentos'), menu: document.getElementById('funil-equipamentos-menu'), items: equipamentosList });
+        initializeSearchableInput({ input: document.getElementById('funil-cidade'), menu: document.getElementById('funil-cidade-menu'), items: cidades, allowFreeText: true });
+        initializeSearchableInput({ input: document.getElementById('funil-foco'), menu: document.getElementById('funil-foco-menu'), items: potenciais, allowFreeText: true });
+        initializeSearchableInput({ input: document.getElementById('funil-atuacao'), menu: document.getElementById('funil-atuacao-menu'), items: areas, allowFreeText: true });
+        initializeSearchableInput({ input: document.getElementById('funil-aplicacao'), menu: document.getElementById('funil-aplicacao-menu'), items: aplicacoes, allowFreeText: true });
+        initializeSearchableInput({ input: document.getElementById('funil-equipamentos'), menu: document.getElementById('funil-equipamentos-menu'), items: equipamentosList, allowFreeText: true });
     }
 
     document.getElementById('back-funil-detail').addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
