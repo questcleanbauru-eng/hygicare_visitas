@@ -30,6 +30,10 @@ export function fillProposalsContent(mainContent, proposals) {
     // "Duplicado" = mesmo cliente + mesmo foco (mesmo critério do Funil).
     const propostaDupKey = (p) => [p.cliente, p.foco]
         .map((v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')).join('|');
+    // Modo seleção: marcar várias propostas e apagar de uma vez (limpar
+    // duplicados de reimportação, principalmente). Só pra quem pode apagar.
+    let selectMode = false;
+    const selectedIds = new Set();
 
     const newProposalDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de propostas."';
 
@@ -82,6 +86,7 @@ export function fillProposalsContent(mainContent, proposals) {
         <div class="page-header">
             <div><h2>Propostas</h2><p class="page-subtitle">${normalized.length} proposta(s)</p></div>
             <div class="page-header-actions">
+                ${state.canDelete ? '<button type="button" class="mini-button" id="proposal-select-toggle" title="Marcar várias propostas para apagar de uma vez">☑️ Selecionar</button>' : ''}
                 ${isAdmGer ? '<button type="button" class="mini-button" id="proposals-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
                 ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, uma proposta após a outra">⚡ Edição rápida</button>` : ''}
                 <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
@@ -278,10 +283,10 @@ export function fillProposalsContent(mainContent, proposals) {
                     <span>${byMonth[key].length} proposta(s)</span>
                 </div>
                 <div class="visits-list">${byMonth[key].map((p) => `
-                    <button type="button" class="proposal-card ${p.atrasada ? 'proposal-card-alert' : ''}${isDup(p) ? ' funil-card-dup' : ''}" data-proposal-id="${escapeHtml(p.id)}">
+                    <button type="button" class="proposal-card ${p.atrasada ? 'proposal-card-alert' : ''}${selectMode && selectedIds.has(String(p.id)) ? ' is-selected' : ''}${isDup(p) ? ' funil-card-dup' : ''}" data-proposal-id="${escapeHtml(p.id)}">
                         <div class="visit-card-header">
                             <strong>
-                                <span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
+                                ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
                                 ${isDup(p) ? '<span class="funil-dup-tag" title="Existe outra proposta com o mesmo cliente e foco">⚠️ Duplicado</span>' : ''}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-proposal-quick="${escapeHtml(p.id)}">⚡</span>
                                 ${state.canCreateProposalFunil && p.cliente ? (() => {
@@ -317,9 +322,24 @@ export function fillProposalsContent(mainContent, proposals) {
             container.classList.remove('qe-layout');
             container.innerHTML = groupsHtml;
         }
+        if (selectMode) {
+            container.insertAdjacentHTML('afterbegin', `
+                <div class="funil-sel-bar" id="proposal-sel-bar">
+                    <strong id="proposal-sel-count">${selectedIds.size} selecionado(s)</strong>
+                    <button type="button" class="mini-button" id="proposal-sel-dups" title="Marca as repetidas (mesmo cliente e foco), deixando sem marca a mais recente de cada grupo">Marcar duplicadas</button>
+                    <button type="button" class="mini-button" id="proposal-sel-all">Marcar todas</button>
+                    <button type="button" class="mini-button" id="proposal-sel-none">Limpar</button>
+                    <button type="button" class="mini-button mini-button-danger" id="proposal-sel-delete" ${selectedIds.size ? '' : 'disabled'}>🗑️ Excluir selecionadas</button>
+                </div>`);
+        }
 
         container.querySelectorAll('[data-proposal-id]').forEach((btn) => {
             btn.addEventListener('click', () => {
+                if (selectMode) {
+                    setCardSelected(btn.dataset.proposalId, !selectedIds.has(String(btn.dataset.proposalId)), btn);
+                    refreshSelBar();
+                    return;
+                }
                 if (qeActive()) { openProposalQuickPanel(btn.dataset.proposalId); return; }
                 navigateTo('proposal-detail', { id: btn.dataset.proposalId });
             });
@@ -353,8 +373,69 @@ export function fillProposalsContent(mainContent, proposals) {
             });
         });
 
+        // Barra do modo seleção (re-renderizada junto com a lista).
+        container.querySelector('#proposal-sel-dups')?.addEventListener('click', () => {
+            // Usa o mesmo isDup do destaque roxo/filtro — a titular de cada
+            // grupo (a mais recente) nunca é marcada, só as excedentes.
+            let marked = 0;
+            container.querySelectorAll('[data-proposal-id]').forEach((card) => {
+                const p = normalized.find((x) => String(x.id) === String(card.dataset.proposalId));
+                if (!p) return;
+                if (isDup(p)) { setCardSelected(p.id, true, card); marked++; }
+            });
+            refreshSelBar();
+            showToast(marked ? `${marked} duplicada(s) marcada(s).` : 'Nenhuma duplicada exata entre os registros visíveis.', !marked);
+        });
+        container.querySelector('#proposal-sel-all')?.addEventListener('click', () => {
+            container.querySelectorAll('[data-proposal-id]').forEach((card) => setCardSelected(card.dataset.proposalId, true, card));
+            refreshSelBar();
+        });
+        container.querySelector('#proposal-sel-none')?.addEventListener('click', () => {
+            container.querySelectorAll('[data-proposal-id]').forEach((card) => setCardSelected(card.dataset.proposalId, false, card));
+            selectedIds.clear();
+            refreshSelBar();
+        });
+        container.querySelector('#proposal-sel-delete')?.addEventListener('click', async (e) => {
+            const ids = Array.from(selectedIds);
+            if (!ids.length) return;
+            if (!confirm(`Apagar ${ids.length} proposta(s)? Essa ação não pode ser desfeita.`)) return;
+            const btn = e.currentTarget;
+            setSaving(true, btn, 'Apagando...');
+            const r = await callAPI('deleteProposalBatch', { ids, user: state.currentUser })
+                .catch((err) => ({ status: 'error', message: err.message }));
+            if (r && r.status === 'success') {
+                const gone = new Set((r.deleted || ids).map(String));
+                state.proposals = (state.proposals || []).filter((x) => !gone.has(String(x.Id || x.id)));
+                normalized = state.proposals.map(normalizeProposal);
+                saveCache('proposals', state.proposals);
+                if (state.proposalsScope === 'all') saveCache('proposals_all', state.proposals);
+                selectedIds.clear();
+                const sub = document.querySelector('.page-header .page-subtitle');
+                if (sub) sub.textContent = `${normalized.length} proposta(s)`;
+                showToast(r.message || `${gone.size} registro(s) apagado(s).`);
+                renderFiltered();
+            } else {
+                showToast((r && r.message) || 'Não foi possível apagar.', true);
+                setSaving(false, btn);
+            }
+        });
+
         if (qeActive() && qeSelectedId) { openProposalQuickPanel(qeSelectedId); }
     };
+
+    function setCardSelected(id, on, cardEl) {
+        const key = String(id);
+        if (on) selectedIds.add(key); else selectedIds.delete(key);
+        const el = cardEl || document.querySelector(`#proposal-list-container .proposal-card[data-proposal-id="${CSS.escape(key)}"]`);
+        el?.classList.toggle('is-selected', on);
+    }
+
+    function refreshSelBar() {
+        const count = document.getElementById('proposal-sel-count');
+        if (count) count.textContent = `${selectedIds.size} selecionado(s)`;
+        const del = document.getElementById('proposal-sel-delete');
+        if (del) del.disabled = selectedIds.size === 0;
+    }
 
     async function openProposalQuickPanel(id) {
         const panel = document.getElementById('qe-panel');
@@ -519,6 +600,12 @@ export function fillProposalsContent(mainContent, proposals) {
     });
 
     document.getElementById('btn-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
+    document.getElementById('proposal-select-toggle')?.addEventListener('click', (e) => {
+        selectMode = !selectMode;
+        if (!selectMode) selectedIds.clear();
+        e.currentTarget.classList.toggle('is-on', selectMode);
+        renderFiltered();
+    });
     document.getElementById('proposals-campanha-btn')?.addEventListener('click', async () => {
         const { openSelecionarClientesModal } = await import('./campanhas.js');
         openSelecionarClientesModal('proposta', _propsCampanhaList);

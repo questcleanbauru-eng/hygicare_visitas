@@ -105,7 +105,9 @@
     white-space: nowrap;
 }
 
-/* Modo seleção (apagar vários de uma vez) */
+/* Modo seleção (apagar vários de uma vez) — reaproveitado por
+   proposals.js também (funil.css e proposals.css são eager, sempre
+   carregados juntos). */
 .funil-sel-bar {
     position: sticky;
     top: 0;
@@ -133,9 +135,12 @@
     background: #fff;
     position: relative;
 }
-.funil-card.is-selected { outline: 2px solid var(--primary); background: var(--primary-light); }
-.funil-card.is-selected .funil-sel-box { background: var(--primary); border-color: var(--primary); }
-.funil-card.is-selected .funil-sel-box::after {
+.funil-card.is-selected,
+.proposal-card.is-selected { outline: 2px solid var(--primary); background: var(--primary-light); }
+.funil-card.is-selected .funil-sel-box,
+.proposal-card.is-selected .funil-sel-box { background: var(--primary); border-color: var(--primary); }
+.funil-card.is-selected .funil-sel-box::after,
+.proposal-card.is-selected .funil-sel-box::after {
     content: '';
     position: absolute;
     left: 5px;
