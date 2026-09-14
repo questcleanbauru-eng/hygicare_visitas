@@ -2192,7 +2192,8 @@ input[type="date"] {
    cliente específico pra editar, sem precisar sair do modo foco. */
 #main-content.qe-focus .visits-filter-card,
 #main-content.qe-focus .funil-filter-card,
-#main-content.qe-focus .scope-banner {
+#main-content.qe-focus .scope-banner,
+#main-content.qe-focus .year-chips-row {
     display: none;
 }
 #main-content.qe-focus .page-header { margin-bottom: 0.6rem; }
@@ -2201,8 +2202,6 @@ input[type="date"] {
    é sempre mouse/teclado. */
 #main-content.qe-focus .search-bar-wrapper { padding-top: 0; padding-bottom: 0; margin-bottom: 0.5rem; }
 #main-content.qe-focus .search-bar-wrapper input { min-height: 38px; padding-top: 0.45rem; padding-bottom: 0.45rem; }
-#main-content.qe-focus .year-chips-row { margin-bottom: 0.5rem; }
-#main-content.qe-focus .year-chips-row .mini-button { min-height: 34px; padding-top: 0.25rem; padding-bottom: 0.25rem; }
 
 .qe-layout {
     display: grid;
