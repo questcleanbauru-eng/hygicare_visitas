@@ -2267,6 +2267,213 @@ input[type="date"] {
     .funil-link-card { display: block; }
 }
 
+/* ── Modal "Vincular a uma Proposta/Funil" (ver utils/linkPicker.js) ──────
+   Paleta própria (não os tokens do resto do app) — especificação visual
+   exata pedida pelo usuário pra esse componente especificamente. */
+.lkp-modal {
+    background: #ffffff;
+    border: 1px solid #e2e6eb;
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(20, 30, 50, 0.14);
+    max-width: 560px;
+    width: 100%;
+    max-height: 90dvh;
+    padding: 1.4rem 1.4rem 1.1rem;
+    position: relative;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1b2430;
+}
+.lkp-close {
+    position: absolute;
+    top: 0.9rem;
+    right: 0.9rem;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: #f1f3f6;
+    color: #5b6472;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s;
+}
+.lkp-close:hover { background: #e2e6eb; }
+.lkp-eyebrow {
+    margin: 0 1.6rem 0.2rem 0;
+    font-size: 0.75rem;
+    color: #8a93a0;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.lkp-title {
+    margin: 0 1.6rem 0.7rem 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: #1b2430;
+}
+.lkp-context {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    background: #eef2fe;
+    color: #2f5fe0;
+    border-radius: 10px;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    margin-bottom: 0.9rem;
+}
+.lkp-context-icon { flex-shrink: 0; font-weight: 700; }
+.lkp-search-wrap { position: relative; margin-bottom: 0.5rem; }
+.lkp-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.85rem;
+    opacity: 0.6;
+    pointer-events: none;
+}
+.lkp-search-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.6rem 0.8rem 0.6rem 2.2rem;
+    border: 1.5px solid #e2e6eb;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 16px;
+    color: #1b2430;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.lkp-search-input::placeholder { color: #8a93a0; }
+.lkp-search-input:focus { border-color: #2f5fe0; }
+.lkp-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: #5b6472;
+    margin-bottom: 0.5rem;
+}
+.lkp-meta-row strong { color: #1b2430; }
+.lkp-sort-btn {
+    border: none;
+    background: none;
+    color: #5b6472;
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 0;
+}
+.lkp-sort-btn:hover { color: #2f5fe0; }
+.lkp-results {
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 0 -0.3rem;
+    padding: 0 0.3rem;
+}
+.lkp-group-label {
+    margin: 0.7rem 0 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8a93a0;
+}
+.lkp-group-label:first-child { margin-top: 0; }
+.lkp-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    padding: 0.5rem 0.6rem;
+    margin-bottom: 0.3rem;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+.lkp-item:hover { background: #eef2fe; }
+.lkp-item.is-selected { background: #eef2fe; border-color: #2f5fe0; }
+.lkp-avatar {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #eceff3;
+    color: #5b6472;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.lkp-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.lkp-item-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #1b2430;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lkp-mark { background: #dbe6ff; color: #2f5fe0; border-radius: 3px; padding: 0 1px; }
+.lkp-item-meta {
+    font-size: 0.72rem;
+    color: #5b6472;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lkp-item-date {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1rem;
+    font-size: 0.75rem;
+    color: #5b6472;
+}
+.lkp-item-rel { font-size: 0.68rem; color: #8a93a0; }
+.lkp-empty {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #5b6472;
+}
+.lkp-empty-icon { font-size: 1.8rem; display: block; margin-bottom: 0.5rem; }
+.lkp-empty p { margin: 0.2rem 0; font-size: 0.85rem; }
+.lkp-empty-hint { color: #8a93a0; font-size: 0.78rem; }
+.lkp-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 0.9rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid #e2e6eb;
+}
+.lkp-footer .secondary-button {
+    background: none;
+    color: #5b6472;
+}
+.lkp-footer .primary-button {
+    background: #2f5fe0;
+    width: auto;
+}
+.lkp-footer .primary-button:hover:not(:disabled) { background: #2650c2; }
+.lkp-footer .primary-button:disabled { background: #c7cede; cursor: not-allowed; }
+
 .qe-panel-inner label {
     display: block;
     font-size: 0.8rem;

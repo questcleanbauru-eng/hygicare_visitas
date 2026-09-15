@@ -16,6 +16,7 @@ import {
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
 import { ensurePropostasForDedup, propostaItemFor, propostaEmAlerta } from '../utils/funilLink.js';
+import { openLinkPickerModal } from '../utils/linkPicker.js';
 
 // Lembra o filtro escolhido entre re-renders da tela (recarregar dados em
 // 2º plano, sync automático, voltar de outra tela...) — sem isso, qualquer
@@ -756,54 +757,25 @@ export function fillFunilContent(mainContent, funil) {
 // FunilVinculado na Proposta) pra dar pra abrir o vínculo a partir de
 // qualquer um dos dois.
 function openLinkPropostaModal(f, onLinked) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left;max-width:600px">
-            <h3 style="margin-top:0">Vincular a uma Proposta</h3>
-            <p class="helper-text" style="margin:-0.4rem 0 0.7rem">Busque pelo nome do cliente.</p>
-            <div class="form-group full-width searchable-select">
-                <input type="text" id="link-proposta-input" placeholder="Buscar cliente..." autocomplete="off">
-                <div class="searchable-select-menu" id="link-proposta-menu"></div>
-            </div>
-            <div class="form-actions full-width" style="display:flex;gap:0.5rem;margin-top:0.5rem">
-                <button type="button" class="secondary-button" id="link-proposta-cancel">Cancelar</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    const close = () => overlay.remove();
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    overlay.querySelector('#link-proposta-cancel').addEventListener('click', close);
-
     ensurePropostasForDedup().then(() => {
-        const items = (state.proposals || []).map((p) => {
-            const id = String(p.id || p.Id || '');
-            const cliente = p.cliente || p.Cliente || '-';
-            const foco = p.foco || p.Foco || '-';
-            const cidade = p.cidade || p.Cidade || '';
-            const data = p.data || p.Data || '';
-            const label = [cliente, foco, cidade, data].filter(Boolean)
-                .filter((v, i, arr) => i === 0 || v.toLowerCase() !== arr[i - 1].toLowerCase())
-                .join(' · ');
-            return { value: id, label, search: `${cliente} ${foco} ${cidade} ${data}` };
-        }).filter((it) => it.value);
+        const items = (state.proposals || []).map((p) => ({
+            id: String(p.id || p.Id || ''),
+            cliente: p.cliente || p.Cliente || '-',
+            tag: p.foco || p.Foco || '',
+            cidade: p.cidade || p.Cidade || '',
+            data: p.data || p.Data || ''
+        })).filter((it) => it.id);
 
-        // Sem pré-preencher com o nome exato do cliente: é justamente por
-        // causa da grafia diferente que o automático não achou, então
-        // filtrar de cara pelo nome completo quase sempre dava lista vazia.
-        // Fica em branco pra abrir com a lista inteira (busca livre a partir
-        // daí), só o placeholder sugere o nome como dica.
-        const input = overlay.querySelector('#link-proposta-input');
-        input.placeholder = f.cliente ? `Ex.: ${f.cliente}` : 'Buscar cliente...';
-        initializeSearchableInput({
-            input,
-            menu: overlay.querySelector('#link-proposta-menu'),
+        openLinkPickerModal({
+            eyebrow: `Funil · ${f.cliente || 'Cliente'}`,
+            title: 'Vincular a uma proposta',
+            contextText: `Vinculando à oportunidade do Funil de ${f.cliente || 'cliente'}${f.data ? ' · ' + f.data : ''}${f.vendedor ? ' · ' + f.vendedor : ''}${f.cidade ? ' · ' + f.cidade : ''}`,
+            searchPlaceholder: 'Buscar por cliente, cidade ou vendedor...',
+            confirmLabel: 'Vincular proposta selecionada',
+            emptyNoun: 'proposta',
+            currentCliente: f.cliente,
             items,
-            allowFreeText: true,
-            onSelect: async (propostaId) => {
-                if (!propostaId) return;
-                close();
+            onConfirm: async (propostaId) => {
                 const r = await callAPI('updateFunil', { id: f.id, propostaVinculada: propostaId, user: state.currentUser })
                     .catch((e) => ({ status: 'error', message: e.message }));
                 if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível vincular.', true); return; }
@@ -815,7 +787,6 @@ function openLinkPropostaModal(f, onLinked) {
                 if (onLinked) onLinked(); else renderFunilDetailPage(f.id, true);
             }
         });
-        setTimeout(() => input.focus(), 30);
     });
 }
 

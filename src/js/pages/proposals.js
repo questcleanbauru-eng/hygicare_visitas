@@ -16,6 +16,7 @@ import {
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
 import { ensureFunilForDedup, funilItemFor as funilItemForProposta, funilEmAlerta } from '../utils/funilLink.js';
+import { openLinkPickerModal } from '../utils/linkPicker.js';
 
 export function fillProposalsContent(mainContent, proposals) {
     let normalized = (proposals || []).map(normalizeProposal);
@@ -762,57 +763,34 @@ export async function renderProposalsPage() {
 // cima, pra quando a grafia do cliente é diferente entre as duas abas e o
 // app não acha sozinho. Espelha openLinkPropostaModal (funil.js).
 function openLinkFunilModal(proposal, onLinked) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left;max-width:600px">
-            <h3 style="margin-top:0">Vincular ao Funil</h3>
-            <p class="helper-text" style="margin:-0.4rem 0 0.7rem">Busque pelo nome do cliente.</p>
-            <div class="form-group full-width searchable-select">
-                <input type="text" id="link-funil-input" placeholder="Buscar cliente..." autocomplete="off">
-                <div class="searchable-select-menu" id="link-funil-menu"></div>
-            </div>
-            <div class="form-actions full-width" style="display:flex;gap:0.5rem;margin-top:0.5rem">
-                <button type="button" class="secondary-button" id="link-funil-cancel">Cancelar</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    const close = () => overlay.remove();
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    overlay.querySelector('#link-funil-cancel').addEventListener('click', close);
-
     ensureFunilForDedup().then(() => {
         const items = (state.funil || []).map((f) => {
-            const id = String(f.id || f.Id || '');
-            const cliente = f.cliente || f.Cliente || '-';
-            const foco = f.foco || f.Foco || '-';
+            const foco = f.foco || f.Foco || '';
             const aplicacao = f.aplicacao || f.Aplicacao || '';
-            const cidade = f.cidade || f.Cidade || '';
-            const data = f.data || f.Data || '';
-            // Foco e Aplicação às vezes têm o mesmo valor — sem isso a opção
-            // mostrava "EKKOA · EKKOA" repetido, feio e sem informação extra.
-            const parts = [cliente, foco, aplicacao, cidade, data].filter(Boolean)
-                .filter((v, i, arr) => i === 0 || v.toLowerCase() !== arr[i - 1].toLowerCase());
-            const label = parts.join(' · ');
-            return { value: id, label, search: `${cliente} ${foco} ${aplicacao} ${cidade} ${data}` };
-        }).filter((it) => it.value);
+            // Foco e Aplicação às vezes têm o mesmo valor — sem dedupe a tag
+            // mostrava "EKKOA · EKKOA" repetido, sem informação extra.
+            const tag = [foco, aplicacao].filter(Boolean)
+                .filter((v, i, arr) => i === 0 || v.toLowerCase() !== arr[i - 1].toLowerCase())
+                .join(' · ');
+            return {
+                id: String(f.id || f.Id || ''),
+                cliente: f.cliente || f.Cliente || '-',
+                tag,
+                cidade: f.cidade || f.Cidade || '',
+                data: f.data || f.Data || ''
+            };
+        }).filter((it) => it.id);
 
-        // Sem pré-preencher com o nome exato do cliente: é justamente por
-        // causa da grafia diferente que o automático não achou, então
-        // filtrar de cara pelo nome completo quase sempre dava lista vazia.
-        // Fica em branco pra abrir com a lista inteira (busca livre a partir
-        // daí), só o placeholder sugere o nome como dica.
-        const input = overlay.querySelector('#link-funil-input');
-        input.placeholder = proposal.cliente ? `Ex.: ${proposal.cliente}` : 'Buscar cliente...';
-        initializeSearchableInput({
-            input,
-            menu: overlay.querySelector('#link-funil-menu'),
+        openLinkPickerModal({
+            eyebrow: `Proposta · ${proposal.cliente || 'Cliente'}`,
+            title: 'Vincular ao Funil',
+            contextText: `Vinculando à proposta de ${proposal.cliente || 'cliente'}${proposal.data ? ' · ' + proposal.data : ''}${proposal.vendedor ? ' · ' + proposal.vendedor : ''}${proposal.cidade ? ' · ' + proposal.cidade : ''}`,
+            searchPlaceholder: 'Buscar por cliente, cidade ou vendedor...',
+            confirmLabel: 'Vincular oportunidade selecionada',
+            emptyNoun: 'oportunidade do Funil',
+            currentCliente: proposal.cliente,
             items,
-            allowFreeText: true,
-            onSelect: async (funilId) => {
-                if (!funilId) return;
-                close();
+            onConfirm: async (funilId) => {
                 const r = await callAPI('updateProposal', { id: proposal.id, funilVinculado: funilId, user: state.currentUser })
                     .catch((e) => ({ status: 'error', message: e.message }));
                 if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível vincular.', true); return; }
@@ -824,7 +802,6 @@ function openLinkFunilModal(proposal, onLinked) {
                 if (onLinked) onLinked(); else renderProposalDetailPage(proposal.id);
             }
         });
-        setTimeout(() => input.focus(), 30);
     });
 }
 
