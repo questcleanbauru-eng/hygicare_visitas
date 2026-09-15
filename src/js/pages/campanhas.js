@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, ensureFormData, attemptOrQueue } from '../api.js';
 import {
-    escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, formatCurrency,
+    escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint, formatCurrency,
     formatDateFieldValue, normalizeDisplayDateValue, parseDisplayDate, clienteSearchItem, findClienteByNome
 } from '../utils/format.js';
 import { showToast, setSaving, skeletonList, addScrollTop, openExternal, initializeSearchableInput } from '../utils/dom.js';

@@ -4,7 +4,7 @@ import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
     formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml,
     formatInputDateFromDisplay, formatDateFromDisplay,
-    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
+    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml
 } from '../utils/format.js';
 import {
@@ -504,8 +504,7 @@ export function fillProposalsContent(mainContent, proposals) {
             panel.querySelectorAll('.qe-status-btn').forEach((x) => x.classList.toggle('is-active', x === b));
         }));
         const ta = panel.querySelector('#qe-obs');
-        const hl = datedNoteHeader().length;
-        setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
+        setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
 
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('proposal-edit', { proposal: p }));
         panel.querySelector('#qe-link-funil')?.addEventListener('click', () => openLinkFunilModal(p, () => openProposalQuickPanel(p.id)));
@@ -1268,8 +1267,7 @@ export async function renderProposalCreatePage() {
     // posiciona o cursor depois do cabeçalho pra quando o campo ganhar foco.
     {
         const pcObs = document.getElementById('pc-obs');
-        const pcHeadLen = datedNoteHeader().length;
-        try { pcObs.setSelectionRange(pcHeadLen, pcHeadLen); } catch (e) {}
+        selectNoteHint(pcObs);
     }
 
     // Prefill vindo do "+ Ao Proposta" na edição rápida do Funil.
@@ -1431,8 +1429,7 @@ function openProposalQuickUpdateModal(p, onUpdated) {
     overlay.querySelector('#pq-cancel').addEventListener('click', close);
     // Cursor logo depois do "DD/MM/AAAA - " pra já sair digitando a anotação.
     const _pqTa = overlay.querySelector('#pq-obs');
-    const _pqHeadLen = datedNoteHeader().length;
-    setTimeout(() => { _pqTa.focus(); _pqTa.setSelectionRange(_pqHeadLen, _pqHeadLen); }, 30);
+    setTimeout(() => { _pqTa.focus(); selectNoteHint(_pqTa); }, 30);
     overlay.querySelector('#pq-save').addEventListener('click', async () => {
         const newStatus = overlay.querySelector('#pq-status').value;
         const newObs = stripEmptyDatedLine(overlay.querySelector('#pq-obs').value);

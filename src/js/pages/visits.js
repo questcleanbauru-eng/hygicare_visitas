@@ -7,7 +7,7 @@ import {
     formatDateFieldValue, normalizeDisplayDateValue, formatTimeFieldValue, normalizeTimeValue,
     normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
     calculateDaysFromDisplayDate,
-    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
+    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, clienteNomeParaGravar, multiCheckFilterFieldHtml
 } from '../utils/format.js';
 import {
@@ -400,8 +400,7 @@ export function fillVisitsContent(container, visits) {
                 <textarea id="qe-obs" rows="9">${escapeHtml(withDatedNoteHeader(v.observacao))}</textarea>
             </div>`;
         const ta = panel.querySelector('#qe-obs');
-        const hl = datedNoteHeader().length;
-        setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
+        setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('visit-edit', { visit: v }));
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const obs = stripEmptyDatedLine(ta.value);

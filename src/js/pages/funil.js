@@ -4,7 +4,7 @@ import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
     funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR,
-    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine,
+    datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml
 } from '../utils/format.js';
 import {
@@ -300,8 +300,14 @@ export function fillFunilContent(mainContent, funil) {
         });
         _funilCampanhaList = sorted.map((f) => ({ id: f.id, cliente: f.cliente, cidade: f.cidade, extra: [f.foco, f.atuacao].filter(Boolean).join(' · '), funilDiversey: f.funilDiversey === 'Sim' }));
 
+        // Agrupa pelo mês de "Data" (não Atualização) — usar atualização aqui
+        // fazia um registro "pular" pro mês corrente assim que era salvo,
+        // mesmo sendo, por exemplo, uma oportunidade de abril: some do grupo
+        // de abril e reaparece lá em cima, em setembro, confundindo quem
+        // está passando por um lote antigo. A ordem de mais recente primeiro
+        // (acima) já continua valendo DENTRO de cada mês.
         const byMonth = sorted.reduce((groups, f) => {
-            const d = parseDisplayDate(f.atualizacao) || parseDisplayDate(f.data);
+            const d = parseDisplayDate(f.data) || parseDisplayDate(f.atualizacao);
             const key = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'Sem data';
             if (!groups[key]) { groups[key] = []; }
             groups[key].push(f);
@@ -469,8 +475,7 @@ export function fillFunilContent(mainContent, funil) {
             panel.querySelector('#qe-motivo-wrap').style.display = selStatus === 'PERDIDO' ? '' : 'none';
         }));
         const ta = panel.querySelector('#qe-coment');
-        const hl = datedNoteHeader().length;
-        setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
+        setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
 
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
         panel.querySelector('#qe-link-proposta')?.addEventListener('click', () => openLinkPropostaModal(f, () => openFunilQuickPanel(f.id)));
@@ -835,8 +840,7 @@ function openFunilQuickUpdateModal(f, onUpdated) {
     overlay.querySelector('#fq-cancel').addEventListener('click', close);
     // Cursor logo depois do "DD/MM/AAAA - " pra já sair digitando a anotação.
     const _fqTa = overlay.querySelector('#fq-comentarios');
-    const _fqHeadLen = datedNoteHeader().length;
-    setTimeout(() => { _fqTa.focus(); _fqTa.setSelectionRange(_fqHeadLen, _fqHeadLen); }, 30);
+    setTimeout(() => { _fqTa.focus(); selectNoteHint(_fqTa); }, 30);
     overlay.querySelector('#fq-save').addEventListener('click', async () => {
         const newStatus = overlay.querySelector('#fq-status').value;
         const newComentarios = stripEmptyDatedLine(overlay.querySelector('#fq-comentarios').value);
@@ -1217,8 +1221,7 @@ export async function renderFunilCreatePage() {
     // posiciona o cursor depois do cabeçalho pra quando o campo ganhar foco.
     {
         const fcComentarios = document.getElementById('fc-comentarios');
-        const fcHeadLen = datedNoteHeader().length;
-        try { fcComentarios.setSelectionRange(fcHeadLen, fcHeadLen); } catch (e) {}
+        selectNoteHint(fcComentarios);
     }
 
     // Prefill vindo do "Adicionar ao Funil?" depois de salvar uma Visita.

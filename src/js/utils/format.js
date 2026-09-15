@@ -136,20 +136,43 @@ export function datedNoteHeader() {
     return `${formatDateForDisplay(new Date())} - `;
 }
 
+// Texto de exemplo mostrado logo após a data, pra dar uma ideia do que
+// escrever (fica selecionado — ver selectNoteHint — pra sumir no primeiro
+// toque de quem for digitar). Se ninguém tocar, stripEmptyDatedLine trata
+// como linha vazia (não entra no histórico).
+const NOTE_HINT = 'descreva o andamento e os próximos passos';
+
 // Prefixo pra abrir a edição: linha do dia + histórico existente embaixo.
 export function withDatedNoteHeader(existing) {
     const base = String(existing || '').trim();
-    return datedNoteHeader() + (base ? `\n${base}` : '');
+    return datedNoteHeader() + NOTE_HINT + (base ? `\n${base}` : '');
 }
 
-// Ao salvar: se a primeira linha ficou só "DD/MM/AAAA - " (nada digitado),
-// remove — senão sobraria uma linha vazia no histórico.
+// Ao salvar: se a primeira linha ficou só "DD/MM/AAAA - " (nada digitado)
+// ou só o texto de exemplo intocado, remove — senão sobraria uma linha
+// vazia (ou o exemplo) no histórico.
 export function stripEmptyDatedLine(value) {
     const lines = String(value || '').split('\n');
-    if (lines.length && /^\d{2}\/\d{2}\/\d{4}\s*-\s*$/.test(lines[0])) {
-        lines.shift();
+    if (lines.length) {
+        const m = lines[0].match(/^\d{2}\/\d{2}\/\d{4}\s*-\s*(.*)$/);
+        if (m && (m[1].trim() === '' || m[1].trim() === NOTE_HINT)) {
+            lines.shift();
+        }
     }
     return lines.join('\n').trim();
+}
+
+// Seleciona o texto de exemplo logo após "DD/MM/AAAA - ", pra quem for
+// digitar já substituir com o primeiro toque, em vez do cursor ficar
+// plantado no meio do exemplo (ou precisar apagar na mão antes).
+export function selectNoteHint(textarea) {
+    if (!textarea) return;
+    const headerLen = datedNoteHeader().length;
+    const value = textarea.value || '';
+    const end = value.slice(headerLen, headerLen + NOTE_HINT.length) === NOTE_HINT
+        ? headerLen + NOTE_HINT.length
+        : headerLen;
+    try { textarea.setSelectionRange(headerLen, end); } catch (e) {}
 }
 
 
