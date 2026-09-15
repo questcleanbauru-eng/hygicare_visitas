@@ -536,6 +536,7 @@ export async function renderVisitsPage() {
                 <p class="page-subtitle">Historico e registro de visitas</p>
             </div>
             <div class="page-header-actions">
+                ${isAdminOrGerenteUser() ? `<button type="button" class="mini-button" id="visits-nova-campanha" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>` : ''}
                 ${vpIsAdmin ? `<button type="button" class="mini-button qe-toggle${vpQeOn ? ' is-on' : ''}" id="visits-qe-toggle" title="Anotar na mesma tela, uma visita após a outra">⚡ Edição rápida</button>` : ''}
                 <button class="btn-add" id="btn-new-visit" type="button">+ Nova Visita</button>
             </div>
@@ -543,6 +544,10 @@ export async function renderVisitsPage() {
         <div id="visits-content">${cachedVisits ? '' : loadingState('📋', 'Carregando suas visitas...')}</div>
     `;
     document.getElementById('btn-new-visit').addEventListener('click', () => navigateTo('visit-new'));
+    document.getElementById('visits-nova-campanha')?.addEventListener('click', async () => {
+        const { openGerarCampanhaVisitaModal } = await import('./campanhas.js');
+        openGerarCampanhaVisitaModal();
+    });
     document.getElementById('visits-qe-toggle')?.addEventListener('click', (e) => {
         const on = (() => { try { return localStorage.getItem('visits_quick_edit') === '1'; } catch (err) { return false; } })();
         try { localStorage.setItem('visits_quick_edit', on ? '0' : '1'); } catch (err) {}
