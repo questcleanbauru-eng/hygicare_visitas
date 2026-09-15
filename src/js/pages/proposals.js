@@ -470,12 +470,13 @@ export function fillProposalsContent(mainContent, proposals) {
                         <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.data].filter(Boolean).join(' · '))}</p>
                     </div>
                     <div class="qe-panel-header-actions">
-                        ${state.canCreateProposalFunil && p.cliente ? (() => {
-                            const _fi = funilItemForProposta(p.cliente, p.foco);
-                            return _fi
-                                ? `<button type="button" class="mini-button" id="qe-in-funil" data-funil-id="${escapeHtml(String(_fi.id || _fi.Id || ''))}" title="Cliente já está no Funil — abrir">No Funil</button>`
-                                : `<button type="button" class="mini-button" id="qe-to-funil" title="Adicionar este cliente ao Funil de Vendas">+ Ao Funil</button>`;
-                        })() : ''}
+                        ${(() => {
+                            const _fl = p.funilVinculado ? (state.funil || []).find((fx) => String(fx.id || fx.Id) === String(p.funilVinculado)) : null;
+                            if (_fl) return `
+                                <button type="button" class="mini-button" id="qe-ver-funil" data-funil-id="${escapeHtml(String(_fl.id || _fl.Id || ''))}" title="Abrir oportunidade vinculada">🔗 ${escapeHtml(_fl.cliente || _fl.Cliente || '-')}</button>
+                                <button type="button" class="mini-button mini-button-danger" id="qe-desvincular-funil" title="Remover vínculo">Desvincular</button>`;
+                            return `<button type="button" class="mini-button" id="qe-link-funil" title="Buscar e vincular a uma oportunidade do Funil já cadastrada">🔗 Vincular Funil</button>`;
+                        })()}
                         <button type="button" class="primary-button" id="qe-save">Salvar</button>
                         <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta proposta">Editar tudo</button>
                     </div>
@@ -506,13 +507,23 @@ export function fillProposalsContent(mainContent, proposals) {
         setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
 
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('proposal-edit', { proposal: p }));
-        panel.querySelector('#qe-to-funil')?.addEventListener('click', () => {
-            state.funilPrefill = { cliente: p.cliente || '', cidade: p.cidade || '', foco: p.foco || '', atuacao: '' };
-            navigateTo('funil-new');
-        });
-        panel.querySelector('#qe-in-funil')?.addEventListener('click', (e) => {
+        panel.querySelector('#qe-link-funil')?.addEventListener('click', () => openLinkFunilModal(p, () => openProposalQuickPanel(p.id)));
+        panel.querySelector('#qe-ver-funil')?.addEventListener('click', (e) => {
             const id = e.currentTarget.dataset.funilId;
-            navigateTo(id ? 'funil-detail' : 'funil', id ? { id } : undefined);
+            if (id) navigateTo('funil-detail', { id });
+        });
+        panel.querySelector('#qe-desvincular-funil')?.addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            const funilId = p.funilVinculado;
+            const r = await callAPI('updateProposal', { id: p.id, funilVinculado: '', user: state.currentUser }).catch((err) => ({ status: 'error', message: err.message }));
+            if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível desvincular.', true); btn.disabled = false; return; }
+            if (funilId) callAPI('updateFunil', { id: funilId, propostaVinculada: '', user: state.currentUser }).catch(() => {});
+            p.funilVinculado = '';
+            const i = (state.proposals || []).findIndex((x) => String(x.Id || x.id) === String(p.id));
+            if (i >= 0) { state.proposals[i] = { ...state.proposals[i], FunilVinculado: '', funilVinculado: '' }; saveCache('proposals', state.proposals); }
+            showToast('Vínculo removido.');
+            openProposalQuickPanel(p.id);
         });
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
@@ -746,7 +757,7 @@ export async function renderProposalsPage() {
 // cadastrada — fallback pro casamento automático (cliente+foco) lá em
 // cima, pra quando a grafia do cliente é diferente entre as duas abas e o
 // app não acha sozinho. Espelha openLinkPropostaModal (funil.js).
-function openLinkFunilModal(proposal) {
+function openLinkFunilModal(proposal, onLinked) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
@@ -794,7 +805,7 @@ function openLinkFunilModal(proposal) {
                 const i = (state.proposals || []).findIndex((x) => String(x.Id || x.id) === String(proposal.id));
                 if (i >= 0) { state.proposals[i] = { ...state.proposals[i], FunilVinculado: funilId, funilVinculado: funilId }; saveCache('proposals', state.proposals); }
                 showToast('Vinculado ao Funil.');
-                renderProposalDetailPage(proposal.id);
+                if (onLinked) onLinked(); else renderProposalDetailPage(proposal.id);
             }
         });
         setTimeout(() => input.focus(), 30);
