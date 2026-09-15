@@ -582,10 +582,14 @@ export function fillProposalsContent(mainContent, proposals) {
     _proposalFilterIds.forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
-        if (_proposalTextFilterIds.has(id)) { el.addEventListener('input', _debouncedProposalFilter); }
+        // Grava em state.proposalFilters a cada mudança — a restauração lá
+        // em cima já lia daqui, mas nada gravava, então o filtro nunca era
+        // lembrado de verdade (sumia em qualquer re-render da tela).
+        const remember = () => { state.proposalFilters[id] = el.value; };
+        if (_proposalTextFilterIds.has(id)) { el.addEventListener('input', () => { remember(); _debouncedProposalFilter(); }); }
         // 'change' cobre <select> e o clique numa opção do filtro de múltipla
         // escolha (Status/Cidade/Vendedor), que só dispara 'change'.
-        el.addEventListener('change', renderFiltered);
+        el.addEventListener('change', () => { remember(); renderFiltered(); });
     });
 
     document.getElementById('proposal-filter-clear')?.addEventListener('click', () => {

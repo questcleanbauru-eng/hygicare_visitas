@@ -416,6 +416,18 @@ export function fillVisitsContent(container, visits) {
 
     const _visitFilterIds = ['visit-filter-search', 'visit-filter-type', 'visit-filter-city', 'visit-filter-prospeccao',
         'visit-filter-period', 'visit-filter-vendor', 'visit-filter-date-from', 'visit-filter-date-to'];
+
+    // Lembra os filtros entre re-renders da tela (recarregar em 2º plano,
+    // sync automático, voltar de outra tela...) — mesmo padrão já usado em
+    // Propostas (state.proposalFilters). Sem isso, qualquer um desses
+    // gatilhos reconstruía o formulário do zero e o filtro "sumia" mesmo
+    // sem o usuário ter tocado em "Limpar".
+    state.visitFilters = state.visitFilters || {};
+    _visitFilterIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && state.visitFilters[id]) el.value = state.visitFilters[id];
+    });
+
     const _visitTextFilterIds = new Set(['visit-filter-search']);
     const _debouncedVisitFilter = debounce(renderFilteredVisits, 250);
     _visitFilterIds.forEach((id) => {
@@ -423,12 +435,13 @@ export function fillVisitsContent(container, visits) {
             if (!element) {
                 return;
             }
+            const remember = () => { state.visitFilters[id] = element.value; };
             const isText = _visitTextFilterIds.has(id);
-            if (isText) { element.addEventListener('input', _debouncedVisitFilter); }
+            if (isText) { element.addEventListener('input', () => { remember(); _debouncedVisitFilter(); }); }
             // 'change' pega tanto os <select> quanto o clique numa opção do
             // filtro de múltipla escolha (Vendedor/Cidade/Tipo), que só dispara
             // 'change'.
-            element.addEventListener('change', renderFilteredVisits);
+            element.addEventListener('change', () => { remember(); renderFilteredVisits(); });
         });
 
     const syncVisitMultiCheckLabels = () => {
@@ -436,9 +449,11 @@ export function fillVisitsContent(container, visits) {
         syncMultiCheckFilterLabel('visit-filter-city-trigger', 'visit-filter-city');
         syncMultiCheckFilterLabel('visit-filter-vendor-trigger', 'visit-filter-vendor');
     };
+    syncVisitMultiCheckLabels();
 
     document.getElementById('visit-filters-clear')?.addEventListener('click', () => {
         _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        state.visitFilters = {};
         syncVisitMultiCheckLabels();
         state.visitsYearFilter = null;
         renderFilteredVisits();
@@ -446,7 +461,7 @@ export function fillVisitsContent(container, visits) {
     });
 
     renderSavedFilters(document.getElementById('visit-saved-filters'), 'visits', _visitFilterIds, (values) => {
-        _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
+        _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; state.visitFilters[id] = el.value; } });
         syncVisitMultiCheckLabels();
         renderFilteredVisits();
     });

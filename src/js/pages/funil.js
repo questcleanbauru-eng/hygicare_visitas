@@ -17,6 +17,13 @@ import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, in
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
 import { ensurePropostasForDedup, propostaItemFor, propostaEmAlerta } from '../utils/funilLink.js';
 
+// Lembra o filtro escolhido entre re-renders da tela (recarregar dados em
+// 2º plano, sync automático, voltar de outra tela...) — sem isso, qualquer
+// um desses gatilhos reconstruía o formulário do zero e o filtro "sumia"
+// mesmo sem o usuário ter tocado em "Limpar". Fica em memória (não
+// localStorage): dura a sessão, não precisa sobreviver a um F5.
+let _funilFilterMemory = {};
+
 export function fillFunilContent(mainContent, funil) {
     let funilData = funil || [];
     const isAdmGer = isAdminOrGerenteUser();
@@ -624,13 +631,20 @@ export function fillFunilContent(mainContent, funil) {
 
     const _funilTextFilterIds = new Set(['funil-filter-search', 'funil-filter-vl']);
     const _debouncedFunilFilter = debounce(renderFiltered, 250);
+    // Restaura o que tava selecionado antes desse (re)render — ver
+    // _funilFilterMemory no topo do arquivo.
+    _funilFilterIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && _funilFilterMemory[id] !== undefined) { el.value = _funilFilterMemory[id]; }
+    });
     _funilFilterIds.forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
-        if (_funilTextFilterIds.has(id)) { el.addEventListener('input', _debouncedFunilFilter); }
+        const remember = () => { _funilFilterMemory[id] = el.value; };
+        if (_funilTextFilterIds.has(id)) { el.addEventListener('input', () => { remember(); _debouncedFunilFilter(); }); }
         // 'change' cobre <select> e o clique numa opção do searchable-select
         // (Status/Cidade/Vendedor), que só dispara 'change'.
-        el.addEventListener('change', renderFiltered);
+        el.addEventListener('change', () => { remember(); renderFiltered(); });
     });
 
     const syncFunilMultiCheckLabels = () => {
@@ -638,15 +652,17 @@ export function fillFunilContent(mainContent, funil) {
         syncMultiCheckFilterLabel('funil-filter-cidade-trigger', 'funil-filter-cidade');
         syncMultiCheckFilterLabel('funil-filter-vendor-trigger', 'funil-filter-vendor');
     };
+    syncFunilMultiCheckLabels();
 
     renderSavedFilters(document.getElementById('funil-saved-filters'), 'funil', _funilFilterIds, (values) => {
-        _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
+        _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; _funilFilterMemory[id] = el.value; } });
         syncFunilMultiCheckLabels();
         renderFiltered();
     });
 
     document.getElementById('funil-filter-clear')?.addEventListener('click', () => {
         _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
+        _funilFilterMemory = {};
         syncFunilMultiCheckLabels();
         state.funilYearFilter = null;
         renderFiltered();
