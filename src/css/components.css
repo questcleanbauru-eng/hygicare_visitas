@@ -1538,15 +1538,21 @@ input[type="date"] {
 /* Só o botão — nada de faixa cobrindo o topo da tela nem empurrando o
    conteúdo. Fixo, pequeno, num canto (não atrapalha o header nem o resto
    do layout), some sozinho se a versão nova deixar de estar disponível. */
+/* Fica em cima da barra de navegação (mesmo canto de #pending-sync-banner)
+   em vez de logo abaixo do cabeçalho — ali sobrepunha o título "Início" e
+   o "Bom dia/Boa tarde" da tela inicial (fixed não empurra o conteúdo,
+   só flutua por cima). --nav-height vira 0 no desktop (sidebar), então
+   aqui o botão desce sozinho pra perto do rodapé da tela nesse caso. */
 #update-banner {
     position: fixed;
-    top: calc(var(--header-height) + var(--safe-top, 0px) + 0.5rem);
     right: 0.75rem;
+    bottom: calc(var(--nav-height) + var(--safe-bottom, 0px) + 0.75rem);
     z-index: var(--z-overlay-top);
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(6px);
     transition: opacity 0.2s ease-out, transform 0.2s ease-out;
     pointer-events: none;
+    box-shadow: var(--shadow);
 }
 
 #update-banner.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
@@ -2062,10 +2068,6 @@ input[type="date"] {
 
 @media (display-mode: standalone) {
     #offline-banner { top: calc(var(--header-height) + var(--safe-top)); }
-}
-
-@media (display-mode: standalone) {
-    #update-banner { top: calc(var(--header-height) + var(--safe-top) + 0.5rem); }
 }
 
 /* ── KPI tiles e barras proporcionais ("visual de relatório") ──────────────

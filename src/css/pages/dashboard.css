@@ -10,16 +10,23 @@
     gap: 0.8rem;
 }
 
-/* Grid em vez de flex+wrap: com 3 botões de largura diferente (texto
-   diferente), quebrar linha num flex deixava o 3º botão com uma largura
-   solta, sem alinhar com nenhum dos dois de cima. auto-fit faz cada linha
-   (3 numa tela larga, 2+1 no mobile) dividir o espaço em colunas iguais,
-   então o 3º botão sempre alinha com a borda do 1º. */
+/* 2 colunas fixas no mobile (em vez de auto-fit) com o 3º botão
+   ("Nova Oportunidade", quando é o último e sobra sozinho na 2ª linha)
+   esticado pras duas colunas — auto-fit alinhava a borda esquerda dele
+   certinho, mas deixava metade da linha vazia à direita, com cara de
+   botão "esquecido". A partir de 640px sobra largura pros 3 caberem
+   numa linha só, então volta pro auto-fit normal. */
 .dash-actions-bar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.35rem;
     margin-bottom: 0.6rem;
+}
+.dash-actions-bar > :last-child:nth-child(3) { grid-column: 1 / -1; }
+
+@media (min-width: 640px) {
+    .dash-actions-bar { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+    .dash-actions-bar > :last-child:nth-child(3) { grid-column: auto; }
 }
 
 .dash-action-primary {
