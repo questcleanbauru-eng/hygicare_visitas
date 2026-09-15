@@ -1489,6 +1489,7 @@ export async function renderFunilFormPage(funil) {
     let areas = [];
     let aplicacoes = [];
     let equipamentosList = [];
+    let vendedoresList = [];
     if (isAdminUser) {
         const fdResult = await ensureFormData();
         cidades = (fdResult.data && fdResult.data.cidades) || [];
@@ -1496,6 +1497,7 @@ export async function renderFunilFormPage(funil) {
         areas = (fdResult.data && fdResult.data.areasAtuacao) || [];
         aplicacoes = (fdResult.data && fdResult.data.aplicacoes) || [];
         equipamentosList = (fdResult.data && fdResult.data.equipamentos) || [];
+        vendedoresList = (fdResult.data && fdResult.data.vendedores) || [];
     }
 
     mainContent.innerHTML = `
@@ -1519,7 +1521,10 @@ export async function renderFunilFormPage(funil) {
             </div>
             <div class="form-group">
                 <label for="funil-vendedor">Vendedor</label>
-                <input type="text" id="funil-vendedor" value="${escapeHtml(f.vendedor || '')}">
+                <select id="funil-vendedor">
+                    ${f.vendedor && !vendedoresList.some((v) => v.nome === f.vendedor) ? `<option value="${escapeHtml(f.vendedor)}" selected>${escapeHtml(f.vendedor)}</option>` : ''}
+                    ${vendedoresList.map((v) => `<option value="${escapeHtml(v.nome)}"${v.nome === f.vendedor ? ' selected' : ''}>${escapeHtml(v.nome)}</option>`).join('')}
+                </select>
             </div>
             <div class="form-group">
                 <label for="funil-gerencia">Gerência</label>
