@@ -15,7 +15,7 @@
 
 .funil-status-banner {
     text-align: center;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;

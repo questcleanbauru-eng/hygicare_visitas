@@ -37,7 +37,7 @@
     background: #fffbeb;
     border: 1px solid var(--warning-border);
     color: #92400e;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     padding: 0.6rem 0.75rem;
     border-radius: var(--radius-sm);
     text-align: left;
@@ -168,7 +168,7 @@
     display: flex;
     justify-content: space-between;
     gap: 0.5rem;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     color: var(--text-muted);
     margin-top: 0.2rem;
 }
@@ -346,7 +346,7 @@
     justify-content: center;
     color: #fff;
     font-weight: 700;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     border: 2px solid #fff;
 }
 
@@ -371,7 +371,7 @@
     color: var(--text-muted);
     border-radius: 999px;
     padding: 0.35rem 0.85rem;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;

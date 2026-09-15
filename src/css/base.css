@@ -130,7 +130,7 @@ input, textarea, select,
 }
 
 .header-user-name {
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 600;
     color: var(--text);
 }
@@ -147,7 +147,7 @@ input, textarea, select,
     border-radius: 50%;
     background: linear-gradient(135deg, var(--primary-dark), var(--primary));
     color: #fff;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -583,7 +583,7 @@ main {
     min-height: 44px;
     padding: 0.35rem 0.75rem;
     color: var(--primary);
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 600;
     background-color: var(--primary-light);
     border: 1.5px solid #bfdbfe;
@@ -683,7 +683,7 @@ main {
     border-radius: var(--radius-sm);
     background: linear-gradient(135deg, var(--info), var(--primary));
     color: #fff;
-    font-size: 0.92rem;
+    font-size: var(--text-base);
     font-weight: 600;
     cursor: pointer;
     transition: transform 0.15s;
@@ -697,7 +697,7 @@ main {
     border-radius: 999px;
     padding: 0.5rem 0.9rem;
     color: var(--text);
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 500;
     transition: background-color 0.15s, border-color 0.15s;
 }
@@ -711,7 +711,7 @@ main {
     border-radius: var(--radius-sm);
     background: linear-gradient(135deg, var(--info), var(--primary));
     color: #fff;
-    font-size: 0.92rem;
+    font-size: var(--text-base);
     font-weight: 600;
     transition: transform 0.15s;
 }
@@ -729,7 +729,7 @@ main {
     background: transparent;
     color: var(--primary);
     font: inherit;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 600;
     /* Alvo de toque de 44px sem esticar a linha: a altura vem do padding
        vertical + line-height, e o negativo no eixo horizontal recolhe a

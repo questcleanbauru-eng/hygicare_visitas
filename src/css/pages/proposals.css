@@ -39,7 +39,7 @@
     display: flex;
     justify-content: space-between;
     gap: 0.5rem;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     color: var(--text-muted);
     margin-top: 0.4rem;
 }
@@ -59,7 +59,7 @@
     padding: 0.1rem 0.6rem;
     border: 1px solid var(--border);
     border-radius: 999px;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     font-weight: 600;
     color: var(--primary);
     background: var(--primary-light);
@@ -104,7 +104,7 @@
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
 }
 .detail-resumo summary { cursor: pointer; font-weight: 600; color: var(--primary); }
 .detail-resumo p { margin: 0.45rem 0 0; line-height: 1.45; color: var(--text); white-space: normal; }
