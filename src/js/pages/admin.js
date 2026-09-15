@@ -309,6 +309,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 ${renderLookupEditor('Potenciais Cliente', 'potenciaisCliente', data.lookups.potenciaisCliente)}
                 ${renderLookupEditor('Aplicacoes', 'aplicacoes', data.lookups.aplicacoes || [])}
                 ${renderLookupEditor('Equipamentos', 'equipamentos', data.lookups.equipamentos || [])}
+                ${renderLookupEditor('Tipos de Visita', 'tiposVisita', data.lookups.tiposVisita || [])}
             </div>
 
             <div class="admin-section" style="margin-top:1.25rem">
