@@ -86,8 +86,8 @@ input, textarea, select,
     font-size: 0.7rem;
     font-weight: 600;
     color: var(--text-muted);
-    background: var(--bg);
-    border: 1px solid var(--border);
+    background: var(--border);
+    border: none;
     border-radius: 999px;
     padding: 0.1rem 0.4rem;
     margin-left: 0.3rem;
@@ -440,9 +440,9 @@ input, textarea, select,
        abaixo); desktop (≥1024px) zera de novo em dashboard.css, já que lá
        a barra vira sidebar com position:static, sem sobrepor conteúdo. */
     --nav-height:     64px;
-    --radius-sm:      8px;
-    --radius:         12px;
-    --radius-lg:      18px;
+    --radius-sm:      10px;
+    --radius:         14px;
+    --radius-lg:      20px;
     /* App sem sombras — visual chapado. Os tokens continuam existindo (as
        telas referenciam var(--shadow-*) em vários lugares); só o valor
        virou "none". Anéis de foco (box-shadow: 0 0 0 Npx ...) são outra
@@ -570,8 +570,7 @@ main {
 
 .mini-button {
     border: none;
-    background: rgba(255,255,255,0.15);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     /* Alvo de toque de 44px (padrão iOS/Android): a altura vem do min-height
        + inline-flex centralizando o conteúdo; padding vertical menor pra não
        crescer além disso. Vale pra todo mini-button (Voltar, Limpar, Ocultar,
@@ -586,8 +585,7 @@ main {
     font-size: var(--text-sm);
     font-weight: 600;
     background-color: var(--primary-light);
-    border: 1.5px solid #bfdbfe;
-    transition: background-color 0.15s, border-color 0.15s;
+    transition: background-color 0.15s;
 }
 
 .mini-button svg { flex-shrink: 0; }
@@ -692,14 +690,14 @@ main {
 .primary-button:active { transform: scale(0.98); }
 
 .secondary-button {
-    border: 1.5px solid var(--border);
-    background-color: var(--surface);
+    border: none;
+    background-color: var(--border);
     border-radius: 999px;
     padding: 0.5rem 0.9rem;
     color: var(--text);
     font-size: var(--text-sm);
     font-weight: 500;
-    transition: background-color 0.15s, border-color 0.15s;
+    transition: background-color 0.15s;
 }
 
 .secondary-button { width: auto; }
@@ -717,10 +715,10 @@ main {
 }
 
 .form-actions .secondary-button {
-    background: var(--surface);
+    background: var(--border);
     background-image: none;
     color: var(--text);
-    border: 1.5px solid var(--border);
+    border: none;
     box-shadow: none;
 }
 

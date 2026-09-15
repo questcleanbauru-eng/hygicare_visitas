@@ -34,7 +34,6 @@
     border-radius: var(--radius);
     padding: 0.85rem;
     box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border);
 }
 
 .form-card {
@@ -155,12 +154,9 @@ textarea { resize: vertical; }
     color: var(--text);
 }
 
-.mini-button:hover { background-color: var(--info-bg); border-color: var(--border-focus); }
+.mini-button:hover { background-color: var(--info-bg); }
 
-.secondary-button:hover {
-    background-color: #f1f5f9;
-    border-color: #cbd5e1;
-}
+.secondary-button:hover { background-color: #cbd5e1; }
 
 .btn-add {
     background: linear-gradient(135deg, var(--info), var(--primary));
@@ -188,18 +184,17 @@ textarea { resize: vertical; }
 .btn-logout {
     width: 100%;
     padding: 0.78rem;
-    border: 1.5px solid var(--border);
+    border: none;
     border-radius: var(--radius-sm);
-    background-color: var(--surface);
+    background-color: var(--bg);
     color: var(--text-muted);
     font-size: var(--text-base);
     font-weight: 500;
-    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+    transition: background-color 0.15s, color 0.15s;
 }
 
 .btn-logout:hover {
     background-color: #fef2f2;
-    border-color: #fca5a5;
     color: var(--danger);
 }
 
@@ -398,7 +393,6 @@ textarea { resize: vertical; }
     border-radius: var(--radius);
     padding: 1rem;
     box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
@@ -643,13 +637,13 @@ textarea { resize: vertical; }
     height: 40px;
     border-radius: 50%;
     background: var(--surface);
-    border: 1.5px solid var(--border);
+    border: none;
     color: var(--text-muted);
     font-size: var(--text-lg);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow);
     z-index: var(--z-fab);
     opacity: 0;
     transform: translateY(12px);
@@ -992,7 +986,6 @@ textarea { resize: vertical; }
     display: none;
     padding: 0.85rem;
     background-color: var(--surface);
-    border: 1.5px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
     z-index: var(--z-picker);
@@ -1016,7 +1009,6 @@ textarea { resize: vertical; }
     max-height: 210px;
     overflow-y: auto;
     background-color: var(--surface);
-    border: 1.5px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
     z-index: var(--z-sticky);
@@ -1460,7 +1452,7 @@ input[type="date"] {
 
 .skel-card   {
     background: var(--surface);
-    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
     border-radius: var(--radius);
     padding: 0.85rem 1rem;
     display: flex;
@@ -1839,14 +1831,14 @@ input[type="date"] {
 
 .csv-export-btn {
     display: inline-flex; align-items: center; gap: 0.3rem;
-    background: none; border: 1.5px solid var(--border);
+    background: var(--border); border: none;
     border-radius: var(--radius-sm); color: var(--text-muted-strong);
     font-size: 0.76rem; font-weight: 600; padding: 0.3rem 0.6rem;
     cursor: pointer; flex-shrink: 0; white-space: nowrap;
-    transition: border-color 0.15s, color 0.15s;
+    transition: background-color 0.15s, color 0.15s;
 }
 
-.csv-export-btn:hover { border-color: var(--primary); color: var(--primary); }
+.csv-export-btn:hover { background-color: var(--primary-light); color: var(--primary); }
 
 /* ── Breadcrumb ───────────────────────────────────────────── */
 
@@ -1991,7 +1983,6 @@ input[type="date"] {
     margin: 0 0 0.6rem;
     padding: 0.4rem 0.55rem;
     background: var(--bg);
-    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-size: 0.83rem;
     line-height: 1.35;
@@ -2024,8 +2015,8 @@ input[type="date"] {
 
 .inline-status-editor {
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
     overflow: hidden;
     min-width: 148px;
 }
@@ -2209,8 +2200,8 @@ input[type="date"] {
     position: sticky;
     top: 0.75rem;
     background: var(--surface);
-    border: 1px solid var(--border);
     border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
     max-height: calc(100vh - 130px);
     overflow-y: auto;
 }
