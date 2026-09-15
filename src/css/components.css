@@ -1006,7 +1006,7 @@ textarea { resize: vertical; }
     right: 0;
     display: none;
     flex-direction: column;
-    max-height: 320px;
+    max-height: 400px;
     overflow-y: auto;
     background-color: var(--surface);
     border-radius: var(--radius);

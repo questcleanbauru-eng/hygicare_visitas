@@ -740,7 +740,7 @@ function openLinkPropostaModal(f, onLinked) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left;max-width:480px">
+        <div class="modal-card" style="text-align:left;max-width:600px">
             <h3 style="margin-top:0">Vincular a uma Proposta</h3>
             <p class="helper-text" style="margin:-0.4rem 0 0.7rem">Busque pelo nome do cliente.</p>
             <div class="form-group full-width searchable-select">
@@ -763,7 +763,9 @@ function openLinkPropostaModal(f, onLinked) {
             const cliente = p.cliente || p.Cliente || '-';
             const foco = p.foco || p.Foco || '-';
             const cidade = p.cidade || p.Cidade || '';
-            return { value: id, label: `${cliente} · ${foco}${cidade ? ' · ' + cidade : ''}`, search: `${cliente} ${foco} ${cidade}` };
+            const data = p.data || p.Data || '';
+            const label = [cliente, foco, cidade, data].filter(Boolean).join(' · ');
+            return { value: id, label, search: `${cliente} ${foco} ${cidade} ${data}` };
         }).filter((it) => it.value);
 
         // Sem pré-preencher com o nome exato do cliente: é justamente por

@@ -761,7 +761,7 @@ function openLinkFunilModal(proposal, onLinked) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left;max-width:480px">
+        <div class="modal-card" style="text-align:left;max-width:600px">
             <h3 style="margin-top:0">Vincular ao Funil</h3>
             <p class="helper-text" style="margin:-0.4rem 0 0.7rem">Busque pelo nome do cliente.</p>
             <div class="form-group full-width searchable-select">
@@ -783,8 +783,11 @@ function openLinkFunilModal(proposal, onLinked) {
             const id = String(f.id || f.Id || '');
             const cliente = f.cliente || f.Cliente || '-';
             const foco = f.foco || f.Foco || '-';
+            const aplicacao = f.aplicacao || f.Aplicacao || '';
             const cidade = f.cidade || f.Cidade || '';
-            return { value: id, label: `${cliente} · ${foco}${cidade ? ' · ' + cidade : ''}`, search: `${cliente} ${foco} ${cidade}` };
+            const data = f.data || f.Data || '';
+            const label = [cliente, foco, aplicacao, cidade, data].filter(Boolean).join(' · ');
+            return { value: id, label, search: `${cliente} ${foco} ${aplicacao} ${cidade} ${data}` };
         }).filter((it) => it.value);
 
         // Sem pré-preencher com o nome exato do cliente: é justamente por
