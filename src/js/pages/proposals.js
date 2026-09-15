@@ -470,6 +470,12 @@ export function fillProposalsContent(mainContent, proposals) {
                         <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.data].filter(Boolean).join(' · '))}</p>
                     </div>
                     <div class="qe-panel-header-actions">
+                        ${state.canCreateProposalFunil && p.cliente ? (() => {
+                            const _fi = funilItemForProposta(p.cliente, p.foco);
+                            return _fi
+                                ? `<button type="button" class="mini-button" id="qe-in-funil" data-funil-id="${escapeHtml(String(_fi.id || _fi.Id || ''))}" title="Cliente já está no Funil — abrir">No Funil</button>`
+                                : `<button type="button" class="mini-button" id="qe-to-funil" title="Adicionar este cliente ao Funil de Vendas">+ Ao Funil</button>`;
+                        })() : ''}
                         <button type="button" class="primary-button" id="qe-save">Salvar</button>
                         <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta proposta">Editar tudo</button>
                     </div>
@@ -500,6 +506,14 @@ export function fillProposalsContent(mainContent, proposals) {
         setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
 
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('proposal-edit', { proposal: p }));
+        panel.querySelector('#qe-to-funil')?.addEventListener('click', () => {
+            state.funilPrefill = { cliente: p.cliente || '', cidade: p.cidade || '', foco: p.foco || '', atuacao: '' };
+            navigateTo('funil-new');
+        });
+        panel.querySelector('#qe-in-funil')?.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.funilId;
+            navigateTo(id ? 'funil-detail' : 'funil', id ? { id } : undefined);
+        });
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const obs = stripEmptyDatedLine(ta.value);
@@ -1252,6 +1266,16 @@ export async function renderProposalCreatePage() {
         const pcObs = document.getElementById('pc-obs');
         const pcHeadLen = datedNoteHeader().length;
         try { pcObs.setSelectionRange(pcHeadLen, pcHeadLen); } catch (e) {}
+    }
+
+    // Prefill vindo do "+ Ao Proposta" na edição rápida do Funil.
+    if (state.proposalPrefill) {
+        const pf = state.proposalPrefill;
+        state.proposalPrefill = null;
+        if (pf.cliente) document.getElementById('pc-cliente').value = pf.cliente;
+        if (pf.cidade) document.getElementById('pc-cidade').value = pf.cidade;
+        if (pf.foco) document.getElementById('pc-foco').value = pf.foco;
+        if (pf.produtos) document.getElementById('pc-produtos').value = pf.produtos;
     }
 
     document.getElementById('back-proposal-create').addEventListener('click', () => navigateTo('proposals'));

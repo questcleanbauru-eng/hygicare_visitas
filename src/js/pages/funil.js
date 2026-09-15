@@ -399,6 +399,12 @@ export function fillFunilContent(mainContent, funil) {
                         <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.data || f.atualizacao].filter(Boolean).join(' · '))}</p>
                     </div>
                     <div class="qe-panel-header-actions">
+                        ${state.canCreateProposalFunil && f.cliente ? (() => {
+                            const _pi = propostaItemFor(f.cliente, f.foco);
+                            return _pi
+                                ? `<button type="button" class="mini-button" id="qe-in-proposta" data-proposta-id="${escapeHtml(String(_pi.id || _pi.Id || ''))}" title="Cliente já tem Proposta — abrir">Na Proposta</button>`
+                                : `<button type="button" class="mini-button" id="qe-to-proposta" title="Criar uma Proposta pra este cliente">+ Ao Proposta</button>`;
+                        })() : ''}
                         <button type="button" class="primary-button" id="qe-save">Salvar</button>
                         <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta oportunidade">Editar tudo</button>
                     </div>
@@ -455,6 +461,14 @@ export function fillFunilContent(mainContent, funil) {
         setTimeout(() => { ta.focus(); try { ta.setSelectionRange(hl, hl); } catch (e) {} }, 20);
 
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
+        panel.querySelector('#qe-to-proposta')?.addEventListener('click', () => {
+            state.proposalPrefill = { cliente: f.cliente || '', cidade: f.cidade || '', foco: f.foco || '', produtos: f.equipamentos || '' };
+            navigateTo('proposal-new');
+        });
+        panel.querySelector('#qe-in-proposta')?.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.propostaId;
+            navigateTo(id ? 'proposal-detail' : 'proposals', id ? { id } : undefined);
+        });
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const motivo = (panel.querySelector('#qe-motivo')?.value || '').trim();
