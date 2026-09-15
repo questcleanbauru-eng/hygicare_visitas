@@ -33,6 +33,10 @@ function renderPermFieldsHtml(perms) {
             <label>Acesso ao Radar</label>
             <select class="uif-perm-radar">${opt(perms.permAcessoRadar)}</select>
         </div>
+        <div class="uif-field">
+            <label>Ver visitas de todos</label>
+            <select class="uif-perm-vistodas">${opt(perms.permVerTodasVisitas)}</select>
+        </div>
     `;
 }
 
@@ -41,7 +45,8 @@ function readPermFieldsValue(scope) {
     return {
         permDelete: map[scope.querySelector('.uif-perm-delete').value] ?? '',
         permCriarPropostaFunil: map[scope.querySelector('.uif-perm-criar').value] ?? '',
-        permAcessoRadar: map[scope.querySelector('.uif-perm-radar').value] ?? ''
+        permAcessoRadar: map[scope.querySelector('.uif-perm-radar').value] ?? '',
+        permVerTodasVisitas: map[scope.querySelector('.uif-perm-vistodas').value] ?? ''
     };
 }
 
@@ -780,7 +785,8 @@ export function bindAdminEvents(data) {
             const perms = {
                 permDelete: user.permDelete || user.PermDelete || '',
                 permCriarPropostaFunil: user.permCriarPropostaFunil || user.PermCriarPropostaFunil || '',
-                permAcessoRadar: user.permAcessoRadar || user.PermAcessoRadar || ''
+                permAcessoRadar: user.permAcessoRadar || user.PermAcessoRadar || '',
+                permVerTodasVisitas: user.permVerTodasVisitas || user.PermVerTodasVisitas || ''
             };
             const pc = profileClass(perfil);
 
