@@ -1316,7 +1316,7 @@ function bindImportarTab() {
                                     <td class="ir-data">${escapeHtml(l.data || '')}</td>
                                     <td><input type="text" class="il-vend" list="import-vend-dl" value="${escapeHtml(l.vendedorSugerido || l.vendedorArquivo || '')}" placeholder="—"></td>
                                     <td>${escapeHtml(l.cliente || '')}</td>
-                                    <td>${escapeHtml(l.produtos || '')}</td>
+                                    <td><input type="text" class="il-produtos" value="${escapeHtml(l.produtos || '')}" placeholder="—"></td>
                                     <td>${escapeHtml(l.foco || '')}</td>
                                     <td><select class="il-foco">${focoOptions(l.foco)}</select></td>
                                     <td><input type="text" class="il-cidade" list="import-cidade-dl" value="${escapeHtml(l.cidade || '')}" placeholder="—"></td>
@@ -1428,6 +1428,7 @@ function bindImportarTab() {
         });
         const linhaFocoMap = {};
         const linhaCidadeMap = {};
+        const linhaProdutosMap = {};
         const rowsPerLinha = Array.from(resultado.querySelectorAll('tr[data-linha-row]'));
         rowsPerLinha.forEach((tr) => {
             const n = tr.dataset.linhaRow;
@@ -1435,6 +1436,8 @@ function bindImportarTab() {
             if (foco) linhaFocoMap[n] = foco;
             const cidade = (tr.querySelector('.il-cidade')?.value || '').trim();
             if (cidade) linhaCidadeMap[n] = cidade;
+            const produtos = (tr.querySelector('.il-produtos')?.value || '').trim();
+            if (produtos) linhaProdutosMap[n] = produtos;
             if (tr.classList.contains('is-skipped')) { linhaMap[n] = '__DESCARTAR__'; return; }
             const v = (tr.querySelector('.il-vend').value || '').trim();
             linhaMap[n] = v || '__IGNORAR__';
@@ -1467,7 +1470,7 @@ function bindImportarTab() {
         }
 
         setSaving(true, btn, 'Importando...');
-        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap, linhaMap, linhaFocoMap, linhaCidadeMap });
+        const res = await callAPI(action, { user: state.currentUser, ...extra, ...fileData, dryRun: false, vendedorMap, clienteVendedorMap, linhaMap, linhaFocoMap, linhaCidadeMap, linhaProdutosMap });
         setSaving(false, btn);
         if (res.status !== 'success') {
             resultado.insertAdjacentHTML('beforeend', `<p class="error-message">${escapeHtml(res.message || 'Erro ao importar.')}</p>`);
