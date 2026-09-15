@@ -41,6 +41,19 @@
     color: var(--success);
 }
 
+/* Aplicação no card — mesmo cliente + foco podem ter mais de uma
+   oportunidade legítima quando a aplicação é diferente (ver botão
+   "Duplicar"); sem mostrar a aplicação, os dois cards ficavam idênticos
+   na lista e não dava pra saber o que diferenciava um do outro. */
+.funil-aplicacao-tag {
+    display: inline-block;
+    padding: 0.02rem 0.4rem;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #0369a1;
+    font-weight: 600;
+}
+
 .funil-readonly-info {
     display: grid;
     gap: 0.5rem;

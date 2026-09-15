@@ -149,8 +149,8 @@ export function fillProposalsContent(mainContent, proposals) {
                     <label for="pf-date-to">${filterLabelHtml('Criação até')}</label>
                     <input type="date" id="pf-date-to">
                 </div>
+                <div id="proposal-year-chips" class="year-chips-row"></div>
             </div>
-            <div id="proposal-year-chips" class="year-chips-row"></div>
         </div>
         <div class="scope-banner scope-days-ctrl">
             <label for="scope-dias-input">Período:</label>

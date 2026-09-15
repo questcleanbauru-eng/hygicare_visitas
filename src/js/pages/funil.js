@@ -174,8 +174,8 @@ export function fillFunilContent(mainContent, funil) {
                     <label for="funil-filter-vl">${filterLabelHtml('Valor minimo R$')}</label>
                     <input type="number" id="funil-filter-vl" placeholder="0" min="0">
                 </div>
+                <div id="funil-year-chips" class="year-chips-row"></div>
             </div>
-            <div id="funil-year-chips" class="year-chips-row"></div>
         </div>
         <div class="scope-banner scope-days-ctrl">
             <label for="scope-dias-input">Período:</label>
@@ -326,7 +326,7 @@ export function fillFunilContent(mainContent, funil) {
                             ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(f.status || '-')}" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(f.status || '')}">${escapeHtml(f.status || '-')}</span>`}
                         </div>
                         <div class="proposal-meta">
-                            <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}</span>
+                            <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}${f.aplicacao ? ` · <span class="funil-aplicacao-tag">${escapeHtml(f.aplicacao)}</span>` : ''}</span>
                             <span>${isAdmGer && f.vendedor ? escapeHtml(f.vendedor) + ' · ' : ''}${escapeHtml(f.data || f.atualizacao || '-')}${f.vlMensal ? ` · <span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}</span>
                         </div>
                         ${overdue ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
