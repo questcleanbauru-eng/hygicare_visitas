@@ -740,7 +740,7 @@ function openLinkPropostaModal(f, onLinked) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left">
+        <div class="modal-card" style="text-align:left;max-width:480px">
             <h3 style="margin-top:0">Vincular a uma Proposta</h3>
             <p class="helper-text" style="margin:-0.4rem 0 0.7rem">Busque pelo nome do cliente.</p>
             <div class="form-group full-width searchable-select">
