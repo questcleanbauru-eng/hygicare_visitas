@@ -2227,10 +2227,19 @@ input[type="date"] {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
 }
-.qe-panel-header-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+.qe-panel-header-actions { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+/* .primary-button "de fábrica" é display:block + width:100% (pensado pra
+   ficar sozinho no rodapé de um formulário) — sem isso aqui ele ainda
+   tentava ocupar a largura toda da linha mesmo com o padding já reduzido
+   abaixo, ficando bem maior que os mini-button vizinhos (Vincular
+   Proposta/Funil, Editar tudo). */
 .qe-panel-header-actions .primary-button,
 .qe-panel-header-actions .secondary-button {
-    padding: 0.5rem 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+    min-height: 44px;
+    padding: 0.35rem 0.9rem;
     font-size: var(--text-sm);
     white-space: nowrap;
 }
