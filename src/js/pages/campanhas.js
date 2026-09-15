@@ -55,7 +55,7 @@ export function openSelecionarClientesModal(tipo, items) {
                 ${list.map((it) => `
                     <label class="camp-sel-row" data-txt="${escapeHtml((it.cliente + ' ' + (it.cidade || '')).toLowerCase())}">
                         <input type="checkbox" class="camp-sel-item" value="${escapeHtml(it.id)}">
-                        <span><strong>${escapeHtml(it.cliente || 'Cliente')}</strong>${it.cidade || it.extra ? `<br><span class="helper-text">${escapeHtml([it.cidade, it.extra].filter(Boolean).join(' · '))}</span>` : ''}</span>
+                        <span><strong>${escapeHtml(it.cliente || 'Cliente')}</strong>${it.funilDiversey ? ' <span class="funil-diversey-tag">⭐ Diversey</span>' : ''}${it.cidade || it.extra ? `<br><span class="helper-text">${escapeHtml([it.cidade, it.extra].filter(Boolean).join(' · '))}</span>` : ''}</span>
                     </label>`).join('')}
             </div>
             <div class="form-actions full-width" style="display:flex;gap:0.5rem">
@@ -377,11 +377,13 @@ export async function openGerarCampanhaModal(tipo, itemIds, selectedItems) {
         const buildMsg = () => {
             const primeiroNome = vendedorDestino.split(' ')[0];
             const clientesTxt = (selectedItems || [])
-                .map((it) => `• ${it.cliente || 'Cliente'}${it.cidade ? ' — ' + it.cidade : ''}`)
+                .map((it) => `• ${it.funilDiversey ? '⭐ ' : ''}${it.cliente || 'Cliente'}${it.cidade ? ' — ' + it.cidade : ''}`)
                 .join('\n');
+            const temDiversey = tipo === 'funil' && (selectedItems || []).some((it) => it.funilDiversey);
             return [
                 `Oi ${primeiroNome}! Preciso que você atualize o status ${tipo === 'funil' ? 'destas oportunidades do Funil' : 'destas propostas'}:`,
                 clientesTxt,
+                temDiversey ? `\n⭐ = Funil Diversey, acompanhar de perto.` : '',
                 prazoAte ? `\nPrazo: ${prazoAte}` : '',
                 loginNome
                     ? `\nPra entrar, é só abrir o link e informar seu PIN (4 últimos números do seu celular) — seu login já vem preenchido.`
@@ -459,6 +461,7 @@ export async function renderCampanhaPreencherPage(id) {
         <div class="card camp-card${it.respondidoEm ? ' camp-card-done' : ''}" data-idx="${idx}">
             <div class="camp-card-head">
                 <strong>${escapeHtml(it.cliente || 'Cliente')}</strong>
+                ${it.funilDiversey ? '<span class="funil-diversey-tag">⭐ Diversey</span>' : ''}
                 ${it.respondidoEm ? '<span class="camp-tag-ok">✓ atualizado</span>' : ''}
             </div>
             <p class="helper-text" style="margin:0.15rem 0 0.5rem">${escapeHtml(ctx || '-')}<br>Status atual: <strong>${escapeHtml(it.status || '-')}</strong> · última atualização ${escapeHtml(it.atualizacao || '-')}</p>
@@ -743,7 +746,7 @@ export async function renderCampanhasPage() {
         box.innerHTML = itens.map((it) => `
             <div class="camp-admin-item${it.respondidoEm ? ' camp-admin-item-done' : ''}">
                 <span>${it.respondidoEm ? '✓' : '⏳'}</span>
-                <span class="camp-admin-item-nome">${escapeHtml(it.ausente ? 'Registro não encontrado (pode ter sido apagado)' : (it.cliente || 'Cliente'))}</span>
+                <span class="camp-admin-item-nome">${escapeHtml(it.ausente ? 'Registro não encontrado (pode ter sido apagado)' : (it.cliente || 'Cliente'))}${it.funilDiversey ? ' ⭐' : ''}</span>
                 <span class="helper-text">${it.respondidoEm ? `atualizado em ${escapeHtml(it.respondidoEm)}` : 'pendente'}</span>
             </div>`).join('');
         box.dataset.loaded = '1';

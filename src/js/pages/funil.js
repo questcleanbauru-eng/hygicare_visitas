@@ -297,7 +297,7 @@ export function fillFunilContent(mainContent, funil) {
             const db = parseDisplayDate(b.atualizacao) || parseDisplayDate(b.data);
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
-        _funilCampanhaList = sorted.map((f) => ({ id: f.id, cliente: f.cliente, cidade: f.cidade, extra: [f.foco, f.atuacao].filter(Boolean).join(' · ') }));
+        _funilCampanhaList = sorted.map((f) => ({ id: f.id, cliente: f.cliente, cidade: f.cidade, extra: [f.foco, f.atuacao].filter(Boolean).join(' · '), funilDiversey: f.funilDiversey === 'Sim' }));
 
         const byMonth = sorted.reduce((groups, f) => {
             const d = parseDisplayDate(f.atualizacao) || parseDisplayDate(f.data);
