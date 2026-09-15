@@ -790,7 +790,11 @@ function openLinkFunilModal(proposal, onLinked) {
             const aplicacao = f.aplicacao || f.Aplicacao || '';
             const cidade = f.cidade || f.Cidade || '';
             const data = f.data || f.Data || '';
-            const label = [cliente, foco, aplicacao, cidade, data].filter(Boolean).join(' · ');
+            // Foco e Aplicação às vezes têm o mesmo valor — sem isso a opção
+            // mostrava "EKKOA · EKKOA" repetido, feio e sem informação extra.
+            const parts = [cliente, foco, aplicacao, cidade, data].filter(Boolean)
+                .filter((v, i, arr) => i === 0 || v.toLowerCase() !== arr[i - 1].toLowerCase());
+            const label = parts.join(' · ');
             return { value: id, label, search: `${cliente} ${foco} ${aplicacao} ${cidade} ${data}` };
         }).filter((it) => it.value);
 
@@ -900,7 +904,7 @@ export async function renderProposalDetailPage(id) {
             ${renderDetailRow('E-mail', proposal.email || '-')}
         </div>
         ${funilLinkado ? `
-        <div class="card detail-card">
+        <div class="card detail-card funil-link-card">
             <div class="funil-readonly-row">
                 <span>Funil vinculado</span>
                 <span>
@@ -909,7 +913,7 @@ export async function renderProposalDetailPage(id) {
                 </span>
             </div>
         </div>` : (!funilDoCliente ? `
-        <div class="card detail-card">
+        <div class="card detail-card funil-link-card">
             <div class="funil-readonly-row">
                 <span>Funil vinculado</span>
                 <button type="button" class="mini-button" id="vincular-funil">🔗 Vincular ao Funil</button>

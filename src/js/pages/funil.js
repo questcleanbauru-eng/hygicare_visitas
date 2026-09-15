@@ -783,7 +783,9 @@ function openLinkPropostaModal(f, onLinked) {
             const foco = p.foco || p.Foco || '-';
             const cidade = p.cidade || p.Cidade || '';
             const data = p.data || p.Data || '';
-            const label = [cliente, foco, cidade, data].filter(Boolean).join(' · ');
+            const label = [cliente, foco, cidade, data].filter(Boolean)
+                .filter((v, i, arr) => i === 0 || v.toLowerCase() !== arr[i - 1].toLowerCase())
+                .join(' · ');
             return { value: id, label, search: `${cliente} ${foco} ${cidade} ${data}` };
         }).filter((it) => it.value);
 

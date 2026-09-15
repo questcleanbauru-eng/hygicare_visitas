@@ -2244,6 +2244,29 @@ input[type="date"] {
     white-space: nowrap;
 }
 
+/* Vincular Proposta/Funil — a lista de busca fica apertada no celular
+   (nomes compostos quebram linha, pouco espaço pra ler direito). Fica só
+   no desktop por enquanto; no celular quem precisar ainda vincula pelo
+   admin/computador. */
+#vincular-funil, #ver-funil-vinculado, #desvincular-funil,
+#vincular-proposta, #ver-proposta-vinculada, #desvincular-proposta,
+#qe-link-funil, #qe-ver-funil, #qe-desvincular-funil,
+#qe-link-proposta, #qe-ver-proposta, #qe-desvincular-proposta {
+    display: none;
+}
+.funil-link-card { display: none; }
+@media (min-width: 1024px) {
+    #vincular-funil, #ver-funil-vinculado, #desvincular-funil,
+    #vincular-proposta, #ver-proposta-vinculada, #desvincular-proposta {
+        display: inline-flex;
+    }
+    #qe-link-funil, #qe-ver-funil, #qe-desvincular-funil,
+    #qe-link-proposta, #qe-ver-proposta, #qe-desvincular-proposta {
+        display: inline-flex;
+    }
+    .funil-link-card { display: block; }
+}
+
 .qe-panel-inner label {
     display: block;
     font-size: 0.8rem;
