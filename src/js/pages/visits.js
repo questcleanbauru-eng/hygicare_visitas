@@ -1299,17 +1299,17 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     initializeSearchableInput({
         input: cidadeSelect,
         menu: document.getElementById('cidade-menu'),
-        items: formData.cidades
+        items: formData.cidades, allowFreeText: true
     });
     initializeSearchableInput({
         input: areaSelect,
         menu: document.getElementById('area-atuacao-menu'),
-        items: formData.areasAtuacao
+        items: formData.areasAtuacao, allowFreeText: true
     });
     initializeSearchableInput({
         input: potencialSelect,
         menu: document.getElementById('potencial-cliente-menu'),
-        items: formData.potenciaisCliente
+        items: formData.potenciaisCliente, allowFreeText: true
     });
     if (isAdminUser && document.getElementById('vendedor-gerente-menu')) {
         initializeSearchableInput({
