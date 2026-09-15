@@ -2,9 +2,9 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, ensureFormData, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, formatCurrency,
-    formatDateFieldValue, normalizeDisplayDateValue, parseDisplayDate
+    formatDateFieldValue, normalizeDisplayDateValue, parseDisplayDate, clienteSearchItem, findClienteByNome
 } from '../utils/format.js';
-import { showToast, setSaving, skeletonList, addScrollTop, openExternal } from '../utils/dom.js';
+import { showToast, setSaving, skeletonList, addScrollTop, openExternal, initializeSearchableInput } from '../utils/dom.js';
 import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 
 const PROP_STATUS = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
@@ -85,6 +85,178 @@ export function openSelecionarClientesModal(tipo, items) {
         close();
         openGerarCampanhaModal(tipo, ids, selected);
     });
+}
+
+// ── Modal "Relatório de Visita" (campanha tipo 'visita') ──────────────────
+// Diferente das outras: não parte de itens já cadastrados (Proposta/Funil).
+// O admin escreve um rascunho do relatório (cliente, cidade...) e o
+// vendedor completa/edita tudo antes de confirmar — aí sim vira uma Visita
+// de verdade (ver handleResponderCampanhaItem, tipo 'visita').
+export async function openGerarCampanhaVisitaModal() {
+    ensureStyles('visits');
+    const fd = await ensureFormData().then((r) => r.data).catch(() => null);
+    const vendedoresRaw = ((fd && fd.vendedores) || []).filter((v) => v.nome);
+    const vendedores = vendedoresRaw.map((v) => v.nome);
+    const loginNomeByVendedor = new Map(vendedoresRaw.map((v) => [v.nome, v.nomeLogin || v.nome]));
+    const clientes = (fd && fd.clientes) || [];
+    const cidades = (fd && fd.cidades) || [];
+    const areas = (fd && fd.areasAtuacao) || [];
+    const tipos = (fd && fd.tiposVisita) || [];
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card camp-modal" style="text-align:left;max-width:480px">
+            <h3 style="margin-top:0">📋 Pedir relatório de visita</h3>
+            <p class="helper-text" style="margin:-0.3rem 0 0.9rem">Escreva o que já sabe — o vendedor completa e confirma antes de virar uma visita de verdade.</p>
+            <div class="form-group full-width">
+                <label for="cv-cliente">Cliente</label>
+                <div class="searchable-select">
+                    <input type="text" id="cv-cliente" placeholder="Busque ou digite o cliente" autocomplete="off">
+                    <div class="searchable-select-menu" id="cv-cliente-menu"></div>
+                </div>
+            </div>
+            <div class="form-row-pair">
+                <div class="form-group">
+                    <label for="cv-cidade">Cidade</label>
+                    <div class="searchable-select">
+                        <input type="text" id="cv-cidade" placeholder="Cidade" autocomplete="off">
+                        <div class="searchable-select-menu" id="cv-cidade-menu"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="cv-area">Área de Atuação</label>
+                    <div class="searchable-select">
+                        <input type="text" id="cv-area" placeholder="Área" autocomplete="off">
+                        <div class="searchable-select-menu" id="cv-area-menu"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-row-pair">
+                <div class="form-group">
+                    <label for="cv-tipo">Tipo da Visita</label>
+                    <select id="cv-tipo">
+                        <option value="">—</option>
+                        ${tipos.map((t) => `<option value="${escapeHtml(t.tipo)}">${escapeHtml(t.tipo)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="cv-data">Data prevista</label>
+                    <input type="date" id="cv-data">
+                </div>
+            </div>
+            <div class="form-group full-width">
+                <label for="cv-relatorio">Relatório (ponto de partida pro vendedor)</label>
+                <textarea id="cv-relatorio" rows="4" placeholder="Ex.: Visitar pra apresentar a linha de lavanderia, cliente já demonstrou interesse na última ligação..."></textarea>
+            </div>
+            <div class="form-group full-width">
+                <label for="cv-vendedor">Vendedor que vai completar</label>
+                <select id="cv-vendedor">
+                    <option value="">Escolha o vendedor</option>
+                    ${vendedores.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <label for="cv-prazo">Prazo pra responder (opcional)</label>
+                <input type="date" id="cv-prazo">
+            </div>
+            <div id="cv-result" hidden style="margin:0.5rem 0 0.75rem"></div>
+            <div class="form-actions full-width" style="display:flex;gap:0.5rem">
+                <button type="button" class="secondary-button" id="cv-cancel">Fechar</button>
+                <button type="button" class="primary-button" id="cv-gerar">Gerar link</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    let created = false;
+    const close = () => { overlay.remove(); if (created) renderCampanhasPage(); };
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#cv-cancel').addEventListener('click', close);
+
+    initializeSearchableInput({ input: overlay.querySelector('#cv-cidade'), menu: overlay.querySelector('#cv-cidade-menu'), items: cidades, allowFreeText: true });
+    initializeSearchableInput({ input: overlay.querySelector('#cv-area'), menu: overlay.querySelector('#cv-area-menu'), items: areas, allowFreeText: true });
+    initializeSearchableInput({
+        input: overlay.querySelector('#cv-cliente'),
+        menu: overlay.querySelector('#cv-cliente-menu'),
+        items: clientes.map((c) => clienteSearchItem(c)),
+        allowFreeText: true,
+        onSelect: (value) => {
+            const match = findClienteByNome(clientes, value);
+            if (!match) return;
+            if (match.cidade) overlay.querySelector('#cv-cidade').value = match.cidade;
+            if (match.areaAtuacao) overlay.querySelector('#cv-area').value = match.areaAtuacao;
+        }
+    });
+
+    overlay.querySelector('#cv-gerar').addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const cliente = overlay.querySelector('#cv-cliente').value.trim();
+        if (!cliente) { showToast('Informe o cliente.', true); return; }
+        const vendedorDestino = overlay.querySelector('#cv-vendedor').value.trim();
+        if (!vendedorDestino) { showToast('Escolha o vendedor.', true); return; }
+        const cidade = overlay.querySelector('#cv-cidade').value.trim();
+        const areaAtuacao = overlay.querySelector('#cv-area').value.trim();
+        const tipoVisita = overlay.querySelector('#cv-tipo').value;
+        const dataInput = overlay.querySelector('#cv-data').value;
+        const data = dataInput ? formatDateFromInputValue(dataInput) : '';
+        const relatorio = overlay.querySelector('#cv-relatorio').value.trim();
+        const prazoInput = overlay.querySelector('#cv-prazo').value;
+        const prazoAte = prazoInput ? formatDateFromInputValue(prazoInput) : '';
+
+        setSaving(true, btn, 'Gerando...');
+        const r = await callAPI('criarCampanha', {
+            tipo: 'visita',
+            titulo: `Relatório — ${cliente}`,
+            vendedorDestino,
+            prazoAte,
+            itensVisita: [{ cliente, cidade, areaAtuacao, tipoVisita, data, relatorio }],
+            user: state.currentUser
+        }).catch(() => null);
+        if (!r || r.status !== 'success') {
+            showToast((r && r.message) || 'Não foi possível gerar a campanha.', true);
+            setSaving(false, btn);
+            return;
+        }
+        const loginNome = loginNomeByVendedor.get(vendedorDestino) || '';
+        const link = campanhaLink(r.id, loginNome);
+        const box = overlay.querySelector('#cv-result');
+        box.hidden = false;
+        box.innerHTML = `
+            <p class="helper-text" style="margin:0 0 0.35rem">Link pronto — mande pro ${escapeHtml(vendedorDestino)}${prazoAte ? ` (prazo ${escapeHtml(prazoAte)})` : ''}:</p>
+            <input type="text" id="cv-link" readonly value="${escapeHtml(link)}" style="font-size:0.82rem">
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                <button type="button" class="mini-button" id="cv-copy">Copiar</button>
+                <button type="button" class="mini-button mini-button-whatsapp" id="cv-wa">WhatsApp</button>
+            </div>`;
+        btn.remove();
+        created = true;
+        overlay.querySelector('#cv-cancel').textContent = 'Concluir';
+        const buildMsg = () => {
+            const primeiroNome = vendedorDestino.split(' ')[0];
+            return [
+                `Oi ${primeiroNome}! Preciso que você complete um relatório de visita — ${cliente}${cidade ? ' (' + cidade + ')' : ''}:`,
+                relatorio ? `\n${relatorio}` : '',
+                prazoAte ? `\nPrazo: ${prazoAte}` : '',
+                loginNome
+                    ? `\nPra entrar, é só abrir o link e informar seu PIN (4 últimos números do seu celular) — seu login já vem preenchido.`
+                    : `\nPra entrar: login é seu nome (em minúsculo) e PIN são os 4 últimos números do seu celular.`,
+                `\n${link}`
+            ].filter(Boolean).join('\n');
+        };
+        overlay.querySelector('#cv-copy').addEventListener('click', () => {
+            navigator.clipboard?.writeText(buildMsg()).then(() => showToast('Mensagem copiada.'));
+            overlay.querySelector('#cv-link').select();
+        });
+        overlay.querySelector('#cv-wa').addEventListener('click', () => {
+            openExternal(`https://wa.me/?text=${encodeURIComponent(buildMsg())}`);
+        });
+        document.dispatchEvent(new CustomEvent('campanha-criada'));
+    });
+}
+
+function formatDateFromInputValue(isoDate) {
+    const d = new Date(`${isoDate}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
 // ── Modal "Gerar link de atualização" (chamado das telas Propostas/Funil) ──
@@ -241,6 +413,7 @@ export async function renderCampanhaPreencherPage(id) {
         return;
     }
     const camp = r.campanha;
+    if (camp.tipo === 'visita') { return renderCampanhaVisitaPreencher(main, camp, r.itens); }
     const statuses = camp.tipo === 'funil' ? FUNIL_STATUS : PROP_STATUS;
     const primeiroNome = String(camp.vendedorDestino || '').trim().split(' ')[0] || 'tudo bem';
 
@@ -357,6 +530,152 @@ export async function renderCampanhaPreencherPage(id) {
     render(r.itens);
 }
 
+// ── Tela do vendedor: completar um relatório de visita ─────────────────
+// Diferente do preencher de Proposta/Funil (status + comentário sobre um
+// registro que já existe) — aqui o vendedor está editando um rascunho
+// (cliente, cidade...) que o admin escreveu, e confirmar CRIA a Visita de
+// verdade (ver handleResponderCampanhaItem, tipo 'visita').
+async function renderCampanhaVisitaPreencher(main, camp, itens) {
+    const primeiroNome = String(camp.vendedorDestino || '').trim().split(' ')[0] || 'tudo bem';
+    const fd = await ensureFormData().then((rr) => rr.data).catch(() => null);
+    const cidades = (fd && fd.cidades) || [];
+    const areas = (fd && fd.areasAtuacao) || [];
+    const tipos = (fd && fd.tiposVisita) || [];
+
+    const renderObrigado = () => {
+        main.innerHTML = `
+            ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: 'Relatório de Visita' }])}
+            <div class="empty-state">
+                <span class="empty-state-icon">✅</span>
+                <h2 style="margin:0.4rem 0 0.2rem">Obrigado, ${escapeHtml(primeiroNome)}!</h2>
+                <p class="helper-text">A visita foi registrada com sucesso.</p>
+                <button type="button" class="btn-add" id="camp-done-home">Ir para o início</button>
+            </div>
+        `;
+        document.getElementById('camp-done-home')?.addEventListener('click', () => navigateTo('dashboard'));
+        addScrollTop();
+    };
+
+    const render = () => {
+        const done = itens.filter((i) => i.respondidoEm).length;
+        main.innerHTML = `
+            ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: 'Relatório de Visita' }])}
+            <div class="page-header"><div>
+                <h2>${escapeHtml(camp.titulo || 'Relatório de Visita')}</h2>
+                <p class="page-subtitle">Olá, ${escapeHtml(camp.vendedorDestino || primeiroNome)}! ${escapeHtml(camp.criadaPor || 'Seu gestor')} pediu esse relatório — confira e complete antes de confirmar.</p>
+                ${camp.prazoAte ? `<p class="page-subtitle" style="color:var(--warning);font-weight:600">Solicitado resposta até ${escapeHtml(camp.prazoAte)}.</p>` : ''}
+            </div></div>
+            <div class="camp-progress"><div class="camp-progress-bar" style="width:${itens.length ? Math.round(done / itens.length * 100) : 0}%"></div></div>
+            <p class="helper-text" style="margin:0.3rem 0 0.9rem">${done} de ${itens.length} concluído(s)</p>
+            <div class="camp-cards">${itens.map((it, idx) => cardHtml(it, idx)).join('')}</div>
+        `;
+        itens.forEach((it, idx) => wireCard(it, idx));
+        addScrollTop();
+    };
+
+    const cardHtml = (it, idx) => {
+        if (it.respondidoEm) {
+            return `<div class="card camp-card camp-card-done" data-idx="${idx}"><strong>${escapeHtml(it.cliente || 'Cliente')}</strong><span class="camp-tag-ok" style="margin-left:0.4rem">✓ visita registrada</span></div>`;
+        }
+        return `
+        <div class="card camp-card" data-idx="${idx}">
+            ${it.relatorio ? `<div class="qe-info" style="margin-bottom:0.7rem"><div><span>Relatório de ${escapeHtml(camp.criadaPor || 'quem pediu')}</span>${escapeHtml(it.relatorio)}</div></div>` : ''}
+            <div class="form-group full-width">
+                <label>Cliente</label>
+                <input type="text" class="cv-f-cliente" value="${escapeHtml(it.cliente || '')}">
+            </div>
+            <div class="form-row-pair">
+                <div class="form-group">
+                    <label>Cidade</label>
+                    <div class="searchable-select">
+                        <input type="text" class="cv-f-cidade" value="${escapeHtml(it.cidade || '')}" autocomplete="off">
+                        <div class="searchable-select-menu"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Área de Atuação</label>
+                    <div class="searchable-select">
+                        <input type="text" class="cv-f-area" value="${escapeHtml(it.areaAtuacao || '')}" autocomplete="off">
+                        <div class="searchable-select-menu"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-row-pair">
+                <div class="form-group">
+                    <label>Tipo da Visita</label>
+                    <select class="cv-f-tipo">
+                        <option value="">—</option>
+                        ${tipos.map((t) => `<option value="${escapeHtml(t.tipo)}"${t.tipo === it.tipoVisita ? ' selected' : ''}>${escapeHtml(t.tipo)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Data da visita</label>
+                    <input type="date" class="cv-f-data" value="${escapeHtml(dateBrToInputValue(it.data))}">
+                </div>
+            </div>
+            <div class="form-group full-width">
+                <label>Horário</label>
+                <input type="time" class="cv-f-horario">
+            </div>
+            <label style="font-size:0.8rem;font-weight:600">Observação</label>
+            <textarea class="camp-coment" rows="5">${escapeHtml(it.relatorio || '')}</textarea>
+            <button type="button" class="primary-button camp-save" style="margin-top:0.5rem">Confirmar visita</button>
+        </div>`;
+    };
+
+    const wireCard = (it, idx) => {
+        if (it.respondidoEm) return;
+        const card = main.querySelector(`.camp-card[data-idx="${idx}"]`);
+        if (!card) return;
+        const menus = card.querySelectorAll('.searchable-select-menu');
+        initializeSearchableInput({ input: card.querySelector('.cv-f-cidade'), menu: menus[0], items: cidades, allowFreeText: true });
+        initializeSearchableInput({ input: card.querySelector('.cv-f-area'), menu: menus[1], items: areas, allowFreeText: true });
+        card.querySelector('.camp-save').addEventListener('click', async (ev) => {
+            const btn = ev.currentTarget;
+            const cliente = card.querySelector('.cv-f-cliente').value.trim();
+            const cidade = card.querySelector('.cv-f-cidade').value.trim();
+            const areaAtuacao = card.querySelector('.cv-f-area').value.trim();
+            const tipoVisita = card.querySelector('.cv-f-tipo').value;
+            const dataInput = card.querySelector('.cv-f-data').value;
+            const horario = card.querySelector('.cv-f-horario').value;
+            const comentario = card.querySelector('.camp-coment').value.trim();
+            if (!cliente) { showToast('Informe o cliente.', true); return; }
+            if (!cidade) { showToast('Informe a cidade.', true); return; }
+            if (!areaAtuacao) { showToast('Informe a área de atuação.', true); return; }
+            if (!dataInput) { showToast('Informe a data da visita.', true); return; }
+            if (!horario) { showToast('Informe o horário.', true); return; }
+            setSaving(true, btn, 'Salvando...');
+            const rr = await attemptOrQueue('responderCampanhaItem', {
+                campanhaId: camp.id, itemId: it.id, cliente, cidade, areaAtuacao, tipoVisita,
+                dataVisita: dateInputToBr(dataInput), horario, comentario, user: state.currentUser
+            }, { entity: 'campanha', tempId: it.id }).catch((e) => ({ status: 'error', message: e.message }));
+            if (rr && rr.status === 'success') {
+                it.respondidoEm = 'agora';
+                if (rr.concluida) { renderObrigado(); } else { showToast('Visita registrada.'); render(); }
+            } else if (rr && rr.status === 'queued') {
+                it.respondidoEm = 'agora';
+                showToast('Sem conexão agora — vai ser enviado sozinho assim que a internet voltar.');
+                render();
+            } else {
+                showToast((rr && rr.message) || 'Não foi possível salvar.', true);
+                setSaving(false, btn);
+            }
+        });
+    };
+
+    render();
+}
+
+function dateBrToInputValue(br) {
+    const m = String(br || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
+
+function dateInputToBr(iso) {
+    const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
 // ── Tela do admin: acompanhar campanhas ────────────────────────────────
 export async function renderCampanhasPage() {
     ensureStyles('proposals');
@@ -377,12 +696,13 @@ export async function renderCampanhasPage() {
                 <h2>Campanhas de atualização</h2>
                 <p class="page-subtitle">${campanhas.length} campanha(s)</p>
             </div>
-            ${campanhas.length ? `<div class="page-header-actions">
-                <button type="button" class="mini-button${campSelectMode ? ' is-on' : ''}" id="camp-select-toggle" title="Marcar várias campanhas para apagar de uma vez">☑️ Selecionar</button>
-            </div>` : ''}
+            <div class="page-header-actions">
+                <button type="button" class="mini-button" id="camp-nova-visita" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>
+                ${campanhas.length ? `<button type="button" class="mini-button${campSelectMode ? ' is-on' : ''}" id="camp-select-toggle" title="Marcar várias campanhas para apagar de uma vez">☑️ Selecionar</button>` : ''}
+            </div>
         </div>
         ${campanhas.length === 0
-            ? '<div class="empty-state"><span class="empty-state-icon">🔗</span><p>Nenhuma campanha ainda. Crie uma pela tela de Propostas ou Funil (botão "🔗 Campanha").</p></div>'
+            ? '<div class="empty-state"><span class="empty-state-icon">🔗</span><p>Nenhuma campanha ainda. Crie uma pela tela de Propostas ou Funil (botão "🔗 Campanha"), ou peça um relatório de visita acima.</p></div>'
             : `${campSelectMode ? `
                 <div class="funil-sel-bar" id="camp-sel-bar">
                     <strong id="camp-sel-count">${campSelectedIds.size} selecionada(s)</strong>
@@ -450,6 +770,7 @@ export async function renderCampanhasPage() {
         el.closest('.camp-admin-row')?.classList.toggle('is-selected', e.target.checked);
         refreshCampSelBar();
     }));
+    document.getElementById('camp-nova-visita')?.addEventListener('click', () => openGerarCampanhaVisitaModal());
     document.getElementById('camp-select-toggle')?.addEventListener('click', () => {
         campSelectMode = !campSelectMode;
         if (!campSelectMode) campSelectedIds.clear();
@@ -496,7 +817,7 @@ function campanhaRow(c, selectMode) {
             <span class="status-pill ${statusClass}">${statusLabel}</span>
         </div>
         <p class="helper-text camp-admin-meta">
-            ${c.tipo === 'funil' ? '📊 Funil' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
+            ${c.tipo === 'funil' ? '📊 Funil' : c.tipo === 'visita' ? '📋 Relatório de Visita' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
             ${c.primeiroAcessoEm
                 ? `👁️ Acessou em ${escapeHtml(c.primeiroAcessoEm)}${c.ultimoAcessoEm && c.ultimoAcessoEm !== c.primeiroAcessoEm ? ` (última vez ${escapeHtml(c.ultimoAcessoEm)})` : ''}`
                 : '⏳ Ainda não abriu o link'}
