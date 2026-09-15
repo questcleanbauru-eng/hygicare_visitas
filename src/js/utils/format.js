@@ -51,6 +51,7 @@ export function normalizeProposal(proposal) {
         dataLimite: proposal['Data Limite'] || proposal.dataLimite || '',
         email: proposal['E-mail'] || proposal.email || '',
         resumo: proposal.Resumo || proposal.resumo || '',
+        funilVinculado: proposal.FunilVinculado || proposal.funilVinculado || '',
         atrasada: (proposal.Status || proposal.status || '').toUpperCase() === 'AGUARDANDO' && daysWithoutUpdate > 30,
         diasAtraso: daysWithoutUpdate,
         _pending: !!proposal._pending

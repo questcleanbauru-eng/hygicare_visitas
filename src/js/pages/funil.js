@@ -704,6 +704,68 @@ export function fillFunilContent(mainContent, funil) {
 }
 
 
+// Vincular manualmente uma oportunidade do Funil a uma Proposta já
+// cadastrada — pra quando o nome do cliente está grafado diferente nas
+// duas abas (ex.: "HOSPITAL POTIRENDABA" vs "Hosp. de Potirendaba") e o
+// app não consegue casar os dois sozinho. Sem tentar adivinhar: o usuário
+// busca e escolhe. Grava o Id dos dois lados (PropostaVinculada no Funil,
+// FunilVinculado na Proposta) pra dar pra abrir o vínculo a partir de
+// qualquer um dos dois.
+function openLinkPropostaModal(f) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card" style="text-align:left">
+            <h3 style="margin-top:0">Vincular a uma Proposta</h3>
+            <p class="helper-text" style="margin:-0.4rem 0 0.7rem">Busque pelo nome do cliente.</p>
+            <div class="form-group full-width searchable-select">
+                <input type="text" id="link-proposta-input" placeholder="Buscar cliente..." autocomplete="off">
+                <div class="searchable-select-menu" id="link-proposta-menu"></div>
+            </div>
+            <div class="form-actions full-width" style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                <button type="button" class="secondary-button" id="link-proposta-cancel">Cancelar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#link-proposta-cancel').addEventListener('click', close);
+
+    ensurePropostasForDedup().then(() => {
+        const items = (state.proposals || []).map((p) => {
+            const id = String(p.id || p.Id || '');
+            const cliente = p.cliente || p.Cliente || '-';
+            const foco = p.foco || p.Foco || '-';
+            const cidade = p.cidade || p.Cidade || '';
+            return { value: id, label: `${cliente} · ${foco}${cidade ? ' · ' + cidade : ''}`, search: `${cliente} ${foco} ${cidade}` };
+        }).filter((it) => it.value);
+
+        const input = overlay.querySelector('#link-proposta-input');
+        input.value = f.cliente || '';
+        initializeSearchableInput({
+            input,
+            menu: overlay.querySelector('#link-proposta-menu'),
+            items,
+            allowFreeText: true,
+            onSelect: async (propostaId) => {
+                if (!propostaId) return;
+                close();
+                const r = await callAPI('updateFunil', { id: f.id, propostaVinculada: propostaId, user: state.currentUser })
+                    .catch((e) => ({ status: 'error', message: e.message }));
+                if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível vincular.', true); return; }
+                callAPI('updateProposal', { id: propostaId, funilVinculado: f.id, user: state.currentUser }).catch(() => {});
+                f.propostaVinculada = propostaId;
+                const i = (state.funil || []).findIndex((x) => String(x.id) === String(f.id));
+                if (i >= 0) { state.funil[i] = { ...state.funil[i], propostaVinculada: propostaId }; saveCache('funil', state.funil); }
+                showToast('Vinculado à proposta.');
+                renderFunilDetailPage(f.id, true);
+            }
+        });
+        setTimeout(() => input.focus(), 30);
+    });
+}
+
 // Atualização rápida (status + comentários) direto da lista, sem navegar
 // pra tela de edição completa — mesmo conceito do quick-update de
 // Propostas (proposals.js), com "Comentários" no lugar de "Obs" (o campo
@@ -1236,6 +1298,10 @@ export async function renderFunilDetailPage(id, _revalidated) {
 
     const f = result.funil;
     state.currentFunil = f;
+    if (f.propostaVinculada) await ensurePropostasForDedup();
+    const propostaLinkada = f.propostaVinculada
+        ? (state.proposals || []).find((p) => String(p.id || p.Id) === String(f.propostaVinculada))
+        : null;
 
     // Veio do cache local? Revalida na planilha em 2º plano (uma vez) — o
     // sync incremental não traz edições feitas direto no Google Sheets, e
@@ -1288,6 +1354,20 @@ export async function renderFunilDetailPage(id, _revalidated) {
             ${renderDetailRow('Funil Diversey', f.funilDiversey === 'Sim' ? '⭐ Sim — acompanhar de perto' : 'Não')}
             ${f.status === 'PERDIDO' ? renderDetailRow('Motivo da Perda', f.motivoPerda || '-') : ''}
         </div>
+        <div class="card detail-card funil-link-card">
+            ${propostaLinkada
+                ? `<div class="funil-readonly-row">
+                       <span>Proposta vinculada</span>
+                       <span>
+                           <button type="button" class="section-link-button" id="ver-proposta-vinculada">${escapeHtml(propostaLinkada.cliente || propostaLinkada.Cliente || '-')} · ${escapeHtml(propostaLinkada.foco || propostaLinkada.Foco || '-')}</button>
+                           <button type="button" class="mini-button mini-button-danger" id="desvincular-proposta">Desvincular</button>
+                       </span>
+                   </div>`
+                : `<div class="funil-readonly-row">
+                       <span>Proposta vinculada</span>
+                       <button type="button" class="mini-button" id="vincular-proposta">🔗 Vincular a uma Proposta</button>
+                   </div>`}
+        </div>
     `;
 
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => navigateTo('funil')));
@@ -1317,6 +1397,23 @@ export async function renderFunilDetailPage(id, _revalidated) {
             showToast((r && r.message) || 'Não foi possível duplicar.', true);
             setSaving(false, btn);
         }
+    });
+    document.getElementById('vincular-proposta')?.addEventListener('click', () => openLinkPropostaModal(f));
+    document.getElementById('ver-proposta-vinculada')?.addEventListener('click', () => {
+        if (propostaLinkada) navigateTo('proposal-detail', { id: propostaLinkada.id || propostaLinkada.Id });
+    });
+    document.getElementById('desvincular-proposta')?.addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        btn.disabled = true;
+        const propostaId = f.propostaVinculada;
+        const r = await callAPI('updateFunil', { id: f.id, propostaVinculada: '', user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+        if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível desvincular.', true); btn.disabled = false; return; }
+        if (propostaId) callAPI('updateProposal', { id: propostaId, funilVinculado: '', user: state.currentUser }).catch(() => {});
+        f.propostaVinculada = '';
+        const i = (state.funil || []).findIndex((x) => String(x.id) === String(f.id));
+        if (i >= 0) { state.funil[i] = { ...state.funil[i], propostaVinculada: '' }; saveCache('funil', state.funil); }
+        showToast('Vínculo removido.');
+        renderFunilDetailPage(f.id, true);
     });
     document.getElementById('toggle-funil-diversey')?.addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;
