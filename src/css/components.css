@@ -2503,6 +2503,10 @@ input[type="date"] {
 
 .qe-status-btn.is-active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
+/* "Concluído" no Funil confundia quem tá acostumado com "Ganhamos" (o
+   status equivalente em Propostas) — legenda pequena embaixo do nome. */
+.qe-status-caption { display: block; font-size: 0.62rem; font-weight: 500; opacity: 0.75; }
+
 .proposal-card.qe-selected,
 .visit-card.qe-selected { outline: 2px solid var(--primary); outline-offset: -1px; }
 

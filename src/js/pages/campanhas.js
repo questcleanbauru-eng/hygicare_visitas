@@ -468,7 +468,7 @@ export async function renderCampanhaPreencherPage(id) {
             ${it.resumo ? `<details class="detail-resumo camp-resumo"><summary>Ver itens da proposta</summary><p>${escapeHtml(it.resumo).replace(/\s*\/\s*(?=Item\s+\d)/gi, '<br>')}</p></details>` : ''}
             <label style="font-size:0.8rem;font-weight:600">Status</label>
             <div class="qe-status-row camp-status-row" data-idx="${idx}">
-                ${statuses.map((s) => `<button type="button" class="qe-status-btn${s === (it.status || '') ? ' is-active' : ''}" data-s="${s}">${s}</button>`).join('')}
+                ${statuses.map((s) => `<button type="button" class="qe-status-btn${s === (it.status || '') ? ' is-active' : ''}" data-s="${s}">${s}${s === 'CONCLUIDO' ? '<span class="qe-status-caption">(Ganhamos)</span>' : ''}</button>`).join('')}
             </div>
             ${camp.tipo === 'funil' ? `<div class="camp-motivo" data-idx="${idx}" style="margin-top:0.5rem;display:${it.status === 'PERDIDO' ? '' : 'none'}">
                 <label style="font-size:0.8rem;font-weight:600">Motivo da perda</label>

@@ -140,7 +140,7 @@ export function datedNoteHeader() {
 // escrever (fica selecionado — ver selectNoteHint — pra sumir no primeiro
 // toque de quem for digitar). Se ninguém tocar, stripEmptyDatedLine trata
 // como linha vazia (não entra no histórico).
-const NOTE_HINT = 'descreva o andamento e os próximos passos';
+const NOTE_HINT = '(digite aqui)';
 
 // Prefixo pra abrir a edição: linha do dia + histórico existente embaixo.
 export function withDatedNoteHeader(existing) {

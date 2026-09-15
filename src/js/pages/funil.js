@@ -436,7 +436,7 @@ export function fillFunilContent(mainContent, funil) {
                 </div>
                 <label>Status</label>
                 <div class="qe-status-row">
-                    ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (f.status || '') ? ' is-active' : ''}" data-s="${s}">${s}</button>`).join('')}
+                    ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (f.status || '') ? ' is-active' : ''}" data-s="${s}">${s}${s === 'CONCLUIDO' ? '<span class="qe-status-caption">(Ganhamos)</span>' : ''}</button>`).join('')}
                 </div>
                 <div id="qe-motivo-wrap" style="margin-top:0.5rem;display:${f.status === 'PERDIDO' ? '' : 'none'}">
                     <label>Motivo da perda</label>
