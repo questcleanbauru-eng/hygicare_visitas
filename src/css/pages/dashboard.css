@@ -52,9 +52,9 @@
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    background: transparent;
+    background: var(--primary-light);
     color: var(--primary-dark);
-    border: 1.5px solid var(--primary-light);
+    border: none;
     border-radius: var(--radius-sm);
     padding: 0.38rem 0.65rem;
     font-size: 0.78rem;
@@ -63,7 +63,7 @@
     min-height: 38px;
 }
 
-.dash-action-outline:hover  { background: var(--primary-light); border-color: var(--border-focus); }
+.dash-action-outline:hover  { background: var(--border-focus); }
 
 .dash-action-outline:active { transform: scale(0.97); }
 
@@ -92,11 +92,13 @@
 
 /* Metric cards grid */
 
+/* Sem contorno ao redor — só a faixa colorida à esquerda (é sinal, não
+   moldura) + sombra leve. Cantos mais arredondados, no mesmo espírito do
+   resto do "modo suave" pedido pelo usuário. */
 .metric-card {
     background: var(--surface);
-    border-radius: var(--radius);
-    padding: 0.6rem 0.85rem 0.55rem;
-    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0.65rem 0.9rem 0.6rem;
     border-left: 3px solid var(--border);
     box-shadow: var(--shadow-xs);
     cursor: pointer;
@@ -153,7 +155,6 @@
     letter-spacing: 0.04em;
     background: #fff7ed;
     color: #c2410c;
-    border: 1px solid #fed7aa;
     align-self: flex-start;
     margin-top: 0.2rem;
 }
@@ -234,11 +235,14 @@
     justify-content: center;
 }
 
+/* Sem contorno — só preenchimento + o card ganha uma sombra levíssima
+   pra se separar do fundo (padrão "mais suave" pedido pelo usuário,
+   comparado com outro app dele: nada de borda visível em cards). */
 .dash-today-card {
     background: var(--primary-light);
-    border: 1px solid #bfdbfe;
-    border-radius: var(--radius);
-    padding: 0.6rem 0.75rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xs);
+    padding: 0.65rem 0.85rem;
     margin-bottom: 0.5rem;
 }
 
@@ -248,7 +252,6 @@
    mais uma lista informativa. */
 .dash-cp-card {
     background: var(--warning-bg);
-    border: 1px solid var(--warning-border);
 }
 
 /* Cabeçalho vira o botão de recolher/expandir. O card nasce com
