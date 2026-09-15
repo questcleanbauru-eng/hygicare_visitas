@@ -120,6 +120,13 @@
 .camp-admin-row { padding: 0.8rem 0.9rem; }
 .camp-admin-meta { margin: 0.1rem 0 0.4rem; line-height: 1.4; }
 .camp-admin-count { margin: 0.3rem 0 0.55rem; }
+
+/* Campanha vencida (passou do prazo sem terminar) — mesmo destaque em
+   vermelho já usado em Propostas/Funil pra "sem atualização há X dias",
+   pra ficar reconhecível à primeira vista. */
+.camp-admin-row-vencida { border-left: 3px solid var(--danger); background: var(--danger-bg); }
+.camp-prazo-vencido { color: var(--danger); font-weight: 700; }
+.camp-progress-bar-vencida { background: var(--danger); }
 .camp-admin-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .camp-admin-actions .mini-button { padding: 0.32rem 0.6rem; font-size: 0.78rem; }
 

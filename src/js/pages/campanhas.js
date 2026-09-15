@@ -2,7 +2,7 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, ensureFormData, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, formatCurrency,
-    formatDateFieldValue, normalizeDisplayDateValue
+    formatDateFieldValue, normalizeDisplayDateValue, parseDisplayDate
 } from '../utils/format.js';
 import { showToast, setSaving, skeletonList, addScrollTop, openExternal } from '../utils/dom.js';
 import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
@@ -15,6 +15,17 @@ const FUNIL_STATUS = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDI
 // (apagar, etc.), então precisa sobreviver a esses re-renders.
 let campSelectMode = false;
 const campSelectedIds = new Set();
+
+// Vencida = já passou do prazo e ainda não terminou — concluída não vence
+// mais, mesmo que tenha passado do prazo depois. Compartilhado entre a
+// ordenação da lista e o card em si, pra não duplicar o critério.
+function campanhaEstaVencida(c) {
+    if (c.status === 'concluida' || !c.prazoAte) return false;
+    const prazoDate = parseDisplayDate(c.prazoAte);
+    if (!prazoDate) return false;
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    return prazoDate < hoje;
+}
 
 function campanhaLink(id, loginNome) {
     // ?c=<id> (não /c/<id>): mantém o path na raiz pra os assets relativos
@@ -379,7 +390,9 @@ export async function renderCampanhasPage() {
                     <button type="button" class="mini-button" id="camp-sel-none">Limpar</button>
                     <button type="button" class="mini-button mini-button-danger" id="camp-sel-delete" ${campSelectedIds.size ? '' : 'disabled'}>🗑️ Excluir selecionadas</button>
                 </div>` : ''}
-              <div class="camp-list">${campanhas.map((c) => campanhaRow(c, campSelectMode)).join('')}</div>`}
+              <div class="camp-list">${[...campanhas]
+                  .sort((a, b) => (campanhaEstaVencida(b) ? 1 : 0) - (campanhaEstaVencida(a) ? 1 : 0))
+                  .map((c) => campanhaRow(c, campSelectMode)).join('')}</div>`}
     `;
     main.querySelectorAll('[data-camp-copy]').forEach((el) => el.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -473,19 +486,22 @@ export async function renderCampanhasPage() {
 function campanhaRow(c, selectMode) {
     const pct = c.total ? Math.round(c.respondidos / c.total * 100) : 0;
     const id = String(c.id);
+    const vencida = campanhaEstaVencida(c);
+    const statusClass = c.status === 'concluida' ? 'funil-status-concluido' : (vencida ? 'funil-status-perdido' : 'funil-status-proposta');
+    const statusLabel = c.status === 'concluida' ? 'Concluída' : (vencida ? '⚠️ Vencida' : 'Aberta');
     return `
-    <div class="card camp-admin-row${selectMode && campSelectedIds.has(id) ? ' is-selected' : ''}">
+    <div class="card camp-admin-row${selectMode && campSelectedIds.has(id) ? ' is-selected' : ''}${vencida ? ' camp-admin-row-vencida' : ''}">
         <div class="camp-card-head">
             <strong>${selectMode ? `<label class="camp-sel-check"><input type="checkbox" data-camp-select="${escapeHtml(id)}" ${campSelectedIds.has(id) ? 'checked' : ''}></label>` : ''}${escapeHtml(c.titulo)}</strong>
-            <span class="status-pill ${c.status === 'concluida' ? 'funil-status-concluido' : 'funil-status-proposta'}">${c.status === 'concluida' ? 'Concluída' : 'Aberta'}</span>
+            <span class="status-pill ${statusClass}">${statusLabel}</span>
         </div>
         <p class="helper-text camp-admin-meta">
-            ${c.tipo === 'funil' ? 'Funil' : 'Propostas'} · para ${escapeHtml(c.vendedorDestino || '-')}${c.prazoAte ? ` · prazo ${escapeHtml(c.prazoAte)}` : ''}<br>
+            ${c.tipo === 'funil' ? '📊 Funil' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
             ${c.primeiroAcessoEm
                 ? `👁️ Acessou em ${escapeHtml(c.primeiroAcessoEm)}${c.ultimoAcessoEm && c.ultimoAcessoEm !== c.primeiroAcessoEm ? ` (última vez ${escapeHtml(c.ultimoAcessoEm)})` : ''}`
                 : '⏳ Ainda não abriu o link'}
         </p>
-        <div class="camp-progress"><div class="camp-progress-bar" style="width:${pct}%"></div></div>
+        <div class="camp-progress"><div class="camp-progress-bar${vencida ? ' camp-progress-bar-vencida' : ''}" style="width:${pct}%"></div></div>
         <p class="helper-text camp-admin-count">${c.respondidos} de ${c.total} atualizados</p>
         <div class="camp-admin-actions">
             <button type="button" class="mini-button" data-camp-details="${escapeHtml(c.id)}">Ver clientes</button>
