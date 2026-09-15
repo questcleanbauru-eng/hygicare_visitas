@@ -500,7 +500,7 @@ textarea { resize: vertical; }
 .recent-list {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.3rem;
 }
 
 .recent-item {
@@ -509,8 +509,8 @@ textarea { resize: vertical; }
     gap: 0.5rem;
     align-items: center;
     color: var(--text-muted);
-    font-size: 0.8rem;
-    padding: 0.5rem 0.65rem;
+    font-size: 0.78rem;
+    padding: 0.4rem 0.55rem;
     border-radius: var(--radius-sm);
     background: #f8fafc;
     border: 1px solid var(--border);
@@ -1225,6 +1225,19 @@ input[type="date"] {
 
 .visits-filter-grid.collapsed { display: none; }
 
+/* Com a grade escondida ("Mostrar"), sobrava o respiro de baixo do "+
+   Salvar filtro atual" e o padding do card inteiro, deixando um vão vazio
+   até a borda — aperta os dois ao mínimo quando não há filtro visível. */
+.visits-filter-card:has(.visits-filter-grid.collapsed),
+.funil-filter-card:has(.visits-filter-grid.collapsed),
+.report-period-card:has(.visits-filter-grid.collapsed) {
+    padding-bottom: 0.5rem;
+}
+.visits-filter-card:has(.visits-filter-grid.collapsed) .saved-filters-row,
+.funil-filter-card:has(.visits-filter-grid.collapsed) .saved-filters-row {
+    margin-bottom: 0;
+}
+
 /* ── Admin ── */
 
 .counter-pill {
@@ -1522,39 +1535,21 @@ input[type="date"] {
 
 #offline-banner.visible { display: flex; }
 
+/* Só o botão — nada de faixa cobrindo o topo da tela nem empurrando o
+   conteúdo. Fixo, pequeno, num canto (não atrapalha o header nem o resto
+   do layout), some sozinho se a versão nova deixar de estar disponível. */
 #update-banner {
     position: fixed;
-    top: calc(var(--header-height) + var(--safe-top, 0px));
-    left: 0;
-    right: 0;
+    top: calc(var(--header-height) + var(--safe-top, 0px) + 0.5rem);
+    right: 0.75rem;
     z-index: var(--z-overlay-top);
-    background: #1e3a8a;
-    color: #fff;
-    min-height: 40px;
-    padding: 0.4rem 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.6rem;
-    font-size: 0.8rem;
-    font-weight: 500;
-    flex-wrap: wrap;
-    transform: translateY(-100%);
-    transition: transform 0.25s ease-out;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    pointer-events: none;
 }
 
-#update-banner.visible { transform: translateY(0); }
-
-#update-banner-btn {
-    background: #fff;
-    color: #1e3a8a;
-    border: none;
-    border-radius: 999px;
-    padding: 0.3rem 0.75rem;
-    font-size: 0.76rem;
-    font-weight: 700;
-    cursor: pointer;
-}
+#update-banner.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
 #pending-sync-banner {
     position: fixed;
@@ -2069,10 +2064,8 @@ input[type="date"] {
     #offline-banner { top: calc(var(--header-height) + var(--safe-top)); }
 }
 
-@media (min-width: 1024px) { #update-banner { left: var(--sidebar-w); } }
-
 @media (display-mode: standalone) {
-    #update-banner { top: calc(var(--header-height) + var(--safe-top)); }
+    #update-banner { top: calc(var(--header-height) + var(--safe-top) + 0.5rem); }
 }
 
 /* ── KPI tiles e barras proporcionais ("visual de relatório") ──────────────

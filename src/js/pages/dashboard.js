@@ -28,7 +28,7 @@ export function fillDashboard(mainContent, data, user) {
     const todayVisits = recentVisits.filter((v) => v.dataVisita === todayStr);
 
     mainContent.innerHTML = `
-        <div class="page-header" style="margin-bottom:0.75rem">
+        <div class="page-header" style="margin-bottom:0.5rem">
             <div>
                 <h2>Início</h2>
                 <p class="page-subtitle" style="margin:0.15rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>

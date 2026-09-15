@@ -854,15 +854,16 @@ export function registerServiceWorker() {
 function showUpdateBanner(worker) {
     let banner = document.getElementById('update-banner');
     if (banner) { return; }
-    banner = document.createElement('div');
+    // Só o botão, sem faixa cobrindo o topo da tela — pequeno, num canto,
+    // no mesmo estilo (verde suave) dos outros botões secundários do app.
+    banner = document.createElement('button');
+    banner.type = 'button';
     banner.id = 'update-banner';
-    banner.innerHTML = `
-        <span>🔄 Nova versão disponível</span>
-        <button type="button" id="update-banner-btn">Atualizar agora</button>
-    `;
+    banner.className = 'mini-button mini-button-whatsapp';
+    banner.innerHTML = '🔄 Atualizar';
     document.body.appendChild(banner);
     requestAnimationFrame(() => banner.classList.add('visible'));
-    document.getElementById('update-banner-btn').addEventListener('click', () => {
+    banner.addEventListener('click', () => {
         // Atualizar recarrega a página na hora — se tiver algo digitado e
         // ainda não salvo (comentário, formulário...), some sem aviso. Um
         // caso real: vendedor preenchendo uma campanha pelo celular clicou

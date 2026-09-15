@@ -438,6 +438,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             <div class="report-section-head">
                 <h3>📋 Visitas</h3>
                 <div class="report-section-actions no-print">
+                    <button type="button" class="mini-button" id="pdf-visitas">📄 Resumo</button>
                     ${isAdmGer ? '<button type="button" class="mini-button" id="pdf-det-visitas">📄 Por gerência/vendedor</button>' : ''}
                     <button type="button" class="mini-button" id="csv-visitas">📥 CSV</button>
                     ${secToggle('visitas')}
@@ -556,6 +557,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     });
 
     const _stamp = new Date().toISOString().slice(0, 10);
+    document.getElementById('pdf-visitas')?.addEventListener('click', () => printReport('visitas'));
     document.getElementById('pdf-propostas')?.addEventListener('click', () => printReport('propostas'));
     document.getElementById('pdf-funil')?.addEventListener('click', () => printReport('funil'));
 
