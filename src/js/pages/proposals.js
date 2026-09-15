@@ -787,8 +787,13 @@ function openLinkFunilModal(proposal, onLinked) {
             return { value: id, label: `${cliente} · ${foco}${cidade ? ' · ' + cidade : ''}`, search: `${cliente} ${foco} ${cidade}` };
         }).filter((it) => it.value);
 
+        // Sem pré-preencher com o nome exato do cliente: é justamente por
+        // causa da grafia diferente que o automático não achou, então
+        // filtrar de cara pelo nome completo quase sempre dava lista vazia.
+        // Fica em branco pra abrir com a lista inteira (busca livre a partir
+        // daí), só o placeholder sugere o nome como dica.
         const input = overlay.querySelector('#link-funil-input');
-        input.value = proposal.cliente || '';
+        input.placeholder = proposal.cliente ? `Ex.: ${proposal.cliente}` : 'Buscar cliente...';
         initializeSearchableInput({
             input,
             menu: overlay.querySelector('#link-funil-menu'),
