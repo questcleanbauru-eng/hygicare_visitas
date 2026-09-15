@@ -110,16 +110,20 @@
 .detail-resumo p { margin: 0.45rem 0 0; line-height: 1.45; color: var(--text); white-space: normal; }
 .camp-resumo { margin: 0 0 0.55rem; }
 
-/* Lista de campanhas do admin — cards compactos, sem esticar até metade
-   da tela num monitor largo (era .visits-list, 2 colunas de ~50% cada). */
+/* Lista de campanhas do admin — uma coluna só, linhas compactas (era um
+   grid de cards de 300-400px cada, com bem mais respiro do que precisa
+   pra essa quantidade de informação). */
 .camp-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 400px));
-    gap: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
 }
-.camp-admin-row { padding: 0.8rem 0.9rem; }
-.camp-admin-meta { margin: 0.1rem 0 0.4rem; line-height: 1.4; }
-.camp-admin-count { margin: 0.3rem 0 0.55rem; }
+.camp-admin-row { padding: 0.5rem 0.7rem; }
+.camp-admin-row .camp-card-head strong { font-size: 0.85rem; }
+.camp-admin-row .status-pill { padding: 0.12rem 0.5rem; font-size: 0.68rem; }
+.camp-admin-meta { margin: 0.05rem 0 0.3rem; line-height: 1.35; font-size: 0.72rem; }
+.camp-progress { height: 5px; }
+.camp-admin-count { margin: 0.25rem 0 0.4rem; font-size: 0.72rem; }
 
 /* Campanha vencida (passou do prazo sem terminar) — mesmo destaque em
    vermelho já usado em Propostas/Funil pra "sem atualização há X dias",
@@ -127,8 +131,8 @@
 .camp-admin-row-vencida { border-left: 3px solid var(--danger); background: var(--danger-bg); }
 .camp-prazo-vencido { color: var(--danger); font-weight: 700; }
 .camp-progress-bar-vencida { background: var(--danger); }
-.camp-admin-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-.camp-admin-actions .mini-button { padding: 0.32rem 0.6rem; font-size: 0.78rem; }
+.camp-admin-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.camp-admin-actions .mini-button { padding: 0.22rem 0.5rem; font-size: 0.7rem; }
 
 /* Lista de clientes da campanha ("Ver clientes") — quem já atualizou e
    quem ainda falta, sem precisar abrir o link do vendedor pra saber. */
@@ -144,7 +148,7 @@
     display: flex;
     align-items: baseline;
     gap: 0.4rem;
-    font-size: 0.8rem;
+    font-size: 0.74rem;
 }
 .camp-admin-item-nome { flex: 1; color: var(--text); }
 .camp-admin-item-done .camp-admin-item-nome { color: var(--text-muted-strong); }
