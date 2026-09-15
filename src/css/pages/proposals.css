@@ -27,7 +27,7 @@
 
 .proposal-card:active {
     transform: scale(0.985);
-    background-color: #f8fafc;
+    background-color: var(--bg);
 }
 
 .proposal-card-alert {
@@ -51,7 +51,7 @@
     font-size: 0.78rem;
 }
 .ct-anexo-ok { color: var(--success, #15803d); }
-.ct-anexo-missing { color: #b45309; }
+.ct-anexo-missing { color: var(--warning); }
 
 .ct-anexo-row { align-items: center; }
 .ct-anexo-view {
@@ -65,7 +65,7 @@
     background: var(--primary-light);
     cursor: pointer;
 }
-.ct-anexo-view:hover { background: #dbeafe; }
+.ct-anexo-view:hover { background: var(--info-bg); }
 
 /* ── Campanhas de atualização ─────────────────────────────────────── */
 .camp-sel-row {
@@ -101,7 +101,7 @@
 .detail-resumo {
     margin: 0.5rem 0;
     padding: 0.45rem 0.7rem;
-    background: #f8fafc;
+    background: var(--bg);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-size: 0.82rem;

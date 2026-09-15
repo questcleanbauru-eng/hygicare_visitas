@@ -31,11 +31,11 @@
 
 /* Reserva de 6 meses (quem agendou prospecção primeiro trava a empresa
    pros outros vendedores) — só avisa, não é um estado de erro. */
-.radar-reserva-tag span { color: #b45309; font-weight: 500; }
+.radar-reserva-tag span { color: var(--warning); font-weight: 500; }
 
 .radar-reserva-aviso {
     background: #fffbeb;
-    border: 1px solid #fde68a;
+    border: 1px solid var(--warning-border);
     color: #92400e;
     font-size: 0.82rem;
     padding: 0.6rem 0.75rem;
@@ -106,7 +106,7 @@
 
 .radar-cliente-card:active {
     transform: scale(0.985);
-    background-color: #f8fafc;
+    background-color: var(--bg);
 }
 
 /* Reserva ativa — opaco pra bater o olho na lista sem precisar ler o
@@ -242,7 +242,7 @@
 }
 
 .radar-map-pin.active {
-    fill: #b45309;
+    fill: var(--warning);
 }
 
 /* Depois de escolher uma cidade, as outras somem (ver selectCityOnMap em
@@ -283,10 +283,10 @@
 /* Cores por status — mesmo padrão de .funil-status-* (funil.css): "buscado"
    (nunca contatado) em verde, prioridade de contato; azul pra já atendido;
    vermelho pra recusado; amarelo pra prospecção já agendada. */
-.status-pill.radar-status-buscado   { background: #dcfce7; color: #166534; }
-.status-pill.radar-status-atendido  { background: #dbeafe; color: #1d4ed8; }
-.status-pill.radar-status-recusado  { background: #fee2e2; color: #991b1b; }
-.status-pill.radar-status-agendada  { background: #fef3c7; color: #b45309; }
+.status-pill.radar-status-buscado   { background: var(--success-bg); color: var(--success); }
+.status-pill.radar-status-atendido  { background: var(--info-bg); color: var(--info); }
+.status-pill.radar-status-recusado  { background: var(--danger-bg); color: var(--danger); }
+.status-pill.radar-status-agendada  { background: var(--warning-bg); color: var(--warning); }
 
 .radar-score-pill {
     border-radius: 999px;
@@ -295,14 +295,14 @@
     font-weight: 700;
     white-space: nowrap;
 }
-.radar-score-alta { background: #dcfce7; color: #166534; }
-.radar-score-media { background: #fef3c7; color: #92400e; }
-.radar-score-baixa, .radar-score-encerrada { background: #e2e8f0; color: #475569; }
+.radar-score-alta { background: var(--success-bg); color: var(--success); }
+.radar-score-media { background: var(--warning-bg); color: #92400e; }
+.radar-score-baixa, .radar-score-encerrada { background: var(--border); color: var(--text-muted-strong); }
 .radar-score-detail {
     margin: 0 0 0.7rem;
     padding: 0.6rem 0.7rem;
     border-radius: var(--radius-sm);
-    background: #f8fafc;
+    background: var(--bg);
     color: #334155;
     font-size: 0.78rem;
     line-height: 1.45;
@@ -324,7 +324,7 @@
 .radar-empresa-map-leaflet {
     width: 100%;
     height: 380px;
-    background: #f8fafc;
+    background: var(--bg);
 }
 
 .radar-empresa-map-caption {
@@ -386,10 +386,10 @@
     color: #fff;
 }
 
-.radar-status-chip.radar-status-buscado.active   { background: #166534; border-color: #166534; }
-.radar-status-chip.radar-status-atendido.active  { background: #1d4ed8; border-color: #1d4ed8; }
-.radar-status-chip.radar-status-recusado.active  { background: #991b1b; border-color: #991b1b; }
-.radar-status-chip.radar-status-agendada.active  { background: #b45309; border-color: #b45309; }
+.radar-status-chip.radar-status-buscado.active   { background: var(--success); border-color: var(--success); }
+.radar-status-chip.radar-status-atendido.active  { background: var(--info); border-color: var(--info); }
+.radar-status-chip.radar-status-recusado.active  { background: var(--danger); border-color: var(--danger); }
+.radar-status-chip.radar-status-agendada.active  { background: var(--warning); border-color: var(--warning); }
 
 .radar-tabs-bar {
     display: flex;
@@ -410,14 +410,14 @@
     padding: 0.7rem 1rem;
     font-size: 0.85rem;
     font-weight: 500;
-    color: #64748B;
+    color: var(--text-muted);
     cursor: pointer;
     white-space: nowrap;
 }
 
 .radar-tab:hover { color: var(--text); }
 
-.radar-tab.active { color: #2563EB; border-bottom-color: #2563EB; font-weight: 600; }
+.radar-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 
 .radar-tab-panel { display: none; }
 

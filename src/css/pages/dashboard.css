@@ -56,7 +56,7 @@
     min-height: 38px;
 }
 
-.dash-action-outline:hover  { background: var(--primary-light); border-color: #93c5fd; }
+.dash-action-outline:hover  { background: var(--primary-light); border-color: var(--border-focus); }
 
 .dash-action-outline:active { transform: scale(0.97); }
 
@@ -104,7 +104,7 @@
 
 .metric-card:active { transform: scale(0.98); }
 
-.metric-card-blue   { border-left-color: #2563eb; }
+.metric-card-blue   { border-left-color: var(--primary); }
 
 .metric-card-green  { border-left-color: #16a34a; }
 
@@ -565,7 +565,7 @@
 
     .nav-btn.active .nav-icon {
         background: rgba(30,58,138,0.08);
-        color: #1e3a8a;
+        color: var(--primary-dark);
     }
     .nav-btn:hover:not(.active) .nav-icon { background: #f1f5f9; }
     .nav-btn:hover:not(.active) { background: transparent; }
@@ -619,7 +619,7 @@
         width: 28px;
         height: 28px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+        background: linear-gradient(135deg, var(--primary-dark), var(--primary));
         color: #fff;
         display: flex;
         align-items: center;

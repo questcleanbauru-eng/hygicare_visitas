@@ -102,7 +102,7 @@
 }
 
 .admin-item:hover {
-    border-color: #93c5fd;
+    border-color: var(--border-focus);
     background-color: #f0f7ff;
 }
 
@@ -113,7 +113,7 @@
 
 .admin-item.active {
     border-color: var(--primary);
-    background-color: #eff6ff;
+    background-color: var(--primary-light);
     box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
 }
 
@@ -122,7 +122,7 @@
 .admin-form {
     display: grid;
     gap: 0.7rem;
-    background: #f8fafc;
+    background: var(--bg);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 1rem;
@@ -149,7 +149,7 @@
     padding: 0.72rem;
     border: none;
     border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    background: linear-gradient(135deg, var(--info), var(--primary));
     color: #fff;
     font-weight: 600;
     font-size: 0.88rem;
@@ -184,7 +184,7 @@
     display: flex;
     align-items: center;
     gap: 1rem;
-    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
     border-radius: var(--radius-lg);
     padding: 1.15rem 1.3rem;
     margin-bottom: 1rem;
@@ -321,7 +321,7 @@
     padding: 0.7rem 1rem;
     font-size: 0.85rem;
     font-weight: 500;
-    color: #64748B;
+    color: var(--text-muted);
     cursor: pointer;
     white-space: nowrap;
     transition: color 0.15s, border-color 0.15s;
@@ -332,7 +332,7 @@
 
 .admin-tab:hover { color: var(--text); }
 
-.admin-tab.active { color: #2563EB; border-bottom-color: #2563EB; font-weight: 600; }
+.admin-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 
 .admin-tab-panel { display: none; }
 
@@ -350,7 +350,7 @@
 .admin-metric-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-left: 3px solid #2563EB;
+    border-left: 3px solid var(--primary);
     border-radius: var(--radius);
     padding: 0.9rem 1rem 0.75rem;
     display: flex;
@@ -407,7 +407,7 @@
 
 .admin-user-table tr:last-child td { border-bottom: none; }
 
-.admin-user-table tr:hover td { background: #F8FAFC; }
+.admin-user-table tr:hover td { background: var(--bg); }
 
 /* Seta de recolher só existe no layout de cards (mobile) — na tabela
    normal do desktop todas as colunas já ficam visíveis o tempo todo. */
@@ -491,8 +491,8 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: #DBEAFE;
-    color: #1D4ED8;
+    background: var(--info-bg);
+    color: var(--info);
     font-size: 0.72rem;
     font-weight: 700;
     display: flex;
@@ -501,9 +501,9 @@
     flex-shrink: 0;
 }
 
-.user-avatar-initials.gerente { background: #DBEAFE; color: #1D4ED8; }
+.user-avatar-initials.gerente { background: var(--info-bg); color: var(--info); }
 
-.user-avatar-initials.vendedor { background: #DCFCE7; color: #15803D; }
+.user-avatar-initials.vendedor { background: var(--success-bg); color: #15803D; }
 
 .user-avatar-initials.admin { background: #EDE9FE; color: #6D28D9; }
 
@@ -513,11 +513,11 @@
     font-weight: 600;
     padding: 0.2rem 0.55rem;
     border-radius: 999px;
-    background: #DBEAFE;
-    color: #1D4ED8;
+    background: var(--info-bg);
+    color: var(--info);
 }
 
-.profile-badge.vendedor { background: #DCFCE7; color: #15803D; }
+.profile-badge.vendedor { background: var(--success-bg); color: #15803D; }
 
 .profile-badge.admin    { background: #EDE9FE; color: #6D28D9; }
 
@@ -543,7 +543,7 @@
 
 .uif-cell {
     padding: 0.9rem 1rem !important;
-    background: #F8FAFC;
+    background: var(--bg);
 }
 
 .uif-header {
@@ -612,7 +612,7 @@
     transition: background 0.15s;
 }
 
-.uif-cancel:hover { background: #e2e8f0; }
+.uif-cancel:hover { background: var(--border); }
 
 .uif-save {
     background: var(--primary);
@@ -626,7 +626,7 @@
     transition: background 0.15s;
 }
 
-.uif-save:hover { background: #1d4ed8; }
+.uif-save:hover { background: var(--info); }
 
 .uif-save:disabled { opacity: 0.65; cursor: not-allowed; }
 
@@ -640,7 +640,7 @@
     flex-wrap: wrap;
     margin: 0.25rem 0 0.75rem;
     padding: 0.55rem 0.7rem;
-    background: #F8FAFC;
+    background: var(--bg);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-size: 0.82rem;
@@ -775,14 +775,14 @@
 
 .admin-notif-row { cursor: pointer; }
 
-.admin-notif-row:hover td { background: #F8FAFC; }
+.admin-notif-row:hover td { background: var(--bg); }
 
 .email-warning-card {
     display: flex;
     align-items: flex-start;
     gap: 0.65rem;
     background: #FFFBEB;
-    border: 1px solid #FDE68A;
+    border: 1px solid var(--warning-border);
     border-radius: 8px;
     padding: 0.85rem 1rem;
     margin-bottom: 1.25rem;
@@ -793,7 +793,7 @@
 .email-var-badge {
     display: inline-block;
     background: #F1F5F9;
-    color: #475569;
+    color: var(--text-muted-strong);
     font-size: 0.75rem;
     font-weight: 600;
     font-family: monospace;
@@ -968,7 +968,7 @@
 .import-rows td.ir-data { white-space: nowrap; }
 .import-rows .ir-check { width: 34px; text-align: center; }
 .import-rows .ir-check input { width: 16px; height: 16px; cursor: pointer; }
-.import-rows tbody tr:has(.il-check:checked) td { background: #eff6ff; }
+.import-rows tbody tr:has(.il-check:checked) td { background: var(--primary-light); }
 .import-rows .il-vend { width: 100%; min-width: 120px; min-height: 34px; padding: 0.25rem 0.4rem; font-size: 0.8rem; }
 .import-rows .il-foco,
 .import-rows .il-cidade { width: 100%; min-width: 130px; min-height: 34px; font-size: 0.8rem; }

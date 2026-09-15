@@ -234,7 +234,7 @@
     letter-spacing: 0.03em;
     white-space: nowrap;
 }
-.mnt-tipo-badge-tecnico { background: #e0edff; color: #1d4ed8; }
+.mnt-tipo-badge-tecnico { background: #e0edff; color: var(--info); }
 .mnt-tipo-badge-manutencao { background: #e6f1fb; color: #185fa5; }
 
 .mnt-card-head-right {
@@ -396,9 +396,9 @@
 
 .mnt-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
-.mnt-status-badge.mnt-status-assinado { background: #dcfce7; color: #166534; }
-.mnt-status-badge.mnt-status-pendente { background: #fef3c7; color: #92400e; }
-.mnt-status-badge.mnt-status-nao-assinado { background: #e2e8f0; color: var(--text-muted-strong); }
+.mnt-status-badge.mnt-status-assinado { background: var(--success-bg); color: var(--success); }
+.mnt-status-badge.mnt-status-pendente { background: var(--warning-bg); color: #92400e; }
+.mnt-status-badge.mnt-status-nao-assinado { background: var(--border); color: var(--text-muted-strong); }
 
 .mnt-report-body {
     padding: 1rem 1.1rem;
@@ -452,7 +452,7 @@
     overflow-wrap: break-word;
 }
 
-.mnt-aferido-sim { color: #166534; }
+.mnt-aferido-sim { color: var(--success); }
 
 /* Tabela de verdade (não divs) — <thead> repete se algum dia quebrar
    página (rede de segurança; o auto-ajuste em beforeprint evita isso na

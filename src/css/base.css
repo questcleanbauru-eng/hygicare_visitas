@@ -145,7 +145,7 @@ input, textarea, select,
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
     color: #fff;
     font-size: 0.82rem;
     font-weight: 700;
@@ -178,7 +178,7 @@ input, textarea, select,
     color: var(--primary);
 }
 
-#header-refresh-btn:hover { background: #dbeafe; color: var(--primary-dark); }
+#header-refresh-btn:hover { background: var(--info-bg); color: var(--primary-dark); }
 
 #header-refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
 
@@ -359,9 +359,9 @@ input, textarea, select,
     transition: background-color 0.2s, transform 0.15s;
 }
 
-.nav-btn.active { color: #1e3a8a; font-weight: 700; }
+.nav-btn.active { color: var(--primary-dark); font-weight: 700; }
 
-.nav-btn.active .nav-icon { background: #dbeafe; transform: scale(1.08); }
+.nav-btn.active .nav-icon { background: var(--info-bg); transform: scale(1.08); }
 
 .nav-btn:active .nav-icon { transform: scale(0.9); }
 
@@ -416,6 +416,12 @@ input, textarea, select,
     --danger:          #991b1b;
     --danger-bg:       #fee2e2;
     --danger-border:   #fecaca;
+    /* "Info" (azul) — mesmo padrão dos outros semânticos acima: era usado
+       em dezenas de lugares (status neutro/"identificar", badges, textos
+       de link) com o hex direto (#1d4ed8/#dbeafe), nunca tinha sido
+       nomeado. */
+    --info:            #1d4ed8;
+    --info-bg:         #dbeafe;
     /* Escala de espaçamento (múltiplos de 4px) — usar em componentes novos/tocados */
     --space-1: 0.25rem;
     --space-2: 0.5rem;
@@ -591,7 +597,7 @@ main {
 .mini-button-whatsapp { color: var(--success); background-color: var(--success-bg); border-color: var(--success-border); }
 .mini-button-whatsapp:hover { background-color: #bbf7d0; }
 .mini-button-danger { color: var(--danger); background-color: var(--danger-bg); border-color: var(--danger-border); }
-.mini-button-danger:hover { background-color: #fecaca; }
+.mini-button-danger:hover { background-color: var(--danger-border); }
 
 .header-actions-group { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.4rem; }
 
@@ -675,7 +681,7 @@ main {
     padding: 0.8rem;
     border: none;
     border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    background: linear-gradient(135deg, var(--info), var(--primary));
     color: #fff;
     font-size: 0.92rem;
     font-weight: 600;
@@ -703,7 +709,7 @@ main {
     padding: 0.8rem;
     border: none;
     border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    background: linear-gradient(135deg, var(--info), var(--primary));
     color: #fff;
     font-size: 0.92rem;
     font-weight: 600;

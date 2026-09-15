@@ -1,4 +1,4 @@
-.status-pill.funil-status-identificar { background: #dbeafe; color: #1d4ed8; }
+.status-pill.funil-status-identificar { background: var(--info-bg); color: var(--info); }
 
 .status-pill.funil-status-proposta    { background: var(--warning-bg); color: var(--warning); }
 
@@ -8,7 +8,7 @@
 
 .status-pill.funil-status-perdido     { background: var(--danger-bg); color: var(--danger); }
 
-.status-pill.funil-status-retomar     { background: #f1f5f9; color: #475569; }
+.status-pill.funil-status-retomar     { background: #f1f5f9; color: var(--text-muted-strong); }
 
 .funil-filter-card { padding: 0.85rem; margin-bottom: 0.75rem; }
 .funil-filter-card .year-chips-row { margin: 0.6rem 0 0; }
@@ -24,7 +24,7 @@
     margin-bottom: 0.75rem;
 }
 
-.funil-status-identificar  { background: #dbeafe; color: #1d4ed8; }
+.funil-status-identificar  { background: var(--info-bg); color: var(--info); }
 
 .funil-status-proposta      { background: var(--warning-bg); color: var(--warning); }
 
@@ -80,7 +80,7 @@
     margin-left: 0.35rem;
     padding: 0.02rem 0.4rem;
     border-radius: 999px;
-    background: #fef3c7;
+    background: var(--warning-bg);
     color: #92400e;
     font-size: 0.65rem;
     font-weight: 700;
@@ -94,7 +94,7 @@
 /* Botão "⭐ Diversey" no cabeçalho do detalhe (não usa .qe-toggle porque
    essa some abaixo de 1024px). */
 .funil-diversey-btn.is-on {
-    background: #fef3c7;
+    background: var(--warning-bg);
     border-color: #f59e0b;
     color: #92400e;
 }
