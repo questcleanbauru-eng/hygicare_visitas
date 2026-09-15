@@ -99,6 +99,7 @@
     background: var(--surface);
     border-radius: var(--radius-lg);
     padding: 0.65rem 0.9rem 0.6rem;
+    border: none;
     border-left: 3px solid var(--border);
     box-shadow: var(--shadow-xs);
     cursor: pointer;
