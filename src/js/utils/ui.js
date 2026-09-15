@@ -815,18 +815,36 @@ export function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) { return; }
 
     let refreshing = false;
-    // When the new SW takes over (after the user confirms via o banner), reload
-    // so stale cached JS/CSS don't linger.
+    // When the new SW takes over, reload so stale cached JS/CSS don't linger.
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (refreshing) { return; }
         refreshing = true;
         window.location.reload();
     });
 
+    // Sem botão pra clicar: a versão nova é aplicada sozinha, mas só quando
+    // for seguro (senão o reload apaga o que a pessoa ainda não salvou —
+    // aconteceu de um vendedor perder um comentário assim). "Seguro" =
+    // nenhum campo com foco no momento, ou a aba foi pra segundo plano
+    // (nesse caso ninguém está olhando o reload acontecer mesmo).
+    let pendingWorker = null;
+    function applyPendingUpdate() {
+        if (!pendingWorker) return;
+        const active = document.activeElement;
+        const isEditing = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) && document.visibilityState === 'visible';
+        if (isEditing) return;
+        const worker = pendingWorker;
+        pendingWorker = null;
+        worker.postMessage({ type: 'SKIP_WAITING' });
+    }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') applyPendingUpdate(); });
+    document.addEventListener('focusout', () => setTimeout(applyPendingUpdate, 100));
+
     navigator.serviceWorker.register('./sw.js').then((registration) => {
         const notifyIfWaiting = () => {
             if (registration.waiting && navigator.serviceWorker.controller) {
-                showUpdateBanner(registration.waiting);
+                pendingWorker = registration.waiting;
+                applyPendingUpdate();
             }
         };
         notifyIfWaiting();
@@ -836,7 +854,8 @@ export function registerServiceWorker() {
             if (!installing) { return; }
             installing.addEventListener('statechange', () => {
                 if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-                    showUpdateBanner(installing);
+                    pendingWorker = installing;
+                    applyPendingUpdate();
                 }
             });
         });
@@ -848,29 +867,6 @@ export function registerServiceWorker() {
             if (document.visibilityState === 'visible') { registration.update().catch(() => {}); }
         });
     }).catch(() => {});
-}
-
-
-function showUpdateBanner(worker) {
-    let banner = document.getElementById('update-banner');
-    if (banner) { return; }
-    // Só o botão, sem faixa cobrindo o topo da tela — pequeno, num canto,
-    // no mesmo estilo (verde suave) dos outros botões secundários do app.
-    banner = document.createElement('button');
-    banner.type = 'button';
-    banner.id = 'update-banner';
-    banner.className = 'mini-button mini-button-whatsapp';
-    banner.innerHTML = '🔄 Atualizar';
-    document.body.appendChild(banner);
-    requestAnimationFrame(() => banner.classList.add('visible'));
-    banner.addEventListener('click', () => {
-        // Atualizar recarrega a página na hora — se tiver algo digitado e
-        // ainda não salvo (comentário, formulário...), some sem aviso. Um
-        // caso real: vendedor preenchendo uma campanha pelo celular clicou
-        // aqui com o comentário ainda não salvo e perdeu o texto.
-        if (!confirm('Atualizar agora vai recarregar a página. Se tiver algo digitado e ainda não salvo, será perdido. Continuar?')) return;
-        worker.postMessage({ type: 'SKIP_WAITING' });
-    });
 }
 
 

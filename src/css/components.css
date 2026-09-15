@@ -138,6 +138,23 @@ textarea { resize: vertical; }
     font-size: 1.08rem;
 }
 
+/* Amostra de hierarquia "mais suave": rótulo pequeno em cima, saudação
+   grande e em negrito embaixo (era o contrário — "Início" grande e a
+   saudação pequena/apagada) — pedido do usuário depois de comparar com
+   outro app dele. Escopada só no cabeçalho da tela Início por enquanto
+   (classe própria, não mexe no .page-header h2 usado nas outras telas). */
+.page-header-hero h2 {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-muted-strong);
+}
+
+.page-header-hero .page-subtitle {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
 .mini-button:hover { background-color: var(--info-bg); border-color: var(--border-focus); }
 
 .secondary-button:hover {
@@ -1534,28 +1551,6 @@ input[type="date"] {
 }
 
 #offline-banner.visible { display: flex; }
-
-/* Só o botão — nada de faixa cobrindo o topo da tela nem empurrando o
-   conteúdo. Fixo, pequeno, num canto (não atrapalha o header nem o resto
-   do layout), some sozinho se a versão nova deixar de estar disponível. */
-/* Fica em cima da barra de navegação (mesmo canto de #pending-sync-banner)
-   em vez de logo abaixo do cabeçalho — ali sobrepunha o título "Início" e
-   o "Bom dia/Boa tarde" da tela inicial (fixed não empurra o conteúdo,
-   só flutua por cima). --nav-height vira 0 no desktop (sidebar), então
-   aqui o botão desce sozinho pra perto do rodapé da tela nesse caso. */
-#update-banner {
-    position: fixed;
-    right: 0.75rem;
-    bottom: calc(var(--nav-height) + var(--safe-bottom, 0px) + 0.75rem);
-    z-index: var(--z-overlay-top);
-    opacity: 0;
-    transform: translateY(6px);
-    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
-    pointer-events: none;
-    box-shadow: var(--shadow);
-}
-
-#update-banner.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
 #pending-sync-banner {
     position: fixed;
