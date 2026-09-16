@@ -2247,6 +2247,11 @@ input[type="date"] {
     display: none;
 }
 .funil-link-card { display: none; }
+/* Campanhas > "Ver clientes" (botão) — mesmo motivo. O container da lista
+   em si (.camp-admin-itens) é escondido em proposals.css, não aqui: ele já
+   tem um `display: flex` incondicional lá, que (mesma especificidade,
+   arquivo carregado depois) venceria um `display: none` posto só aqui. */
+[data-camp-details] { display: none; }
 @media (min-width: 1024px) {
     #vincular-funil, #ver-funil-vinculado, #desvincular-funil,
     #vincular-proposta, #ver-proposta-vinculada, #desvincular-proposta {
@@ -2257,6 +2262,7 @@ input[type="date"] {
         display: inline-flex;
     }
     .funil-link-card { display: block; }
+    [data-camp-details] { display: inline-flex; }
 }
 
 /* ── Modal "Vincular a uma Proposta/Funil" (ver utils/linkPicker.js) ──────

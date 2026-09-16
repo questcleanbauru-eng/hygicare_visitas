@@ -291,14 +291,22 @@
 .camp-admin-actions .mini-button { padding: 0.22rem 0.5rem; font-size: 0.7rem; }
 
 /* Lista de clientes da campanha ("Ver clientes") — quem já atualizou e
-   quem ainda falta, sem precisar abrir o link do vendedor pra saber. */
-.camp-admin-itens {
-    margin-top: 0.6rem;
-    padding-top: 0.55rem;
-    border-top: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+   quem ainda falta, sem precisar abrir o link do vendedor pra saber.
+   Só no desktop (nome do cliente + data ficam espremidos no celular,
+   mesmo motivo do Vincular Proposta/Funil — ver components.css) — e só
+   quando NÃO tiver o atributo "hidden" (display:flex incondicional aqui
+   fazia o "Ocultar clientes" não esconder nada de verdade, e a lista
+   aparecer sozinha, vazia, antes mesmo de clicar em "Ver clientes"). */
+.camp-admin-itens { display: none; }
+@media (min-width: 1024px) {
+    .camp-admin-itens:not([hidden]) {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        margin-top: 0.6rem;
+        padding-top: 0.55rem;
+        border-top: 1px solid var(--border);
+    }
 }
 .camp-admin-item {
     display: flex;
