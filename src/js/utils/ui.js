@@ -673,38 +673,12 @@ export function initNavHoverPrefetch() {
 
 // ── Pull-to-refresh ──────────────────────────────────────────────
 
-export function initPullToRefresh(onRefresh) {
-    const main = document.getElementById('main-content');
-    if (!main) return;
-    let startY = 0;
-    let pulling = false;
-    let indicator = null;
-
-    main.addEventListener('touchstart', (e) => {
-        startY = e.touches[0].clientY;
-        pulling = main.scrollTop === 0;
-    }, { passive: true });
-
-    main.addEventListener('touchmove', (e) => {
-        if (!pulling) return;
-        const dy = e.touches[0].clientY - startY;
-        if (dy > 10 && !indicator) {
-            indicator = document.createElement('div');
-            indicator.className = 'pull-refresh-indicator';
-            indicator.innerHTML = '<span class="pull-refresh-spinner"></span>';
-            main.prepend(indicator);
-        }
-    }, { passive: true });
-
-    main.addEventListener('touchend', (e) => {
-        const dy = e.changedTouches[0].clientY - startY;
-        if (indicator) { indicator.remove(); indicator = null; }
-        if (pulling && dy > 72) {
-            onRefresh();
-        }
-        pulling = false;
-    }, { passive: true });
-}
+// Desativado a pedido do usuário — o gesto de puxar a tela pra baixo
+// disparava um recarregamento sem querer, com muita frequência. Os dados já
+// sincronizam sozinhos ao entrar em cada tela; quem quiser forçar na hora
+// ainda tem o botão de atualizar no cabeçalho. Chamadas existentes (5
+// telas) ficam intactas — viram no-op — pra não precisar mexer em cada uma.
+export function initPullToRefresh() {}
 
 // ── CSV export ───────────────────────────────────────────────────
 
