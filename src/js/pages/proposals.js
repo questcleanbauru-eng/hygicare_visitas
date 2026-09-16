@@ -102,12 +102,12 @@ export function fillProposalsContent(mainContent, proposals) {
             ${summaryCount > 0 ? `<button type="button" class="csv-export-btn" id="update-summary-btn" title="Compartilhar resumo de atualizações">
                 📤 Resumo <span class="pending-badge" style="margin-left:0.2rem">${summaryCount}</span>
             </button>` : ''}
-            ${isAdmin ? `<button type="button" class="csv-export-btn" id="proposals-csv-btn" title="Baixar Excel das propostas filtradas">📥 Excel</button>` : ''}
         </div>
         <div class="card visits-filter-card">
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
                 <div class="visits-filter-header-actions">
+                    ${isAdmin ? `<button type="button" class="mini-button" id="proposals-csv-btn" title="Baixar Excel das propostas filtradas">📥 Excel</button>` : ''}
                     <button type="button" class="mini-button" id="proposal-filter-clear">Limpar</button>
                     <button type="button" class="mini-button" id="proposal-filter-toggle">Ocultar</button>
                 </div>
