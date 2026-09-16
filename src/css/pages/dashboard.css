@@ -39,6 +39,10 @@
     margin-bottom: 0.6rem;
     padding: 0.75rem 0.9rem;
 }
+/* Sem isso, o atributo "hidden" perde pro "display:flex" acima (mesma
+   especificidade, autor vence o padrão do navegador) e o banner aparece
+   em branco mesmo quando devia ficar escondido. */
+.push-banner[hidden] { display: none; }
 .push-banner-text { min-width: 0; flex: 1 1 220px; }
 .push-banner-actions { display: flex; gap: 0.5rem; flex: 0 0 auto; }
 
