@@ -49,14 +49,14 @@ export function fillFunilContent(mainContent, funil) {
     const funilDupKey = (f) => [f.cliente, f.foco, f.aplicacao]
         .map((v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')).join('|');
 
-    const newFunilDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."';
+    const btnNovaOportunidade = (id) => state.canCreateProposalFunil ? `<button type="button" class="btn-add" id="${id}">+ Nova Oportunidade</button>` : '';
 
     if (funilData.length === 0) {
         const scopeIsLimited = state.funilScope && state.funilScope !== 'all';
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Funil de Vendas</h2></div>
-                <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
+                ${btnNovaOportunidade('btn-new-funil')}
             </div>
             ${scopeIsLimited ? `
             <div class="scope-banner scope-days-ctrl">
@@ -71,7 +71,7 @@ export function fillFunilContent(mainContent, funil) {
                 ${scopeIsLimited
                     ? `<p>Nenhum registro nos últimos ${state.loadDias || 90} dias.</p>`
                     : `<p>Nenhum registro encontrado no funil.</p>
-                       <button type="button" class="btn-add" id="btn-new-funil-empty" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>`
+                       ${btnNovaOportunidade('btn-new-funil-empty')}`
                 }
                 <button type="button" class="secondary-button" id="funil-force-refresh" style="margin-top:0.5rem">↺ Recarregar</button>
             </div>
@@ -113,7 +113,7 @@ export function fillFunilContent(mainContent, funil) {
                 ${state.canDelete ? '<button type="button" class="mini-button" id="funil-select-toggle" title="Marcar vários registros para apagar de uma vez">☑️ Selecionar</button>' : ''}
                 ${isAdmGer ? '<button type="button" class="mini-button" id="funil-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
                 ${isAdminUser ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, um registro após o outro">⚡ Edição rápida</button>` : ''}
-                <button type="button" class="btn-add" id="btn-new-funil" ${newFunilDisabledAttr}>+ Nova Oportunidade</button>
+                ${btnNovaOportunidade('btn-new-funil')}
             </div>
         </div>
         ${summaryCount > 0 ? `<div style="margin-bottom:0.75rem">

@@ -38,8 +38,8 @@ export function fillDashboard(mainContent, data, user) {
         <!-- Ações rápidas -->
         <div class="dash-actions-bar">
             <button type="button" class="dash-action-outline" id="qa-new-visit">📋 Nova Visita</button>
-            <button type="button" class="dash-action-outline" id="qa-new-proposal" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de propostas."'}>📄 Nova Proposta</button>
-            <button type="button" class="dash-action-outline" id="qa-new-funil" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de oportunidades."'}>📊 Nova Oportunidade</button>
+            ${state.canCreateProposalFunil ? '<button type="button" class="dash-action-outline" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
+            ${state.canCreateProposalFunil ? '<button type="button" class="dash-action-outline" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
         </div>
 
         <!-- Hoje -->
@@ -291,8 +291,8 @@ export function fillDashboard(mainContent, data, user) {
     });
 
     document.getElementById('qa-new-visit').addEventListener('click',     () => navigateTo('visit-new'));
-    document.getElementById('qa-new-proposal').addEventListener('click',  () => navigateTo('proposal-new'));
-    document.getElementById('qa-new-funil').addEventListener('click',     () => navigateTo('funil-new'));
+    document.getElementById('qa-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
+    document.getElementById('qa-new-funil')?.addEventListener('click',    () => navigateTo('funil-new'));
     mainContent.querySelectorAll('.metric-card[data-nav]').forEach((el) => {
         el.addEventListener('click', () => {
             const nav = el.dataset.nav;

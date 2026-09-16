@@ -37,14 +37,14 @@ export function fillProposalsContent(mainContent, proposals) {
     let selectMode = false;
     const selectedIds = new Set();
 
-    const newProposalDisabledAttr = state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de propostas."';
+    const btnNovaProposta = (id) => state.canCreateProposalFunil ? `<button type="button" class="btn-add" id="${id}">+ Nova Proposta</button>` : '';
 
     if (normalized.length === 0) {
         const scopeIsLimited = state.proposalsScope && state.proposalsScope !== 'all';
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Propostas</h2></div>
-                <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
+                ${btnNovaProposta('btn-new-proposal')}
             </div>
             ${scopeIsLimited ? `
             <div class="scope-banner scope-days-ctrl">
@@ -59,7 +59,7 @@ export function fillProposalsContent(mainContent, proposals) {
                 ${scopeIsLimited
                     ? `<p>Nenhuma proposta nos últimos ${state.loadDias || 90} dias.</p>`
                     : `<p>Nenhuma proposta registrada ainda.</p>
-                       <button type="button" class="btn-add" id="btn-new-proposal2" ${newProposalDisabledAttr}>+ Nova Proposta</button>`
+                       ${btnNovaProposta('btn-new-proposal2')}`
                 }
             </div>
         `;
@@ -91,7 +91,7 @@ export function fillProposalsContent(mainContent, proposals) {
                 ${state.canDelete ? '<button type="button" class="mini-button" id="proposal-select-toggle" title="Marcar várias propostas para apagar de uma vez">☑️ Selecionar</button>' : ''}
                 ${isAdmGer ? '<button type="button" class="mini-button" id="proposals-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
                 ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, uma proposta após a outra">⚡ Edição rápida</button>` : ''}
-                <button type="button" class="btn-add" id="btn-new-proposal" ${newProposalDisabledAttr}>+ Nova Proposta</button>
+                ${btnNovaProposta('btn-new-proposal')}
             </div>
         </div>
         <div class="search-bar-wrapper">
