@@ -97,20 +97,139 @@
 
 /* Tela de Notificações (src/js/pages/notificacoes.js) */
 .notif-unread { border-left: 3px solid var(--primary); }
-.notif-pend-item {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    background: none;
-    border: none;
-    padding: 0.25rem 0;
-    text-align: left;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text);
-    cursor: pointer;
+
+.notif-header-badge {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: var(--warning-bg);
+    color: var(--warning);
+    white-space: nowrap;
 }
-.notif-pend-item:hover { color: var(--primary); }
+
+/* "Suas pendências" — cards clicáveis lado a lado, não texto corrido */
+.notif-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 0.3rem;
+}
+.notif-summary-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: var(--shadow-xs);
+    transition: box-shadow 0.15s, transform 0.1s;
+}
+.notif-summary-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+.notif-summary-card:active { transform: scale(0.98); }
+.notif-summary-icon { font-size: 1.1rem; }
+.notif-summary-count { font-size: 1.5rem; font-weight: 700; line-height: 1; color: var(--text); }
+.notif-summary-label { font-size: 0.8rem; color: var(--text-muted-strong); line-height: 1.25; }
+.notif-summary-cta { font-size: 0.76rem; font-weight: 600; color: var(--primary); margin-top: 0.1rem; }
+
+/* Busca + filtro de unidade, acima da lista por vendedor */
+.notif-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0 0.7rem;
+}
+.notif-toolbar input[type="text"] { flex: 1 1 220px; }
+.notif-toolbar select { flex: 0 1 200px; }
+
+/* Lista por vendedor/gerente — linhas compactas em vez de cards altos */
+.notif-vendor-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.notif-vendor-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.7rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.75rem;
+}
+.notif-vendor-row-ok { opacity: 0.7; }
+.notif-vendor-id { display: flex; align-items: center; gap: 0.45rem; flex: 1 1 180px; min-width: 0; }
+.notif-vendor-avatar {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+.notif-vendor-name { font-weight: 600; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif-vendor-unit {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-muted-strong);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.08rem 0.5rem;
+}
+.notif-vendor-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; flex: 2 1 280px; }
+.notif-vendor-total {
+    flex-shrink: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    min-width: 1.4rem;
+    text-align: center;
+}
+.notif-vendor-ok { flex-shrink: 0; margin-left: auto; }
+
+.notif-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: none;
+    border-radius: 999px;
+    padding: 0.22rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: filter 0.15s;
+}
+.notif-chip:hover { filter: brightness(0.94); }
+.notif-chip-bell { font-size: 0.7rem; }
+.notif-chip-amber  { background: var(--warning-bg); color: var(--warning); }
+.notif-chip-orange { background: #fff7ed; color: #c2410c; }
+.notif-chip-blue   { background: var(--info-bg); color: var(--info); }
+.notif-chip-red    { background: var(--danger-bg); color: var(--danger); }
+
+/* Acessibilidade: foco visível em todo elemento clicável novo desta tela
+   (chips, cards do resumo, linhas de vendedor) — não depender só do
+   outline padrão do navegador, que alguns temas/estilos globais suprimem. */
+.notif-summary-card:focus-visible,
+.notif-chip:focus-visible,
+.notif-vendor-row button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
 .camp-admin-row + .camp-admin-row { margin-top: 0; }
 
 /* Resumo da proposta (itens importados) — recolhido por padrão, são

@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, ensureFormData, getDashboardData } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, getInitials } from '../utils/format.js';
 import { showToast, setSaving, skeletonList, addScrollTop, initializeSearchableInput } from '../utils/dom.js';
 import { renderBreadcrumb, updateNotificacoesBadge } from '../utils/ui.js';
 
@@ -9,18 +9,46 @@ import { renderBreadcrumb, updateNotificacoesBadge } from '../utils/ui.js';
 // vivas de quem está logado (atrasos de Proposta/Funil, Clientes
 // Principais sem relatório no mês) +, só pra admin/gerente, a MESMA
 // pendência mas quebrada por vendedor/gerente (ver
-// handleGetPendenciasPorVendedor em dashboard.js), com um 🔔 que já leva
-// o assunto pronto pra cutucar exatamente quem está devendo.
+// handleGetPendenciasPorVendedor em dashboard.js), com chips clicáveis
+// que notificam só aquele item específico (ou "Notificar tudo" pra
+// mandar todas as pendências daquela pessoa de uma vez).
+
+// Cada tipo de pendência de vendedor: como ler a contagem do registro
+// vindo do backend, o texto do chip, a cor semântica e pra onde "Ver →"
+// leva. Uma fonte só usada tanto pros chips da lista por vendedor quanto
+// (parcialmente) pro resumo pessoal "Suas pendências" no topo.
+const PEND_KINDS = [
+    { key: 'overdueProposals', isArray: false, color: 'amber', icon: '📄', page: 'proposals',
+        label: (n) => `${n} proposta${n > 1 ? 's' : ''} atrasada${n > 1 ? 's' : ''}` },
+    { key: 'overdueFunil', isArray: false, color: 'orange', icon: '📊', page: 'funil',
+        label: (n) => `${n} oportunidade${n > 1 ? 's' : ''} no Funil sem atualização` },
+    { key: 'campanhasPendentes', isArray: true, color: 'blue', icon: '🔗', page: 'campanhas',
+        label: (n) => `${n} campanha${n > 1 ? 's' : ''} aguardando resposta` },
+    { key: 'clientesPrincipaisPendentes', isArray: true, color: 'red', icon: '⭐', page: 'dashboard',
+        label: (n) => `${n} cliente${n > 1 ? 's' : ''} principal${n > 1 ? 'is' : ''} sem relatório este mês` }
+];
+
+function kindCount(v, kind) {
+    const raw = v[kind.key];
+    return kind.isArray ? (raw || []).length : (raw || 0);
+}
+
 export async function renderNotificacoesPage() {
     const main = document.getElementById('main-content');
     main.innerHTML = skeletonList(4);
     const isGestor = isAdminOrGerenteUser();
 
-    const [notifResult, dashResult, pendResult] = await Promise.all([
+    // getPendenciasPorVendedor é a chamada mais pesada (lê várias abas) —
+    // sequenciada depois das outras duas, em vez de tudo num Promise.all só,
+    // pra não empilhar 3 leituras pesadas ao mesmo tempo na planilha (isso
+    // já chegou a estourar a cota de requisições do Sheets).
+    const [notifResult, dashResult] = await Promise.all([
         callAPI('getNotificacoes', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message })),
-        getDashboardData().catch(() => null),
-        isGestor ? callAPI('getPendenciasPorVendedor', { user: state.currentUser }).catch(() => null) : Promise.resolve(null)
+        getDashboardData().catch(() => null)
     ]);
+    const pendResult = isGestor
+        ? await callAPI('getPendenciasPorVendedor', { user: state.currentUser }).catch(() => null)
+        : null;
 
     if (!notifResult || notifResult.status !== 'success') {
         main.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔔</span><p>${escapeHtml((notifResult && notifResult.message) || 'Não foi possível carregar as notificações.')}</p>
@@ -34,14 +62,29 @@ export async function renderNotificacoesPage() {
 
     const d = (dashResult && dashResult.status === 'success' && dashResult.data) || {};
     const pendCP = (d.clientesPrincipaisPendentes || []).length;
-    const pendencias = [
-        d.overdueProposals ? { label: `${d.overdueProposals} proposta${d.overdueProposals > 1 ? 's' : ''} atrasada${d.overdueProposals > 1 ? 's' : ''}`, page: 'proposals' } : null,
-        d.overdueFunil ? { label: `${d.overdueFunil} oportunidade${d.overdueFunil > 1 ? 's' : ''} no Funil sem atualização`, page: 'funil' } : null,
-        pendCP ? { label: `${pendCP} cliente${pendCP > 1 ? 's' : ''} principal${pendCP > 1 ? 'is' : ''} sem relatório de manutenção este mês`, page: 'dashboard' } : null
+    const minhasPendencias = [
+        d.overdueProposals ? { icon: '📄', count: d.overdueProposals, label: `proposta${d.overdueProposals > 1 ? 's' : ''} atrasada${d.overdueProposals > 1 ? 's' : ''}`, page: 'proposals' } : null,
+        d.overdueFunil ? { icon: '📊', count: d.overdueFunil, label: `oportunidade${d.overdueFunil > 1 ? 's' : ''} no Funil sem atualização`, page: 'funil' } : null,
+        pendCP ? { icon: '⭐', count: pendCP, label: `cliente${pendCP > 1 ? 's' : ''} principal${pendCP > 1 ? 'is' : ''} sem relatório este mês`, page: 'dashboard' } : null
     ].filter(Boolean);
 
     const vendedoresPend = (pendResult && pendResult.status === 'success') ? pendResult.vendedores || [] : [];
+    const unidades = Array.from(new Set(vendedoresPend.map((v) => v.gerencia).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
+    const totalPendenciasAtivas = isGestor
+        ? vendedoresPend.reduce((sum, v) => sum + v.total, 0)
+        : minhasPendencias.reduce((sum, p) => sum + p.count, 0);
+
+    // ── Resumo pessoal ("Suas pendências") — cards clicáveis, não texto corrido ──
+    const summaryCardHtml = (p) => `
+        <button type="button" class="notif-summary-card" data-page="${p.page}">
+            <span class="notif-summary-icon" aria-hidden="true">${p.icon}</span>
+            <span class="notif-summary-count">${p.count}</span>
+            <span class="notif-summary-label">${escapeHtml(p.label)}</span>
+            <span class="notif-summary-cta">Ver →</span>
+        </button>`;
+
+    // ── Histórico ──
     const notifRow = (n) => `
         <div class="card camp-card${n.lida ? '' : ' notif-unread'}" data-notif-id="${escapeHtml(n.id)}" style="cursor:pointer">
             <div class="camp-card-head">
@@ -52,60 +95,117 @@ export async function renderNotificacoesPage() {
             <p class="helper-text" style="margin:0.3rem 0 0;font-size:0.72rem">${escapeHtml(n.criadaEm || '')}</p>
         </div>`;
 
-    const vendorPartes = (v) => [
-        v.overdueProposals ? `${v.overdueProposals} proposta${v.overdueProposals > 1 ? 's' : ''} atrasada${v.overdueProposals > 1 ? 's' : ''}` : '',
-        v.overdueFunil ? `${v.overdueFunil} oportunidade${v.overdueFunil > 1 ? 's' : ''} no Funil sem atualização` : '',
-        v.campanhasPendentes.length ? `${v.campanhasPendentes.length} campanha${v.campanhasPendentes.length > 1 ? 's' : ''} aguardando resposta` : '',
-        v.clientesPrincipaisPendentes.length ? `${v.clientesPrincipaisPendentes.length} cliente${v.clientesPrincipaisPendentes.length > 1 ? 's' : ''} principal${v.clientesPrincipaisPendentes.length > 1 ? 'is' : ''} sem relatório este mês` : ''
-    ].filter(Boolean);
-
-    const vendorCard = (v) => {
-        const partes = vendorPartes(v);
+    // ── Linha compacta por vendedor/gerente ──
+    const vendorRowHtml = (v) => {
+        const chips = PEND_KINDS.map((kind) => {
+            const n = kindCount(v, kind);
+            if (!n) return '';
+            return `<button type="button" class="notif-chip notif-chip-${kind.color}" data-notify-vendor="${escapeHtml(v.nome)}" data-notify-kind="${kind.key}" aria-label="Notificar ${escapeHtml(v.nome)} sobre ${escapeHtml(kind.label(n))}">
+                <span class="notif-chip-bell" aria-hidden="true">🔔</span>${escapeHtml(kind.label(n))}
+            </button>`;
+        }).join('');
         return `
-        <div class="card camp-card${v.total ? '' : ' camp-card-done'}">
-            <div class="camp-card-head">
-                <strong>${escapeHtml(v.nome)}</strong>
-                ${v.total
-                    ? `<button type="button" class="mini-button" data-notify-vendor="${escapeHtml(v.nome)}" title="Notificar ${escapeHtml(v.nome)}">🔔</button>`
-                    : '<span class="camp-tag-ok">✓ Em dia</span>'}
+        <div class="notif-vendor-row${v.total ? '' : ' notif-vendor-row-ok'}" data-vendor-nome="${escapeHtml(v.nome.toLowerCase())}" data-vendor-unidade="${escapeHtml(v.gerencia || '')}">
+            <div class="notif-vendor-id">
+                <span class="notif-vendor-avatar" aria-hidden="true">${escapeHtml(getInitials(v.nome))}</span>
+                <span class="notif-vendor-name">${escapeHtml(v.nome)}</span>
+                ${v.gerencia ? `<span class="notif-vendor-unit">${escapeHtml(v.gerencia)}</span>` : ''}
             </div>
-            <p class="helper-text" style="margin:0.15rem 0 0">${escapeHtml(v.gerencia || '-')}</p>
-            ${partes.length ? `<p class="helper-text" style="margin:0.3rem 0 0">${escapeHtml(partes.join(' · '))}</p>` : ''}
+            ${v.total
+                ? `<div class="notif-vendor-chips">${chips}</div>
+                   <span class="notif-vendor-total" aria-label="${v.total} pendências no total">${v.total}</span>
+                   <button type="button" class="mini-button" data-notify-all="${escapeHtml(v.nome)}" aria-label="Notificar tudo pra ${escapeHtml(v.nome)}">Notificar tudo</button>`
+                : '<span class="camp-tag-ok notif-vendor-ok">✓ Em dia</span>'}
         </div>`;
+    };
+
+    const renderVendorList = () => {
+        const container = document.getElementById('notif-vendor-list');
+        if (!container) return;
+        const search = (document.getElementById('notif-search')?.value || '').trim().toLowerCase();
+        const unidade = document.getElementById('notif-unit-filter')?.value || '';
+        const filtrados = vendedoresPend.filter((v) =>
+            (!search || v.nome.toLowerCase().includes(search)) &&
+            (!unidade || v.gerencia === unidade));
+        container.innerHTML = filtrados.length
+            ? filtrados.map(vendorRowHtml).join('')
+            : '<p class="helper-text">Nenhum vendedor/gerente encontrado.</p>';
+        wireVendorList(container);
+    };
+
+    const wireVendorList = (container) => {
+        container.querySelectorAll('[data-notify-kind]').forEach((chip) => {
+            chip.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const v = vendedoresPend.find((x) => x.nome === chip.dataset.notifyVendor);
+                const kind = PEND_KINDS.find((k) => k.key === chip.dataset.notifyKind);
+                if (!v || !kind) return;
+                const n = kindCount(v, kind);
+                const primeiroNome = v.nome.split(' ')[0];
+                openComposeNotificationModal({
+                    destinatario: v.nome,
+                    body: `Oi ${primeiroNome}! Você está com ${kind.label(n)}. Por favor, atualize o quanto antes.`
+                });
+            });
+        });
+        container.querySelectorAll('[data-notify-all]').forEach((btn) => {
+            btn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const v = vendedoresPend.find((x) => x.nome === btn.dataset.notifyAll);
+                if (!v) return;
+                const partes = PEND_KINDS.map((k) => { const n = kindCount(v, k); return n ? k.label(n) : ''; }).filter(Boolean);
+                const primeiroNome = v.nome.split(' ')[0];
+                openComposeNotificationModal({
+                    destinatario: v.nome,
+                    body: `Oi ${primeiroNome}! Você está com pendências: ${partes.join(', ')}. Por favor, atualize o quanto antes.`
+                });
+            });
+        });
     };
 
     main.innerHTML = `
         ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: 'Notificações' }])}
         <div class="page-header">
-            <div><h2>Notificações</h2><p class="page-subtitle">${notificacoes.length} no histórico${notifResult.naoLidas ? ` · ${notifResult.naoLidas} nova${notifResult.naoLidas > 1 ? 's' : ''}` : ''}</p></div>
+            <div>
+                <h2>Notificações ${totalPendenciasAtivas ? `<span class="notif-header-badge">${totalPendenciasAtivas} pendência${totalPendenciasAtivas > 1 ? 's' : ''} ativa${totalPendenciasAtivas > 1 ? 's' : ''}</span>` : ''}</h2>
+            </div>
             <div class="page-header-actions">
                 ${isGestor ? '<button type="button" class="mini-button" id="notif-compose">+ Nova notificação</button>' : ''}
                 ${notifResult.naoLidas ? '<button type="button" class="mini-button" id="notif-marcar-todas">Marcar todas como lidas</button>' : ''}
             </div>
         </div>
 
-        ${pendencias.length ? `
-        <div class="card push-banner" style="align-items:flex-start;flex-direction:column">
-            <strong style="font-size:0.85rem">📌 Suas pendências</strong>
-            <div style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.4rem;width:100%">
-                ${pendencias.map((p) => `<button type="button" class="notif-pend-item" data-page="${p.page}">${escapeHtml(p.label)} →</button>`).join('')}
-            </div>
-        </div>` : ''}
+        ${minhasPendencias.length ? `
+        <h3 class="dash-section-heading">SUAS PENDÊNCIAS</h3>
+        <div class="notif-summary-grid">${minhasPendencias.map(summaryCardHtml).join('')}</div>` : ''}
 
         ${isGestor ? `
         <h3 class="dash-section-heading" style="margin-top:0.9rem">PENDÊNCIAS POR VENDEDOR/GERENTE</h3>
-        ${vendedoresPend.length
-            ? `<div class="camp-cards">${vendedoresPend.map(vendorCard).join('')}</div>`
-            : '<p class="helper-text">Nenhum vendedor/gerente pra mostrar.</p>'}
+        ${vendedoresPend.length ? `
+        <div class="notif-toolbar">
+            <input type="text" id="notif-search" placeholder="Buscar por nome..." aria-label="Buscar vendedor por nome">
+            ${unidades.length > 1 ? `<select id="notif-unit-filter" aria-label="Filtrar por unidade">
+                <option value="">Todas as unidades</option>
+                ${unidades.map((u) => `<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('')}
+            </select>` : ''}
+        </div>
+        <div class="notif-vendor-list" id="notif-vendor-list"></div>
+        ` : '<p class="helper-text">Nenhum vendedor/gerente pra mostrar.</p>'}
         ` : ''}
 
-        <h3 class="dash-section-heading" style="margin-top:0.9rem">HISTÓRICO</h3>
+        <h3 class="dash-section-heading" style="margin-top:0.9rem">HISTÓRICO <span class="helper-text" style="text-transform:none;font-weight:500">(${notificacoes.length}${notifResult.naoLidas ? ` · ${notifResult.naoLidas} nova${notifResult.naoLidas > 1 ? 's' : ''}` : ''})</span></h3>
         ${notificacoes.length === 0
             ? '<div class="empty-state"><span class="empty-state-icon">🔔</span><p>Nenhuma notificação ainda.</p></div>'
             : `<div class="camp-cards">${notificacoes.map(notifRow).join('')}</div>`}
     `;
 
-    main.querySelectorAll('.notif-pend-item').forEach((btn) => {
+    if (isGestor && vendedoresPend.length) {
+        renderVendorList();
+        document.getElementById('notif-search')?.addEventListener('input', renderVendorList);
+        document.getElementById('notif-unit-filter')?.addEventListener('change', renderVendorList);
+    }
+
+    main.querySelectorAll('.notif-summary-card').forEach((btn) => {
         btn.addEventListener('click', () => navigateTo(btn.dataset.page));
     });
 
@@ -116,17 +216,6 @@ export async function renderNotificacoesPage() {
                 callAPI('marcarNotificacaoLida', { id: n.id, user: state.currentUser }).catch(() => {});
             }
             navigateTo((n && n.page) || 'dashboard', (n && n.params) || {});
-        });
-    });
-
-    main.querySelectorAll('[data-notify-vendor]').forEach((btn) => {
-        btn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            const v = vendedoresPend.find((x) => x.nome === btn.dataset.notifyVendor);
-            if (!v) return;
-            const primeiroNome = v.nome.split(' ')[0];
-            const body = `Oi ${primeiroNome}! Você está com pendências: ${vendorPartes(v).join(', ')}. Por favor, atualize o quanto antes.`;
-            openComposeNotificationModal({ destinatario: v.nome, body });
         });
     });
 
