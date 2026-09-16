@@ -96,7 +96,38 @@
 .camp-card textarea { width: 100%; }
 
 /* Tela de Notificações (src/js/pages/notificacoes.js) */
-.notif-unread { border-left: 3px solid var(--primary); }
+
+/* Histórico — classe própria em vez de .camp-card (esse é só sombra, sem
+   borda; some visualmente do lado dos cards/linhas com borda colorida
+   desta mesma tela). Lida = cinza neutro; não lida = azul + fundo leve. */
+.notif-history-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.85rem;
+    cursor: pointer;
+}
+.notif-history-row-unread { border-left-color: var(--info); background: var(--info-bg); }
+.notif-history-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.notif-history-head strong { font-size: 0.86rem; }
+.notif-history-badge {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--info);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+}
+.notif-history-body { margin: 0; font-size: 0.82rem; color: var(--text-muted-strong); line-height: 1.35; }
+.notif-history-date { margin: 0; font-size: 0.7rem; color: var(--text-muted); }
 
 .notif-header-badge {
     display: inline-flex;

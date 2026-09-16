@@ -84,15 +84,17 @@ export async function renderNotificacoesPage() {
             <span class="notif-summary-cta">Ver →</span>
         </button>`;
 
-    // ── Histórico ──
+    // ── Histórico ── (classe própria — .camp-card é usado em outras telas
+    // e é só sombra, sem borda; aqui precisa da mesma linguagem visual dos
+    // cards/linhas acima, senão desaparece contra o fundo)
     const notifRow = (n) => `
-        <div class="card camp-card${n.lida ? '' : ' notif-unread'}" data-notif-id="${escapeHtml(n.id)}" style="cursor:pointer">
-            <div class="camp-card-head">
+        <div class="notif-history-row${n.lida ? '' : ' notif-history-row-unread'}" data-notif-id="${escapeHtml(n.id)}">
+            <div class="notif-history-head">
                 <strong>${escapeHtml(n.titulo || 'Notificação')}</strong>
-                ${!n.lida ? '<span class="camp-tag-ok" style="background:var(--info-bg);color:var(--info)">Nova</span>' : ''}
+                ${!n.lida ? '<span class="notif-history-badge">Nova</span>' : ''}
             </div>
-            ${n.corpo ? `<p class="helper-text" style="margin:0.2rem 0 0">${escapeHtml(n.corpo)}</p>` : ''}
-            <p class="helper-text" style="margin:0.3rem 0 0;font-size:0.72rem">${escapeHtml(n.criadaEm || '')}</p>
+            ${n.corpo ? `<p class="notif-history-body">${escapeHtml(n.corpo)}</p>` : ''}
+            <p class="notif-history-date">${escapeHtml(n.criadaEm || '')}</p>
         </div>`;
 
     // ── Linha compacta por vendedor/gerente ──
