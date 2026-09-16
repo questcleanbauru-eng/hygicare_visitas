@@ -6,16 +6,20 @@ import { renderBreadcrumb, updateNotificacoesBadge } from '../utils/ui.js';
 
 // Tela central de avisos: o histórico de notificações (campanha criada,
 // aviso manual do admin — ver lib/handlers/push.js) + as "pendências"
-// vivas (atrasos de Proposta/Funil, Clientes Principais sem relatório no
-// mês) que já eram calculadas pro Dashboard, só que reaproveitadas aqui
-// num lugar central em vez de espalhadas.
+// vivas de quem está logado (atrasos de Proposta/Funil, Clientes
+// Principais sem relatório no mês) +, só pra admin/gerente, a MESMA
+// pendência mas quebrada por vendedor/gerente (ver
+// handleGetPendenciasPorVendedor em dashboard.js), com um 🔔 que já leva
+// o assunto pronto pra cutucar exatamente quem está devendo.
 export async function renderNotificacoesPage() {
     const main = document.getElementById('main-content');
     main.innerHTML = skeletonList(4);
+    const isGestor = isAdminOrGerenteUser();
 
-    const [notifResult, dashResult] = await Promise.all([
+    const [notifResult, dashResult, pendResult] = await Promise.all([
         callAPI('getNotificacoes', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message })),
-        getDashboardData().catch(() => null)
+        getDashboardData().catch(() => null),
+        isGestor ? callAPI('getPendenciasPorVendedor', { user: state.currentUser }).catch(() => null) : Promise.resolve(null)
     ]);
 
     if (!notifResult || notifResult.status !== 'success') {
@@ -36,6 +40,8 @@ export async function renderNotificacoesPage() {
         pendCP ? { label: `${pendCP} cliente${pendCP > 1 ? 's' : ''} principal${pendCP > 1 ? 'is' : ''} sem relatório de manutenção este mês`, page: 'dashboard' } : null
     ].filter(Boolean);
 
+    const vendedoresPend = (pendResult && pendResult.status === 'success') ? pendResult.vendedores || [] : [];
+
     const notifRow = (n) => `
         <div class="card camp-card${n.lida ? '' : ' notif-unread'}" data-notif-id="${escapeHtml(n.id)}" style="cursor:pointer">
             <div class="camp-card-head">
@@ -46,24 +52,54 @@ export async function renderNotificacoesPage() {
             <p class="helper-text" style="margin:0.3rem 0 0;font-size:0.72rem">${escapeHtml(n.criadaEm || '')}</p>
         </div>`;
 
+    const vendorPartes = (v) => [
+        v.overdueProposals ? `${v.overdueProposals} proposta${v.overdueProposals > 1 ? 's' : ''} atrasada${v.overdueProposals > 1 ? 's' : ''}` : '',
+        v.overdueFunil ? `${v.overdueFunil} oportunidade${v.overdueFunil > 1 ? 's' : ''} no Funil sem atualização` : '',
+        v.campanhasPendentes.length ? `${v.campanhasPendentes.length} campanha${v.campanhasPendentes.length > 1 ? 's' : ''} aguardando resposta` : '',
+        v.clientesPrincipaisPendentes.length ? `${v.clientesPrincipaisPendentes.length} cliente${v.clientesPrincipaisPendentes.length > 1 ? 's' : ''} principal${v.clientesPrincipaisPendentes.length > 1 ? 'is' : ''} sem relatório este mês` : ''
+    ].filter(Boolean);
+
+    const vendorCard = (v) => {
+        const partes = vendorPartes(v);
+        return `
+        <div class="card camp-card${v.total ? '' : ' camp-card-done'}">
+            <div class="camp-card-head">
+                <strong>${escapeHtml(v.nome)}</strong>
+                ${v.total
+                    ? `<button type="button" class="mini-button" data-notify-vendor="${escapeHtml(v.nome)}" title="Notificar ${escapeHtml(v.nome)}">🔔</button>`
+                    : '<span class="camp-tag-ok">✓ Em dia</span>'}
+            </div>
+            <p class="helper-text" style="margin:0.15rem 0 0">${escapeHtml(v.gerencia || '-')}</p>
+            ${partes.length ? `<p class="helper-text" style="margin:0.3rem 0 0">${escapeHtml(partes.join(' · '))}</p>` : ''}
+        </div>`;
+    };
+
     main.innerHTML = `
         ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: 'Notificações' }])}
         <div class="page-header">
             <div><h2>Notificações</h2><p class="page-subtitle">${notificacoes.length} no histórico${notifResult.naoLidas ? ` · ${notifResult.naoLidas} nova${notifResult.naoLidas > 1 ? 's' : ''}` : ''}</p></div>
             <div class="page-header-actions">
-                ${isAdminOrGerenteUser() ? '<button type="button" class="mini-button" id="notif-compose">+ Nova notificação</button>' : ''}
+                ${isGestor ? '<button type="button" class="mini-button" id="notif-compose">+ Nova notificação</button>' : ''}
                 ${notifResult.naoLidas ? '<button type="button" class="mini-button" id="notif-marcar-todas">Marcar todas como lidas</button>' : ''}
             </div>
         </div>
 
         ${pendencias.length ? `
         <div class="card push-banner" style="align-items:flex-start;flex-direction:column">
-            <strong style="font-size:0.85rem">📌 Pendências</strong>
+            <strong style="font-size:0.85rem">📌 Suas pendências</strong>
             <div style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.4rem;width:100%">
                 ${pendencias.map((p) => `<button type="button" class="notif-pend-item" data-page="${p.page}">${escapeHtml(p.label)} →</button>`).join('')}
             </div>
         </div>` : ''}
 
+        ${isGestor ? `
+        <h3 class="dash-section-heading" style="margin-top:0.9rem">PENDÊNCIAS POR VENDEDOR/GERENTE</h3>
+        ${vendedoresPend.length
+            ? `<div class="camp-cards">${vendedoresPend.map(vendorCard).join('')}</div>`
+            : '<p class="helper-text">Nenhum vendedor/gerente pra mostrar.</p>'}
+        ` : ''}
+
+        <h3 class="dash-section-heading" style="margin-top:0.9rem">HISTÓRICO</h3>
         ${notificacoes.length === 0
             ? '<div class="empty-state"><span class="empty-state-icon">🔔</span><p>Nenhuma notificação ainda.</p></div>'
             : `<div class="camp-cards">${notificacoes.map(notifRow).join('')}</div>`}
@@ -83,6 +119,17 @@ export async function renderNotificacoesPage() {
         });
     });
 
+    main.querySelectorAll('[data-notify-vendor]').forEach((btn) => {
+        btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const v = vendedoresPend.find((x) => x.nome === btn.dataset.notifyVendor);
+            if (!v) return;
+            const primeiroNome = v.nome.split(' ')[0];
+            const body = `Oi ${primeiroNome}! Você está com pendências: ${vendorPartes(v).join(', ')}. Por favor, atualize o quanto antes.`;
+            openComposeNotificationModal({ destinatario: v.nome, body });
+        });
+    });
+
     document.getElementById('notif-marcar-todas')?.addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;
         setSaving(true, btn, 'Marcando...');
@@ -90,12 +137,12 @@ export async function renderNotificacoesPage() {
         navigateTo('notificacoes');
     });
 
-    document.getElementById('notif-compose')?.addEventListener('click', openComposeNotificationModal);
+    document.getElementById('notif-compose')?.addEventListener('click', () => openComposeNotificationModal());
 
     addScrollTop();
 }
 
-async function openComposeNotificationModal() {
+async function openComposeNotificationModal(prefill) {
     const fd = await ensureFormData().then((r) => r.data).catch(() => null);
     const vendedores = ((fd && fd.vendedores) || []).filter((v) => v.nome).map((v) => v.nome);
 
@@ -107,7 +154,7 @@ async function openComposeNotificationModal() {
             <div class="form-group full-width">
                 <label for="cn-destinatario">Destinatário</label>
                 <div class="searchable-select">
-                    <input type="text" id="cn-destinatario" placeholder="Busque o vendedor/gerente" autocomplete="off">
+                    <input type="text" id="cn-destinatario" placeholder="Busque o vendedor/gerente" autocomplete="off" value="${escapeHtml((prefill && prefill.destinatario) || '')}">
                     <div class="searchable-select-menu" id="cn-destinatario-menu"></div>
                 </div>
             </div>
@@ -117,7 +164,7 @@ async function openComposeNotificationModal() {
             </div>
             <div class="form-group full-width">
                 <label for="cn-body">Mensagem</label>
-                <textarea id="cn-body" rows="4" placeholder="Ex.: Preciso que você atualize o Funil hoje ainda." maxlength="300"></textarea>
+                <textarea id="cn-body" rows="4" placeholder="Ex.: Preciso que você atualize o Funil hoje ainda." maxlength="300">${escapeHtml((prefill && prefill.body) || '')}</textarea>
             </div>
             <div class="form-actions full-width" style="display:flex;gap:0.5rem">
                 <button type="button" class="secondary-button" id="cn-cancel">Fechar</button>
@@ -135,6 +182,8 @@ async function openComposeNotificationModal() {
         items: vendedores,
         allowFreeText: false
     });
+
+    overlay.querySelector(prefill ? '#cn-body' : '#cn-destinatario').focus();
 
     overlay.querySelector('#cn-send').addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;

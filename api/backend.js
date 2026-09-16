@@ -38,7 +38,7 @@ import {
     handleUpdateRelatorioTecnico, handleDeleteRelatorioTecnico,
     handleGetRelatorioTecnicoModelos, handleSaveRelatorioTecnicoModelo, handleDeleteRelatorioTecnicoModelo
 } from '../lib/handlers/relatorioTecnico.js';
-import { handleGetDashboardData } from '../lib/handlers/dashboard.js';
+import { handleGetDashboardData, handleGetPendenciasPorVendedor } from '../lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSetUserAtivo, handleDeleteUser, handleSaveNotificationConfig, handleSaveLookupList, handleGetHealthPanel, handleForceRefreshData } from '../lib/handlers/admin.js';
 import { handleGetFormData } from '../lib/handlers/formdata.js';
 import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig, handleGetManutencao } from '../lib/handlers/config.js';
@@ -133,6 +133,7 @@ const HANDLERS = {
     importFunilLegacy: handleImportFunilLegacy,
     importClientesLegacy: handleImportClientesLegacy,
     getDashboardData: handleGetDashboardData,
+    getPendenciasPorVendedor: handleGetPendenciasPorVendedor,
     getAdminData: handleGetAdminData,
     saveUser: handleSaveUser,
     setUserAtivo: handleSetUserAtivo,
