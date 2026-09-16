@@ -297,6 +297,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                                     <button type="button" class="admin-icon-btn email-copy-btn" title="${escapeHtml(email)}" aria-label="Copiar e-mail de ${escapeHtml(nome)}" data-email="${escapeHtml(email)}">✉</button>
                                 </td>
                                 <td data-label="Editar">
+                                    <button type="button" class="admin-icon-btn" data-notify-email="${escapeHtml(email)}" data-notify-nome="${escapeHtml(nome)}" title="Mandar notificação" aria-label="Mandar notificação pra ${escapeHtml(nome)}">🔔</button>
                                     <button type="button" class="admin-icon-btn" data-user-index="${index}" title="Editar" aria-label="Editar usuário ${escapeHtml(nome)}">✏️</button>
                                 </td>
                             </tr>`;
@@ -993,6 +994,10 @@ export function bindAdminEvents(data) {
         });
     });
 
+    document.querySelectorAll('[data-notify-email]').forEach((btn) => {
+        btn.addEventListener('click', () => openNotifyUserModal(btn.dataset.notifyEmail, btn.dataset.notifyNome));
+    });
+
     document.querySelectorAll('[data-row-toggle]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const row = btn.closest('.admin-user-row');
@@ -1154,6 +1159,53 @@ export function bindAdminEvents(data) {
     });
 
     bindImportarTab();
+}
+
+// Botão 🔔 na linha do usuário (Admin → Usuários) — manda uma notificação
+// push avulsa pra ele, sem precisar de campanha nenhuma. Só funciona se a
+// pessoa já ativou notificações em algum aparelho (ver banner no
+// Dashboard); o backend avisa com erro claro quando não tem inscrição.
+function openNotifyUserModal(email, nome) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card" style="text-align:left;max-width:420px">
+            <h3 style="margin-top:0">🔔 Notificar ${escapeHtml(nome)}</h3>
+            <p class="helper-text" style="margin:-0.3rem 0 0.9rem">Manda um aviso direto no celular dela — só funciona se já tiver ativado notificações no app.</p>
+            <div class="form-group full-width">
+                <label for="notify-title">Título (opcional)</label>
+                <input type="text" id="notify-title" placeholder="🔔 Aviso do administrador" maxlength="80">
+            </div>
+            <div class="form-group full-width">
+                <label for="notify-body">Mensagem</label>
+                <textarea id="notify-body" rows="4" placeholder="Ex.: Preciso que você atualize o Funil hoje ainda." maxlength="300"></textarea>
+            </div>
+            <div class="form-actions full-width" style="display:flex;gap:0.5rem">
+                <button type="button" class="secondary-button" id="notify-cancel">Fechar</button>
+                <button type="button" class="primary-button" id="notify-send">Enviar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#notify-cancel').addEventListener('click', close);
+    overlay.querySelector('#notify-body').focus();
+
+    overlay.querySelector('#notify-send').addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const body = overlay.querySelector('#notify-body').value.trim();
+        if (!body) { showToast('Escreva a mensagem.', true); return; }
+        const title = overlay.querySelector('#notify-title').value.trim();
+        setSaving(true, btn, 'Enviando...');
+        const r = await callAPI('sendPushNotification', { toEmail: email, title, body, user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+        if (r && r.status === 'success') {
+            showToast('Notificação enviada.');
+            close();
+        } else {
+            showToast((r && r.message) || 'Não foi possível enviar.', true);
+            setSaving(false, btn);
+        }
+    });
 }
 
 // Importação da base antiga (Visitas / Propostas). Fluxo em 2 passos:

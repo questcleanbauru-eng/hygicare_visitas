@@ -43,7 +43,7 @@ import { handleGetAdminData, handleSaveUser, handleSetUserAtivo, handleDeleteUse
 import { handleGetFormData } from '../lib/handlers/formdata.js';
 import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig, handleGetManutencao } from '../lib/handlers/config.js';
 import { handleGetAuditoria } from '../lib/audit.js';
-import { handleSubscribePush, handleUnsubscribePush } from '../lib/handlers/push.js';
+import { handleSubscribePush, handleUnsubscribePush, handleSendPushNotification } from '../lib/handlers/push.js';
 
 function parseBody(req) {
     if (!req.body) return {};
@@ -154,6 +154,7 @@ const HANDLERS = {
     deleteRelatorioTecnicoModelo: handleDeleteRelatorioTecnicoModelo,
     subscribePush: handleSubscribePush,
     unsubscribePush: handleUnsubscribePush,
+    sendPushNotification: handleSendPushNotification,
     ping: async () => ({ status: 'ok' })
 };
 
