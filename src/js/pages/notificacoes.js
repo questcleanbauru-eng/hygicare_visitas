@@ -105,17 +105,21 @@ export async function renderNotificacoesPage() {
             </button>`;
         }).join('');
         return `
-        <div class="notif-vendor-row${v.total ? '' : ' notif-vendor-row-ok'}" data-vendor-nome="${escapeHtml(v.nome.toLowerCase())}" data-vendor-unidade="${escapeHtml(v.gerencia || '')}">
-            <div class="notif-vendor-id">
-                <span class="notif-vendor-avatar" aria-hidden="true">${escapeHtml(getInitials(v.nome))}</span>
-                <span class="notif-vendor-name">${escapeHtml(v.nome)}</span>
-                ${v.gerencia ? `<span class="notif-vendor-unit">${escapeHtml(v.gerencia)}</span>` : ''}
+        <div class="notif-vendor-row${v.total ? '' : ' notif-vendor-row-ok'}">
+            <div class="notif-vendor-header">
+                <div class="notif-vendor-id">
+                    <span class="notif-vendor-avatar" aria-hidden="true">${escapeHtml(getInitials(v.nome))}</span>
+                    <span class="notif-vendor-name">${escapeHtml(v.nome)}</span>
+                    ${v.gerencia ? `<span class="notif-vendor-unit">${escapeHtml(v.gerencia)}</span>` : ''}
+                </div>
+                ${v.total
+                    ? `<div class="notif-vendor-actions">
+                        <span class="notif-vendor-total" aria-label="${v.total} pendências no total">${v.total}</span>
+                        <button type="button" class="mini-button" data-notify-all="${escapeHtml(v.nome)}" aria-label="Notificar tudo pra ${escapeHtml(v.nome)}">Notificar tudo</button>
+                    </div>`
+                    : '<span class="camp-tag-ok">✓ Em dia</span>'}
             </div>
-            ${v.total
-                ? `<div class="notif-vendor-chips">${chips}</div>
-                   <span class="notif-vendor-total" aria-label="${v.total} pendências no total">${v.total}</span>
-                   <button type="button" class="mini-button" data-notify-all="${escapeHtml(v.nome)}" aria-label="Notificar tudo pra ${escapeHtml(v.nome)}">Notificar tudo</button>`
-                : '<span class="camp-tag-ok notif-vendor-ok">✓ Em dia</span>'}
+            ${v.total ? `<div class="notif-vendor-chips">${chips}</div>` : ''}
         </div>`;
     };
 
