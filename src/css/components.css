@@ -1006,7 +1006,14 @@ textarea { resize: vertical; }
     right: 0;
     display: none;
     flex-direction: column;
-    max-height: 400px;
+    /* Era 400px (aumentado achando que ajudaria o modal de Vincular
+       Proposta/Funil, que acabou ganhando sua própria lista com altura
+       independente — lkp-results, ver linkPicker.js). Esse valor alto só
+       sobrou aqui, afetando TODOS os outros menus desse tipo no app
+       (filtros de Status/Cidade/Vendedor etc.) — abrir um deles perto do
+       fim da tela cortava a lista na borda da tela. Volta pro valor
+       original. */
+    max-height: 210px;
     overflow-y: auto;
     background-color: var(--surface);
     border-radius: var(--radius);
