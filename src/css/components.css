@@ -948,7 +948,7 @@ textarea { resize: vertical; }
 
 .radio-pill span { line-height: 1; }
 
-.radio-pill:has(input:checked) {
+.radio-pill:has(input:checked), .radio-pill.is-checked {
     border-color: var(--primary);
     background-color: var(--primary-light);
     color: var(--primary);

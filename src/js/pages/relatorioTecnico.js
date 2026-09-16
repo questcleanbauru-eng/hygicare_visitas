@@ -471,6 +471,11 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
         Object.assign(m, d);
         m.comentariosTabela = Array.isArray(d.comentariosTabela) ? d.comentariosTabela : m.comentariosTabela;
     }
+    if (!isEdit && options && options.prefillCliente) {
+        m.cliente = options.prefillCliente;
+        if (options.prefillCidade) m.cidade = options.prefillCidade;
+        if (options.prefillComentarios) m.comentarios = options.prefillComentarios;
+    }
     if (!isEdit && !m.relatorioMes) {
         m.relatorioMes = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
     }
@@ -693,6 +698,18 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
             state.relatoriosTecnicos = [];
             saveCache('relatoriosTecnicos', null);
             showToast(r.status === 'queued' ? 'Sem conexão — salvo e será enviado depois.' : 'Relatório criado.');
+            // Veio de uma Campanha de Relatório Técnico — confirma a resposta
+            // só agora que o relatório de verdade foi criado (ver
+            // handleResponderCampanhaItem, tipo 'relatoriotecnico').
+            if (r.status === 'success' && options && options.campanhaId && options.itemId) {
+                try {
+                    await attemptOrQueue('responderCampanhaItem', {
+                        campanhaId: options.campanhaId, itemId: options.itemId,
+                        relatorioTecnicoId: r.relatorio && (r.relatorio.id || r.relatorio.Id),
+                        user: state.currentUser
+                    });
+                } catch (e) { /* relatório já foi salvo, não bloqueia por isso */ }
+            }
             navigateTo('relatorio-tecnico');
         } else {
             showToast((r && r.message) || 'Não foi possível criar.', true);

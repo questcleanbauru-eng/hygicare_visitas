@@ -2,7 +2,8 @@ import { state, navigateTo } from '../app.js';
 import { callAPI, ensureFormData, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint, formatCurrency,
-    formatDateFieldValue, normalizeDisplayDateValue, parseDisplayDate, clienteSearchItem, findClienteByNome
+    formatDateFieldValue, normalizeDisplayDateValue, parseDisplayDate, clienteSearchItem, findClienteByNome,
+    normalizeVisit, compareVisitsByDateDesc
 } from '../utils/format.js';
 import { showToast, setSaving, skeletonList, addScrollTop, openExternal, initializeSearchableInput } from '../utils/dom.js';
 import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
@@ -253,6 +254,23 @@ export async function openGerarCampanhaVisitaModal() {
     });
 }
 
+// Acha, dentre as visitas de um cliente, a mais recente que pediu
+// manutenção (Tipo da Visita ou Observação mencionando "manutenção") — pra
+// oferecer puxar aquele relato pronto pro relatório, em vez do admin ter
+// que ir procurar/copiar de outra tela.
+function stripAccents(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+async function findVisitaSolicitandoManutencao(clienteNome) {
+    const r = await callAPI('getVisits', { user: state.currentUser, dias: 0 }).catch(() => null);
+    if (!r || r.status !== 'success') return null;
+    const nome = stripAccents(clienteNome);
+    const candidatas = (r.visits || []).map(normalizeVisit)
+        .filter((v) => stripAccents(v.cliente) === nome)
+        .filter((v) => stripAccents(v.tipoVisita).includes('manuten') || stripAccents(v.observacao).includes('manuten'))
+        .sort(compareVisitsByDateDesc);
+    return candidatas[0] || null;
+}
+
 export async function openGerarCampanhaManutencaoModal() {
     ensureStyles('proposals');
     const fd = await ensureFormData().then((r) => r.data).catch(() => null);
@@ -266,8 +284,15 @@ export async function openGerarCampanhaManutencaoModal() {
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
         <div class="modal-card camp-modal" style="text-align:left;max-width:480px">
-            <h3 style="margin-top:0">🔧 Pedir relatório de manutenção</h3>
-            <p class="helper-text" style="margin:-0.3rem 0 0.9rem">Escreva o que já sabe — o vendedor abre o formulário completo já com isso preenchido e completa o resto (itens, fotos, assinatura).</p>
+            <h3 style="margin-top:0">🔧 Pedir relatório</h3>
+            <p class="helper-text" style="margin:-0.3rem 0 0.9rem">Escreva o que já sabe — o vendedor abre o formulário completo já com isso preenchido e completa o resto.</p>
+            <div class="form-group full-width">
+                <label>Tipo de relatório</label>
+                <div class="radio-group">
+                    <button type="button" class="radio-pill is-checked" data-tipo="manutencao">🔧 Manutenção</button>
+                    <button type="button" class="radio-pill" data-tipo="relatoriotecnico">📋 Técnico (Grupo SPSP)</button>
+                </div>
+            </div>
             <div class="form-group full-width">
                 <label for="cm-cliente">Cliente</label>
                 <div class="searchable-select">
@@ -282,6 +307,7 @@ export async function openGerarCampanhaManutencaoModal() {
                     <div class="searchable-select-menu" id="cm-cidade-menu"></div>
                 </div>
             </div>
+            <div id="cm-visita-hint" hidden></div>
             <div class="form-group full-width">
                 <label for="cm-relatorio">Relatório (ponto de partida pro vendedor)</label>
                 <textarea id="cm-relatorio" rows="4" placeholder="Ex.: Fazer manutenção preventiva, cliente relatou vazamento no dosador..."></textarea>
@@ -305,9 +331,15 @@ export async function openGerarCampanhaManutencaoModal() {
         </div>`;
     document.body.appendChild(overlay);
     let created = false;
+    let tipoRelatorio = 'manutencao';
     const close = () => { overlay.remove(); if (created) renderCampanhasPage(); };
     overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
     overlay.querySelector('#cm-cancel').addEventListener('click', close);
+
+    overlay.querySelectorAll('.radio-pill[data-tipo]').forEach((btn) => btn.addEventListener('click', () => {
+        tipoRelatorio = btn.dataset.tipo;
+        overlay.querySelectorAll('.radio-pill[data-tipo]').forEach((b) => b.classList.toggle('is-checked', b === btn));
+    }));
 
     initializeSearchableInput({ input: overlay.querySelector('#cm-cidade'), menu: overlay.querySelector('#cm-cidade-menu'), items: cidades, allowFreeText: true });
     initializeSearchableInput({
@@ -315,9 +347,23 @@ export async function openGerarCampanhaManutencaoModal() {
         menu: overlay.querySelector('#cm-cliente-menu'),
         items: clientes.map((c) => clienteSearchItem(c)),
         allowFreeText: true,
-        onSelect: (value) => {
+        onSelect: async (value) => {
             const match = findClienteByNome(clientes, value);
             if (match && match.cidade) overlay.querySelector('#cm-cidade').value = match.cidade;
+
+            const hint = overlay.querySelector('#cm-visita-hint');
+            hint.hidden = true;
+            const visita = await findVisitaSolicitandoManutencao(value);
+            if (!visita || !overlay.isConnected || overlay.querySelector('#cm-cliente').value.trim() !== value) return;
+            hint.hidden = false;
+            hint.innerHTML = `
+                <div class="qe-info" style="margin:0 0 0.7rem">
+                    <div><span>Visita de ${escapeHtml(visita.dataVisita || '-')} pediu manutenção</span>${escapeHtml(visita.observacao || visita.tipoVisita || '')}</div>
+                </div>
+                <button type="button" class="mini-button" id="cm-usar-visita" style="margin:-0.5rem 0 0.7rem">Usar este relato no relatório</button>`;
+            overlay.querySelector('#cm-usar-visita').addEventListener('click', () => {
+                overlay.querySelector('#cm-relatorio').value = visita.observacao || visita.tipoVisita || '';
+            });
         }
     });
 
@@ -331,14 +377,17 @@ export async function openGerarCampanhaManutencaoModal() {
         const relatorio = overlay.querySelector('#cm-relatorio').value.trim();
         const prazoInput = overlay.querySelector('#cm-prazo').value;
         const prazoAte = prazoInput ? formatDateFromInputValue(prazoInput) : '';
+        const rotulo = tipoRelatorio === 'relatoriotecnico' ? 'relatório técnico' : 'relatório de manutenção';
 
         setSaving(true, btn, 'Gerando...');
         const r = await callAPI('criarCampanha', {
-            tipo: 'manutencao',
-            titulo: `Manutenção — ${cliente}`,
+            tipo: tipoRelatorio,
+            titulo: `${tipoRelatorio === 'relatoriotecnico' ? 'Relatório Técnico' : 'Manutenção'} — ${cliente}`,
             vendedorDestino,
             prazoAte,
-            itensManutencao: [{ cliente, cidade, relatorio }],
+            ...(tipoRelatorio === 'relatoriotecnico'
+                ? { itensRelatorioTecnico: [{ cliente, cidade, relatorio }] }
+                : { itensManutencao: [{ cliente, cidade, relatorio }] }),
             user: state.currentUser
         }).catch(() => null);
         if (!r || r.status !== 'success') {
@@ -363,7 +412,7 @@ export async function openGerarCampanhaManutencaoModal() {
         const buildMsg = () => {
             const primeiroNome = vendedorDestino.split(' ')[0];
             return [
-                `Oi ${primeiroNome}! Preciso que você complete um relatório de manutenção — ${cliente}${cidade ? ' (' + cidade + ')' : ''}:`,
+                `Oi ${primeiroNome}! Preciso que você complete um ${rotulo} — ${cliente}${cidade ? ' (' + cidade + ')' : ''}:`,
                 relatorio ? `\n${relatorio}` : '',
                 prazoAte ? `\nPrazo: ${prazoAte}` : '',
                 loginNome
@@ -546,7 +595,7 @@ export async function renderCampanhaPreencherPage(id) {
     }
     const camp = r.campanha;
     if (camp.tipo === 'visita') { return renderCampanhaVisitaPreencher(main, camp, r.itens); }
-    if (camp.tipo === 'manutencao') { return renderCampanhaManutencaoPreencher(main, camp, r.itens); }
+    if (camp.tipo === 'manutencao' || camp.tipo === 'relatoriotecnico') { return renderCampanhaManutencaoPreencher(main, camp, r.itens); }
     const statuses = camp.tipo === 'funil' ? FUNIL_STATUS : PROP_STATUS;
     const primeiroNome = String(camp.vendedorDestino || '').trim().split(' ')[0] || 'tudo bem';
 
@@ -800,12 +849,19 @@ async function renderCampanhaVisitaPreencher(main, camp, itens) {
     render();
 }
 
-// ── Tela do vendedor: ir preencher um relatório de manutenção ──────────
-// Diferente de Visita (completa e confirma na própria tela) — Manutenção
-// tem campos complexos demais (itens, fotos, assinatura) pra recriar aqui,
-// então o botão só leva pro formulário real, já preenchido (ver
-// manutencao.js, que confirma a resposta sozinho depois de salvar).
+// ── Tela do vendedor: ir preencher um relatório de manutenção/técnico ──
+// Diferente de Visita (completa e confirma na própria tela) — esses dois
+// têm campos complexos demais (itens, fotos, assinatura / checklist de
+// seções) pra recriar aqui, então o botão só leva pro formulário real, já
+// preenchido (ver manutencao.js/relatorioTecnico.js, que confirmam a
+// resposta sozinhos depois de salvar).
+const RELATORIO_PREENCHER_CONFIG = {
+    manutencao: { rota: 'manutencao-new', prefillKey: 'prefillObservacao', label: 'Relatório de Manutenção' },
+    relatoriotecnico: { rota: 'relatorio-tecnico-new', prefillKey: 'prefillComentarios', label: 'Relatório Técnico' }
+};
+
 async function renderCampanhaManutencaoPreencher(main, camp, itens) {
+    const cfg = RELATORIO_PREENCHER_CONFIG[camp.tipo] || RELATORIO_PREENCHER_CONFIG.manutencao;
     const primeiroNome = String(camp.vendedorDestino || '').trim().split(' ')[0] || 'tudo bem';
 
     const cardHtml = (it, idx) => {
@@ -826,18 +882,18 @@ async function renderCampanhaManutencaoPreencher(main, camp, itens) {
         const card = main.querySelector(`.camp-card[data-idx="${idx}"]`);
         if (!card) return;
         card.querySelector('.camp-save').addEventListener('click', () => {
-            navigateTo('manutencao-new', {
-                prefillCliente: it.cliente, prefillCidade: it.cidade, prefillObservacao: it.relatorio,
+            navigateTo(cfg.rota, {
+                prefillCliente: it.cliente, prefillCidade: it.cidade, [cfg.prefillKey]: it.relatorio,
                 campanhaId: camp.id, itemId: it.id
             });
         });
     };
 
     main.innerHTML = `
-        ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: 'Relatório de Manutenção' }])}
+        ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: cfg.label }])}
         <div class="page-header"><div>
-            <h2>${escapeHtml(camp.titulo || 'Relatório de Manutenção')}</h2>
-            <p class="page-subtitle">Olá, ${escapeHtml(camp.vendedorDestino || primeiroNome)}! ${escapeHtml(camp.criadaPor || 'Seu gestor')} pediu esse relatório de manutenção.</p>
+            <h2>${escapeHtml(camp.titulo || cfg.label)}</h2>
+            <p class="page-subtitle">Olá, ${escapeHtml(camp.vendedorDestino || primeiroNome)}! ${escapeHtml(camp.criadaPor || 'Seu gestor')} pediu esse relatório.</p>
             ${camp.prazoAte ? `<p class="page-subtitle" style="color:var(--warning);font-weight:600">Solicitado resposta até ${escapeHtml(camp.prazoAte)}.</p>` : ''}
         </div></div>
         <div class="camp-cards">${itens.map((it, idx) => cardHtml(it, idx)).join('')}</div>
@@ -878,7 +934,7 @@ export async function renderCampanhasPage() {
             </div>
             <div class="page-header-actions">
                 <button type="button" class="mini-button" id="camp-nova-visita" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>
-                <button type="button" class="mini-button" id="camp-nova-manutencao" title="Pedir pra um vendedor completar um relatório de manutenção">🔧 Relatório de Manutenção</button>
+                <button type="button" class="mini-button" id="camp-nova-manutencao" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>
                 ${campanhas.length ? `<button type="button" class="mini-button${campSelectMode ? ' is-on' : ''}" id="camp-select-toggle" title="Marcar várias campanhas para apagar de uma vez">☑️ Selecionar</button>` : ''}
             </div>
         </div>
@@ -999,7 +1055,7 @@ function campanhaRow(c, selectMode) {
             <span class="status-pill ${statusClass}">${statusLabel}</span>
         </div>
         <p class="helper-text camp-admin-meta">
-            ${c.tipo === 'funil' ? '📊 Funil' : c.tipo === 'visita' ? '📋 Relatório de Visita' : c.tipo === 'manutencao' ? '🔧 Relatório de Manutenção' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
+            ${c.tipo === 'funil' ? '📊 Funil' : c.tipo === 'visita' ? '📋 Relatório de Visita' : c.tipo === 'manutencao' ? '🔧 Relatório de Manutenção' : c.tipo === 'relatoriotecnico' ? '📋 Relatório Técnico' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
             ${c.primeiroAcessoEm
                 ? `👁️ Acessou em ${escapeHtml(c.primeiroAcessoEm)}${c.ultimoAcessoEm && c.ultimoAcessoEm !== c.primeiroAcessoEm ? ` (última vez ${escapeHtml(c.ultimoAcessoEm)})` : ''}`
                 : '⏳ Ainda não abriu o link'}

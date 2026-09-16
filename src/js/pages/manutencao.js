@@ -127,7 +127,7 @@ export function fillManutencaoContent(mainContent, itens) {
                 <div><h2>Manutenção</h2></div>
                 <div class="header-actions-group header-actions-uniform">
                     <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
-                    ${isAdmGer ? `<button type="button" class="mini-button" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção">🔧 Pedir Relatório</button>` : ''}
+                    ${isAdmGer ? `<button type="button" class="mini-button" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
                 </div>
             </div>
             <div class="empty-state">
@@ -167,7 +167,7 @@ export function fillManutencaoContent(mainContent, itens) {
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
             <div class="header-actions-group header-actions-uniform">
                 <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
-                ${isAdmGer ? `<button type="button" class="mini-button" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção">🔧 Pedir Relatório</button>` : ''}
+                ${isAdmGer ? `<button type="button" class="mini-button" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
                 <button type="button" class="btn-add" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. Técnico</button>
                 <button type="button" class="btn-add" id="btn-new-manutencao" title="Demais clientes">🔧 Rel. de Manutenção</button>
             </div>
