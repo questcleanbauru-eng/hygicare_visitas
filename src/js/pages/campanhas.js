@@ -253,6 +253,136 @@ export async function openGerarCampanhaVisitaModal() {
     });
 }
 
+export async function openGerarCampanhaManutencaoModal() {
+    ensureStyles('proposals');
+    const fd = await ensureFormData().then((r) => r.data).catch(() => null);
+    const vendedoresRaw = ((fd && fd.vendedores) || []).filter((v) => v.nome);
+    const vendedores = vendedoresRaw.map((v) => v.nome);
+    const loginNomeByVendedor = new Map(vendedoresRaw.map((v) => [v.nome, v.nomeLogin || v.nome]));
+    const clientes = (fd && fd.clientes) || [];
+    const cidades = (fd && fd.cidades) || [];
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card camp-modal" style="text-align:left;max-width:480px">
+            <h3 style="margin-top:0">🔧 Pedir relatório de manutenção</h3>
+            <p class="helper-text" style="margin:-0.3rem 0 0.9rem">Escreva o que já sabe — o vendedor abre o formulário completo já com isso preenchido e completa o resto (itens, fotos, assinatura).</p>
+            <div class="form-group full-width">
+                <label for="cm-cliente">Cliente</label>
+                <div class="searchable-select">
+                    <input type="text" id="cm-cliente" placeholder="Busque ou digite o cliente" autocomplete="off">
+                    <div class="searchable-select-menu" id="cm-cliente-menu"></div>
+                </div>
+            </div>
+            <div class="form-group full-width">
+                <label for="cm-cidade">Cidade</label>
+                <div class="searchable-select">
+                    <input type="text" id="cm-cidade" placeholder="Cidade" autocomplete="off">
+                    <div class="searchable-select-menu" id="cm-cidade-menu"></div>
+                </div>
+            </div>
+            <div class="form-group full-width">
+                <label for="cm-relatorio">Relatório (ponto de partida pro vendedor)</label>
+                <textarea id="cm-relatorio" rows="4" placeholder="Ex.: Fazer manutenção preventiva, cliente relatou vazamento no dosador..."></textarea>
+            </div>
+            <div class="form-group full-width">
+                <label for="cm-vendedor">Vendedor que vai completar</label>
+                <select id="cm-vendedor">
+                    <option value="">Escolha o vendedor</option>
+                    ${vendedores.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <label for="cm-prazo">Prazo pra responder (opcional)</label>
+                <input type="date" id="cm-prazo">
+            </div>
+            <div id="cm-result" hidden style="margin:0.5rem 0 0.75rem"></div>
+            <div class="form-actions full-width" style="display:flex;gap:0.5rem">
+                <button type="button" class="secondary-button" id="cm-cancel">Fechar</button>
+                <button type="button" class="primary-button" id="cm-gerar">Gerar link</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    let created = false;
+    const close = () => { overlay.remove(); if (created) renderCampanhasPage(); };
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#cm-cancel').addEventListener('click', close);
+
+    initializeSearchableInput({ input: overlay.querySelector('#cm-cidade'), menu: overlay.querySelector('#cm-cidade-menu'), items: cidades, allowFreeText: true });
+    initializeSearchableInput({
+        input: overlay.querySelector('#cm-cliente'),
+        menu: overlay.querySelector('#cm-cliente-menu'),
+        items: clientes.map((c) => clienteSearchItem(c)),
+        allowFreeText: true,
+        onSelect: (value) => {
+            const match = findClienteByNome(clientes, value);
+            if (match && match.cidade) overlay.querySelector('#cm-cidade').value = match.cidade;
+        }
+    });
+
+    overlay.querySelector('#cm-gerar').addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const cliente = overlay.querySelector('#cm-cliente').value.trim();
+        if (!cliente) { showToast('Informe o cliente.', true); return; }
+        const vendedorDestino = overlay.querySelector('#cm-vendedor').value.trim();
+        if (!vendedorDestino) { showToast('Escolha o vendedor.', true); return; }
+        const cidade = overlay.querySelector('#cm-cidade').value.trim();
+        const relatorio = overlay.querySelector('#cm-relatorio').value.trim();
+        const prazoInput = overlay.querySelector('#cm-prazo').value;
+        const prazoAte = prazoInput ? formatDateFromInputValue(prazoInput) : '';
+
+        setSaving(true, btn, 'Gerando...');
+        const r = await callAPI('criarCampanha', {
+            tipo: 'manutencao',
+            titulo: `Manutenção — ${cliente}`,
+            vendedorDestino,
+            prazoAte,
+            itensManutencao: [{ cliente, cidade, relatorio }],
+            user: state.currentUser
+        }).catch(() => null);
+        if (!r || r.status !== 'success') {
+            showToast((r && r.message) || 'Não foi possível gerar a campanha.', true);
+            setSaving(false, btn);
+            return;
+        }
+        const loginNome = loginNomeByVendedor.get(vendedorDestino) || '';
+        const link = campanhaLink(r.id, loginNome);
+        const box = overlay.querySelector('#cm-result');
+        box.hidden = false;
+        box.innerHTML = `
+            <p class="helper-text" style="margin:0 0 0.35rem">Link pronto — mande pro ${escapeHtml(vendedorDestino)}${prazoAte ? ` (prazo ${escapeHtml(prazoAte)})` : ''}:</p>
+            <input type="text" id="cm-link" readonly value="${escapeHtml(link)}" style="font-size:0.82rem">
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                <button type="button" class="mini-button" id="cm-copy">Copiar</button>
+                <button type="button" class="mini-button mini-button-whatsapp" id="cm-wa">WhatsApp</button>
+            </div>`;
+        btn.remove();
+        created = true;
+        overlay.querySelector('#cm-cancel').textContent = 'Concluir';
+        const buildMsg = () => {
+            const primeiroNome = vendedorDestino.split(' ')[0];
+            return [
+                `Oi ${primeiroNome}! Preciso que você complete um relatório de manutenção — ${cliente}${cidade ? ' (' + cidade + ')' : ''}:`,
+                relatorio ? `\n${relatorio}` : '',
+                prazoAte ? `\nPrazo: ${prazoAte}` : '',
+                loginNome
+                    ? `\nPra entrar, é só abrir o link e informar seu PIN (4 últimos números do seu celular) — seu login já vem preenchido.`
+                    : `\nPra entrar: login é seu nome (em minúsculo) e PIN são os 4 últimos números do seu celular.`,
+                `\n${link}`
+            ].filter(Boolean).join('\n');
+        };
+        overlay.querySelector('#cm-copy').addEventListener('click', () => {
+            navigator.clipboard?.writeText(buildMsg()).then(() => showToast('Mensagem copiada.'));
+            overlay.querySelector('#cm-link').select();
+        });
+        overlay.querySelector('#cm-wa').addEventListener('click', () => {
+            openExternal(`https://wa.me/?text=${encodeURIComponent(buildMsg())}`);
+        });
+        document.dispatchEvent(new CustomEvent('campanha-criada'));
+    });
+}
+
 function formatDateFromInputValue(isoDate) {
     const d = new Date(`${isoDate}T00:00:00`);
     if (Number.isNaN(d.getTime())) return '';
@@ -416,6 +546,7 @@ export async function renderCampanhaPreencherPage(id) {
     }
     const camp = r.campanha;
     if (camp.tipo === 'visita') { return renderCampanhaVisitaPreencher(main, camp, r.itens); }
+    if (camp.tipo === 'manutencao') { return renderCampanhaManutencaoPreencher(main, camp, r.itens); }
     const statuses = camp.tipo === 'funil' ? FUNIL_STATUS : PROP_STATUS;
     const primeiroNome = String(camp.vendedorDestino || '').trim().split(' ')[0] || 'tudo bem';
 
@@ -669,6 +800,52 @@ async function renderCampanhaVisitaPreencher(main, camp, itens) {
     render();
 }
 
+// ── Tela do vendedor: ir preencher um relatório de manutenção ──────────
+// Diferente de Visita (completa e confirma na própria tela) — Manutenção
+// tem campos complexos demais (itens, fotos, assinatura) pra recriar aqui,
+// então o botão só leva pro formulário real, já preenchido (ver
+// manutencao.js, que confirma a resposta sozinho depois de salvar).
+async function renderCampanhaManutencaoPreencher(main, camp, itens) {
+    const primeiroNome = String(camp.vendedorDestino || '').trim().split(' ')[0] || 'tudo bem';
+
+    const cardHtml = (it, idx) => {
+        if (it.respondidoEm) {
+            return `<div class="card camp-card camp-card-done" data-idx="${idx}"><strong>${escapeHtml(it.cliente || 'Cliente')}</strong><span class="camp-tag-ok" style="margin-left:0.4rem">✓ relatório registrado</span></div>`;
+        }
+        return `
+        <div class="card camp-card" data-idx="${idx}">
+            <div class="camp-card-head"><strong>${escapeHtml(it.cliente || 'Cliente')}</strong></div>
+            <p class="helper-text" style="margin:0.15rem 0 0.5rem">${escapeHtml(it.cidade || '-')}</p>
+            ${it.relatorio ? `<div class="qe-info" style="margin-bottom:0.7rem"><div><span>Relatório de ${escapeHtml(camp.criadaPor || 'quem pediu')}</span>${escapeHtml(it.relatorio)}</div></div>` : ''}
+            <button type="button" class="primary-button camp-save" data-idx="${idx}">Preencher relatório</button>
+        </div>`;
+    };
+
+    const wireCard = (it, idx) => {
+        if (it.respondidoEm) return;
+        const card = main.querySelector(`.camp-card[data-idx="${idx}"]`);
+        if (!card) return;
+        card.querySelector('.camp-save').addEventListener('click', () => {
+            navigateTo('manutencao-new', {
+                prefillCliente: it.cliente, prefillCidade: it.cidade, prefillObservacao: it.relatorio,
+                campanhaId: camp.id, itemId: it.id
+            });
+        });
+    };
+
+    main.innerHTML = `
+        ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: 'Relatório de Manutenção' }])}
+        <div class="page-header"><div>
+            <h2>${escapeHtml(camp.titulo || 'Relatório de Manutenção')}</h2>
+            <p class="page-subtitle">Olá, ${escapeHtml(camp.vendedorDestino || primeiroNome)}! ${escapeHtml(camp.criadaPor || 'Seu gestor')} pediu esse relatório de manutenção.</p>
+            ${camp.prazoAte ? `<p class="page-subtitle" style="color:var(--warning);font-weight:600">Solicitado resposta até ${escapeHtml(camp.prazoAte)}.</p>` : ''}
+        </div></div>
+        <div class="camp-cards">${itens.map((it, idx) => cardHtml(it, idx)).join('')}</div>
+    `;
+    itens.forEach((it, idx) => wireCard(it, idx));
+    addScrollTop();
+}
+
 function dateBrToInputValue(br) {
     const m = String(br || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
@@ -701,6 +878,7 @@ export async function renderCampanhasPage() {
             </div>
             <div class="page-header-actions">
                 <button type="button" class="mini-button" id="camp-nova-visita" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>
+                <button type="button" class="mini-button" id="camp-nova-manutencao" title="Pedir pra um vendedor completar um relatório de manutenção">🔧 Relatório de Manutenção</button>
                 ${campanhas.length ? `<button type="button" class="mini-button${campSelectMode ? ' is-on' : ''}" id="camp-select-toggle" title="Marcar várias campanhas para apagar de uma vez">☑️ Selecionar</button>` : ''}
             </div>
         </div>
@@ -774,6 +952,7 @@ export async function renderCampanhasPage() {
         refreshCampSelBar();
     }));
     document.getElementById('camp-nova-visita')?.addEventListener('click', () => openGerarCampanhaVisitaModal());
+    document.getElementById('camp-nova-manutencao')?.addEventListener('click', () => openGerarCampanhaManutencaoModal());
     document.getElementById('camp-select-toggle')?.addEventListener('click', () => {
         campSelectMode = !campSelectMode;
         if (!campSelectMode) campSelectedIds.clear();
@@ -820,7 +999,7 @@ function campanhaRow(c, selectMode) {
             <span class="status-pill ${statusClass}">${statusLabel}</span>
         </div>
         <p class="helper-text camp-admin-meta">
-            ${c.tipo === 'funil' ? '📊 Funil' : c.tipo === 'visita' ? '📋 Relatório de Visita' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
+            ${c.tipo === 'funil' ? '📊 Funil' : c.tipo === 'visita' ? '📋 Relatório de Visita' : c.tipo === 'manutencao' ? '🔧 Relatório de Manutenção' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
             ${c.primeiroAcessoEm
                 ? `👁️ Acessou em ${escapeHtml(c.primeiroAcessoEm)}${c.ultimoAcessoEm && c.ultimoAcessoEm !== c.primeiroAcessoEm ? ` (última vez ${escapeHtml(c.ultimoAcessoEm)})` : ''}`
                 : '⏳ Ainda não abriu o link'}

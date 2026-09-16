@@ -127,6 +127,7 @@ export function fillManutencaoContent(mainContent, itens) {
                 <div><h2>Manutenção</h2></div>
                 <div class="header-actions-group header-actions-uniform">
                     <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
+                    ${isAdmGer ? `<button type="button" class="mini-button" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção">🔧 Pedir Relatório</button>` : ''}
                 </div>
             </div>
             <div class="empty-state">
@@ -149,6 +150,10 @@ export function fillManutencaoContent(mainContent, itens) {
         document.getElementById('btn-new-manutencao2')?.addEventListener('click', () => navigateTo('manutencao-new'));
         document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
         document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
+        document.getElementById('mnt-nova-campanha')?.addEventListener('click', async () => {
+            const { openGerarCampanhaManutencaoModal } = await import('./campanhas.js');
+            openGerarCampanhaManutencaoModal();
+        });
         return;
     }
 
@@ -162,6 +167,7 @@ export function fillManutencaoContent(mainContent, itens) {
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
             <div class="header-actions-group header-actions-uniform">
                 <button type="button" class="mini-button" id="btn-ver-modelos">📋 Modelos</button>
+                ${isAdmGer ? `<button type="button" class="mini-button" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção">🔧 Pedir Relatório</button>` : ''}
                 <button type="button" class="btn-add" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. Técnico</button>
                 <button type="button" class="btn-add" id="btn-new-manutencao" title="Demais clientes">🔧 Rel. de Manutenção</button>
             </div>
@@ -886,6 +892,7 @@ export async function renderManutencaoFormPage(record, options) {
     if (!isEdit && options && options.prefillCliente) {
         m.cliente = options.prefillCliente;
         if (options.prefillCidade) m.cidade = options.prefillCidade;
+        if (options.prefillObservacao) m.observacao = options.prefillObservacao;
         currentModeloNome = options.prefillModeloNome || null;
     }
 
@@ -1234,6 +1241,17 @@ export async function renderManutencaoFormPage(record, options) {
                 // Depois do toast de sucesso — se a visita automática falhar,
                 // o aviso dela sobrescreve e fica visível.
                 await gerarVisitaFromManutencao(result.manutencao && result.manutencao.id);
+                // Veio de uma Campanha de Relatório de Manutenção — confirma a
+                // resposta só agora que o relatório de verdade foi criado.
+                if (options && options.campanhaId && options.itemId) {
+                    try {
+                        await attemptOrQueue('responderCampanhaItem', {
+                            campanhaId: options.campanhaId, itemId: options.itemId,
+                            manutencaoId: result.manutencao && result.manutencao.id,
+                            user: state.currentUser
+                        });
+                    } catch (e) { /* relatório já foi salvo, não bloqueia por isso */ }
+                }
                 navigateTo('manutencao');
             } else if (result && result.status === 'queued') {
                 showToast('Sem conexão — o relatório foi salvo no aparelho e será enviado quando a conexão voltar.');
