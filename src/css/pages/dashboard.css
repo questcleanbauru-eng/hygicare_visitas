@@ -29,6 +29,19 @@
     .dash-actions-bar > :last-child:nth-child(3) { grid-column: auto; }
 }
 
+.push-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    background: var(--info-bg, #dbeafe);
+    margin-bottom: 0.6rem;
+    padding: 0.75rem 0.9rem;
+}
+.push-banner-text { min-width: 0; flex: 1 1 220px; }
+.push-banner-actions { display: flex; gap: 0.5rem; flex: 0 0 auto; }
+
 .dash-action-primary {
     display: inline-flex;
     align-items: center;

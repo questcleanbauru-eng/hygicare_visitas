@@ -2,7 +2,8 @@ import { state, navigateTo } from '../app.js';
 import { loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, calculateDaysFromDisplayDate, visitTypeClass, parseDisplayDate } from '../utils/format.js';
 import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, checkOverdueNotification, checkClientesPrincipaisNotification } from '../utils/ui.js';
-import { showSuccessPopup } from '../utils/dom.js';
+import { showSuccessPopup, showToast, setSaving } from '../utils/dom.js';
+import { isPushSupported, isAppInstalled, isIOS, enablePush } from '../utils/push.js';
 
 export function fillDashboard(mainContent, data, user) {
     const sevenDaysAgo    = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -32,6 +33,17 @@ export function fillDashboard(mainContent, data, user) {
             <div>
                 <h2>Início</h2>
                 <p class="page-subtitle" style="margin:0.1rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>
+            </div>
+        </div>
+
+        <div class="card push-banner" id="push-banner" hidden>
+            <div class="push-banner-text">
+                <strong class="push-banner-title"></strong>
+                <p class="helper-text push-banner-desc" style="margin:0.2rem 0 0"></p>
+            </div>
+            <div class="push-banner-actions">
+                <button type="button" class="mini-button" id="push-banner-dismiss">Agora não</button>
+                <button type="button" class="primary-button" id="push-banner-enable" style="width:auto">Ativar</button>
             </div>
         </div>
 
@@ -328,6 +340,60 @@ export function fillDashboard(mainContent, data, user) {
             showSuccessPopup(`${notif.tipo} adicionado${notif.tipo === 'Proposta' ? 'a' : ''} com sucesso!${notif.cliente ? '\n' + notif.cliente : ''}`);
         }, 300);
     }
+
+    setupPushBanner();
+}
+
+// Convite pra ativar notificações (push de verdade, chega com o app
+// fechado — ver src/js/utils/push.js). Reaparece a cada 24h enquanto a
+// pessoa não ativar (ou recusar de vez, aí Notification.permission fica
+// "denied" e nem o navegador deixa perguntar de novo). No iPhone, sem o
+// app instalado na Tela de Início nem dá pra pedir notificação — a única
+// coisa que ajuda ali é a instrução de instalação.
+async function setupPushBanner() {
+    const banner = document.getElementById('push-banner');
+    if (!banner) return;
+    if (!isPushSupported() && !isIOS()) return;
+
+    const dismissedAt = parseInt(localStorage.getItem('push_banner_dismissed_at') || '0', 10);
+    if (Date.now() - dismissedAt < 24 * 60 * 60 * 1000) return;
+
+    const enableBtn = banner.querySelector('#push-banner-enable');
+    if (isIOS() && !isAppInstalled()) {
+        banner.querySelector('.push-banner-title').textContent = '📲 Instale o app pra receber notificações';
+        banner.querySelector('.push-banner-desc').textContent = 'Toque em Compartilhar e depois em "Adicionar à Tela de Início". Depois, abra o app por esse ícone.';
+        enableBtn.hidden = true;
+        banner.hidden = false;
+    } else if (Notification.permission === 'granted') {
+        // Já autorizou antes — só garante que a inscrição deste aparelho
+        // ainda está válida no servidor, sem precisar mostrar nada.
+        enablePush().catch(() => {});
+        return;
+    } else if (Notification.permission !== 'denied') {
+        banner.querySelector('.push-banner-title').textContent = '🔔 Ative as notificações';
+        banner.querySelector('.push-banner-desc').textContent = 'Receba um aviso no celular quando pedirem uma atualização sua.';
+        enableBtn.hidden = false;
+        banner.hidden = false;
+    } else {
+        return;
+    }
+
+    banner.querySelector('#push-banner-dismiss').onclick = () => {
+        localStorage.setItem('push_banner_dismissed_at', String(Date.now()));
+        banner.hidden = true;
+    };
+    enableBtn.onclick = async (e) => {
+        const btn = e.currentTarget;
+        setSaving(true, btn, 'Ativando...');
+        try {
+            await enablePush();
+            showToast('Notificações ativadas!');
+            banner.hidden = true;
+        } catch (err) {
+            showToast(err.message || 'Não foi possível ativar.', true);
+            setSaving(false, btn);
+        }
+    };
 }
 
 

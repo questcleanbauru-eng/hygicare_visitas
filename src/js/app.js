@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerServiceWorker();
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', (e) => {
-            if (e.data?.type === 'NAVIGATE' && state.currentUser) navigateTo(e.data.page);
+            if (e.data?.type === 'NAVIGATE' && state.currentUser) navigateTo(e.data.page, e.data.params || {});
         });
     }
     initOfflineBanner();

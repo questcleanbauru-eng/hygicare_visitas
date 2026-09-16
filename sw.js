@@ -20,15 +20,34 @@ self.addEventListener('message', (event) => {
     }
 });
 
+// Push de verdade (VAPID, via lib/handlers/push.js) — chega mesmo com o
+// app fechado. O payload é o mesmo JSON montado no backend (title/body/
+// tag/data), não precisa buscar nada — só exibir.
+self.addEventListener('push', (event) => {
+    let payload = {};
+    try { payload = event.data ? event.data.json() : {}; } catch (e) { payload = { body: event.data ? event.data.text() : '' }; }
+    const title = payload.title || 'Hygicare Visitas';
+    event.waitUntil(
+        self.registration.showNotification(title, {
+            body: payload.body || '',
+            tag: payload.tag || undefined,
+            icon: './icons/apple-touch-icon.png',
+            badge: './icons/apple-touch-icon.png',
+            data: payload.data || {}
+        })
+    );
+});
+
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     const page = (event.notification.data && event.notification.data.page) || 'dashboard';
+    const params = (event.notification.data && event.notification.data.params) || undefined;
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             const client = clientList.find((c) => 'focus' in c);
             if (client) {
                 client.focus();
-                client.postMessage({ type: 'NAVIGATE', page });
+                client.postMessage({ type: 'NAVIGATE', page, params });
                 return null;
             }
             return self.clients.openWindow ? self.clients.openWindow('./') : null;
