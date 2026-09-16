@@ -152,7 +152,8 @@ export function renderNavigation() {
         report: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
         radar: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="10"/><line x1="12" y1="12" x2="19" y2="5"/></svg>',
         admin: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
-        campanhas: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>'
+        campanhas: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>',
+        notificacoes: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
     };
 
     // Desktop sidebar: all items (inclui Contratos); Mobile bottom nav: sem Contratos (menu já cheio) — acessível via link no Dashboard.
@@ -161,6 +162,7 @@ export function renderNavigation() {
     const telasBloqueadas = (state.currentUser && state.currentUser.telasBloqueadas) || [];
     const allNavItems = [
         { id: 'dashboard', label: 'Início',        icon: NAV_ICON_SVG.dashboard },
+        { id: 'notificacoes', label: 'Notificações', icon: NAV_ICON_SVG.notificacoes },
         { id: 'visits',    label: 'Visitas',        icon: NAV_ICON_SVG.visits },
         { id: 'calendar',  label: 'Agenda',         icon: NAV_ICON_SVG.calendar },
         { id: 'proposals', label: 'Propostas',      icon: NAV_ICON_SVG.proposals },
@@ -897,5 +899,33 @@ export function updateFunilBadge(count) {
     } else if (badge) {
         badge.remove();
     }
+}
+
+
+export function updateNotificacoesBadge(count) {
+    const btn = document.getElementById('nav-notificacoes');
+    if (!btn) { return; }
+    let badge = btn.querySelector('.nav-badge');
+    if (count > 0) {
+        const label = count > 99 ? '99+' : String(count);
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'nav-badge';
+            btn.appendChild(badge);
+        }
+        badge.textContent = label;
+    } else if (badge) {
+        badge.remove();
+    }
+}
+
+// Busca só a contagem de não lidas (mesma lista que a tela de Notificações
+// usa) pra acender o número no menu mesmo antes de abrir a tela — chamado
+// do Dashboard, igual updateProposalsBadge/updateFunilBadge.
+export async function refreshNotificacoesBadge() {
+    try {
+        const r = await callAPI('getNotificacoes', { user: state.currentUser });
+        if (r && r.status === 'success') updateNotificacoesBadge(r.naoLidas || 0);
+    } catch (e) { /* badge é só um extra visual */ }
 }
 

@@ -94,6 +94,23 @@
 .camp-tag-ok { font-size: 0.72rem; font-weight: 700; color: #15803d; white-space: nowrap; }
 .camp-card .qe-status-row { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.25rem; }
 .camp-card textarea { width: 100%; }
+
+/* Tela de Notificações (src/js/pages/notificacoes.js) */
+.notif-unread { border-left: 3px solid var(--primary); }
+.notif-pend-item {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0.25rem 0;
+    text-align: left;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+}
+.notif-pend-item:hover { color: var(--primary); }
 .camp-admin-row + .camp-admin-row { margin-top: 0; }
 
 /* Resumo da proposta (itens importados) — recolhido por padrão, são

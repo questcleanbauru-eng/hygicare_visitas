@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, calculateDaysFromDisplayDate, visitTypeClass, parseDisplayDate } from '../utils/format.js';
-import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, checkOverdueNotification, checkClientesPrincipaisNotification } from '../utils/ui.js';
+import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, refreshNotificacoesBadge, checkOverdueNotification, checkClientesPrincipaisNotification } from '../utils/ui.js';
 import { showSuccessPopup, showToast, setSaving } from '../utils/dom.js';
 import { isPushSupported, isAppInstalled, isIOS, enablePush } from '../utils/push.js';
 
@@ -332,6 +332,7 @@ export function fillDashboard(mainContent, data, user) {
     updateHeaderUI(user);
     updateProposalsBadge(recentProposals.length);
     updateFunilBadge(data.overdueFunil || 0);
+    refreshNotificacoesBadge();
 
     if (state.newItemNotification) {
         const notif = state.newItemNotification;

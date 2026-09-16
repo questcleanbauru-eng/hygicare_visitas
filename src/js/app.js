@@ -383,6 +383,9 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'campanha-preencher':
             await (await import('./pages/campanhas.js')).renderCampanhaPreencherPage(options.id);
             break;
+        case 'notificacoes':
+            await (await import('./pages/notificacoes.js')).renderNotificacoesPage();
+            break;
         default:
             await renderDashboard();
     }
