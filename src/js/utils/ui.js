@@ -922,7 +922,15 @@ export function updateNotificacoesBadge(count) {
 // Busca só a contagem de não lidas (mesma lista que a tela de Notificações
 // usa) pra acender o número no menu mesmo antes de abrir a tela — chamado
 // do Dashboard, igual updateProposalsBadge/updateFunilBadge.
+// fillDashboard roda 2x por visita (cache + dado fresco) — sem esse
+// intervalo mínimo, isso virava 2 chamadas por visita à Home, de todo
+// vendedor, só pra um número no menu. 20s é mais que suficiente pra não
+// duplicar dentro da mesma visita, sem atrasar perceptivelmente um badge
+// novo aparecendo.
+let _lastNotifBadgeCheck = 0;
 export async function refreshNotificacoesBadge() {
+    if (Date.now() - _lastNotifBadgeCheck < 20000) return;
+    _lastNotifBadgeCheck = Date.now();
     try {
         const r = await callAPI('getNotificacoes', { user: state.currentUser });
         if (r && r.status === 'success') updateNotificacoesBadge(r.naoLidas || 0);
