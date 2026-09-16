@@ -27,6 +27,8 @@ export function normalizeVisit(visit) {
         observacao: visit['Observação'] || visit['Observacao'] || visit.observacao || '',
         latitude: visit['Latitude'] || visit.latitude || '',
         longitude: visit['Longitude'] || visit.longitude || '',
+        teveDespesas: visit['TeveDespesas'] || visit.teveDespesas || '',
+        valorDespesas: visit['ValorDespesas'] || visit.valorDespesas || '',
         _pending: !!visit._pending
     };
 }

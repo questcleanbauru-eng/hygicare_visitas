@@ -53,6 +53,7 @@ export const state = {
     scrollPositions: {},
     canDelete: false,
     canCreateProposalFunil: false,
+    canLancarDespesas: false,
     canAccessRadar: false
 };
 

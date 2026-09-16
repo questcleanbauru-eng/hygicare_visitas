@@ -37,6 +37,10 @@ function renderPermFieldsHtml(perms) {
             <label>Ver visitas de todos</label>
             <select class="uif-perm-vistodas">${opt(perms.permVerTodasVisitas)}</select>
         </div>
+        <div class="uif-field">
+            <label>Lançar despesas na visita</label>
+            <select class="uif-perm-despesas">${opt(perms.permDespesas)}</select>
+        </div>
     `;
 }
 
@@ -46,7 +50,8 @@ function readPermFieldsValue(scope) {
         permDelete: map[scope.querySelector('.uif-perm-delete').value] ?? '',
         permCriarPropostaFunil: map[scope.querySelector('.uif-perm-criar').value] ?? '',
         permAcessoRadar: map[scope.querySelector('.uif-perm-radar').value] ?? '',
-        permVerTodasVisitas: map[scope.querySelector('.uif-perm-vistodas').value] ?? ''
+        permVerTodasVisitas: map[scope.querySelector('.uif-perm-vistodas').value] ?? '',
+        permDespesas: map[scope.querySelector('.uif-perm-despesas').value] ?? ''
     };
 }
 
@@ -787,7 +792,8 @@ export function bindAdminEvents(data) {
                 permDelete: user.permDelete || user.PermDelete || '',
                 permCriarPropostaFunil: user.permCriarPropostaFunil || user.PermCriarPropostaFunil || '',
                 permAcessoRadar: user.permAcessoRadar || user.PermAcessoRadar || '',
-                permVerTodasVisitas: user.permVerTodasVisitas || user.PermVerTodasVisitas || ''
+                permVerTodasVisitas: user.permVerTodasVisitas || user.PermVerTodasVisitas || '',
+                permDespesas: user.permDespesas || user.PermDespesas || ''
             };
             const pc = profileClass(perfil);
 

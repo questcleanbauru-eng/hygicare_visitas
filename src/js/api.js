@@ -366,6 +366,7 @@ export async function getDashboardData() {
                 state.dashboardData = r.data;
                 state.canDelete = !!r.data.canDelete;
                 state.canCreateProposalFunil = !!r.data.canCreateProposalFunil;
+                state.canLancarDespesas = !!r.data.canLancarDespesas;
                 setCanAccessRadar(!!r.data.canAccessRadar);
                 setTelasBloqueadas(r.data.telasBloqueadas);
             }
@@ -376,6 +377,7 @@ export async function getDashboardData() {
         state.dashboardData = cached;
         state.canDelete = !!cached.canDelete;
         state.canCreateProposalFunil = !!cached.canCreateProposalFunil;
+        state.canLancarDespesas = !!cached.canLancarDespesas;
         setCanAccessRadar(!!cached.canAccessRadar);
         setTelasBloqueadas(cached.telasBloqueadas);
         showRefreshIndicator();

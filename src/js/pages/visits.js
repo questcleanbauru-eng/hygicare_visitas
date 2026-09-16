@@ -8,7 +8,8 @@ import {
     normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
     calculateDaysFromDisplayDate,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
-    clienteSearchItem, findClienteByNome, clienteNomeParaGravar, multiCheckFilterFieldHtml
+    clienteSearchItem, findClienteByNome, clienteNomeParaGravar, multiCheckFilterFieldHtml,
+    formatCurrency, parseCurrencyBR
 } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
@@ -52,7 +53,8 @@ function applyVisitQuickPatch(v, patch, onDone) {
         'Data da Visita': payload.dataVisita, 'Horário': payload.horario, 'Cliente': payload.cliente,
         'Contato': payload.contato, 'Cidade': payload.cidade, 'Área de Atuação': payload.areaAtuacao,
         'Potencial do Cliente': payload.potencialCliente, 'Tipo da Visita': payload.tipoVisita,
-        'Gerência': payload.gerencia, 'Qual o Veículo?': payload.veiculo, 'Observação': payload.observacao
+        'Gerência': payload.gerencia, 'Qual o Veículo?': payload.veiculo, 'Observação': payload.observacao,
+        'TeveDespesas': v.teveDespesas, 'ValorDespesas': v.valorDespesas
     });
     if (idx >= 0) { state.visits[idx] = updated; saveCache('visits', state.visits); }
     v.observacao = patch.observacao;
@@ -476,7 +478,9 @@ export function fillVisitsContent(container, visits) {
             { key: 'dataVisita', label: 'Data da Visita' },
             { key: 'vendedorGerente', label: 'Vendedor' },
             { key: 'cliente', label: 'Nome do Cliente' },
-            { key: 'tipoVisita', label: 'Tipo da Visita' }
+            { key: 'tipoVisita', label: 'Tipo da Visita' },
+            { key: 'teveDespesas', label: 'Teve Despesas' },
+            { key: 'valorDespesas', label: 'Valor R$' }
         ], 'Visitas');
     });
 
@@ -1250,6 +1254,25 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 <textarea id="observacao" rows="4" maxlength="1000" placeholder="Digite detalhes relevantes da visita">${escapeHtml(normalizedVisit ? normalizedVisit.observacao : '')}</textarea>
                 <div class="obs-char-counter" id="obs-char-counter">0/500</div>
             </div>
+            ${state.canLancarDespesas ? `
+            <div class="form-group full-width">
+                <label>Teve Despesas?</label>
+                <div class="radio-group" id="despesas-group">
+                    <label class="radio-pill">
+                        <input type="radio" name="teveDespesas" value="Sim" ${normalizedVisit && normalizedVisit.teveDespesas === 'Sim' ? 'checked' : ''}>
+                        <span>Sim</span>
+                    </label>
+                    <label class="radio-pill">
+                        <input type="radio" name="teveDespesas" value="Nao" ${!normalizedVisit || normalizedVisit.teveDespesas !== 'Sim' ? 'checked' : ''}>
+                        <span>Não</span>
+                    </label>
+                </div>
+                <p class="field-helper-text">Se forem várias visitas no mesmo dia, lance a despesa em apenas uma delas.</p>
+                <div class="form-group" id="valor-despesas-group" style="margin-top:0.5rem;${normalizedVisit && normalizedVisit.teveDespesas === 'Sim' ? '' : 'display:none'}">
+                    <label for="valor-despesas">Valor R$</label>
+                    <input type="text" id="valor-despesas" value="${escapeHtml(normalizedVisit ? normalizedVisit.valorDespesas : '')}" placeholder="0,00" inputmode="decimal">
+                </div>
+            </div>` : ''}
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-visit">Cancelar</button>
                 <button type="submit" id="save-visit">${isEdit ? 'Salvar Alterações' : 'Salvar Visita'}</button>
@@ -1435,6 +1458,10 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         // Escolheu Sim/Não → revela o resto do formulário.
         document.getElementById('visit-form').classList.remove('prospeccao-pendente');
         syncProspectionMode();
+    }));
+    document.querySelectorAll('input[name="teveDespesas"]').forEach((radio) => radio.addEventListener('change', (e) => {
+        const valorGroup = document.getElementById('valor-despesas-group');
+        if (valorGroup) valorGroup.style.display = e.target.value === 'Sim' ? '' : 'none';
     }));
     clienteSelect.addEventListener('change', () => fillClientData(clienteSelect.value));
     clienteSelect.addEventListener('input', () => fillClientData(clienteSelect.value));
@@ -1657,8 +1684,17 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             // no JSON) pra não apagar lat/lng que já exista no registro.
             latitude: isEdit ? undefined : '',
             longitude: isEdit ? undefined : '',
+            teveDespesas: state.canLancarDespesas ? (document.querySelector('input[name="teveDespesas"]:checked')?.value || 'Nao') : undefined,
+            valorDespesas: state.canLancarDespesas ? document.getElementById('valor-despesas')?.value.trim() : undefined,
             user: state.currentUser
         };
+
+        if (payload.teveDespesas === 'Sim' && !payload.valorDespesas) {
+            showToast('Informe o valor das despesas.', true);
+            setSaving(false, saveButton);
+            document.getElementById('valor-despesas')?.focus();
+            return;
+        }
 
         if (!isEdit && payload.tiposVisita.length === 0) {
             showToast('Selecione pelo menos um tipo de visita.', true);
@@ -1691,7 +1727,9 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 'Tipo da Visita': payload.tipoVisita,
                 'Gerência': payload.gerencia,
                 'Qual o Veículo?': payload.veiculo,
-                'Observação': payload.observacao
+                'Observação': payload.observacao,
+                'TeveDespesas': payload.teveDespesas ?? (idx >= 0 ? state.visits[idx].teveDespesas : ''),
+                'ValorDespesas': payload.valorDespesas ?? (idx >= 0 ? state.visits[idx].valorDespesas : '')
             });
             if (idx >= 0) { state.visits[idx] = updatedVisit; saveCache('visits', state.visits); }
             state.currentVisit = updatedVisit;
@@ -1867,6 +1905,7 @@ export async function renderVisitDetailPage(id) {
             ${renderDetailRow('Gerência', visit.gerencia)}
             ${renderDetailRow('Veículo', visit.veiculo)}
             ${renderDetailRow('Observação', visit.observacao || '-')}
+            ${visit.teveDespesas === 'Sim' ? renderDetailRow('Despesas', formatCurrency(visit.valorDespesas) || '-') : ''}
             ${visit.latitude && visit.longitude ? `
             <div class="detail-row">
                 <span class="detail-label"><span class="detail-label-icon" aria-hidden="true">${actionIcon('pin', 13)}</span>Check-in</span>
@@ -2006,7 +2045,9 @@ export async function createVisit(payload) {
                 'Tipo da Visita': (payload.tiposVisita || [payload.tipoVisita])[0] || '',
                 'Gerência': payload.gerencia,
                 'Qual o Veículo?': payload.veiculo,
-                'Observação': payload.observacao
+                'Observação': payload.observacao,
+                'TeveDespesas': payload.teveDespesas || '',
+                'ValorDespesas': payload.valorDespesas || ''
             })
         };
         state.visits = [optimisticVisit, ...(state.visits || [])];
