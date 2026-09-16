@@ -17,6 +17,7 @@ import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, in
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
 import { ensurePropostasForDedup, propostaItemFor, propostaEmAlerta } from '../utils/funilLink.js';
 import { openLinkPickerModal } from '../utils/linkPicker.js';
+import { downloadXLSX } from '../utils/xlsxWriter.js';
 
 // Lembra o filtro escolhido entre re-renders da tela (recarregar dados em
 // 2º plano, sync automático, voltar de outra tela...) — sem isso, qualquer
@@ -130,6 +131,7 @@ export function fillFunilContent(mainContent, funil) {
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
                 <div class="visits-filter-header-actions">
+                    ${isAdmGer ? `<button type="button" class="mini-button" id="funil-excel-btn" title="Baixar Excel das oportunidades filtradas">📥 Excel</button>` : ''}
                     <button type="button" class="mini-button" id="funil-filter-clear">Limpar</button>
                     <button type="button" class="mini-button" id="funil-filter-toggle">Ocultar</button>
                 </div>
@@ -194,6 +196,10 @@ export function fillFunilContent(mainContent, funil) {
         </div>
         <div id="funil-list-container"></div>
     `;
+
+    // Guarda a última lista filtrada pro botão "Excel" exportar exatamente o
+    // que está na tela, não a base inteira.
+    let lastFilteredFunil = [];
 
     const filterToggle = document.getElementById('funil-filter-toggle');
     const filterPanel = document.getElementById('funil-filter-panel');
@@ -286,6 +292,7 @@ export function fillFunilContent(mainContent, funil) {
         if (!container) { return; }
 
         if (filtered.length === 0) {
+            lastFilteredFunil = [];
             container.innerHTML = `<div class="empty-state"><p>Nenhum registro encontrado para os filtros.</p></div>`;
             return;
         }
@@ -299,6 +306,7 @@ export function fillFunilContent(mainContent, funil) {
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
         _funilCampanhaList = sorted.map((f) => ({ id: f.id, cliente: f.cliente, cidade: f.cidade, extra: [f.foco, f.atuacao].filter(Boolean).join(' · '), funilDiversey: f.funilDiversey === 'Sim' }));
+        lastFilteredFunil = sorted;
 
         // Agrupa pelo mês de "Data" (não Atualização) — usar atualização aqui
         // fazia um registro "pular" pro mês corrente assim que era salvo,
@@ -673,6 +681,19 @@ export function fillFunilContent(mainContent, funil) {
         state.funilYearFilter = null;
         renderFiltered();
         updateYearChips();
+    });
+
+    document.getElementById('funil-excel-btn')?.addEventListener('click', () => {
+        if (!lastFilteredFunil.length) { showToast('Nenhuma oportunidade para os filtros selecionados.', true); return; }
+        const stamp = new Date().toISOString().slice(0, 10);
+        downloadXLSX(lastFilteredFunil, `funil-${stamp}.xlsx`, [
+            { key: 'data', label: 'Data' },
+            { key: 'vendedor', label: 'Nome do Vendedor' },
+            { key: 'cliente', label: 'Nome do Cliente' },
+            { key: 'foco', label: 'Foco' },
+            { key: 'aplicacao', label: 'Aplicação' },
+            { key: 'comentarios', label: 'Observação' }
+        ], 'Funil');
     });
 
     document.getElementById('scope-load-days')?.addEventListener('click', () => {

@@ -8,7 +8,7 @@ import {
     clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml
 } from '../utils/format.js';
 import {
-    debounce, downloadCSV, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
+    debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
     loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
@@ -17,6 +17,7 @@ import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
 import { ensureFunilForDedup, funilItemFor as funilItemForProposta, funilEmAlerta } from '../utils/funilLink.js';
 import { openLinkPickerModal } from '../utils/linkPicker.js';
+import { downloadXLSX } from '../utils/xlsxWriter.js';
 
 export function fillProposalsContent(mainContent, proposals) {
     let normalized = (proposals || []).map(normalizeProposal);
@@ -101,10 +102,7 @@ export function fillProposalsContent(mainContent, proposals) {
             ${summaryCount > 0 ? `<button type="button" class="csv-export-btn" id="update-summary-btn" title="Compartilhar resumo de atualizações">
                 📤 Resumo <span class="pending-badge" style="margin-left:0.2rem">${summaryCount}</span>
             </button>` : ''}
-            ${isAdmin ? `<button type="button" class="csv-export-btn" id="proposals-csv-btn" title="Exportar CSV">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v13M8 11l4 4 4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
-                CSV
-            </button>` : ''}
+            ${isAdmin ? `<button type="button" class="csv-export-btn" id="proposals-csv-btn" title="Baixar Excel das propostas filtradas">📥 Excel</button>` : ''}
         </div>
         <div class="card visits-filter-card">
             <div class="visits-filter-header">
@@ -185,6 +183,10 @@ export function fillProposalsContent(mainContent, proposals) {
             .forEach((id) => { const el = document.getElementById(id); if (el) state.proposalFilters[id] = el.value; });
     };
 
+    // Guarda a última lista filtrada pro botão "Excel" exportar exatamente o
+    // que está na tela, não a base inteira.
+    let lastFilteredProposals = [];
+
     const renderFiltered = async () => {
         persistProposalFilters();
         const dateFromCheck = document.getElementById('pf-date-from')?.value || '';
@@ -258,6 +260,7 @@ export function fillProposalsContent(mainContent, proposals) {
         if (!container) { return; }
 
         if (filtered.length === 0) {
+            lastFilteredProposals = [];
             container.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Nenhuma proposta para os filtros selecionados.</p></div>`;
             return;
         }
@@ -268,6 +271,7 @@ export function fillProposalsContent(mainContent, proposals) {
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
         _propsCampanhaList = sorted.map((p) => ({ id: p.id, cliente: p.cliente, cidade: p.cidade, extra: [p.foco, p.produto || p.produtos].filter(Boolean).join(' · ') }));
+        lastFilteredProposals = sorted;
 
         const byMonth = sorted.reduce((groups, p) => {
             const d = parseDisplayDate(p.data) || parseDisplayDate(p.atualizacao);
@@ -671,14 +675,16 @@ export function fillProposalsContent(mainContent, proposals) {
         });
     });
     document.getElementById('proposals-csv-btn')?.addEventListener('click', () => {
-        downloadCSV(normalized, 'propostas.csv', [
+        if (!lastFilteredProposals.length) { showToast('Nenhuma proposta para os filtros selecionados.', true); return; }
+        const stamp = new Date().toISOString().slice(0, 10);
+        downloadXLSX(lastFilteredProposals, `propostas-${stamp}.xlsx`, [
             { key: 'data', label: 'Data' },
-            { key: 'cliente', label: 'Cliente' },
-            { key: 'produto', label: 'Produto' },
-            { key: 'status', label: 'Status' },
-            { key: 'cidade', label: 'Cidade' },
-            { key: 'vendedor', label: 'Vendedor' }
-        ]);
+            { key: 'vendedor', label: 'Nome do Vendedor' },
+            { key: 'cliente', label: 'Nome do Cliente' },
+            { key: 'foco', label: 'Foco' },
+            { key: 'produtos', label: 'Produto' },
+            { key: 'obs', label: 'Obs' }
+        ], 'Propostas');
     });
     document.getElementById('update-summary-btn')?.addEventListener('click', () => {
         openSummaryModal(() => navigateTo('proposals'));
