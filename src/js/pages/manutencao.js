@@ -322,6 +322,10 @@ export function fillManutencaoContent(mainContent, itens) {
 
     document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
     document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
+    document.getElementById('mnt-nova-campanha')?.addEventListener('click', async () => {
+        const { openGerarCampanhaManutencaoModal } = await import('./campanhas.js');
+        openGerarCampanhaManutencaoModal();
+    });
     document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
     renderFiltered();
 }
