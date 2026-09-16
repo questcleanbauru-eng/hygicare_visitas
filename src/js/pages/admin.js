@@ -717,7 +717,7 @@ export function bindAdminEvents(data) {
                     </div>
                     <div class="uif-field">
                         <label>Cargo</label>
-                        <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Admin'], '')}</select>
+                        <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Tecnico', 'Administrativo', 'Admin'], '')}</select>
                     </div>
                     <div class="uif-field">
                         <label>Meta mensal (visitas)</label>
@@ -822,7 +822,7 @@ export function bindAdminEvents(data) {
                         </div>
                         <div class="uif-field">
                             <label>Cargo</label>
-                            <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Admin'], perfil)}</select>
+                            <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Tecnico', 'Administrativo', 'Admin'], perfil)}</select>
                         </div>
                         <div class="uif-field">
                             <label>Meta mensal (visitas)</label>
