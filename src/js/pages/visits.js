@@ -686,7 +686,7 @@ export async function renderCalendarPage(options) {
                 <button type="button" class="text-link" data-ag-done="${escapeHtml(a.id)}">Concluído</button>
                 <button type="button" class="text-link" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
                 <button type="button" class="text-link" data-ag-edit-date="${escapeHtml(a.id)}">Mudar data</button>
-                <button type="button" class="text-link" data-ag-ics="${escapeHtml(a.id)}">.ics</button>
+                <button type="button" class="text-link" data-ag-ics="${escapeHtml(a.id)}">Salvar na agenda</button>
             </div>
             <div class="ag-edit-date-row" style="display:none;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
                 <input type="date" class="ag-edit-date-input" value="${escapeHtml(formatInputDateFromDisplay(a.dataAgendada) || '')}">
