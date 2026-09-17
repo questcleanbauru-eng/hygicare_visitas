@@ -37,7 +37,7 @@ export function fillProposalsContent(mainContent, proposals) {
     let selectMode = false;
     const selectedIds = new Set();
 
-    const btnNovaProposta = (id) => state.canCreateProposalFunil ? `<button type="button" class="btn-add" id="${id}">+ Nova Proposta</button>` : '';
+    const btnNovaProposta = (id) => state.canCreateProposalFunil ? `<button type="button" class="primary-btn" id="${id}">+ Nova Proposta</button>` : '';
 
     if (normalized.length === 0) {
         const scopeIsLimited = state.proposalsScope && state.proposalsScope !== 'all';
@@ -88,9 +88,9 @@ export function fillProposalsContent(mainContent, proposals) {
         <div class="page-header">
             <div><h2>Propostas</h2><p class="page-subtitle">${normalized.length} proposta(s)</p></div>
             <div class="page-header-actions">
-                ${state.canDelete ? '<button type="button" class="mini-button" id="proposal-select-toggle" title="Marcar várias propostas para apagar de uma vez">☑️ Selecionar</button>' : ''}
-                ${isAdmGer ? '<button type="button" class="mini-button" id="proposals-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
-                ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, uma proposta após a outra">⚡ Edição rápida</button>` : ''}
+                ${state.canDelete ? '<button type="button" class="text-link" id="proposal-select-toggle" title="Marcar várias propostas para apagar de uma vez">☑️ Selecionar</button>' : ''}
+                ${isAdmGer ? '<button type="button" class="text-link" id="proposals-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
+                ${isAdmin ? `<button type="button" class="text-link qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, uma proposta após a outra">⚡ Edição rápida</button>` : ''}
                 ${btnNovaProposta('btn-new-proposal')}
             </div>
         </div>
@@ -107,8 +107,8 @@ export function fillProposalsContent(mainContent, proposals) {
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
                 <div class="visits-filter-header-actions">
-                    ${isAdmin ? `<button type="button" class="mini-button" id="proposals-csv-btn" title="Baixar Excel das propostas filtradas">📥 Excel</button>` : ''}
-                    <button type="button" class="mini-button" id="proposal-filter-clear">Limpar</button>
+                    ${isAdmin ? `<button type="button" class="text-link" id="proposals-csv-btn" title="Baixar Excel das propostas filtradas">📥 Excel</button>` : ''}
+                    <button type="button" class="text-link" id="proposal-filter-clear">Limpar</button>
                     <button type="button" class="mini-button" id="proposal-filter-toggle">Ocultar</button>
                 </div>
             </div>
