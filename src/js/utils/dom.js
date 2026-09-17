@@ -583,16 +583,24 @@ export function buildIcsContent({ title, description, dateStr }) {
     ].join('\r\n');
 }
 
+// Sem o atributo "download": isso força o navegador a salvar o arquivo
+// puro (Android joga em Downloads, iOS manda pro app Arquivos) — um passo
+// a mais até abrir o evento de verdade. Sem ele, o navegador entrega o
+// blob pelo MIME (text/calendar) e o celular já reconhece como agenda,
+// abrindo a prévia de "Adicionar evento" direto. target=_blank evita que
+// isso troque a própria tela do app por uma aba em branco em navegadores
+// desktop que não sabem lidar com esse MIME.
 export function downloadIcs(filename, content) {
     const blob = new Blob([content], { type: 'text/calendar;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.target = '_blank';
+    a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 
