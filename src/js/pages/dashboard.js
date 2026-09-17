@@ -50,9 +50,9 @@ export function fillDashboard(mainContent, data, user) {
 
         <!-- Ações rápidas -->
         <div class="dash-actions-bar">
-            <button type="button" class="btn-text accent" id="qa-new-visit">📋 Nova Visita</button>
-            ${state.canCreateProposalFunil ? '<button type="button" class="btn-text accent" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
-            ${state.canCreateProposalFunil ? '<button type="button" class="btn-text accent" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
+            <button type="button" class="text-link" id="qa-new-visit">📋 Nova Visita</button>
+            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
+            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
         </div>
 
         <!-- Hoje -->

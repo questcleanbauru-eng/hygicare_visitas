@@ -93,38 +93,42 @@
 .status-tag.apresentacao { background: var(--c-apresentacao-soft); color: var(--c-apresentacao); }
 .status-tag.erro { background: var(--c-erro-soft); color: var(--c-erro); }
 
-/* Botão primário — só UM por tela, a ação mais importante. */
-.btn-primary {
+/* Botão primário — só UM por tela, a ação mais importante. Nome e
+   valores batem literal com o mockup (.primary-btn), não é invenção
+   nossa — min-height é a única adição (alvo de toque acessível, não
+   muda a aparência). */
+.primary-btn {
     background: var(--ink);
     color: #fff;
     border: none;
     border-radius: var(--radius-pill);
-    padding: 0.6rem 1.1rem;
+    padding: 9px 16px;
     font-weight: 600;
-    font-size: var(--text-sm);
+    font-size: 13.5px;
     font-family: inherit;
     cursor: pointer;
     min-height: 44px;
 }
-.btn-primary:active { opacity: 0.9; }
+.primary-btn:active { opacity: 0.9; }
 
-/* Ação secundária — texto/link simples, nunca bloco colorido. */
-.btn-text {
+/* Ação secundária — texto/link simples, nunca bloco colorido. Mesmo
+   nome do mockup (.text-link); sem variante de cor — o mockup só usa
+   cor de destaque (--accent) em .filters-toggle, não aqui. */
+.text-link {
     background: none;
     border: none;
     color: var(--ink-soft);
     font-weight: 500;
-    font-size: var(--text-sm);
+    font-size: 13px;
     font-family: inherit;
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 5px;
     cursor: pointer;
     padding: 0.3rem 0;
     min-height: 32px;
 }
-.btn-text.accent { color: var(--accent); font-weight: 600; }
-.btn-text svg { width: 14px; height: 14px; }
+.text-link svg { width: 14px; height: 14px; }
 
 /* Resumo de filtros colapsado — some do lugar do painel cheio até a
    pessoa pedir pra ver ("Mostrar"). A lógica de abrir/fechar (JS) é a
@@ -149,30 +153,39 @@
     min-width: 0;
 }
 .filters-summary-left svg { width: 14px; height: 14px; flex-shrink: 0; }
-.filters-toggle { font-size: 0.78rem; color: var(--accent); font-weight: 600; flex-shrink: 0; background: none; border: none; cursor: pointer; font-family: inherit; }
+.filters-toggle { font-size: 12.5px; color: var(--accent); font-weight: 600; flex-shrink: 0; background: none; border: none; cursor: pointer; font-family: inherit; }
 .filters-panel { display: none; }
 .filters-panel.open { display: block; }
-.filter-field {
+
+/* Linha rótulo/valor (ex.: "Fim: 10/02/2027" no detalhe de um
+   registro) — nome e valores literais do mockup. */
+.field-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.7rem 0;
+    padding: 11px 20px;
     border-bottom: 1px solid var(--line);
 }
-.filter-field:last-child { border-bottom: none; }
-.filter-pill {
-    font-size: 0.75rem;
+.field-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); }
+.field-label svg { width: 15px; height: 15px; color: var(--ink-faint); }
+.field-value { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+
+/* Pill de período/categoria (ex.: abas "Semana/Mês atual/3 meses" do
+   Relatório, ou "Todos/Visitas/Propostas" da Agenda). */
+.pill-row { display: flex; gap: 8px; padding: 2px 20px 14px; overflow-x: auto; }
+.pill {
+    font-size: 12px;
     font-weight: 600;
-    padding: 0.4rem 0.8rem;
+    padding: 7px 13px;
     border-radius: var(--radius-pill);
     border: 1px solid var(--line);
-    background: var(--surface);
     color: var(--ink-soft);
+    background: var(--surface);
     font-family: inherit;
     cursor: pointer;
     white-space: nowrap;
 }
-.filter-pill.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+.pill.active { background: var(--ink); border-color: var(--ink); color: #fff; }
 
 /* Card de alerta — barra colorida à esquerda em vez de fundo chapado
    (ex.: contrato vencido). */
@@ -184,21 +197,22 @@
     padding: 0.7rem 0.85rem;
 }
 .alert-card.critical { border-left-color: var(--c-erro); }
-.alert-card .alert-title { font-size: var(--text-sm); font-weight: 600; color: var(--ink); }
-.alert-card .alert-sub { font-size: 0.75rem; color: var(--ink-soft); margin-top: 0.15rem; }
-.alert-card .alert-warn { font-size: 0.75rem; color: var(--c-manutencao); font-weight: 600; margin-top: 0.35rem; display: flex; align-items: center; gap: 0.3rem; }
-.alert-card.critical .alert-warn { color: var(--c-erro); }
+.alert-card .title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.alert-card .sub { font-size: 12px; color: var(--ink-soft); margin-top: 3px; }
+.alert-card .warn { font-size: 12px; color: var(--c-manutencao); font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 5px; }
+.alert-card.critical .warn { color: var(--c-erro); }
 
 /* Barra de ações de detalhe — ícones simples lado a lado em vez de
-   botões com fundo colorido cada um. */
-.action-toolbar { display: flex; gap: 1.1rem; align-items: center; }
-.action-icon {
+   botões com fundo colorido cada um. Nomes literais do mockup
+   (.toolbar .ic, não .action-toolbar/.action-icon). */
+.toolbar { display: flex; gap: 18px; align-items: center; padding: 14px 20px; }
+.toolbar .ic {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.2rem;
+    gap: 3px;
     color: var(--ink-soft);
-    font-size: 0.65rem;
+    font-size: 10.5px;
     background: none;
     border: none;
     cursor: pointer;
@@ -207,8 +221,8 @@
     min-height: 44px;
     justify-content: center;
 }
-.action-icon svg { width: 19px; height: 19px; }
-.action-icon.danger { color: var(--c-erro); }
+.toolbar .ic svg { width: 19px; height: 19px; }
+.toolbar .ic.danger { color: var(--c-erro); }
 
 .form-card {
     width: 100%;

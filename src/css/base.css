@@ -78,7 +78,7 @@ input, textarea, select,
 .header-brand-name {
     font-size: 0.95rem;
     font-weight: 700;
-    color: var(--primary-dark);
+    color: var(--ink);
     letter-spacing: -0.01em;
 }
 
@@ -145,7 +145,7 @@ input, textarea, select,
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    background: var(--ink);
     color: #fff;
     font-size: var(--text-sm);
     font-weight: 700;
@@ -161,7 +161,7 @@ input, textarea, select,
     height: 40px;
     border: none;
     background: transparent;
-    color: var(--text-muted);
+    color: var(--ink-soft);
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
@@ -171,14 +171,13 @@ input, textarea, select,
     position: relative;
 }
 
-.header-notif-btn:hover { background: #f1f5f9; color: var(--text); }
+.header-notif-btn:hover { background: var(--bg-sunken); color: var(--ink); }
 
-#header-refresh-btn {
-    background: var(--primary-light);
-    color: var(--primary);
-}
+/* Redesign minimalista: sem destaque azul fixo — mesmo ícone neutro dos
+   outros do header, só gira quando ativo (ver .spinning). */
+#header-refresh-btn { background: transparent; color: var(--ink-soft); }
 
-#header-refresh-btn:hover { background: var(--info-bg); color: var(--primary-dark); }
+#header-refresh-btn:hover { background: var(--bg-sunken); color: var(--ink); }
 
 #header-refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
 
