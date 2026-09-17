@@ -127,7 +127,12 @@ function combinarRelatorios(manut, tecnicos) {
     return [...a, ...b];
 }
 
-const tipoLabel = (t) => (t === 'tecnico' ? 'Técnico' : 'Manutenção');
+// SPSP = Rel. Técnico (aba própria, relatorioTecnico.js). Dentro de
+// "Manutencoes" tem dois modelos: Aferição (com a tabela de vazão) e Geral
+// (mesmos campos, sem a tabela) — distinguidos por m.tipoRelatorio.
+const tipoLabel = (m) => (m._tipo === 'tecnico' ? 'SPSP' : (m.tipoRelatorio === 'geral' ? 'Geral' : 'Aferição'));
+const tipoBadgeClass = (m) => (m._tipo === 'tecnico' ? 'tecnico' : (m.tipoRelatorio === 'geral' ? 'geral' : 'manutencao'));
+const tipoIcon = (m) => (m._tipo === 'tecnico' ? '📋' : (m.tipoRelatorio === 'geral' ? '📄' : '🔧'));
 
 // Recebe a lista JÁ combinada e normalizada (ver combinarRelatorios).
 export function fillManutencaoContent(mainContent, itens) {
@@ -148,19 +153,25 @@ export function fillManutencaoContent(mainContent, itens) {
                 <p>Nenhum relatório registrado ainda. Escolha o tipo:</p>
                 <div class="mnt-tipo-cards">
                     <div class="mnt-tipo-card">
-                        <strong>📋 Relatório Técnico</strong>
+                        <strong>📋 Relatório SPSP</strong>
                         <span>Destinado ao atendimento do Grupo SPSP.</span>
-                        <button type="button" class="primary-btn" id="btn-new-rel-tecnico">+ Relatório Técnico</button>
+                        <button type="button" class="primary-btn" id="btn-new-rel-tecnico">+ Relatório SPSP</button>
                     </div>
                     <div class="mnt-tipo-card">
-                        <strong>🔧 Relatório de Manutenção</strong>
-                        <span>Destinado aos demais clientes.</span>
-                        <button type="button" class="primary-btn" id="btn-new-manutencao2">+ Relatório de Manutenção</button>
+                        <strong>🔧 Relatório de Aferição</strong>
+                        <span>Com tabela de aferição de vazão (equipamento/produto/diluição).</span>
+                        <button type="button" class="primary-btn" id="btn-new-manutencao2">+ Relatório de Aferição</button>
+                    </div>
+                    <div class="mnt-tipo-card">
+                        <strong>📄 Relatório Geral</strong>
+                        <span>Sem tabela de aferição — cliente, observação e assinaturas.</span>
+                        <button type="button" class="primary-btn" id="btn-new-geral2">+ Relatório Geral</button>
                     </div>
                 </div>
             </div>
         `;
         document.getElementById('btn-new-manutencao2')?.addEventListener('click', () => navigateTo('manutencao-new'));
+        document.getElementById('btn-new-geral2')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }));
         document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
         document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
         document.getElementById('mnt-nova-campanha')?.addEventListener('click', async () => {
@@ -181,13 +192,15 @@ export function fillManutencaoContent(mainContent, itens) {
             <div class="header-actions-group">
                 <button type="button" class="text-link" id="btn-ver-modelos">📋 Modelos</button>
                 ${isAdmGer ? `<button type="button" class="text-link" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
-                <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. Técnico</button>
-                <button type="button" class="primary-btn" id="btn-new-manutencao" title="Demais clientes">🔧 Rel. de Manutenção</button>
+                <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. SPSP</button>
+                <button type="button" class="primary-btn" id="btn-new-manutencao" title="Com tabela de aferição de vazão">🔧 Rel. de Aferição</button>
+                <button type="button" class="primary-btn" id="btn-new-geral" title="Sem tabela de aferição">📄 Rel. Geral</button>
             </div>
         </div>
         <p class="mnt-tipo-legenda">
-            <span class="mnt-legenda-item">📋 <strong>Rel. Técnico</strong> → Grupo SPSP</span>
-            <span class="mnt-legenda-item">🔧 <strong>Rel. de Manutenção</strong> → demais clientes</span>
+            <span class="mnt-legenda-item">📋 <strong>Rel. SPSP</strong> → Grupo SPSP</span>
+            <span class="mnt-legenda-item">🔧 <strong>Rel. de Aferição</strong> → com tabela de vazão</span>
+            <span class="mnt-legenda-item">📄 <strong>Rel. Geral</strong> → sem tabela de aferição</span>
         </p>
         <div class="search-bar-wrapper">
             <div class="search-bar-input-group">
@@ -208,8 +221,9 @@ export function fillManutencaoContent(mainContent, itens) {
                     <label for="mnt-tipo">Tipo</label>
                     <select id="mnt-tipo">
                         <option value="">Todos</option>
-                        <option value="tecnico">Técnico</option>
-                        <option value="manutencao">Manutenção</option>
+                        <option value="tecnico">SPSP</option>
+                        <option value="manutencao">Aferição</option>
+                        <option value="geral">Geral</option>
                     </select>
                 </div>
                 ${multiCheckFilterFieldHtml('Cidade', 'mnt-cidade', 'Todas')}
@@ -239,7 +253,9 @@ export function fillManutencaoContent(mainContent, itens) {
 
         const filtered = normalized.filter((m) => {
             const matchSearch  = !search || [m.cliente, m.cidade, m.tecnico].some((v) => String(v || '').toLowerCase().includes(search));
-            const matchTipo    = !tipo || m._tipo === tipo;
+            const matchTipo    = !tipo || (tipo === 'geral' ? (m._tipo === 'manutencao' && m.tipoRelatorio === 'geral')
+                : tipo === 'manutencao' ? (m._tipo === 'manutencao' && m.tipoRelatorio !== 'geral')
+                : m._tipo === tipo);
             const matchCidade  = !cidade.length || cidade.includes(m.cidade);
             const matchTecnico = !tecnico.length || tecnico.includes(m.tecnico);
             return matchSearch && matchTipo && matchCidade && matchTecnico;
@@ -259,8 +275,8 @@ export function fillManutencaoContent(mainContent, itens) {
             <button type="button" class="proposal-card item-row" data-manutencao-id="${escapeHtml(m.id)}" data-tipo="${m._tipo}">
                 <div class="item-body">
                     <div class="item-top">
-                        <span class="item-name"><span aria-hidden="true">${m._tipo === 'tecnico' ? '📋' : '🔧'}</span> ${escapeHtml(m.cliente || 'Cliente não informado')}</span>
-                        <span class="mnt-tipo-badge mnt-tipo-badge-${m._tipo}">${tipoLabel(m._tipo)}</span>
+                        <span class="item-name"><span aria-hidden="true">${tipoIcon(m)}</span> ${escapeHtml(m.cliente || 'Cliente não informado')}</span>
+                        <span class="mnt-tipo-badge mnt-tipo-badge-${tipoBadgeClass(m)}">${tipoLabel(m)}</span>
                     </div>
                     <div class="item-meta">${escapeHtml([m.cidade, titleCase(m.tecnico), m.data].filter(Boolean).join(' · ') || '-')}</div>
                     <div class="item-bottom">
@@ -330,6 +346,7 @@ export function fillManutencaoContent(mainContent, itens) {
     });
 
     document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
+    document.getElementById('btn-new-geral')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }));
     document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
     document.getElementById('mnt-nova-campanha')?.addEventListener('click', async () => {
         const { openGerarCampanhaManutencaoModal } = await import('./campanhas.js');
@@ -351,7 +368,7 @@ async function openModelosSalvosModal() {
     overlay.innerHTML = `
         <div class="modal-card" style="text-align:left;max-width:460px">
             <h3 style="margin-top:0">📋 Modelos salvos</h3>
-            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Modelos de <strong>Relatório Técnico</strong> e de <strong>Relatório de Manutenção</strong> — carregue num relatório novo com um clique. Um cliente pode ter mais de um modelo (nomes diferentes).</p>
+            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Modelos de <strong>Relatório SPSP</strong> e de <strong>Relatório de Aferição</strong> — carregue num relatório novo com um clique. Um cliente pode ter mais de um modelo (nomes diferentes).</p>
             <input type="text" id="mnt-modelos-search" class="form-input" placeholder="Buscar cliente ou nome do modelo..." style="margin-bottom:0.75rem">
             <div id="mnt-modelos-list" style="max-height:55vh;overflow-y:auto">
                 <p class="helper-text">Carregando...</p>
@@ -403,7 +420,7 @@ async function openModelosSalvosModal() {
                 <div class="mnt-modelo-list-row" data-t-id="${escapeHtml(String(mo.id))}">
                     <div class="mnt-modelo-list-info">
                         <strong>${escapeHtml(mo.nome || mo.cliente || '-')}</strong>
-                        <span class="helper-text">${nomeDifere ? `Cliente: ${escapeHtml(mo.cliente || '-')}` : 'Relatório Técnico'}</span>
+                        <span class="helper-text">${nomeDifere ? `Cliente: ${escapeHtml(mo.cliente || '-')}` : 'Relatório SPSP'}</span>
                     </div>
                     <div class="mnt-modelo-list-actions">
                         <button type="button" class="mini-button mnt-modelo-t-use" data-id="${escapeHtml(String(mo.id))}">Usar</button>
@@ -429,8 +446,8 @@ async function openModelosSalvosModal() {
         };
 
         listEl.innerHTML =
-            (fT.length ? `<p class="mnt-modelo-group-label">📋 Relatório Técnico</p>${fT.map(rowTecnico).join('')}` : '')
-            + (fM.length ? `<p class="mnt-modelo-group-label">🔧 Relatório de Manutenção</p>${fM.map(rowManut).join('')}` : '');
+            (fT.length ? `<p class="mnt-modelo-group-label">📋 Relatório SPSP</p>${fT.map(rowTecnico).join('')}` : '')
+            + (fM.length ? `<p class="mnt-modelo-group-label">🔧 Relatório de Aferição</p>${fM.map(rowManut).join('')}` : '');
 
         // ── Relatório Técnico ──
         listEl.querySelectorAll('.mnt-modelo-t-use').forEach((btn) => {
@@ -629,6 +646,8 @@ export async function renderManutencaoDetailPage(id) {
     if (m.pendenteAprovacao === 'Sim') { statusKey = 'pendente'; statusLabel = 'Pendente de aprovação'; }
     else if (jaAssinado) { statusKey = 'assinado'; statusLabel = 'Assinado'; }
 
+    const isGeral = m.tipoRelatorio === 'geral';
+    const reportTitulo = isGeral ? 'Relatório Geral' : 'Relatório de Aferição';
     const afericaoRowsHtml = itens.length ? itens.map((i) => `
         <tr>
             <td>${escapeHtml(i.equipamento || '-')}</td>
@@ -668,7 +687,7 @@ export async function renderManutencaoDetailPage(id) {
                     ${logoEmpresa ? `<img class="mnt-report-logo" src="${escapeHtml(logoEmpresa)}" alt="Logo da empresa">` : ''}
                     <div>
                         <strong class="mnt-report-brand">Hygicare</strong>
-                        <div class="mnt-report-title">Relatório de Manutenção</div>
+                        <div class="mnt-report-title">${escapeHtml(reportTitulo)}</div>
                     </div>
                 </div>
                 <span class="mnt-status-badge mnt-status-${statusKey}"><span class="mnt-status-dot" aria-hidden="true"></span>${statusLabel}</span>
@@ -683,6 +702,7 @@ export async function renderManutencaoDetailPage(id) {
                         <div class="mnt-field"><span class="mnt-field-label">Data</span><span class="mnt-field-value">${escapeHtml(m.data || '-')}</span></div>
                     </div>
                 </div>
+                ${isGeral ? '' : `
                 <div class="mnt-report-section">
                     <p class="mnt-section-title">Aferição de Vazão</p>
                     <div style="overflow-x:auto">
@@ -691,7 +711,7 @@ export async function renderManutencaoDetailPage(id) {
                             <tbody>${afericaoRowsHtml}</tbody>
                         </table>
                     </div>
-                </div>
+                </div>`}
                 <div class="mnt-report-section">
                     <p class="mnt-section-title">Observação</p>
                     <div class="mnt-observacao-block ${hasObservacao ? 'mnt-observacao-filled' : 'mnt-observacao-empty'}">${hasObservacao ? escapeHtml(m.observacao) : '<em>Nenhuma observação registrada.</em>'}</div>
@@ -744,14 +764,14 @@ export async function renderManutencaoDetailPage(id) {
         // depois, senão a aba do app fica com esse nome errado.
         const sanitize = (s) => String(s || '').replace(/[\\/:*?"<>|]/g, '-').trim();
         const originalTitle = document.title;
-        document.title = `Relatório de Visita e Manutenção - ${sanitize(m.cliente)} - ${sanitize(m.data)}`;
+        document.title = `${reportTitulo} - ${sanitize(m.cliente)} - ${sanitize(m.data)}`;
         const restoreTitle = () => { document.title = originalTitle; window.removeEventListener('afterprint', restoreTitle); };
         window.addEventListener('afterprint', restoreTitle);
         window.print();
         setTimeout(restoreTitle, 3000);
     });
     document.getElementById('share-manutencao-whatsapp').addEventListener('click', () => {
-        const text = `*Relatório de Manutenção - ${m.cliente}*\nCidade: ${m.cidade || '-'}\nTécnico: ${m.tecnico || '-'}\nData: ${m.data || '-'}\nObservação: ${m.observacao || '-'}`;
+        const text = `*${reportTitulo} - ${m.cliente}*\nCidade: ${m.cidade || '-'}\nTécnico: ${m.tecnico || '-'}\nData: ${m.data || '-'}\nObservação: ${m.observacao || '-'}`;
         openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
     });
     document.getElementById('approve-manutencao')?.addEventListener('click', async (event) => {
@@ -893,6 +913,10 @@ export async function renderManutencaoFormPage(record, options) {
     const isEdit = Boolean(record && (record.Id || record.id));
     const m = isEdit ? normalizeManutencao(record) : normalizeManutencao({});
     const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+    // Tipo é decidido na criação (options.tipoRelatorio) e não muda depois —
+    // uma edição sempre segue o que já está gravado no registro.
+    const isGeral = isEdit ? m.tipoRelatorio === 'geral' : !!(options && options.tipoRelatorio === 'geral');
+    const formTitulo = isEdit ? 'Editar Relatório' : (isGeral ? 'Novo Relatório Geral' : 'Novo Relatório de Aferição');
 
     // Vindo de "Usar" no modal de modelos salvos (ver openModelosSalvosModal)
     // — pré-preenche cliente e a tabela de aferição só na criação, nunca
@@ -915,7 +939,7 @@ export async function renderManutencaoFormPage(record, options) {
         mainContent.innerHTML = `
             <div class="page-header compact-header">
                 <button type="button" class="mini-button" id="back-manutencao-overlay">Voltar</button>
-                <h2>${isEdit ? 'Editar Relatório' : 'Novo Relatório de Manutenção'}</h2>
+                <h2>${formTitulo}</h2>
             </div>
             <div class="card form-card" style="position:relative;min-height:200px;">
                 <div class="form-loading-overlay">
@@ -942,7 +966,7 @@ export async function renderManutencaoFormPage(record, options) {
     mainContent.innerHTML = `
         <div class="page-header compact-header">
             <button type="button" class="mini-button" id="back-manutencao-form">Voltar</button>
-            <h2>${isEdit ? 'Editar Relatório' : 'Novo Relatório de Manutenção'}</h2>
+            <h2>${formTitulo}</h2>
         </div>
         <form id="manutencao-form" class="card form-card form-layout">
             <div class="form-group full-width">
@@ -964,6 +988,7 @@ export async function renderManutencaoFormPage(record, options) {
                 <input type="text" id="mnt-tecnico" value="${escapeHtml(m.tecnico || state.currentUser?.name || '')}" ${isAdmin ? '' : 'readonly'}>
             </div>
 
+            ${isGeral ? '' : `
             <div class="form-group full-width">
                 <label>Tabela de Aferição</label>
                 <div class="mnt-modelo-actions">
@@ -972,7 +997,7 @@ export async function renderManutencaoFormPage(record, options) {
                 </div>
                 <div id="mnt-itens-container">${(itensIniciais.length ? itensIniciais : [{}, {}, {}]).map((i) => itemRowHtml(i)).join('')}</div>
                 <button type="button" class="mini-button" id="mnt-add-item" style="margin-top:0.5rem">+ Adicionar linha</button>
-            </div>
+            </div>`}
 
             <div class="form-group full-width">
                 <label for="mnt-observacao">Observação</label>
@@ -1100,65 +1125,70 @@ export async function renderManutencaoFormPage(record, options) {
         items: cidades
     });
 
-    const itensContainer = document.getElementById('mnt-itens-container');
-    bindItemRowRemove(itensContainer);
-    document.getElementById('mnt-add-item').addEventListener('click', () => {
-        itensContainer.insertAdjacentHTML('beforeend', itemRowHtml());
+    // Relatório Geral não tem a Tabela de Aferição — esses elementos nem
+    // existem no DOM (ver form-group condicionado a isGeral acima), então
+    // toda essa parte fica sem sentido de tentar ligar.
+    const itensContainer = isGeral ? null : document.getElementById('mnt-itens-container');
+    if (!isGeral) {
         bindItemRowRemove(itensContainer);
-    });
+        document.getElementById('mnt-add-item').addEventListener('click', () => {
+            itensContainer.insertAdjacentHTML('beforeend', itemRowHtml());
+            bindItemRowRemove(itensContainer);
+        });
 
-    // Modelo por cliente: Equipamento/Produto/Diluição que esse cliente já
-    // costuma usar, salvos uma vez pra não digitar tudo de novo a cada
-    // visita — Aferido nunca entra no modelo, é resultado de cada visita.
-    // Um cliente pode ter mais de um modelo salvo (nomes diferentes), daí a
-    // busca abaixo retornar uma lista em vez de um só.
-    const findModelosForCliente = (cliente) => {
-        const key = String(cliente || '').trim().toLowerCase();
-        if (!key) return [];
-        return modelos.filter((mo) => String(mo.cliente || '').trim().toLowerCase() === key);
-    };
+        // Modelo por cliente: Equipamento/Produto/Diluição que esse cliente já
+        // costuma usar, salvos uma vez pra não digitar tudo de novo a cada
+        // visita — Aferido nunca entra no modelo, é resultado de cada visita.
+        // Um cliente pode ter mais de um modelo salvo (nomes diferentes), daí a
+        // busca abaixo retornar uma lista em vez de um só.
+        const findModelosForCliente = (cliente) => {
+            const key = String(cliente || '').trim().toLowerCase();
+            if (!key) return [];
+            return modelos.filter((mo) => String(mo.cliente || '').trim().toLowerCase() === key);
+        };
 
-    const applyModeloToForm = (modelo) => {
-        const itensModelo = safeParseJson(modelo.itensTabela, []);
-        if (!itensModelo.length) { showToast('O modelo salvo está vazio.', true); return; }
-        const hasContent = collectItens(itensContainer).length > 0;
-        if (hasContent && !confirm('Isso substitui as linhas já preenchidas na Tabela de Aferição. Continuar?')) return;
-        itensContainer.innerHTML = itensModelo.map((i) => itemRowHtml({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao })).join('');
-        bindItemRowRemove(itensContainer);
-        currentModeloNome = modelo.nome || null;
-        showToast(`Modelo "${modelo.nome || modelo.cliente}" carregado.`);
-    };
+        const applyModeloToForm = (modelo) => {
+            const itensModelo = safeParseJson(modelo.itensTabela, []);
+            if (!itensModelo.length) { showToast('O modelo salvo está vazio.', true); return; }
+            const hasContent = collectItens(itensContainer).length > 0;
+            if (hasContent && !confirm('Isso substitui as linhas já preenchidas na Tabela de Aferição. Continuar?')) return;
+            itensContainer.innerHTML = itensModelo.map((i) => itemRowHtml({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao })).join('');
+            bindItemRowRemove(itensContainer);
+            currentModeloNome = modelo.nome || null;
+            showToast(`Modelo "${modelo.nome || modelo.cliente}" carregado.`);
+        };
 
-    document.getElementById('mnt-load-modelo').addEventListener('click', async () => {
-        const clienteVal = document.getElementById('mnt-cliente').value.trim();
-        if (!clienteVal) { showToast('Informe o cliente primeiro.', true); return; }
-        const matches = findModelosForCliente(clienteVal);
-        if (!matches.length) { showToast(`Nenhum modelo salvo para "${clienteVal}" ainda.`, true); return; }
-        if (matches.length === 1) { applyModeloToForm(matches[0]); return; }
-        const chosen = await pickModeloFromMatches(matches);
-        if (chosen) applyModeloToForm(chosen);
-    });
+        document.getElementById('mnt-load-modelo').addEventListener('click', async () => {
+            const clienteVal = document.getElementById('mnt-cliente').value.trim();
+            if (!clienteVal) { showToast('Informe o cliente primeiro.', true); return; }
+            const matches = findModelosForCliente(clienteVal);
+            if (!matches.length) { showToast(`Nenhum modelo salvo para "${clienteVal}" ainda.`, true); return; }
+            if (matches.length === 1) { applyModeloToForm(matches[0]); return; }
+            const chosen = await pickModeloFromMatches(matches);
+            if (chosen) applyModeloToForm(chosen);
+        });
 
-    document.getElementById('mnt-save-modelo').addEventListener('click', async (event) => {
-        const clienteVal = document.getElementById('mnt-cliente').value.trim();
-        if (!clienteVal) { showToast('Informe o cliente primeiro.', true); return; }
-        const itensParaModelo = collectItens(itensContainer).map((i) => ({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao }));
-        if (!itensParaModelo.length) { showToast('Preencha ao menos uma linha da tabela antes de salvar como modelo.', true); return; }
-        const nome = await promptModeloNome(currentModeloNome || clienteVal);
-        if (nome === null) return;
-        const btn = event.currentTarget;
-        setSaving(true, btn, 'Salvando...');
-        const result = await callAPI('saveManutencaoModelo', { cliente: clienteVal, nome, itensTabela: JSON.stringify(itensParaModelo), user: state.currentUser });
-        setSaving(false, btn);
-        if (result.status === 'success') {
-            const idx = modelos.findIndex((mo) => mo.id === result.modelo.id);
-            if (idx >= 0) modelos[idx] = result.modelo; else modelos.push(result.modelo);
-            currentModeloNome = result.modelo.nome || nome;
-            showToast(`Modelo "${result.modelo.nome || nome}" salvo.`);
-        } else {
-            showToast(result.message || 'Não foi possível salvar o modelo.', true);
-        }
-    });
+        document.getElementById('mnt-save-modelo').addEventListener('click', async (event) => {
+            const clienteVal = document.getElementById('mnt-cliente').value.trim();
+            if (!clienteVal) { showToast('Informe o cliente primeiro.', true); return; }
+            const itensParaModelo = collectItens(itensContainer).map((i) => ({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao }));
+            if (!itensParaModelo.length) { showToast('Preencha ao menos uma linha da tabela antes de salvar como modelo.', true); return; }
+            const nome = await promptModeloNome(currentModeloNome || clienteVal);
+            if (nome === null) return;
+            const btn = event.currentTarget;
+            setSaving(true, btn, 'Salvando...');
+            const result = await callAPI('saveManutencaoModelo', { cliente: clienteVal, nome, itensTabela: JSON.stringify(itensParaModelo), user: state.currentUser });
+            setSaving(false, btn);
+            if (result.status === 'success') {
+                const idx = modelos.findIndex((mo) => mo.id === result.modelo.id);
+                if (idx >= 0) modelos[idx] = result.modelo; else modelos.push(result.modelo);
+                currentModeloNome = result.modelo.nome || nome;
+                showToast(`Modelo "${result.modelo.nome || nome}" salvo.`);
+            } else {
+                showToast(result.message || 'Não foi possível salvar o modelo.', true);
+            }
+        });
+    }
 
     document.getElementById('back-manutencao-form').addEventListener('click', () => navigateTo(isEdit ? 'manutencao-detail' : 'manutencao', isEdit ? { id: m.id } : {}));
     document.getElementById('cancel-manutencao').addEventListener('click', () => navigateTo(isEdit ? 'manutencao-detail' : 'manutencao', isEdit ? { id: m.id } : {}));
@@ -1222,7 +1252,8 @@ export async function renderManutencaoFormPage(record, options) {
         const payload = {
             cliente: clienteVal, cidade: cidadeVal, tecnico: tecnicoVal,
             observacao: observacaoVal,
-            itensTabela: JSON.stringify(collectItens(itensContainer)),
+            itensTabela: isGeral ? '[]' : JSON.stringify(collectItens(itensContainer)),
+            tipoRelatorio: isGeral ? 'geral' : '',
             fotos: fotoIds.slice(),
             // Sempre manda o que está no canvas agora (mesmo vazio) — assim
             // clicar em "Limpar" numa edição realmente apaga a assinatura

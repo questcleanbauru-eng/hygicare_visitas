@@ -103,6 +103,7 @@ export function normalizeManutencao(item) {
         cidade: m.Cidade || m.cidade || '',
         itensTabela: m.ItensTabela || m.itensTabela || '[]',
         observacao: m.Observacao || m.observacao || '',
+        tipoRelatorio: m.TipoRelatorio || m.tipoRelatorio || '',
         assinaturaTecnico: m.AssinaturaTecnico || m.assinaturaTecnico || '',
         assinaturaCliente: m.AssinaturaCliente || m.assinaturaCliente || '',
         pendenteAprovacao: m.PendenteAprovacao || m.pendenteAprovacao || '',

@@ -203,7 +203,7 @@ function fillList(mainContent, list) {
     const normalized = (list || []).map(normalize);
     const headerHtml = `
         <div class="page-header">
-            <div><h2>Atendimento Técnico</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
+            <div><h2>Relatório SPSP</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
             <div class="header-actions-group">
                 <button type="button" class="text-link" id="rt-goto-manutencao">🔧 Manutenção</button>
                 <button type="button" class="primary-btn" id="rt-new">+ Novo Relatório</button>
@@ -370,7 +370,7 @@ export async function renderRelatorioTecnicoDetailPage(id) {
     const logoEmpresa = (fd && fd.data && fd.data.logoEmpresa) || '';
 
     mainContent.innerHTML = `
-        ${renderBreadcrumb([{ label: 'Manutenção', page: 'manutencao' }, { label: 'Atendimento Técnico', page: 'relatorio-tecnico' }, { label: m.cliente || 'Relatório' }])}
+        ${renderBreadcrumb([{ label: 'Manutenção', page: 'manutencao' }, { label: 'Relatório SPSP', page: 'relatorio-tecnico' }, { label: m.cliente || 'Relatório' }])}
         <div class="page-header compact-header no-print">
             <div><h2>${escapeHtml(m.cliente || 'Relatório técnico')}</h2>
                 <p class="page-subtitle">${escapeHtml([m.cidade, m.relatorioMes].filter(Boolean).join(' · '))}</p></div>
@@ -416,7 +416,7 @@ export async function renderRelatorioTecnicoDetailPage(id) {
 
 async function shareRelatorio(m) {
     const linhas = [
-        `*Relatório de Atendimento Técnico*`,
+        `*Relatório SPSP*`,
         `Cliente: ${m.cliente || '-'}`,
         `Cidade: ${[m.cidade, m.estado].filter(Boolean).join('/') || '-'}`,
         `Relatório: ${m.relatorioMes || '-'}  |  Data da visita: ${m.dataVisita || '-'}`,
@@ -497,7 +497,7 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
 
     const breadcrumbHtml = renderBreadcrumb([
         { label: 'Manutenção', page: 'manutencao' },
-        { label: 'Atendimento Técnico', page: 'relatorio-tecnico' },
+        { label: 'Relatório SPSP', page: 'relatorio-tecnico' },
         { label: isEdit ? 'Editar' : 'Novo' }
     ]);
 

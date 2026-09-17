@@ -289,8 +289,8 @@ export async function openGerarCampanhaManutencaoModal() {
             <div class="form-group full-width">
                 <label>Tipo de relatório</label>
                 <div class="radio-group">
-                    <button type="button" class="radio-pill is-checked" data-tipo="manutencao">🔧 Manutenção</button>
-                    <button type="button" class="radio-pill" data-tipo="relatoriotecnico">📋 Técnico (Grupo SPSP)</button>
+                    <button type="button" class="radio-pill is-checked" data-tipo="manutencao">🔧 Aferição</button>
+                    <button type="button" class="radio-pill" data-tipo="relatoriotecnico">📋 SPSP (Grupo SPSP)</button>
                 </div>
             </div>
             <div class="form-group full-width">
@@ -377,12 +377,12 @@ export async function openGerarCampanhaManutencaoModal() {
         const relatorio = overlay.querySelector('#cm-relatorio').value.trim();
         const prazoInput = overlay.querySelector('#cm-prazo').value;
         const prazoAte = prazoInput ? formatDateFromInputValue(prazoInput) : '';
-        const rotulo = tipoRelatorio === 'relatoriotecnico' ? 'relatório técnico' : 'relatório de manutenção';
+        const rotulo = tipoRelatorio === 'relatoriotecnico' ? 'relatório SPSP' : 'relatório de aferição';
 
         setSaving(true, btn, 'Gerando...');
         const r = await callAPI('criarCampanha', {
             tipo: tipoRelatorio,
-            titulo: `${tipoRelatorio === 'relatoriotecnico' ? 'Relatório Técnico' : 'Manutenção'} — ${cliente}`,
+            titulo: `${tipoRelatorio === 'relatoriotecnico' ? 'Relatório SPSP' : 'Aferição'} — ${cliente}`,
             vendedorDestino,
             prazoAte,
             ...(tipoRelatorio === 'relatoriotecnico'
@@ -856,8 +856,8 @@ async function renderCampanhaVisitaPreencher(main, camp, itens) {
 // preenchido (ver manutencao.js/relatorioTecnico.js, que confirmam a
 // resposta sozinhos depois de salvar).
 const RELATORIO_PREENCHER_CONFIG = {
-    manutencao: { rota: 'manutencao-new', prefillKey: 'prefillObservacao', label: 'Relatório de Manutenção' },
-    relatoriotecnico: { rota: 'relatorio-tecnico-new', prefillKey: 'prefillComentarios', label: 'Relatório Técnico' }
+    manutencao: { rota: 'manutencao-new', prefillKey: 'prefillObservacao', label: 'Relatório de Aferição' },
+    relatoriotecnico: { rota: 'relatorio-tecnico-new', prefillKey: 'prefillComentarios', label: 'Relatório SPSP' }
 };
 
 async function renderCampanhaManutencaoPreencher(main, camp, itens) {
@@ -1055,7 +1055,7 @@ function campanhaRow(c, selectMode) {
             <span class="status-pill ${statusClass}">${statusLabel}</span>
         </div>
         <p class="helper-text camp-admin-meta">
-            ${c.tipo === 'funil' ? '📊 Funil' : c.tipo === 'visita' ? '📋 Relatório de Visita' : c.tipo === 'manutencao' ? '🔧 Relatório de Manutenção' : c.tipo === 'relatoriotecnico' ? '📋 Relatório Técnico' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
+            ${c.tipo === 'funil' ? '📊 Funil' : c.tipo === 'visita' ? '📋 Relatório de Visita' : c.tipo === 'manutencao' ? '🔧 Relatório de Aferição' : c.tipo === 'relatoriotecnico' ? '📋 Relatório SPSP' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
             ${c.primeiroAcessoEm
                 ? `👁️ Acessou em ${escapeHtml(c.primeiroAcessoEm)}${c.ultimoAcessoEm && c.ultimoAcessoEm !== c.primeiroAcessoEm ? ` (última vez ${escapeHtml(c.ultimoAcessoEm)})` : ''}`
                 : '⏳ Ainda não abriu o link'}
