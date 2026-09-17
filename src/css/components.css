@@ -177,12 +177,15 @@
 .filters-panel.open { display: block; }
 
 /* Linha rótulo/valor (ex.: "Fim: 10/02/2027" no detalhe de um
-   registro) — nome e valores literais do mockup. */
+   registro) — nome e valores literais do mockup, exceto o padding
+   horizontal: o mockup simula a moldura do celular (por isso 20px de
+   respiro dos dois lados); aqui o container da página já tem essa
+   margem, então fica só vertical pra não dobrar o espaço. */
 .field-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 11px 20px;
+    padding: 11px 0;
     border-bottom: 1px solid var(--line);
 }
 .field-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); }
@@ -190,8 +193,9 @@
 .field-value { font-size: 13.5px; font-weight: 600; color: var(--ink); }
 
 /* Pill de período/categoria (ex.: abas "Semana/Mês atual/3 meses" do
-   Relatório, ou "Todos/Visitas/Propostas" da Agenda). */
-.pill-row { display: flex; gap: 8px; padding: 2px 20px 14px; overflow-x: auto; }
+   Relatório, ou "Todos/Visitas/Propostas" da Agenda). Mesma ressalva de
+   padding horizontal do .field-row acima. */
+.pill-row { display: flex; gap: 8px; padding: 2px 0 14px; overflow-x: auto; }
 .pill {
     font-size: 12px;
     font-weight: 600;
@@ -224,7 +228,7 @@
 /* Barra de ações de detalhe — ícones simples lado a lado em vez de
    botões com fundo colorido cada um. Nomes literais do mockup
    (.toolbar .ic, não .action-toolbar/.action-icon). */
-.toolbar { display: flex; gap: 18px; align-items: center; padding: 14px 20px; }
+.toolbar { display: flex; gap: 18px; align-items: center; padding: 14px 0; }
 .toolbar .ic {
     display: flex;
     flex-direction: column;

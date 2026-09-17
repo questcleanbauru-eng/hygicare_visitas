@@ -672,29 +672,26 @@ export async function renderCalendarPage(options) {
     const agendamentoCardHtml = (a, { showDate = false } = {}) => {
         const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
         const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
+        const diasCor = dias < 0 ? 'erro' : dias <= 1 ? 'apresentacao' : 'preventiva';
         return `
-        <div class="visit-card" data-agendamento-id="${escapeHtml(a.id)}" style="border-left:4px solid ${AGENDAMENTO_COLOR};cursor:default">
-            <div class="visit-card-header">
-                <strong><span aria-hidden="true">📌</span> ${escapeHtml(a.cliente || '-')}</strong>
+        <div class="card" data-agendamento-id="${escapeHtml(a.id)}" style="margin-bottom:0.4rem">
+            <div class="item-top">
+                <span class="item-name">📌 ${escapeHtml(a.cliente || '-')}</span>
                 ${showDate
-                    ? `<span class="dias-atraso-badge" style="background:${AGENDAMENTO_COLOR}20;color:${AGENDAMENTO_COLOR}">${diasLabel}</span>`
-                    : `<span class="tag" style="background:${AGENDAMENTO_COLOR}20;color:${AGENDAMENTO_COLOR}">Retorno agendado</span>`}
+                    ? `<span class="status-tag ${diasCor}">${diasLabel}</span>`
+                    : `<span class="status-tag preventiva">Retorno agendado</span>`}
             </div>
-            <div class="visit-card-body">
-                <span>${escapeHtml(a.cidade || '-')}</span>
-                ${showDate && a.dataAgendada ? `<span>${escapeHtml(a.dataAgendada)}</span>` : ''}
-                ${a.observacao ? `<span>${escapeHtml(a.observacao)}</span>` : ''}
-            </div>
-            <div class="ag-actions-row" style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
-                <button type="button" class="mini-button" data-ag-done="${escapeHtml(a.id)}">Concluído</button>
-                <button type="button" class="mini-button" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
-                <button type="button" class="mini-button" data-ag-edit-date="${escapeHtml(a.id)}">Mudar data</button>
-                <button type="button" class="mini-button" data-ag-ics="${escapeHtml(a.id)}">.ics</button>
+            <div class="item-meta">${escapeHtml([a.cidade, showDate ? a.dataAgendada : '', a.observacao].filter(Boolean).join(' · ')) || '-'}</div>
+            <div class="ag-actions-row" style="display:flex;gap:0.9rem;margin-top:0.5rem;flex-wrap:wrap">
+                <button type="button" class="text-link" data-ag-done="${escapeHtml(a.id)}">Concluído</button>
+                <button type="button" class="text-link" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
+                <button type="button" class="text-link" data-ag-edit-date="${escapeHtml(a.id)}">Mudar data</button>
+                <button type="button" class="text-link" data-ag-ics="${escapeHtml(a.id)}">.ics</button>
             </div>
             <div class="ag-edit-date-row" style="display:none;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
                 <input type="date" class="ag-edit-date-input" value="${escapeHtml(formatInputDateFromDisplay(a.dataAgendada) || '')}">
-                <button type="button" class="mini-button" data-ag-save-date="${escapeHtml(a.id)}">Salvar</button>
-                <button type="button" class="mini-button" data-ag-cancel-date="${escapeHtml(a.id)}">Cancelar</button>
+                <button type="button" class="text-link" data-ag-save-date="${escapeHtml(a.id)}">Salvar</button>
+                <button type="button" class="text-link" data-ag-cancel-date="${escapeHtml(a.id)}">Cancelar</button>
             </div>
         </div>`;
     };
@@ -919,7 +916,7 @@ export async function renderCalendarPage(options) {
             { key: 'retornos', label: 'Retornos' }
         ];
         const filterChipsHtml = filterOptions.map((opt) =>
-            `<button type="button" class="mini-button cal-filter-btn${activeFilter === opt.key ? ' active' : ''}" data-cal-filter="${opt.key}">${opt.label}</button>`
+            `<button type="button" class="pill${activeFilter === opt.key ? ' active' : ''}" data-cal-filter="${opt.key}">${opt.label}</button>`
         ).join('');
 
         mainContent.innerHTML = `
@@ -927,7 +924,7 @@ export async function renderCalendarPage(options) {
                 <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas, Funil e Retornos</p></div>
                 <button type="button" class="primary-btn" id="cal-new-agendamento">+ Agendar</button>
             </div>
-            <div class="cal-filter-row">${filterChipsHtml}</div>
+            <div class="pill-row">${filterChipsHtml}</div>
             <div class="card cal-card">
                 <div class="cal-nav">
                     <button type="button" class="mini-button" id="cal-prev">&#8592;</button>
