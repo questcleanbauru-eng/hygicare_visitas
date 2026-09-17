@@ -164,7 +164,7 @@ export async function renderReportPage() {
         ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatório' }])}
         <div class="page-header">
             <div><h2>Relatório de KPIs</h2><p class="page-subtitle">Resumo de visitas, propostas e funil</p></div>
-            <button type="button" class="btn-add no-print" id="report-download-pdf">📄 Baixar PDF</button>
+            <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
         </div>
         <div id="report-body">${loadingState('📊', 'Carregando relatório...')}</div>
     `;

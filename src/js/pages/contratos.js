@@ -47,8 +47,8 @@ export function fillContratosContent(mainContent, contratos) {
                 <p class="page-subtitle">Contratos ativos e vencimentos</p>
             </div>
             <div class="page-header-actions">
-                ${isAdmin ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="ct-qe-toggle" title="Editar na mesma tela, um contrato após o outro">⚡ Edição rápida</button>` : ''}
-                <button class="btn-add" id="btn-new-contrato" type="button" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de contratos."'}>+ Novo</button>
+                ${isAdmin ? `<button type="button" class="text-link qe-toggle${quickEdit ? ' is-on' : ''}" id="ct-qe-toggle" title="Editar na mesma tela, um contrato após o outro">⚡ Edição rápida</button>` : ''}
+                <button class="primary-btn" id="btn-new-contrato" type="button" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de contratos."'}>+ Novo</button>
             </div>
         </div>
         <div class="search-bar-wrapper">
@@ -61,7 +61,7 @@ export function fillContratosContent(mainContent, contratos) {
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
                 <div class="visits-filter-header-actions">
-                    <button type="button" class="mini-button" id="ct-filter-clear">Limpar</button>
+                    <button type="button" class="text-link" id="ct-filter-clear">Limpar</button>
                     <button type="button" class="mini-button" id="ct-filter-toggle">Ocultar</button>
                 </div>
             </div>
@@ -118,7 +118,7 @@ export function fillContratosContent(mainContent, contratos) {
             container.innerHTML = `<div class="empty-state">
                 <span class="empty-state-icon">📑</span>
                 <p>Nenhum contrato cadastrado ainda.</p>
-                <button type="button" class="btn-add" id="btn-new-contrato2" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de contratos."'}>+ Novo Contrato</button>
+                <button type="button" class="primary-btn" id="btn-new-contrato2" ${state.canCreateProposalFunil ? '' : 'disabled title="Peça ao administrador para liberar a criação de contratos."'}>+ Novo Contrato</button>
             </div>`;
             document.getElementById('btn-new-contrato2')?.addEventListener('click', () => navigateTo('contrato-new'));
             return;

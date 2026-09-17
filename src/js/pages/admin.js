@@ -260,7 +260,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
         <div class="admin-tab-panel${activeAdminTab === 'users' ? ' active' : ''} card" id="admin-tab-users" style="padding:1rem">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
                 <span style="font-size:0.82rem;color:var(--text-muted-strong)">${data.users.length} usuário(s)</span>
-                <button type="button" class="btn-add" id="btn-new-user" style="padding:0.4rem 0.85rem;font-size:0.82rem">+ Novo Usuário</button>
+                <button type="button" class="primary-btn" id="btn-new-user" style="padding:0.4rem 0.85rem;font-size:0.82rem">+ Novo Usuário</button>
             </div>
             <div class="admin-user-table-wrap">
                 <table class="admin-user-table">

@@ -106,7 +106,7 @@ export function fillVisitsContent(container, visits) {
             <div class="empty-state">
                 <span class="empty-state-icon">📋</span>
                 <p>${scopeIsLimited ? `Nenhuma visita nos últimos ${state.loadDias || 90} dias.` : 'Nenhuma visita registrada ainda.'}</p>
-                <button type="button" class="btn-add" id="empty-new-visit">+ Nova Visita</button>
+                <button type="button" class="primary-btn" id="empty-new-visit">+ Nova Visita</button>
             </div>
         `;
         document.getElementById('empty-new-visit')?.addEventListener('click', () => navigateTo('visit-new'));
@@ -932,7 +932,7 @@ export async function renderCalendarPage(options) {
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas, Funil e Retornos</p></div>
-                <button type="button" class="btn-add" id="cal-new-agendamento">+ Agendar</button>
+                <button type="button" class="primary-btn" id="cal-new-agendamento">+ Agendar</button>
             </div>
             <div class="cal-filter-row">${filterChipsHtml}</div>
             <div class="card cal-card">

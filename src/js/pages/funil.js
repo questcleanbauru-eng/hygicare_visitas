@@ -49,7 +49,7 @@ export function fillFunilContent(mainContent, funil) {
     const funilDupKey = (f) => [f.cliente, f.foco, f.aplicacao]
         .map((v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')).join('|');
 
-    const btnNovaOportunidade = (id) => state.canCreateProposalFunil ? `<button type="button" class="btn-add" id="${id}">+ Nova Oportunidade</button>` : '';
+    const btnNovaOportunidade = (id) => state.canCreateProposalFunil ? `<button type="button" class="primary-btn" id="${id}">+ Nova Oportunidade</button>` : '';
 
     if (funilData.length === 0) {
         const scopeIsLimited = state.funilScope && state.funilScope !== 'all';
@@ -110,9 +110,9 @@ export function fillFunilContent(mainContent, funil) {
                 <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
             </div>
             <div class="page-header-actions">
-                ${state.canDelete ? '<button type="button" class="mini-button" id="funil-select-toggle" title="Marcar vários registros para apagar de uma vez">☑️ Selecionar</button>' : ''}
-                ${isAdmGer ? '<button type="button" class="mini-button" id="funil-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
-                ${isAdminUser ? `<button type="button" class="mini-button qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, um registro após o outro">⚡ Edição rápida</button>` : ''}
+                ${state.canDelete ? '<button type="button" class="text-link" id="funil-select-toggle" title="Marcar vários registros para apagar de uma vez">☑️ Selecionar</button>' : ''}
+                ${isAdmGer ? '<button type="button" class="text-link" id="funil-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
+                ${isAdminUser ? `<button type="button" class="text-link qe-toggle${quickEdit ? ' is-on' : ''}" id="qe-toggle" title="Editar na mesma tela, um registro após o outro">⚡ Edição rápida</button>` : ''}
                 ${btnNovaOportunidade('btn-new-funil')}
             </div>
         </div>
@@ -131,8 +131,8 @@ export function fillFunilContent(mainContent, funil) {
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
                 <div class="visits-filter-header-actions">
-                    ${isAdmGer ? `<button type="button" class="mini-button" id="funil-excel-btn" title="Baixar Excel das oportunidades filtradas">📥 Excel</button>` : ''}
-                    <button type="button" class="mini-button" id="funil-filter-clear">Limpar</button>
+                    ${isAdmGer ? `<button type="button" class="text-link" id="funil-excel-btn" title="Baixar Excel das oportunidades filtradas">📥 Excel</button>` : ''}
+                    <button type="button" class="text-link" id="funil-filter-clear">Limpar</button>
                     <button type="button" class="mini-button" id="funil-filter-toggle">Ocultar</button>
                 </div>
             </div>
@@ -1038,7 +1038,7 @@ export async function renderFunilPage() {
             <div class="empty-state">
                 <span class="empty-state-icon">⚠️</span>
                 <p>${escapeHtml(result.message || 'Erro ao carregar o funil.')}</p>
-                <button type="button" class="btn-add" id="funil-retry">Tentar novamente</button>
+                <button type="button" class="primary-btn" id="funil-retry">Tentar novamente</button>
             </div>`;
         document.getElementById('funil-retry')?.addEventListener('click', () => {
             saveCache('funil', null);

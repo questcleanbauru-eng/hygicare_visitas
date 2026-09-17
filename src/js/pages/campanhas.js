@@ -589,7 +589,7 @@ export async function renderCampanhaPreencherPage(id) {
     const r = await callAPI('getCampanha', { id, user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
     if (!r || r.status !== 'success') {
         main.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔗</span><p>${escapeHtml((r && r.message) || 'Não foi possível abrir a campanha.')}</p>
-            <button type="button" class="btn-add" id="camp-home">Ir para o início</button></div>`;
+            <button type="button" class="primary-btn" id="camp-home">Ir para o início</button></div>`;
         document.getElementById('camp-home')?.addEventListener('click', () => navigateTo('dashboard'));
         return;
     }
@@ -606,7 +606,7 @@ export async function renderCampanhaPreencherPage(id) {
                 <span class="empty-state-icon">✅</span>
                 <h2 style="margin:0.4rem 0 0.2rem">Obrigado, ${escapeHtml(primeiroNome)}!</h2>
                 <p class="helper-text">Suas atualizações foram enviadas com sucesso.</p>
-                <button type="button" class="btn-add" id="camp-done-home">Ir para o início</button>
+                <button type="button" class="primary-btn" id="camp-done-home">Ir para o início</button>
             </div>
         `;
         document.getElementById('camp-done-home')?.addEventListener('click', () => navigateTo('dashboard'));
@@ -732,7 +732,7 @@ async function renderCampanhaVisitaPreencher(main, camp, itens) {
                 <span class="empty-state-icon">✅</span>
                 <h2 style="margin:0.4rem 0 0.2rem">Obrigado, ${escapeHtml(primeiroNome)}!</h2>
                 <p class="helper-text">A visita foi registrada com sucesso.</p>
-                <button type="button" class="btn-add" id="camp-done-home">Ir para o início</button>
+                <button type="button" class="primary-btn" id="camp-done-home">Ir para o início</button>
             </div>
         `;
         document.getElementById('camp-done-home')?.addEventListener('click', () => navigateTo('dashboard'));
@@ -933,9 +933,9 @@ export async function renderCampanhasPage() {
                 <p class="page-subtitle">${campanhas.length} campanha(s)</p>
             </div>
             <div class="page-header-actions">
-                <button type="button" class="mini-button" id="camp-nova-visita" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>
-                <button type="button" class="mini-button" id="camp-nova-manutencao" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>
-                ${campanhas.length ? `<button type="button" class="mini-button${campSelectMode ? ' is-on' : ''}" id="camp-select-toggle" title="Marcar várias campanhas para apagar de uma vez">☑️ Selecionar</button>` : ''}
+                <button type="button" class="text-link" id="camp-nova-visita" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>
+                <button type="button" class="text-link" id="camp-nova-manutencao" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>
+                ${campanhas.length ? `<button type="button" class="text-link${campSelectMode ? ' is-on' : ''}" id="camp-select-toggle" title="Marcar várias campanhas para apagar de uma vez">☑️ Selecionar</button>` : ''}
             </div>
         </div>
         ${campanhas.length === 0

@@ -217,7 +217,7 @@ export async function renderRadarPage(options) {
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Radar de Clientes</h2><p class="page-subtitle">Encontre empresas por cidade pra prospectar</p></div>
-            <button type="button" class="btn-add no-print" id="radar-download-pdf">📄 Baixar PDF</button>
+            <button type="button" class="text-link" id="radar-download-pdf">📄 Baixar PDF</button>
         </div>
         <div class="radar-tabs-bar">
             <button type="button" class="radar-tab${activeRadarTab === 'buscar' ? ' active' : ''}" data-tab="buscar">Buscar</button>
