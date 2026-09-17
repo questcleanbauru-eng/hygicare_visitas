@@ -185,14 +185,14 @@ export function fillFunilContent(mainContent, funil) {
                     <input type="number" id="funil-filter-vl" placeholder="0" min="0">
                 </div>
                 <div id="funil-year-chips" class="year-chips-row"></div>
+                <div class="scope-banner scope-days-ctrl">
+                    <label for="scope-dias-input">Período:</label>
+                    <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
+                    <span>dias</span>
+                    <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
+                    <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
+                </div>
             </div>
-        </div>
-        <div class="scope-banner scope-days-ctrl">
-            <label for="scope-dias-input">Período:</label>
-            <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
-            <span>dias</span>
-            <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
-            <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
         </div>
         <div id="funil-list-container"></div>
     `;

@@ -1823,17 +1823,22 @@ input[type="date"] {
 
 /* ── Scope banner ── */
 
+/* Redesign: some do fundo/borda azul de banner avulso — agora vive
+   DENTRO do painel de filtros (Visitas/Propostas/Funil pediram pra
+   juntar), como só mais uma linha do card, mesma cor neutra do resto. */
 .scope-banner {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    margin: 0 0 0.5rem;
-    background: var(--primary-light);
-    border: 1px solid #bfdbfe;
-    border-radius: 8px;
+    padding: 0.7rem 0 0;
+    margin: 0.3rem 0 0;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
     font-size: 0.78rem;
-    color: #1e40af;
+    color: var(--ink-soft);
 }
 
 .scope-banner svg { flex-shrink: 0; opacity: 0.7; }
@@ -1841,42 +1846,42 @@ input[type="date"] {
 .scope-load-btn {
     margin-left: auto;
     background: none;
-    border: 1px solid var(--border-focus);
-    border-radius: 6px;
-    padding: 0.18rem 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    padding: 0.18rem 0.7rem;
     font-size: var(--text-xs);
-    color: var(--info);
+    color: var(--ink-soft);
     cursor: pointer;
     white-space: nowrap;
     transition: background 0.15s;
 }
 
-.scope-load-btn:hover { background: var(--info-bg); }
+.scope-load-btn:hover { background: var(--bg-sunken); }
 
 .scope-dias-input {
     width: 54px;
     padding: 0.15rem 0.3rem;
-    border: 1px solid var(--border-focus);
+    border: 1px solid var(--line);
     border-radius: 5px;
     font-size: 0.78rem;
-    color: #1e40af;
-    background: #fff;
+    color: var(--ink);
+    background: var(--surface);
     text-align: center;
 }
 
 .scope-days-load-btn {
-    background: var(--primary);
+    background: var(--ink);
     border: none;
-    border-radius: 6px;
-    padding: 0.18rem 0.65rem;
+    border-radius: var(--radius-pill);
+    padding: 0.18rem 0.7rem;
     font-size: var(--text-xs);
     color: #fff;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.15s;
+    transition: opacity 0.15s;
 }
 
-.scope-days-load-btn:hover { background: var(--info); }
+.scope-days-load-btn:hover { opacity: 0.85; }
 
 .scope-loading {
     padding: 1.5rem;

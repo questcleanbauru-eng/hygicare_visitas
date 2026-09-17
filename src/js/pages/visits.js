@@ -191,14 +191,14 @@ export function fillVisitsContent(container, visits) {
                     <label for="visit-filter-date-to">${filterLabelHtml('Data final')}</label>
                     <input type="date" id="visit-filter-date-to">
                 </div>
+                <div class="scope-banner scope-days-ctrl">
+                    <label for="scope-dias-input">Período:</label>
+                    <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
+                    <span>dias</span>
+                    <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
+                    <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
+                </div>
             </div>
-        </div>
-        <div class="scope-banner scope-days-ctrl">
-            <label for="scope-dias-input">Período:</label>
-            <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
-            <span>dias</span>
-            <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
-            <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
         </div>
         <div id="visit-year-chips" class="year-chips-row"></div>
         <div id="visits-list-container"></div>
