@@ -10,7 +10,7 @@ import {
 import {
     debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addScrollTop,
-    openExternal, initializeSearchableInput, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit,
+    openExternal, initializeSearchableInput, renderYearChips, setSaving, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
@@ -136,7 +136,6 @@ export function fillFunilContent(mainContent, funil) {
                     <button type="button" class="mini-button" id="funil-filter-toggle">Ocultar</button>
                 </div>
             </div>
-            <div class="saved-filters-row" id="funil-saved-filters"></div>
             <div class="visits-filter-grid" id="funil-filter-panel">
                 ${multiCheckFilterFieldHtml('Status', 'funil-filter-status')}
                 ${multiCheckFilterFieldHtml('Cidade', 'funil-filter-cidade', 'Todas')}
@@ -667,12 +666,6 @@ export function fillFunilContent(mainContent, funil) {
         syncMultiCheckFilterLabel('funil-filter-vendor-trigger', 'funil-filter-vendor');
     };
     syncFunilMultiCheckLabels();
-
-    renderSavedFilters(document.getElementById('funil-saved-filters'), 'funil', _funilFilterIds, (values) => {
-        _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; _funilFilterMemory[id] = el.value; } });
-        syncFunilMultiCheckLabels();
-        renderFiltered();
-    });
 
     document.getElementById('funil-filter-clear')?.addEventListener('click', () => {
         _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });

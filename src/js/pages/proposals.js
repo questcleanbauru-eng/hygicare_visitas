@@ -10,7 +10,7 @@ import {
 import {
     debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
-    loadingState, addScrollTop, openExternal, renderYearChips, setSaving, renderSavedFilters, preventEnterSubmit,
+    loadingState, addScrollTop, openExternal, renderYearChips, setSaving, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
@@ -112,7 +112,6 @@ export function fillProposalsContent(mainContent, proposals) {
                     <button type="button" class="mini-button" id="proposal-filter-toggle">Ocultar</button>
                 </div>
             </div>
-            <div class="saved-filters-row" id="proposal-saved-filters"></div>
             <div class="visits-filter-grid" id="proposal-filter-panel">
                 ${multiCheckFilterFieldHtml('Status', 'pf-status')}
                 ${multiCheckFilterFieldHtml('Cidade', 'pf-cidade', 'Todas')}
@@ -603,12 +602,6 @@ export function fillProposalsContent(mainContent, proposals) {
         state.proposalsYearFilter = null;
         renderFiltered();
         updateYearChips();
-    });
-
-    renderSavedFilters(document.getElementById('proposal-saved-filters'), 'proposals', _proposalFilterIds, (values) => {
-        _proposalFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; } });
-        syncProposalMultiCheckLabels();
-        renderFiltered();
     });
 
     document.getElementById('scope-load-days')?.addEventListener('click', () => {

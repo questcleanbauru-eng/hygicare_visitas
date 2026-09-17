@@ -15,7 +15,7 @@ import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
     loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
-    buildIcsContent, downloadIcs, renderSavedFilters, preventEnterSubmit,
+    buildIcsContent, downloadIcs, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
@@ -162,7 +162,6 @@ export function fillVisitsContent(container, visits) {
                     <button type="button" class="mini-button visits-filter-toggle" id="visit-filters-toggle" aria-expanded="true" aria-controls="visit-filters-panel">Ocultar</button>
                 </div>
             </div>
-            <div class="saved-filters-row" id="visit-saved-filters"></div>
             <div class="visits-filter-grid" id="visit-filters-panel">
                 <div class="form-group">
                     <label for="visit-filter-period">${filterLabelHtml('Período')}</label>
@@ -461,12 +460,6 @@ export function fillVisitsContent(container, visits) {
         state.visitsYearFilter = null;
         renderFilteredVisits();
         updateYearChips();
-    });
-
-    renderSavedFilters(document.getElementById('visit-saved-filters'), 'visits', _visitFilterIds, (values) => {
-        _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = values[id] || ''; state.visitFilters[id] = el.value; } });
-        syncVisitMultiCheckLabels();
-        renderFilteredVisits();
     });
 
     // Exposto pro toggle "Edição rápida" que fica no cabeçalho da página

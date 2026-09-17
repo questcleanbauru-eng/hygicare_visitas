@@ -162,7 +162,32 @@ export function fillContratosContent(mainContent, contratos) {
             }
         } else {
             container.classList.remove('qe-layout');
-            container.innerHTML = `<div class="visits-list">${cardsHtml}</div>`;
+            // Redesign: separa Vencidos (card de alerta, borda vermelha) de
+            // Em dia (linha simples) — igual à tela de Contratos do mockup —
+            // em vez de uma lista só ordenada por dias restantes.
+            const vencidos = sorted.filter((c) => c.vencido);
+            const emDia = sorted.filter((c) => !c.vencido);
+            const anexoWarn = (c) => !anexoUrl(c) ? ' · falta anexar contrato' : '';
+            const alertCardHtml = (c) => `
+                <button type="button" class="alert-card critical" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.5rem;display:block">
+                    <div class="title">${escapeHtml(c.cliente || 'Cliente não informado')}</div>
+                    <div class="sub">${escapeHtml([c.vendedor, c.cidade, c.fim ? 'Fim: ' + c.fim : ''].filter(Boolean).join(' · '))}</div>
+                    <div class="warn">⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)${anexoWarn(c)}</div>
+                </button>`;
+            const simpleCardHtml = (c) => `
+                <button type="button" class="card" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.6rem">
+                    <div class="item-body">
+                        <div class="item-top">
+                            <span class="item-name">${escapeHtml(c.cliente || 'Cliente não informado')}</span>
+                            <span class="status-tag ${c.venceEmBreve ? 'manutencao' : 'pedido'}">${situacaoLabel(c)}</span>
+                        </div>
+                        <div class="item-meta">${escapeHtml(['Fim: ' + (c.fim || '-'), c.vendedor, c.cidade].filter(Boolean).join(' · '))}${!anexoUrl(c) ? ' · ⚠️ falta anexar' : ''}</div>
+                    </div>
+                </button>`;
+            container.innerHTML = `
+                ${vencidos.length ? `<p class="section-label">Vencidos</p>${vencidos.map(alertCardHtml).join('')}` : ''}
+                ${emDia.length ? `<p class="section-label">Em dia</p>${emDia.map(simpleCardHtml).join('')}` : ''}
+            `;
         }
 
         container.querySelectorAll('[data-contrato-id]').forEach((btn) => {
