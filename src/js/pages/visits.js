@@ -1246,6 +1246,14 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 <textarea id="observacao" rows="4" maxlength="1000" placeholder="Digite detalhes relevantes da visita">${escapeHtml(normalizedVisit ? normalizedVisit.observacao : '')}</textarea>
                 <div class="obs-char-counter" id="obs-char-counter">0/500</div>
             </div>
+            ${!isEdit ? `
+            <div class="form-group full-width">
+                <label for="visit-notificar-usuario">Notificar um usuário sobre esta visita <span class="field-helper-text" style="display:inline">(opcional)</span></label>
+                <div class="searchable-select">
+                    <input type="text" id="visit-notificar-usuario" placeholder="Busque o vendedor/gerente" autocomplete="off">
+                    <div class="searchable-select-menu" id="visit-notificar-usuario-menu"></div>
+                </div>
+            </div>` : ''}
             ${state.canLancarDespesas ? `
             <div class="form-group full-width">
                 <label>Teve Despesas?</label>
@@ -1349,6 +1357,13 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         initializeSearchableInput({
             input: document.getElementById('vendedor-gerente'),
             menu: document.getElementById('vendedor-gerente-menu'),
+            items: (formData.vendedores || []).map((v) => v.nome).filter(Boolean)
+        });
+    }
+    if (document.getElementById('visit-notificar-usuario-menu')) {
+        initializeSearchableInput({
+            input: document.getElementById('visit-notificar-usuario'),
+            menu: document.getElementById('visit-notificar-usuario-menu'),
             items: (formData.vendedores || []).map((v) => v.nome).filter(Boolean)
         });
     }
@@ -1678,6 +1693,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             longitude: isEdit ? undefined : '',
             teveDespesas: state.canLancarDespesas ? (document.querySelector('input[name="teveDespesas"]:checked')?.value || 'Nao') : undefined,
             valorDespesas: state.canLancarDespesas ? document.getElementById('valor-despesas')?.value.trim() : undefined,
+            notificarUsuario: isEdit ? undefined : (document.getElementById('visit-notificar-usuario')?.value.trim() || ''),
             user: state.currentUser
         };
 
