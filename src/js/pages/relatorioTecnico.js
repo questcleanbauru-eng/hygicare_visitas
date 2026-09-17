@@ -191,8 +191,8 @@ function fillList(mainContent, list) {
     const headerHtml = `
         <div class="page-header">
             <div><h2>Atendimento Técnico</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
-            <div class="header-actions-group header-actions-uniform">
-                <button type="button" class="mini-button" id="rt-goto-manutencao">🔧 Manutenção</button>
+            <div class="header-actions-group">
+                <button type="button" class="text-link" id="rt-goto-manutencao">🔧 Manutenção</button>
                 <button type="button" class="primary-btn" id="rt-new">+ Novo Relatório</button>
             </div>
         </div>`;

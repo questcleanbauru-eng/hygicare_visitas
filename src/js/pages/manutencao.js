@@ -125,7 +125,7 @@ export function fillManutencaoContent(mainContent, itens) {
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Manutenção</h2></div>
-                <div class="header-actions-group header-actions-uniform">
+                <div class="header-actions-group">
                     <button type="button" class="text-link" id="btn-ver-modelos">📋 Modelos</button>
                     ${isAdmGer ? `<button type="button" class="text-link" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
                 </div>
@@ -165,7 +165,7 @@ export function fillManutencaoContent(mainContent, itens) {
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
-            <div class="header-actions-group header-actions-uniform">
+            <div class="header-actions-group">
                 <button type="button" class="text-link" id="btn-ver-modelos">📋 Modelos</button>
                 ${isAdmGer ? `<button type="button" class="text-link" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
                 <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. Técnico</button>
