@@ -1159,9 +1159,9 @@ textarea { resize: vertical; }
 .radio-pill span { line-height: 1; }
 
 .radio-pill:has(input:checked), .radio-pill.is-checked {
-    border-color: var(--primary);
-    background-color: var(--primary-light);
-    color: var(--primary);
+    border-color: var(--ink);
+    background-color: var(--bg-sunken);
+    color: var(--ink);
     font-weight: 700;
 }
 
@@ -2724,7 +2724,7 @@ input[type="date"] {
     transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 
-.qe-status-btn.is-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.qe-status-btn.is-active { background: var(--ink); border-color: var(--ink); color: #fff; }
 
 /* "Concluído" no Funil confundia quem tá acostumado com "Ganhamos" (o
    status equivalente em Propostas) — legenda pequena embaixo do nome. */
