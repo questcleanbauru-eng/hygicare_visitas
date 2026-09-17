@@ -243,21 +243,17 @@ export function fillManutencaoContent(mainContent, itens) {
         const sorted = [...filtered].sort((a, b) => Number(b.id) - Number(a.id));
 
         container.innerHTML = `<div class="visits-list">${sorted.map((m) => `
-            <button type="button" class="proposal-card" data-manutencao-id="${escapeHtml(m.id)}" data-tipo="${m._tipo}">
-                <div class="visit-card-header">
-                    <strong><span aria-hidden="true">${m._tipo === 'tecnico' ? '📋' : '🔧'}</span> ${escapeHtml(m.cliente || 'Cliente não informado')}</strong>
-                    <span class="mnt-card-head-right">
+            <button type="button" class="proposal-card item-row" data-manutencao-id="${escapeHtml(m.id)}" data-tipo="${m._tipo}">
+                <div class="item-body">
+                    <div class="item-top">
+                        <span class="item-name"><span aria-hidden="true">${m._tipo === 'tecnico' ? '📋' : '🔧'}</span> ${escapeHtml(m.cliente || 'Cliente não informado')}</span>
                         <span class="mnt-tipo-badge mnt-tipo-badge-${m._tipo}">${tipoLabel(m._tipo)}</span>
+                    </div>
+                    <div class="item-meta">${escapeHtml([m.cidade, titleCase(m.tecnico), m.data].filter(Boolean).join(' · ') || '-')}</div>
+                    <div class="item-bottom">
+                        ${m._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : (m.pendenteAprovacao === 'Sim' ? '<span class="status-pill funil-status-proposta">Pendente de aprovação</span>' : '')}
                         ${state.canDelete ? `<span class="card-quick-edit-btn" role="button" tabindex="0" title="Excluir relatório" aria-label="Excluir relatório" data-mnt-delete="${escapeHtml(m.id)}" data-tipo="${m._tipo}">🗑️</span>` : ''}
-                    </span>
-                </div>
-                <div class="proposal-meta">
-                    <span>${escapeHtml(m.cidade || '-')}</span>
-                    <span>${escapeHtml(titleCase(m.tecnico) || '-')}</span>
-                </div>
-                <div class="proposal-meta">
-                    <span>${escapeHtml(m.data || '-')}</span>
-                    ${m._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : (m.pendenteAprovacao === 'Sim' ? '<span class="status-pill funil-status-proposta">Pendente de aprovação</span>' : '')}
+                    </div>
                 </div>
             </button>
         `).join('')}</div>`;

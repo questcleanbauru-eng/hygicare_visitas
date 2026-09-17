@@ -226,19 +226,16 @@ function fillList(mainContent, list) {
             || [m.cliente, m.cidade, m.tecnico, m.relatorioMes].some((v) => String(v).toLowerCase().includes(term)));
         if (!filtered.length) { listEl.innerHTML = `<p class="empty-state" style="padding:1.5rem">Nada encontrado.</p>`; return; }
         listEl.innerHTML = filtered.map((m) => `
-            <button type="button" class="proposal-card" data-id="${escapeHtml(m.id)}">
-                <div class="visit-card-header">
-                    <strong>${escapeHtml(m.cliente || 'Cliente não informado')}</strong>
-                    <div style="display:flex;align-items:center;gap:0.3rem">
+            <button type="button" class="proposal-card item-row" data-id="${escapeHtml(m.id)}">
+                <div class="item-body">
+                    <div class="item-top">
+                        <span class="item-name">${escapeHtml(m.cliente || 'Cliente não informado')}</span>
                         ${m._pending ? '<span class="pending-badge">⏳ Pendente</span>' : ''}
+                    </div>
+                    <div class="item-meta">${escapeHtml([[m.cidade, m.estado].filter(Boolean).join('/'), m.relatorioMes || m.data, m.tipoVisita, isAdminOrGerenteUser() && m.tecnico ? '👤 ' + titleCase(m.tecnico) : ''].filter(Boolean).join(' · ') || '-')}</div>
+                    <div class="item-bottom">
                         <span class="card-quick-edit-btn" role="button" tabindex="0" title="Excluir relatório" aria-label="Excluir relatório" data-rt-delete="${escapeHtml(m.id)}">🗑️</span>
                     </div>
-                </div>
-                <div class="proposal-meta">
-                    <span>${escapeHtml([m.cidade, m.estado].filter(Boolean).join('/') || '-')}</span>
-                    <span>${escapeHtml(m.relatorioMes || m.data || '')}</span>
-                    <span>${escapeHtml(m.tipoVisita || '')}</span>
-                    ${isAdminOrGerenteUser() && m.tecnico ? `<span>👤 ${escapeHtml(titleCase(m.tecnico))}</span>` : ''}
                 </div>
             </button>`).join('');
         listEl.querySelectorAll('.proposal-card').forEach((btn) => {

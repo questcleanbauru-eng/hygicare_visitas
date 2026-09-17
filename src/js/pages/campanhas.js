@@ -1063,8 +1063,8 @@ function campanhaRow(c, selectMode) {
         <div class="camp-progress"><div class="camp-progress-bar${vencida ? ' camp-progress-bar-vencida' : ''}" style="width:${pct}%"></div></div>
         <p class="helper-text camp-admin-count">${c.respondidos} de ${c.total} atualizados</p>
         <div class="camp-admin-actions">
-            <button type="button" class="mini-button" data-camp-details="${escapeHtml(c.id)}">Ver clientes</button>
-            <button type="button" class="mini-button" data-camp-copy="${escapeHtml(c.id)}">Copiar link</button>
+            <button type="button" class="text-link" data-camp-details="${escapeHtml(c.id)}">Ver clientes</button>
+            <button type="button" class="text-link" data-camp-copy="${escapeHtml(c.id)}">Copiar link</button>
             <button type="button" class="mini-button mini-button-whatsapp" data-camp-wa="${escapeHtml(c.id)}">WhatsApp</button>
             <button type="button" class="mini-button mini-button-danger" data-camp-del="${escapeHtml(c.id)}">Apagar</button>
         </div>
