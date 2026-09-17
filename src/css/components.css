@@ -2731,7 +2731,9 @@ input[type="date"] {
 .qe-status-caption { display: block; font-size: 0.62rem; font-weight: 500; opacity: 0.75; }
 
 .proposal-card.qe-selected,
-.visit-card.qe-selected { outline: 2px solid var(--primary); outline-offset: -1px; }
+.visit-card.qe-selected,
+.card.qe-selected,
+.alert-card.qe-selected { outline: 2px solid var(--primary); outline-offset: -1px; }
 
 .qe-panel .qe-empty { padding: 1.5rem 1.2rem; margin: 0; color: var(--text-muted); font-size: 0.85rem; }
 

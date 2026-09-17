@@ -1,6 +1,6 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, contratoSituacaoIcon, filterLabelHtml, multiCheckFilterFieldHtml, clienteSearchItem, findClienteByNome } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, filterLabelHtml, multiCheckFilterFieldHtml, clienteSearchItem, findClienteByNome } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon, showToast,
     loadingState, skeletonDetail, addScrollTop, openExternal, setSaving,
@@ -19,12 +19,6 @@ function situacaoLabel(c) {
     if (c.vencido) return 'Vencido';
     if (c.venceEmBreve) return 'Vence em breve';
     return 'Ativo';
-}
-
-function situacaoClass(c) {
-    if (c.vencido) return 'status-pill funil-status-perdido';
-    if (c.venceEmBreve) return 'status-pill funil-status-proposta';
-    return 'status-pill funil-status-concluido';
 }
 
 export function fillContratosContent(mainContent, contratos) {
@@ -132,29 +126,32 @@ export function fillContratosContent(mainContent, contratos) {
         const sorted = [...filtered].sort((a, b) => (a.diasRestantes ?? 999999) - (b.diasRestantes ?? 999999));
         const qe = qeActive();
 
-        const cardsHtml = sorted.map((c) => `
-            <button type="button" class="proposal-card ${c.vencido ? 'proposal-card-alert' : ''}${qe && String(c.id) === String(qeSelectedId) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}">
-                <div class="visit-card-header">
-                    <strong><span aria-hidden="true">${contratoSituacaoIcon(c)}</span> ${escapeHtml(c.cliente || 'Cliente não informado')}</strong>
-                    <span class="${situacaoClass(c)}">${situacaoLabel(c)}</span>
+        // Mesmo visual do modo normal (alert-card pros vencidos, card simples
+        // pros em dia) também na Edição rápida — antes essa lista usava o
+        // card antigo (.proposal-card, fundo creme), destoando do resto da
+        // tela já redesenhada.
+        const anexoWarn = (c) => !anexoUrl(c) ? ' · falta anexar contrato' : '';
+        const isQeSelected = (c) => qe && String(c.id) === String(qeSelectedId);
+        const alertCardHtml = (c) => `
+            <button type="button" class="alert-card critical${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.5rem;display:block">
+                <div class="title">${escapeHtml(c.cliente || 'Cliente não informado')}</div>
+                <div class="sub">${escapeHtml([c.vendedor, c.cidade, c.fim ? 'Fim: ' + c.fim : ''].filter(Boolean).join(' · '))}</div>
+                <div class="warn">⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)${anexoWarn(c)}</div>
+            </button>`;
+        const simpleCardHtml = (c) => `
+            <button type="button" class="card${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.6rem">
+                <div class="item-body">
+                    <div class="item-top">
+                        <span class="item-name">${escapeHtml(c.cliente || 'Cliente não informado')}</span>
+                        <span class="status-tag ${c.venceEmBreve ? 'manutencao' : 'pedido'}">${situacaoLabel(c)}</span>
+                    </div>
+                    <div class="item-meta">${escapeHtml(['Fim: ' + (c.fim || '-'), c.vendedor, c.cidade].filter(Boolean).join(' · '))}${!anexoUrl(c) ? ' · ⚠️ falta anexar' : ''}</div>
                 </div>
-                <div class="proposal-meta">
-                    <span>${escapeHtml(c.vendedor || '-')}</span>
-                    <span>${escapeHtml(c.cidade || '-')}</span>
-                </div>
-                <div class="proposal-meta">
-                    <span>Fim: ${escapeHtml(c.fim || '-')}</span>
-                    <span>${c.diasRestantes === null ? '' : (c.diasRestantes >= 0 ? `${c.diasRestantes} dia(s) restante(s)` : `Vencido há ${Math.abs(c.diasRestantes)} dia(s)`)}</span>
-                </div>
-                <div class="proposal-meta ct-anexo-row">
-                    <span class="ct-anexo-flag ${anexoUrl(c) ? 'ct-anexo-ok' : 'ct-anexo-missing'}">${anexoUrl(c) ? '📎 Contrato anexado' : '⚠️ Falta anexar o contrato'}</span>
-                    ${anexoUrl(c) ? `<span class="ct-anexo-view" role="button" tabindex="0" data-anexo="${escapeHtml(anexoUrl(c))}">Ver PDF</span>` : ''}
-                </div>
-            </button>
-        `).join('');
+            </button>`;
 
         if (qe) {
             container.classList.add('qe-layout');
+            const cardsHtml = sorted.map((c) => c.vencido ? alertCardHtml(c) : simpleCardHtml(c)).join('');
             container.innerHTML = `<div class="qe-list">${cardsHtml}</div>`
                 + `<div class="qe-panel" id="qe-panel"><p class="qe-empty">Escolha um contrato na lista pra editar aqui.</p></div>`;
             if (qeSelectedId && sorted.some((c) => String(c.id) === String(qeSelectedId))) {
@@ -167,23 +164,6 @@ export function fillContratosContent(mainContent, contratos) {
             // em vez de uma lista só ordenada por dias restantes.
             const vencidos = sorted.filter((c) => c.vencido);
             const emDia = sorted.filter((c) => !c.vencido);
-            const anexoWarn = (c) => !anexoUrl(c) ? ' · falta anexar contrato' : '';
-            const alertCardHtml = (c) => `
-                <button type="button" class="alert-card critical" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.5rem;display:block">
-                    <div class="title">${escapeHtml(c.cliente || 'Cliente não informado')}</div>
-                    <div class="sub">${escapeHtml([c.vendedor, c.cidade, c.fim ? 'Fim: ' + c.fim : ''].filter(Boolean).join(' · '))}</div>
-                    <div class="warn">⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)${anexoWarn(c)}</div>
-                </button>`;
-            const simpleCardHtml = (c) => `
-                <button type="button" class="card" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.6rem">
-                    <div class="item-body">
-                        <div class="item-top">
-                            <span class="item-name">${escapeHtml(c.cliente || 'Cliente não informado')}</span>
-                            <span class="status-tag ${c.venceEmBreve ? 'manutencao' : 'pedido'}">${situacaoLabel(c)}</span>
-                        </div>
-                        <div class="item-meta">${escapeHtml(['Fim: ' + (c.fim || '-'), c.vendedor, c.cidade].filter(Boolean).join(' · '))}${!anexoUrl(c) ? ' · ⚠️ falta anexar' : ''}</div>
-                    </div>
-                </button>`;
             container.innerHTML = `
                 ${vencidos.length ? `<p class="section-label">Vencidos</p>${vencidos.map(alertCardHtml).join('')}` : ''}
                 ${emDia.length ? `<p class="section-label">Em dia</p>${emDia.map(simpleCardHtml).join('')}` : ''}
