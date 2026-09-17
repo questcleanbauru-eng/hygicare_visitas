@@ -7,6 +7,19 @@ import {
 } from '../utils/dom.js';
 import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 
+// deleteRelatorioTecnico pode responder "confirm_required" quando o
+// registro está vinculado a um item já respondido de uma campanha ainda
+// aberta (ver findCampanhaAbertaVinculada no backend) — nesse caso avisa
+// com o motivo específico e só apaga de fato se confirmar de novo.
+async function apagarComVerificacaoCampanha(action, id) {
+    let r = await callAPI(action, { id, user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+    if (r && r.status === 'confirm_required') {
+        if (!confirm(r.message)) return { status: 'cancelled' };
+        r = await callAPI(action, { id, user: state.currentUser, force: true }).catch((e) => ({ status: 'error', message: e.message }));
+    }
+    return r;
+}
+
 // ── Estrutura fixa do modelo (Diversey / Professional) ───────────────────
 const SECOES = [
     {
@@ -247,13 +260,13 @@ function fillList(mainContent, list) {
                 const id = el.dataset.rtDelete;
                 const item = normalized.find((x) => String(x.id) === id);
                 if (!confirm(`Apagar o relatório de "${item?.cliente || 'cliente'}"? Não dá pra desfazer.`)) return;
-                const r = await callAPI('deleteRelatorioTecnico', { id, user: state.currentUser }).catch(() => null);
+                const r = await apagarComVerificacaoCampanha('deleteRelatorioTecnico', id);
                 if (r && r.status === 'success') {
                     state.relatoriosTecnicos = (state.relatoriosTecnicos || []).filter((x) => String(x.id || x.Id) !== id);
                     saveCache('relatoriosTecnicos', state.relatoriosTecnicos);
                     showToast('Relatório apagado.');
                     fillList(mainContent, state.relatoriosTecnicos);
-                } else {
+                } else if (r && r.status !== 'cancelled') {
                     showToast((r && r.message) || 'Não foi possível apagar.', true);
                 }
             });
@@ -385,14 +398,16 @@ export async function renderRelatorioTecnicoDetailPage(id) {
     document.getElementById('rt-delete').addEventListener('click', async (ev) => {
         if (!confirm(`Apagar o relatório de "${m.cliente || 'cliente'}"? Não dá pra desfazer.`)) return;
         setSaving(true, ev.currentTarget, 'Apagando...');
-        const r = await callAPI('deleteRelatorioTecnico', { id: m.id, user: state.currentUser }).catch(() => null);
+        const r = await apagarComVerificacaoCampanha('deleteRelatorioTecnico', m.id);
         if (r && r.status === 'success') {
             state.relatoriosTecnicos = (state.relatoriosTecnicos || []).filter((x) => String(x.id || x.Id) !== String(m.id));
             saveCache('relatoriosTecnicos', state.relatoriosTecnicos);
             showToast('Relatório apagado.');
             navigateTo('relatorio-tecnico');
-        } else {
+        } else if (r && r.status !== 'cancelled') {
             showToast((r && r.message) || 'Não foi possível apagar.', true);
+            setSaving(false, ev.currentTarget);
+        } else {
             setSaving(false, ev.currentTarget);
         }
     });

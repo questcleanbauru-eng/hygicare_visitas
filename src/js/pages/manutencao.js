@@ -12,6 +12,19 @@ import { compressImageFile } from '../utils/image.js';
 const driveThumbUrl = (id) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1000`;
 const driveViewUrl = (id) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
 
+// deleteManutencao/deleteRelatorioTecnico podem responder "confirm_required"
+// quando o registro está vinculado a um item já respondido de uma campanha
+// ainda aberta (ver findCampanhaAbertaVinculada no backend) — nesse caso
+// avisa com o motivo específico e só apaga de fato se confirmar de novo.
+async function apagarComVerificacaoCampanha(action, id) {
+    let r = await callAPI(action, { id, user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+    if (r && r.status === 'confirm_required') {
+        if (!confirm(r.message)) return { status: 'cancelled' };
+        r = await callAPI(action, { id, user: state.currentUser, force: true }).catch((e) => ({ status: 'error', message: e.message }));
+    }
+    return r;
+}
+
 // O card da lista (.proposal-card/.proposal-meta) e o cabeçalho do card
 // (.visit-card-header) vêm dos bundles de CSS de Propostas/Visitas, não de
 // manutencao.css (que só tem estilo específico daqui, ex.: .mnt-report) —
@@ -275,7 +288,7 @@ export function fillManutencaoContent(mainContent, itens) {
                 const item = normalized.find((x) => String(x.id) === id && x._tipo === tipo);
                 if (!confirm(`Apagar o relatório de "${item?.cliente || 'cliente'}"? Não dá pra desfazer.`)) return;
                 const action = tipo === 'tecnico' ? 'deleteRelatorioTecnico' : 'deleteManutencao';
-                const r = await callAPI(action, { id, user: state.currentUser }).catch(() => null);
+                const r = await apagarComVerificacaoCampanha(action, id);
                 if (r && r.status === 'success') {
                     const idx = normalized.findIndex((x) => String(x.id) === id && x._tipo === tipo);
                     if (idx > -1) normalized.splice(idx, 1);
@@ -290,7 +303,7 @@ export function fillManutencaoContent(mainContent, itens) {
                     }
                     showToast('Relatório apagado.');
                     renderFiltered();
-                } else {
+                } else if (r && r.status !== 'cancelled') {
                     showToast((r && r.message) || 'Não foi possível apagar.', true);
                 }
             });
@@ -759,14 +772,16 @@ export async function renderManutencaoDetailPage(id) {
         if (!confirm(`Apagar o relatório de "${m.cliente || 'cliente'}"? Essa ação não pode ser desfeita.`)) return;
         const btn = event.currentTarget;
         setSaving(true, btn, 'Apagando...');
-        const result2 = await callAPI('deleteManutencao', { id: m.id, user: state.currentUser });
+        const result2 = await apagarComVerificacaoCampanha('deleteManutencao', m.id);
         if (result2 && result2.status === 'success') {
             state.manutencoes = state.manutencoes.filter((item) => String(item.id) !== String(m.id));
             saveCache('manutencoes', state.manutencoes);
             showToast('Relatório apagado.');
             navigateTo('manutencao');
-        } else {
+        } else if (result2 && result2.status !== 'cancelled') {
             showToast((result2 && result2.message) || 'Não foi possível apagar o relatório.', true);
+            setSaving(false, btn);
+        } else {
             setSaving(false, btn);
         }
     });
