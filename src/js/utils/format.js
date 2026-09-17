@@ -197,8 +197,21 @@ export function visitTypeClass(tipo) {
     if (t.includes('PREVENTIVA')) { return 'tag tag-preventiva'; }
     if (t.includes('PEDIDO'))     { return 'tag tag-pedido'; }
     if (t.includes('MANUT') || t.includes('OPEN')) { return 'tag tag-manutencao'; }
+    if (t.includes('APRESENTA'))  { return 'tag tag-apresentacao'; }
     if (t.includes('PROJETO'))    { return 'tag tag-projeto'; }
     return 'tag tag-visita';
+}
+
+// Mesma categorização de visitTypeClass, só que devolve a chave da
+// categoria pura (usada pelo .type-chip do redesign — ícone junto do
+// nome, além da tag de texto que já existia).
+export function visitTypeCategory(tipo) {
+    const t = (tipo || '').toUpperCase();
+    if (t.includes('PREVENTIVA')) { return 'preventiva'; }
+    if (t.includes('PEDIDO'))     { return 'pedido'; }
+    if (t.includes('MANUT') || t.includes('OPEN')) { return 'manutencao'; }
+    if (t.includes('APRESENTA'))  { return 'apresentacao'; }
+    return '';
 }
 
 

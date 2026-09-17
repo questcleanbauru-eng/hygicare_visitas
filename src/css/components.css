@@ -31,10 +31,184 @@
 
 .card {
     background-color: var(--surface);
+    border: 1px solid var(--line);
     border-radius: var(--radius);
     padding: 0.85rem;
     box-shadow: var(--shadow-sm);
 }
+
+/* ── Redesign minimalista (script do usuário, 17/09) — componentes
+   compartilhados novos. Aplicados primeiro em Visitas como piloto; o
+   resto das telas continua usando os componentes antigos até serem
+   revisitadas uma a uma. ────────────────────────────────────────── */
+
+.kpi-card {
+    background: var(--bg-sunken);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    padding: 0.9rem;
+}
+.kpi-card .kpi-num { font-size: 1.6rem; font-weight: 700; color: var(--ink); line-height: 1; }
+.kpi-card .kpi-num.alert { color: var(--c-manutencao); }
+.kpi-card .kpi-lbl { font-size: 0.75rem; color: var(--ink-soft); margin-top: 0.15rem; }
+
+/* Ícone de tipo/categoria — substitui emoji fixo de UI (não emoji que é
+   dado do usuário). Categoria some do markup se o registro não tiver
+   tipo reconhecido: sem modificador, fica neutro (cor de --ink-faint). */
+.type-chip {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--bg-sunken);
+    color: var(--ink-faint);
+    font-size: 15px;
+    line-height: 1;
+}
+.type-chip svg { width: 16px; height: 16px; }
+/* Compacto — cabeçalho de item de lista, ao lado do nome (não como
+   coluna própria). */
+.type-chip.sm { width: 24px; height: 24px; border-radius: 7px; font-size: 12px; }
+.type-chip.sm svg { width: 13px; height: 13px; }
+.type-chip.manutencao { background: var(--c-manutencao-soft); color: var(--c-manutencao); }
+.type-chip.pedido { background: var(--c-pedido-soft); color: var(--c-pedido); }
+.type-chip.preventiva { background: var(--c-preventiva-soft); color: var(--c-preventiva); }
+.type-chip.apresentacao { background: var(--c-apresentacao-soft); color: var(--c-apresentacao); }
+
+.status-tag {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.18rem 0.55rem;
+    border-radius: 6px;
+    display: inline-block;
+    background: var(--bg-sunken);
+    color: var(--ink-soft);
+}
+.status-tag.manutencao { background: var(--c-manutencao-soft); color: var(--c-manutencao); }
+.status-tag.pedido { background: var(--c-pedido-soft); color: var(--c-pedido); }
+.status-tag.preventiva { background: var(--c-preventiva-soft); color: var(--c-preventiva); }
+.status-tag.apresentacao { background: var(--c-apresentacao-soft); color: var(--c-apresentacao); }
+.status-tag.erro { background: var(--c-erro-soft); color: var(--c-erro); }
+
+/* Botão primário — só UM por tela, a ação mais importante. */
+.btn-primary {
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-pill);
+    padding: 0.6rem 1.1rem;
+    font-weight: 600;
+    font-size: var(--text-sm);
+    font-family: inherit;
+    cursor: pointer;
+    min-height: 44px;
+}
+.btn-primary:active { opacity: 0.9; }
+
+/* Ação secundária — texto/link simples, nunca bloco colorido. */
+.btn-text {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-weight: 500;
+    font-size: var(--text-sm);
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+    padding: 0.3rem 0;
+    min-height: 32px;
+}
+.btn-text.accent { color: var(--accent); font-weight: 600; }
+.btn-text svg { width: 14px; height: 14px; }
+
+/* Resumo de filtros colapsado — some do lugar do painel cheio até a
+   pessoa pedir pra ver ("Mostrar"). A lógica de abrir/fechar (JS) é a
+   que já existe em cada tela; aqui só o CSS/classe do estado. */
+.filters-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.7rem 0.85rem;
+    background: var(--bg-sunken);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+}
+.filters-summary-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--text-sm);
+    color: var(--ink-soft);
+    font-weight: 500;
+    min-width: 0;
+}
+.filters-summary-left svg { width: 14px; height: 14px; flex-shrink: 0; }
+.filters-toggle { font-size: 0.78rem; color: var(--accent); font-weight: 600; flex-shrink: 0; background: none; border: none; cursor: pointer; font-family: inherit; }
+.filters-panel { display: none; }
+.filters-panel.open { display: block; }
+.filter-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--line);
+}
+.filter-field:last-child { border-bottom: none; }
+.filter-pill {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.filter-pill.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+/* Card de alerta — barra colorida à esquerda em vez de fundo chapado
+   (ex.: contrato vencido). */
+.alert-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--c-manutencao);
+    border-radius: var(--radius-sm);
+    padding: 0.7rem 0.85rem;
+}
+.alert-card.critical { border-left-color: var(--c-erro); }
+.alert-card .alert-title { font-size: var(--text-sm); font-weight: 600; color: var(--ink); }
+.alert-card .alert-sub { font-size: 0.75rem; color: var(--ink-soft); margin-top: 0.15rem; }
+.alert-card .alert-warn { font-size: 0.75rem; color: var(--c-manutencao); font-weight: 600; margin-top: 0.35rem; display: flex; align-items: center; gap: 0.3rem; }
+.alert-card.critical .alert-warn { color: var(--c-erro); }
+
+/* Barra de ações de detalhe — ícones simples lado a lado em vez de
+   botões com fundo colorido cada um. */
+.action-toolbar { display: flex; gap: 1.1rem; align-items: center; }
+.action-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    color: var(--ink-soft);
+    font-size: 0.65rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+}
+.action-icon svg { width: 19px; height: 19px; }
+.action-icon.danger { color: var(--c-erro); }
 
 .form-card {
     width: 100%;
@@ -566,17 +740,21 @@ textarea { resize: vertical; }
     font-weight: 600;
 }
 
-/* Visit type tag colors */
+/* Visit type tag colors — realinhadas com a paleta de categoria do
+   redesign (--c-*), pra .tag e .type-chip usarem exatamente a mesma cor
+   por tipo em vez de duas escalas parecidas-mas-diferentes. */
 
-.tag-preventiva { background: var(--info-bg); color: var(--info); }
+.tag-preventiva    { background: var(--c-preventiva-soft); color: var(--c-preventiva); }
 
-.tag-pedido     { background: var(--success-bg); color: var(--success); }
+.tag-pedido        { background: var(--c-pedido-soft); color: var(--c-pedido); }
 
-.tag-manutencao { background: #fed7aa; color: #9a3412; }
+.tag-manutencao    { background: var(--c-manutencao-soft); color: var(--c-manutencao); }
 
-.tag-projeto    { background: #ede9fe; color: #6d28d9; }
+.tag-apresentacao  { background: var(--c-apresentacao-soft); color: var(--c-apresentacao); }
 
-.tag-visita     { background: #f1f5f9; color: var(--text-muted-strong); }
+.tag-projeto       { background: #ede9fe; color: #6d28d9; }
+
+.tag-visita        { background: var(--bg-sunken); color: var(--ink-soft); }
 
 /* Month groups */
 

@@ -5,7 +5,7 @@ import {
     groupVisitsByMonth, formatMonthKey, normalizeVisit, compareVisitsByDateDesc, visitTypeClass,
     formatDateForDisplay, formatDateForInput, formatTimeForInput, formatInputDateFromDisplay,
     formatDateFieldValue, normalizeDisplayDateValue, formatTimeFieldValue, normalizeTimeValue,
-    normalizeProposal, visitTypeIcon, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
+    normalizeProposal, visitTypeIcon, visitTypeCategory, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
     calculateDaysFromDisplayDate,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, clienteNomeParaGravar, multiCheckFilterFieldHtml,
@@ -157,8 +157,8 @@ export function fillVisitsContent(container, visits) {
             <div class="visits-filter-header">
                 <div><strong>Filtros</strong></div>
                 <div class="visits-filter-header-actions">
-                    ${isAdmin ? `<button type="button" class="mini-button" id="visits-csv-btn" title="Baixar Excel/CSV das visitas filtradas">📥 Excel</button>` : ''}
-                    <button type="button" class="mini-button" id="visit-filters-clear">Limpar</button>
+                    ${isAdmin ? `<button type="button" class="btn-text" id="visits-csv-btn" title="Baixar Excel/CSV das visitas filtradas">📥 Excel</button>` : ''}
+                    <button type="button" class="btn-text" id="visit-filters-clear">Limpar</button>
                     <button type="button" class="mini-button visits-filter-toggle" id="visit-filters-toggle" aria-expanded="true" aria-controls="visit-filters-panel">Ocultar</button>
                 </div>
             </div>
@@ -302,7 +302,10 @@ export function fillVisitsContent(container, visits) {
                         <div class="visit-card-wrap">
                             <button class="visit-card" type="button" data-visit-id="${escapeHtml(visit.id)}">
                                 <div class="visit-card-header">
-                                    <strong><span aria-hidden="true">${visitTypeIcon(visit.tipoVisita)}</span> ${escapeHtml(visit.cliente || 'Cliente não informado')}</strong>
+                                    <div style="display:flex;align-items:center;gap:0.45rem;min-width:0">
+                                        <span class="type-chip sm ${visitTypeCategory(visit.tipoVisita)}" aria-hidden="true">${visitTypeIcon(visit.tipoVisita)}</span>
+                                        <strong>${escapeHtml(visit.cliente || 'Cliente não informado')}</strong>
+                                    </div>
                                     <span class="visit-date">${visit._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : escapeHtml(visit.dataVisita || '')}</span>
                                 </div>
                                 <div class="visit-card-body">
@@ -554,9 +557,9 @@ export async function renderVisitsPage() {
                 <p class="page-subtitle">Historico e registro de visitas</p>
             </div>
             <div class="page-header-actions">
-                ${isAdminOrGerenteUser() ? `<button type="button" class="mini-button" id="visits-nova-campanha" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>` : ''}
-                ${vpIsAdmin ? `<button type="button" class="mini-button qe-toggle${vpQeOn ? ' is-on' : ''}" id="visits-qe-toggle" title="Anotar na mesma tela, uma visita após a outra">⚡ Edição rápida</button>` : ''}
-                <button class="btn-add" id="btn-new-visit" type="button">+ Nova Visita</button>
+                ${isAdminOrGerenteUser() ? `<button type="button" class="btn-text" id="visits-nova-campanha" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>` : ''}
+                ${vpIsAdmin ? `<button type="button" class="btn-text qe-toggle${vpQeOn ? ' is-on' : ''}" id="visits-qe-toggle" title="Anotar na mesma tela, uma visita após a outra">⚡ Edição rápida</button>` : ''}
+                <button class="btn-primary" id="btn-new-visit" type="button">+ Nova Visita</button>
             </div>
         </div>
         <div id="visits-content">${cachedVisits ? '' : loadingState('📋', 'Carregando suas visitas...')}</div>

@@ -422,6 +422,38 @@ input, textarea, select,
        nomeado. */
     --info:            #1d4ed8;
     --info-bg:         #dbeafe;
+    /* Redesign minimalista (script do usuário, 17/09) — tokens de
+       neutro/categoria pros componentes novos (.card, .type-chip,
+       .status-tag, .btn-primary/.btn-text etc.). Onde já existia token
+       equivalente, aliasa em vez de duplicar cor quase igual (--line ~
+       --border, --accent = --primary, --bg-sunken reaproveita o --bg de
+       página já existente); --bg do script (branco de card) não vira
+       token novo porque colidiria de nome com o --bg de página acima —
+       usa --surface direto, que já é exatamente isso. Só os neutros
+       --ink-* e as cores de categoria (--c-*) são valores realmente novos.
+       Usar só nos componentes novos/tocados por este redesign — não é
+       retrofit obrigatório do que já funciona (mesma regra dos tokens
+       anteriores). */
+    --ink:             #1a1d23;
+    --ink-soft:        var(--text-muted);
+    --ink-faint:       #a3a8b0;
+    --line:            var(--border);
+    --bg-sunken:       var(--bg);
+    --accent:          var(--primary);
+    --accent-soft:     var(--primary-light);
+    --c-manutencao:      #c2792a;
+    --c-manutencao-soft: #fbeee0;
+    --c-pedido:          #2f8f5b;
+    --c-pedido-soft:     #e3f5ec;
+    --c-preventiva:      #2563eb;
+    --c-preventiva-soft: #e7edfd;
+    --c-apresentacao:    #7c5cbf;
+    --c-apresentacao-soft: #efe9fa;
+    --c-erro:            #d64545;
+    --c-erro-soft:       #fbe6e6;
+    --radius-card:     var(--radius);
+    --radius-pill:     999px;
+    --radius-input:    var(--radius-sm);
     /* Escala de espaçamento (múltiplos de 4px) — usar em componentes novos/tocados */
     --space-1: 0.25rem;
     --space-2: 0.5rem;
