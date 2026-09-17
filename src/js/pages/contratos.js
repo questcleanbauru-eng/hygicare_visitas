@@ -204,6 +204,15 @@ export function fillContratosContent(mainContent, contratos) {
         panel.innerHTML = `
             <div class="qe-panel-inner">
             <form id="qe-ct-form" class="form-layout">
+                <div class="qe-panel-header">
+                    <div>
+                        <strong class="qe-panel-title">${escapeHtml(c.cliente || 'Cliente')}</strong>
+                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([c.cidade, c.vendedor].filter(Boolean).join(' · '))}</p>
+                    </div>
+                    <div class="qe-panel-header-actions">
+                        <button type="submit" class="primary-button" id="qe-ct-save">Salvar</button>
+                    </div>
+                </div>
                 <div class="form-group full-width">
                     <label for="qe-ct-cliente">Cliente *</label>
                     <input type="text" id="qe-ct-cliente" value="${escapeHtml(c.cliente || '')}" placeholder="Nome do cliente" required>
@@ -263,9 +272,6 @@ export function fillContratosContent(mainContent, contratos) {
                         ${anexoUrl(c) ? '<button type="button" class="mini-button" id="qe-ct-anexo-open">Ver</button>' : ''}
                     </div>
                     <input type="url" id="qe-ct-anexo" value="${escapeHtml(c.anexo || '')}" placeholder="…ou cole aqui um link do Drive" style="margin-top:0.4rem">
-                </div>
-                <div class="form-actions full-width">
-                    <button type="submit" class="primary-button" id="qe-ct-save">Salvar contrato</button>
                 </div>
             </form>
             </div>`;
