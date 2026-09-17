@@ -332,10 +332,16 @@ export function fillFunilContent(mainContent, funil) {
                         && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
                         && calculateDaysFromDisplayDate(f.atualizacao || f.data || '') > 30;
                     return `
-                    <button type="button" class="proposal-card funil-card ${overdue ? 'proposal-card-alert' : ''}${f.funilDiversey === 'Sim' ? ' funil-card-diversey' : ''}${selectMode && selectedIds.has(String(f.id)) ? ' is-selected' : ''}${isDup(f) ? ' funil-card-dup' : ''}" data-funil-id="${escapeHtml(f.id)}">
-                        <div class="visit-card-header">
-                            <strong>
-                                ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
+                    <button type="button" class="proposal-card funil-card item-row ${overdue ? 'proposal-card-alert' : ''}${f.funilDiversey === 'Sim' ? ' funil-card-diversey' : ''}${selectMode && selectedIds.has(String(f.id)) ? ' is-selected' : ''}${isDup(f) ? ' funil-card-dup' : ''}" data-funil-id="${escapeHtml(f.id)}">
+                        <div class="item-body">
+                            <div class="item-top">
+                                <span class="item-name">
+                                    ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
+                                </span>
+                                ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(f.status || '-')}" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(f.status || '')}">${escapeHtml(f.status || '-')}</span>`}
+                            </div>
+                            <div class="item-meta">${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}${f.aplicacao ? ` · <span class="funil-aplicacao-tag">${escapeHtml(f.aplicacao)}</span>` : ''}${isAdmGer && f.vendedor ? ' · ' + escapeHtml(f.vendedor) : ''} · ${escapeHtml(f.data || f.atualizacao || '-')}${f.vlMensal ? ` · <span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}</div>
+                            <div class="item-bottom">
                                 ${f.funilDiversey === 'Sim' ? '<span class="funil-diversey-tag" title="Funil Diversey — acompanhar de perto">⭐ Diversey</span>' : ''}
                                 ${isDup(f) ? '<span class="funil-dup-tag" title="Existe outro registro com o mesmo cliente, foco e aplicação">⚠️ Duplicado</span>' : ''}
                                 ${(() => {
@@ -346,14 +352,9 @@ export function fillFunilContent(mainContent, funil) {
                                     return `<span class="card-in-funil${_alerta ? ' card-in-funil-alert' : ''}" role="button" tabindex="0" aria-label="Já tem proposta pra esse cliente/foco" title="Tem proposta${_st ? ' (' + _st + ')' : ''} — abrir" data-proposta-id="${escapeHtml(String(_pi.id || _pi.Id || ''))}">📄</span>`;
                                 })()}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-funil-quick="${escapeHtml(f.id)}">⚡</span>
-                            </strong>
-                            ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(f.status || '-')}" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(f.status || '')}">${escapeHtml(f.status || '-')}</span>`}
+                            </div>
+                            ${overdue ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
                         </div>
-                        <div class="proposal-meta">
-                            <span>${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}${f.aplicacao ? ` · <span class="funil-aplicacao-tag">${escapeHtml(f.aplicacao)}</span>` : ''}</span>
-                            <span>${isAdmGer && f.vendedor ? escapeHtml(f.vendedor) + ' · ' : ''}${escapeHtml(f.data || f.atualizacao || '-')}${f.vlMensal ? ` · <span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}</span>
-                        </div>
-                        ${overdue ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
                     </button>
                 `;
                 }).join('')}</div>

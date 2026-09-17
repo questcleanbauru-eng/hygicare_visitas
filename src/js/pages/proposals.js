@@ -287,10 +287,16 @@ export function fillProposalsContent(mainContent, proposals) {
                     <span>${byMonth[key].length} proposta(s)</span>
                 </div>
                 <div class="visits-list">${byMonth[key].map((p) => `
-                    <button type="button" class="proposal-card ${p.atrasada ? 'proposal-card-alert' : ''}${selectMode && selectedIds.has(String(p.id)) ? ' is-selected' : ''}${isDup(p) ? ' funil-card-dup' : ''}" data-proposal-id="${escapeHtml(p.id)}">
-                        <div class="visit-card-header">
-                            <strong>
-                                ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
+                    <button type="button" class="proposal-card item-row ${p.atrasada ? 'proposal-card-alert' : ''}${selectMode && selectedIds.has(String(p.id)) ? ' is-selected' : ''}${isDup(p) ? ' funil-card-dup' : ''}" data-proposal-id="${escapeHtml(p.id)}">
+                        <div class="item-body">
+                            <div class="item-top">
+                                <span class="item-name">
+                                    ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
+                                </span>
+                                ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
+                            </div>
+                            <div class="item-meta">${escapeHtml([p.cidade, p.foco, isAdmGer && p.vendedor ? p.vendedor : '', p.data].filter(Boolean).join(' · ') || '-')}</div>
+                            <div class="item-bottom">
                                 ${isDup(p) ? '<span class="funil-dup-tag" title="Existe outra proposta com o mesmo cliente e foco">⚠️ Duplicado</span>' : ''}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-proposal-quick="${escapeHtml(p.id)}">⚡</span>
                                 ${state.canCreateProposalFunil && p.cliente ? (() => {
@@ -302,14 +308,9 @@ export function fillProposalsContent(mainContent, proposals) {
                                     const _st = escapeHtml(String(_fi.status || _fi.Status || ''));
                                     return `<span class="card-in-funil${_alerta ? ' card-in-funil-alert' : ''}" role="button" tabindex="0" aria-label="Cliente já está no Funil de Vendas" title="No Funil${_st ? ' (' + _st + ')' : ''} — abrir" data-funil-id="${escapeHtml(String(_fi.id || _fi.Id || ''))}">${_alerta ? '⚠️' : '✅'}</span>`;
                                 })() : ''}
-                            </strong>
-                            ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
+                            </div>
+                            ${p.atrasada ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
                         </div>
-                        <div class="proposal-meta">
-                            <span>${escapeHtml([p.cidade, p.foco].filter(Boolean).join(' · ') || '-')}</span>
-                            <span>${isAdmGer && p.vendedor ? escapeHtml(p.vendedor) + ' · ' : ''}${escapeHtml(p.data || '-')}</span>
-                        </div>
-                        ${p.atrasada ? '<div class="alert-text">Sem atualização há mais de 30 dias.</div>' : ''}
                     </button>
                 `).join('')}</div>
             </section>
