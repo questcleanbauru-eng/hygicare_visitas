@@ -2221,13 +2221,22 @@ export function showScheduleReturnModal(visit) {
                 });
                 if (result && result.status === 'success') {
                     showToast('Retorno agendado com sucesso.');
-                    const ics = buildIcsContent({
-                        title: `Retorno: ${visit.cliente || ''}`,
-                        description: obsVal || 'Visita de retorno agendada pelo App de Visitas.',
-                        dateStr: dataVal
+                    card.innerHTML = `
+                        <div style="font-size:2rem;margin-bottom:0.75rem">✅</div>
+                        <h3>Retorno agendado</h3>
+                        <p>Quer salvar esse compromisso na agenda do seu telefone?</p>
+                        <button type="button" id="modal-sched-ics" class="primary-button">Salvar na agenda do telefone</button>
+                        <button type="button" id="modal-sched-done" class="secondary-button">Concluir</button>
+                    `;
+                    card.querySelector('#modal-sched-ics').addEventListener('click', () => {
+                        const ics = buildIcsContent({
+                            title: `Retorno: ${visit.cliente || ''}`,
+                            description: obsVal || 'Visita de retorno agendada pelo App de Visitas.',
+                            dateStr: dataVal
+                        });
+                        downloadIcs(`retorno-${String(visit.cliente || 'cliente').replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
                     });
-                    downloadIcs(`retorno-${String(visit.cliente || 'cliente').replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
-                    close();
+                    card.querySelector('#modal-sched-done').addEventListener('click', close);
                 } else {
                     showToast((result && result.message) || 'Erro ao agendar retorno.', true);
                     setSaving(false, btn);
@@ -2331,8 +2340,27 @@ export async function showCreateAgendamentoModal(onCreated) {
             });
             if (result && result.status === 'success') {
                 showToast('Agendamento criado com sucesso.');
-                close();
-                if (onCreated) onCreated(result.agendamento);
+                const card = overlay.querySelector('.modal-card');
+                card.innerHTML = `
+                    <div style="font-size:2rem;margin-bottom:0.75rem">✅</div>
+                    <h3>Agendamento criado</h3>
+                    <p>Quer salvar esse compromisso na agenda do seu telefone?</p>
+                    <button type="button" id="modal-newag-ics" class="primary-button">Salvar na agenda do telefone</button>
+                    <button type="button" id="modal-newag-done" class="secondary-button">Concluir</button>
+                `;
+                card.querySelector('#modal-newag-ics').addEventListener('click', () => {
+                    const ics = buildIcsContent({
+                        title: `Retorno: ${clienteVal}`,
+                        description: obsVal || 'Agendamento criado pelo App de Visitas.',
+                        dateStr: dataVal
+                    });
+                    downloadIcs(`retorno-${clienteVal.replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
+                });
+                card.querySelector('#modal-newag-done').addEventListener('click', () => {
+                    overlay.remove();
+                    resolve();
+                    if (onCreated) onCreated(result.agendamento);
+                });
             } else {
                 showToast((result && result.message) || 'Erro ao criar agendamento.', true);
                 setSaving(false, btn);
