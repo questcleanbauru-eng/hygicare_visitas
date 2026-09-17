@@ -368,15 +368,16 @@ export function fillContratosContent(mainContent, contratos) {
         try { localStorage.setItem('contratos_quick_edit', quickEdit ? '1' : '0'); } catch (err) {}
         e.currentTarget.classList.toggle('is-on', quickEdit);
         qeSelectedId = null;
-        renderFiltered();
+        // Mesmo padrão de Visitas/Propostas/Funil: ao LIGAR esconde
+        // busca/filtros (só lista + painel) e rola pro topo — sem isso, a
+        // lista+painel só aparecia depois de rolar manualmente pra baixo
+        // dos filtros.
         const goingOn = quickEdit;
+        document.getElementById('main-content')?.classList.toggle('qe-focus', goingOn);
+        renderFiltered();
         requestAnimationFrame(() => {
-            if (goingOn) {
-                document.getElementById('contratos-list-container')?.scrollIntoView({ block: 'start', behavior: 'auto' });
-            } else {
-                document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
-                window.scrollTo({ top: 0, behavior: 'auto' });
-            }
+            document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'auto' });
+            window.scrollTo({ top: 0, behavior: 'auto' });
         });
     });
 
