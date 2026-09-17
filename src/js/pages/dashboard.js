@@ -50,9 +50,9 @@ export function fillDashboard(mainContent, data, user) {
 
         <!-- Ações rápidas -->
         <div class="dash-actions-bar">
-            <button type="button" class="dash-action-outline" id="qa-new-visit">📋 Nova Visita</button>
-            ${state.canCreateProposalFunil ? '<button type="button" class="dash-action-outline" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
-            ${state.canCreateProposalFunil ? '<button type="button" class="dash-action-outline" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
+            <button type="button" class="btn-text accent" id="qa-new-visit">📋 Nova Visita</button>
+            ${state.canCreateProposalFunil ? '<button type="button" class="btn-text accent" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
+            ${state.canCreateProposalFunil ? '<button type="button" class="btn-text accent" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
         </div>
 
         <!-- Hoje -->
@@ -76,12 +76,13 @@ export function fillDashboard(mainContent, data, user) {
                 ${data.proximosAgendamentos.map((a) => {
                     const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
                     const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
+                    const diasCor = dias < 0 ? 'erro' : dias <= 1 ? 'apresentacao' : 'preventiva';
                     return `<div class="recent-item recent-item-proposal">
                         <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
                             <strong style="font-size:0.85rem">${escapeHtml(a.cliente || '-')}</strong>
                             <span class="helper-text" style="margin:0">${escapeHtml(a.cidade || '-')}</span>
                         </div>
-                        <span class="dias-atraso-badge" style="background:#f3e8ff;color:#7e22ce">${diasLabel}</span>
+                        <span class="status-tag ${diasCor}">${diasLabel}</span>
                     </div>`;
                 }).join('')}
             </div>

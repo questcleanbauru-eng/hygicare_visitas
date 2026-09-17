@@ -10,23 +10,15 @@
     gap: 0.8rem;
 }
 
-/* 2 colunas fixas no mobile (em vez de auto-fit) com o 3º botão
-   ("Nova Oportunidade", quando é o último e sobra sozinho na 2ª linha)
-   esticado pras duas colunas — auto-fit alinhava a borda esquerda dele
-   certinho, mas deixava metade da linha vazia à direita, com cara de
-   botão "esquecido". A partir de 640px sobra largura pros 3 caberem
-   numa linha só, então volta pro auto-fit normal. */
+/* Redesign minimalista: virou fileira de links de texto (.btn-text), não
+   mais grade de pills — sem precisar do jogo de grid-column pra evitar
+   botão "esquecido" sozinho numa linha, já que texto não tem largura
+   fixa pra encher. */
 .dash-actions-bar {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.35rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
     margin-bottom: 0.6rem;
-}
-.dash-actions-bar > :last-child:nth-child(3) { grid-column: 1 / -1; }
-
-@media (min-width: 640px) {
-    .dash-actions-bar { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-    .dash-actions-bar > :last-child:nth-child(3) { grid-column: auto; }
 }
 
 .push-banner {
@@ -113,12 +105,11 @@
    moldura) + sombra leve. Cantos mais arredondados, no mesmo espírito do
    resto do "modo suave" pedido pelo usuário. */
 .metric-card {
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    padding: 0.65rem 0.9rem 0.6rem;
-    border: none;
-    border-left: 3px solid var(--border);
-    box-shadow: var(--shadow-xs);
+    background: var(--bg-sunken);
+    border-radius: var(--radius-card);
+    padding: 0.7rem 0.9rem 0.65rem;
+    border: 1px solid var(--line);
+    box-shadow: none;
     cursor: pointer;
     transition: box-shadow 0.18s, transform 0.15s;
     display: flex;
@@ -131,19 +122,16 @@
 
 .metric-card:active { transform: scale(0.98); }
 
-.metric-card-blue   { border-left-color: var(--primary); }
-
-.metric-card-green  { border-left-color: #16a34a; }
-
-.metric-card-orange { border-left-color: #ea580c; }
-
-.metric-card-red    { border-left-color: #dc2626; }
-
+/* Redesign minimalista: sem cor por categoria/destino de navegação —
+   card sempre neutro, só o número vira laranja quando o card tem o
+   selo de urgência (:has, já usado em base.css pro page-header). As
+   classes .metric-card-blue/green/orange/red continuam no HTML (não
+   voltei em cada botão pra tirar), só não fazem mais nada aqui. */
 .metric-label {
     font-size: 11.5px;
     font-weight: 500;
     letter-spacing: 0.01em;
-    color: var(--text-muted-strong);
+    color: var(--ink-soft);
     line-height: 1.2;
 }
 
@@ -151,9 +139,11 @@
     font-size: 22px;
     font-weight: 700;
     line-height: 1;
-    color: var(--text);
+    color: var(--ink);
     margin: 0.06rem 0;
 }
+
+.metric-card:has(.metric-badge-urgent) .metric-value { color: var(--c-manutencao); }
 
 .metric-link {
     font-size: 11.5px;
@@ -171,8 +161,8 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    background: #fff7ed;
-    color: #c2410c;
+    background: var(--c-manutencao-soft);
+    color: var(--c-manutencao);
     align-self: flex-start;
     margin-top: 0.2rem;
 }
@@ -257,10 +247,11 @@
    pra se separar do fundo (padrão "mais suave" pedido pelo usuário,
    comparado com outro app dele: nada de borda visível em cards). */
 .dash-today-card {
-    background: var(--primary-light);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-xs);
-    padding: 0.65rem 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: none;
+    padding: 0.7rem 0.9rem;
     margin-bottom: 0.5rem;
 }
 
