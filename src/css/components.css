@@ -1071,7 +1071,7 @@ textarea { resize: vertical; }
     gap: 0.6rem;
     flex-wrap: wrap;
     margin-bottom: 0.75rem;
-    color: var(--text-muted-strong, var(--text-muted-strong));
+    color: var(--ink-soft);
     font-size: 0.85rem;
 }
 
@@ -1082,8 +1082,6 @@ textarea { resize: vertical; }
 }
 
 .c360-stat { display: flex; flex-direction: column; }
-.c360-stat strong { font-size: 1.15rem; }
-.c360-stat span { font-size: 0.72rem; color: var(--text-muted-strong, var(--text-muted)); }
 
 .c360-badge {
     display: inline-flex;
@@ -1108,8 +1106,8 @@ textarea { resize: vertical; }
     font-size: 0.9rem;
 }
 .c360-section-header span {
-    background: var(--border);
-    color: var(--text-muted-strong);
+    background: var(--bg-sunken);
+    color: var(--ink-soft);
     border-radius: 999px;
     padding: 0.05rem 0.5rem;
     font-size: 0.72rem;
@@ -1131,10 +1129,7 @@ textarea { resize: vertical; }
     cursor: pointer;
     font: inherit;
 }
-.c360-item:hover { background: var(--hover-bg, #f1f5f9); }
-.c360-item-icon { font-size: var(--text-lg); flex-shrink: 0; }
-.c360-item-text { display: flex; flex-direction: column; font-size: var(--text-sm); }
-.c360-item-text span { color: var(--text-muted-strong, var(--text-muted)); font-size: var(--text-xs); }
+.c360-item:hover { background: var(--bg-sunken); }
 
 /* Radio pills */
 

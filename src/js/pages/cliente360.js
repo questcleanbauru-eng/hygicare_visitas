@@ -2,7 +2,7 @@ import { state, navigateTo } from '../app.js';
 import { callAPI } from '../api.js';
 import {
     escapeHtml, normalizeVisit, normalizeProposal, normalizeContrato, normalizeManutencao,
-    compareVisitsByDateDesc, visitTypeIcon, proposalStatusIcon, funilStatusIcon,
+    compareVisitsByDateDesc, visitTypeIcon, visitTypeCategory, proposalStatusIcon, funilStatusIcon,
     calculateDaysFromDisplayDate
 } from '../utils/format.js';
 import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
@@ -67,7 +67,7 @@ export async function renderCliente360Page(options = {}) {
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Cliente 360°' }])}
         <div class="page-header compact-header">
-            <button type="button" class="mini-button" id="c360-back">Voltar</button>
+            <button type="button" class="text-link" id="c360-back">← Voltar</button>
             <h2>${escapeHtml(clienteNome)}</h2>
         </div>
         <div class="card c360-summary-card">
@@ -76,46 +76,61 @@ export async function renderCliente360Page(options = {}) {
                 ${inatividadeBadge(visits)}
             </div>
             <div class="c360-stats-row">
-                <div class="c360-stat"><strong>${visits.length}</strong><span>Visitas</span></div>
-                <div class="c360-stat"><strong>${proposals.length}</strong><span>Propostas</span></div>
-                <div class="c360-stat"><strong>${funil.length}</strong><span>Funil</span></div>
-                <div class="c360-stat"><strong>${contratos.length}</strong><span>Contratos</span></div>
-                <div class="c360-stat"><strong>${manutencoes.length}</strong><span>Manutenções</span></div>
+                <div class="c360-stat"><span class="kpi-num">${visits.length}</span><span class="kpi-lbl">Visitas</span></div>
+                <div class="c360-stat"><span class="kpi-num">${proposals.length}</span><span class="kpi-lbl">Propostas</span></div>
+                <div class="c360-stat"><span class="kpi-num">${funil.length}</span><span class="kpi-lbl">Funil</span></div>
+                <div class="c360-stat"><span class="kpi-num">${contratos.length}</span><span class="kpi-lbl">Contratos</span></div>
+                <div class="c360-stat"><span class="kpi-num">${manutencoes.length}</span><span class="kpi-lbl">Manutenções</span></div>
             </div>
         </div>
 
         ${renderSection('Visitas', visits.length, visits.slice(0, 8).map((v) => `
             <button type="button" class="c360-item" data-type="visit-detail" data-id="${escapeHtml(v.id)}">
-                <span class="c360-item-icon">${visitTypeIcon(v.tipoVisita)}</span>
-                <span class="c360-item-text"><strong>${escapeHtml(v.dataVisita)}</strong><span>${escapeHtml(v.tipoVisita || '')}</span></span>
+                <span class="type-chip ${visitTypeCategory(v.tipoVisita)}">${visitTypeIcon(v.tipoVisita)}</span>
+                <div class="item-body">
+                    <div class="item-name">${escapeHtml(v.dataVisita)}</div>
+                    <div class="item-meta">${escapeHtml(v.tipoVisita || '')}</div>
+                </div>
             </button>
         `).join(''))}
 
         ${renderSection('Propostas', proposals.length, proposals.slice(0, 8).map((p) => `
             <button type="button" class="c360-item" data-type="proposal-detail" data-id="${escapeHtml(p.id)}">
-                <span class="c360-item-icon">${proposalStatusIcon(p.status)}</span>
-                <span class="c360-item-text"><strong>${escapeHtml(p.status || '')}</strong><span>${escapeHtml(p.produtos || '')} · ${escapeHtml(p.data || '')}</span></span>
+                <span class="type-chip">${proposalStatusIcon(p.status)}</span>
+                <div class="item-body">
+                    <div class="item-name">${escapeHtml(p.status || '')}</div>
+                    <div class="item-meta">${escapeHtml(p.produtos || '')} · ${escapeHtml(p.data || '')}</div>
+                </div>
             </button>
         `).join(''))}
 
         ${renderSection('Funil', funil.length, funil.slice(0, 8).map((f) => `
             <button type="button" class="c360-item" data-type="funil-detail" data-id="${escapeHtml(f.id || '')}">
-                <span class="c360-item-icon">${funilStatusIcon(f.status)}</span>
-                <span class="c360-item-text"><strong>${escapeHtml(f.status || '')}</strong><span>${escapeHtml(f.data || '')}</span></span>
+                <span class="type-chip">${funilStatusIcon(f.status)}</span>
+                <div class="item-body">
+                    <div class="item-name">${escapeHtml(f.status || '')}</div>
+                    <div class="item-meta">${escapeHtml(f.data || '')}</div>
+                </div>
             </button>
         `).join(''))}
 
         ${renderSection('Contratos', contratos.length, contratos.slice(0, 8).map((c) => `
             <button type="button" class="c360-item" data-type="contrato-detail" data-id="${escapeHtml(c.id)}">
-                <span class="c360-item-icon">📑</span>
-                <span class="c360-item-text"><strong>${c.vencido ? 'Vencido' : c.assinado === 'Sim' ? 'Assinado' : 'Ativo'}</strong><span>${escapeHtml(c.fim ? 'até ' + c.fim : '')}</span></span>
+                <span class="type-chip">📑</span>
+                <div class="item-body">
+                    <div class="item-name">${c.vencido ? 'Vencido' : c.assinado === 'Sim' ? 'Assinado' : 'Ativo'}</div>
+                    <div class="item-meta">${escapeHtml(c.fim ? 'até ' + c.fim : '')}</div>
+                </div>
             </button>
         `).join(''))}
 
         ${renderSection('Manutenções', manutencoes.length, manutencoes.slice(0, 8).map((m) => `
             <button type="button" class="c360-item" data-type="manutencao-detail" data-id="${escapeHtml(m.id)}">
-                <span class="c360-item-icon">🔧</span>
-                <span class="c360-item-text"><strong>${escapeHtml(m.data || '')}</strong><span>${escapeHtml(m.tecnico || '')}</span></span>
+                <span class="type-chip">🔧</span>
+                <div class="item-body">
+                    <div class="item-name">${escapeHtml(m.data || '')}</div>
+                    <div class="item-meta">${escapeHtml(m.tecnico || '')}</div>
+                </div>
             </button>
         `).join(''))}
     `;

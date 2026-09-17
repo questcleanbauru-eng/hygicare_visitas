@@ -842,14 +842,14 @@ export function bindAdminEvents(data) {
                         <span>PIN de acesso rápido: <strong>${user.hasPin ? 'ativo' : 'não cadastrado'}</strong></span>
                         <div class="uif-pin-set">
                             <input type="text" class="uif-pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Novo PIN (4 dígitos)">
-                            <button type="button" class="mini-button uif-pin-save">${user.hasPin ? 'Trocar PIN' : 'Definir PIN'}</button>
+                            <button type="button" class="text-link uif-pin-save">${user.hasPin ? 'Trocar PIN' : 'Definir PIN'}</button>
                         </div>
-                        ${user.hasPin ? '<button type="button" class="mini-button uif-pin-remove">Remover PIN</button>' : ''}
+                        ${user.hasPin ? '<button type="button" class="text-link uif-pin-remove">Remover PIN</button>' : ''}
                     </div>
                     <div class="uif-danger-zone">
                         <span class="uif-danger-label">${inativo ? 'Conta desativada — não consegue entrar no app.' : 'Zona de risco'}</span>
                         <div class="uif-danger-btns">
-                            <button type="button" class="mini-button uif-toggle-ativo">${inativo ? 'Reativar usuário' : 'Desativar usuário'}</button>
+                            <button type="button" class="text-link uif-toggle-ativo">${inativo ? 'Reativar usuário' : 'Desativar usuário'}</button>
                             <button type="button" class="mini-button mini-button-danger uif-delete">Excluir usuário</button>
                         </div>
                     </div>
