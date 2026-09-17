@@ -756,7 +756,7 @@ main {
 .section-link-button {
     border: none;
     background: transparent;
-    color: var(--primary);
+    color: var(--ink-soft);
     font: inherit;
     font-size: var(--text-sm);
     font-weight: 600;

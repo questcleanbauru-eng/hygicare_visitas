@@ -730,15 +730,15 @@ textarea { resize: vertical; }
     justify-content: space-between;
     gap: 0.5rem;
     align-items: center;
-    color: var(--text-muted);
+    color: var(--ink-soft);
     font-size: 0.78rem;
     padding: 0.45rem 0.6rem;
-    border-radius: var(--radius);
-    background: var(--bg);
+    border-radius: var(--radius-card);
+    background: var(--bg-sunken);
 }
 
 .recent-item strong {
-    color: var(--text);
+    color: var(--ink);
     font-size: 0.85rem;
     font-weight: 600;
 }
@@ -2373,11 +2373,18 @@ input[type="date"] {
    Usada em Funil e Propostas. Fica em components.css (carregado sempre)
    pra valer nas duas páginas sem duplicar. */
 
-.qe-toggle.is-on {
-    background: var(--primary);
-    border-color: var(--primary);
+/* .text-link não tem fundo/borda/raio próprios — um toggle "ligado"
+   (Edição rápida, Selecionar...) precisa desenhar a pílula inteira, não só
+   trocar a cor, senão vira um retângulo reto colado no texto (bug visto em
+   produção). Genérico em ink; .qe-toggle usa accent (azul) por cima pra se
+   destacar como um modo especial, não só uma seleção normal. */
+.text-link.is-on {
+    background: var(--ink);
     color: #fff;
+    border-radius: var(--radius-pill);
+    padding: 5px 12px;
 }
+.qe-toggle.is-on { background: var(--accent); }
 
 /* Modo foco da Edição rápida: some com filtros e barra de período — fica
    só o título da tela + a busca + a lista + o painel de edição, tudo no
