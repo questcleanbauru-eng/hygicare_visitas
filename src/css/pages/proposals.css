@@ -176,9 +176,9 @@
 .notif-summary-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
 .notif-summary-card:active { transform: scale(0.98); }
 .notif-summary-icon { font-size: 1.2rem; line-height: 1; }
-.notif-summary-count { font-size: 1.7rem; font-weight: 800; line-height: 1; color: var(--text); }
-.notif-summary-label { font-size: 0.82rem; color: var(--text-muted-strong); line-height: 1.3; }
-.notif-summary-cta { font-size: 0.76rem; font-weight: 700; color: var(--primary); margin-top: auto; padding-top: 0.3rem; }
+.notif-summary-count { font-size: 1.7rem; font-weight: 800; line-height: 1; color: var(--ink); }
+.notif-summary-label { font-size: 0.82rem; color: var(--ink-soft); line-height: 1.3; }
+.notif-summary-cta { font-size: 0.76rem; font-weight: 700; color: var(--ink-soft); margin-top: auto; padding-top: 0.3rem; }
 
 /* Busca + filtro de unidade, acima da lista por vendedor */
 .notif-toolbar {
@@ -221,8 +221,8 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: var(--primary-light);
-    color: var(--primary-dark);
+    background: var(--ink);
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -236,8 +236,8 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    color: var(--primary-dark);
-    background: var(--primary-light);
+    color: var(--ink-soft);
+    background: var(--bg-sunken);
     border-radius: 999px;
     padding: 0.1rem 0.55rem;
 }

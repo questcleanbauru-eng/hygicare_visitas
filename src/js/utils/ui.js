@@ -281,35 +281,11 @@ export function closeMobileExtraMenu() {
 }
 
 
-// O sino sempre abria Propostas, mesmo quando só o Funil estava atrasado —
-// agora vai direto pra quem tem pendência; com os dois pendentes, mostra um
-// menuzinho pra escolher (mesmo padrão visual do editor de status inline
-// das Propostas, só que ancorado no sino em vez de num status pill).
+// O sino abre a tela de Notificações (histórico + pendências) — antes ia
+// direto pra Propostas/Funil com base em contagem de atraso, sem passar
+// pela tela dedicada que existe hoje.
 function handleNotifBellClick() {
-    const overdueProposals = state.overdueProposals || 0;
-    const overdueFunil = state.overdueFunil || 0;
-    if (overdueFunil > 0 && overdueProposals === 0) { navigateTo('funil'); return; }
-    if (overdueProposals > 0 && overdueFunil === 0) { navigateTo('proposals'); return; }
-    if (overdueProposals > 0 && overdueFunil > 0) {
-        document.querySelector('.inline-status-editor')?.remove();
-        const btn = document.getElementById('header-notif');
-        const editor = document.createElement('div');
-        editor.className = 'inline-status-editor';
-        editor.innerHTML = `
-            <button type="button" class="inline-status-opt" data-notif-go="proposals">Propostas atrasadas (${overdueProposals})</button>
-            <button type="button" class="inline-status-opt" data-notif-go="funil">Funil sem atualização (${overdueFunil})</button>
-        `;
-        const rect = btn.getBoundingClientRect();
-        editor.style.cssText = `position:fixed;top:${Math.round(rect.bottom + 4)}px;right:${Math.round(window.innerWidth - rect.right)}px;z-index:1000`;
-        document.body.appendChild(editor);
-        editor.addEventListener('click', (e) => e.stopPropagation());
-        editor.querySelectorAll('[data-notif-go]').forEach((opt) => {
-            opt.addEventListener('click', () => { editor.remove(); navigateTo(opt.dataset.notifGo); });
-        });
-        setTimeout(() => document.addEventListener('click', () => editor.remove(), { once: true }), 0);
-        return;
-    }
-    navigateTo('proposals');
+    navigateTo('notificacoes');
 }
 
 
@@ -400,17 +376,12 @@ export function updateHeaderUI(user) {
     const pendingCount = (state.overdueProposals || 0) + (state.overdueFunil || 0);
     updateAppBadge(pendingCount);
 
-    if (_headerBuilt) {
-        const notifBtn = document.getElementById('header-notif');
-        if (notifBtn) notifBtn.innerHTML = `🔔${pendingCount > 0 ? '<span class="header-notif-dot"></span>' : ''}`;
-        return;
-    }
+    if (_headerBuilt) { return; }
     _headerBuilt = true;
 
     const initial = (user.name || user.nomeVendedor || 'U')[0].toUpperCase();
     const name    = escapeHtml(user.name || user.nomeVendedor || '');
     const role    = escapeHtml(user.profile || '');
-    const hasPending = pendingCount > 0;
     area.innerHTML = `
         <button class="header-notif-btn" id="header-install-btn" type="button" aria-label="Instalar App" style="display:none" title="Instalar App">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v13M8 11l4 4 4-4"/><path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
@@ -422,7 +393,7 @@ export function updateHeaderUI(user) {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
         <button class="header-notif-btn" id="header-notif" type="button" aria-label="Notificações">
-            🔔${hasPending ? '<span class="header-notif-dot"></span>' : ''}
+            🔔
         </button>
         <div class="header-user-details">
             <span class="header-user-name">${name}</span>
@@ -919,18 +890,32 @@ export function updateFunilBadge(count) {
 
 export function updateNotificacoesBadge(count) {
     const btn = document.getElementById('nav-notificacoes');
-    if (!btn) { return; }
-    let badge = btn.querySelector('.nav-badge');
-    if (count > 0) {
-        const label = count > 99 ? '99+' : String(count);
-        if (!badge) {
-            badge = document.createElement('span');
-            badge.className = 'nav-badge';
-            btn.appendChild(badge);
+    if (btn) {
+        let badge = btn.querySelector('.nav-badge');
+        if (count > 0) {
+            const label = count > 99 ? '99+' : String(count);
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'nav-badge';
+                btn.appendChild(badge);
+            }
+            badge.textContent = label;
+        } else if (badge) {
+            badge.remove();
         }
-        badge.textContent = label;
-    } else if (badge) {
-        badge.remove();
+    }
+    // O sino do cabeçalho usa a mesma contagem de não lidas — um único
+    // "isso precisa da sua atenção", sem outro número/critério próprio.
+    const notifBtn = document.getElementById('header-notif');
+    if (notifBtn) {
+        let dot = notifBtn.querySelector('.header-notif-dot');
+        if (count > 0 && !dot) {
+            dot = document.createElement('span');
+            dot.className = 'header-notif-dot';
+            notifBtn.appendChild(dot);
+        } else if (count === 0 && dot) {
+            dot.remove();
+        }
     }
 }
 

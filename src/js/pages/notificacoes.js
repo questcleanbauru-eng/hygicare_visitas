@@ -117,7 +117,7 @@ export async function renderNotificacoesPage() {
                 ${v.total
                     ? `<div class="notif-vendor-actions">
                         <span class="notif-vendor-total" aria-label="${v.total} pendências no total">${v.total}</span>
-                        <button type="button" class="mini-button" data-notify-all="${escapeHtml(v.nome)}" aria-label="Notificar tudo pra ${escapeHtml(v.nome)}">Notificar tudo</button>
+                        <button type="button" class="text-link" data-notify-all="${escapeHtml(v.nome)}" aria-label="Notificar tudo pra ${escapeHtml(v.nome)}">Notificar tudo</button>
                     </div>`
                     : '<span class="camp-tag-ok">✓ Em dia</span>'}
             </div>
@@ -176,8 +176,8 @@ export async function renderNotificacoesPage() {
                 <h2>Notificações ${totalPendenciasAtivas ? `<span class="notif-header-badge">${totalPendenciasAtivas} pendência${totalPendenciasAtivas > 1 ? 's' : ''} ativa${totalPendenciasAtivas > 1 ? 's' : ''}</span>` : ''}</h2>
             </div>
             <div class="page-header-actions">
-                ${isGestor ? '<button type="button" class="mini-button" id="notif-compose">+ Nova notificação</button>' : ''}
-                ${notifResult.naoLidas ? '<button type="button" class="mini-button" id="notif-marcar-todas">Marcar todas como lidas</button>' : ''}
+                ${notifResult.naoLidas ? '<button type="button" class="text-link" id="notif-marcar-todas">Marcar todas como lidas</button>' : ''}
+                ${isGestor ? '<button type="button" class="primary-btn" id="notif-compose">+ Nova notificação</button>' : ''}
             </div>
         </div>
 
