@@ -260,7 +260,7 @@ export async function renderRadarPage(options) {
                     <select id="radar-prioridade"><option value="">Todas as prioridades</option><option value="Alta">Alta (70–100)</option><option value="Media">Media (40–69)</option><option value="Baixa">Baixa (0–39)</option></select>
                 </div>
                 <div class="form-group" id="radar-limpar-group" style="display:none">
-                    <button type="button" class="mini-button" id="radar-limpar-filtros">Limpar filtros</button>
+                    <button type="button" class="text-link" id="radar-limpar-filtros">Limpar filtros</button>
                 </div>
             </div>
             ${RADAR_EMPRESA_MAP_ENABLED ? '<div id="radar-empresa-map-wrap"></div>' : ''}
@@ -283,7 +283,7 @@ export async function renderRadarPage(options) {
                     </select>
                 </div>
                 <p class="field-helper-text" id="radar-historico-scope-label"></p>
-                <button type="button" class="mini-button" id="radar-historico-scope-btn" style="display:none">Ver todas as cidades</button>
+                <button type="button" class="text-link" id="radar-historico-scope-btn" style="display:none">Ver todas as cidades</button>
             </div>
             <div id="radar-historico-results"></div>
         </div>
@@ -1157,31 +1157,33 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHt
         ${resumoHtml || `<p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>`}
         <div class="visits-list">${sorted.map((c) => `
             <button type="button" class="radar-cliente-card${reservaAtiva(c) ? ' radar-cliente-card-reservado' : ''}" data-radar-id="${escapeHtml(c.id)}">
-                <div class="radar-cliente-header">
-                    <strong>${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</strong>
-                    <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
-                    <span class="radar-score-pill radar-score-${String(c.pontuacao?.prioridade || '').toLowerCase()}">${escapeHtml(c.pontuacao?.prioridade === 'Encerrada' ? 'Encerrada' : `${c.pontuacao?.score || 0}/100 · ${c.pontuacao?.prioridade || 'Baixa'}`)}</span>
+                <div class="item-body">
+                    <div class="item-top">
+                        <span class="item-name">${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</span>
+                        <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
+                    </div>
+                    <div class="item-meta">
+                        ${c.nomeFantasia && c.nome && c.nomeFantasia !== c.nome ? escapeHtml(c.nome) + ' · ' : ''}${c.telefone ? '📞 ' + escapeHtml(c.telefone) + ' · ' : ''}${escapeHtml(cidadeLabel(c))}
+                    </div>
+                    <div class="item-bottom">
+                        <span class="radar-score-pill radar-score-${String(c.pontuacao?.prioridade || '').toLowerCase()}">${escapeHtml(c.pontuacao?.prioridade === 'Encerrada' ? 'Encerrada' : `${c.pontuacao?.score || 0}/100 · ${c.pontuacao?.prioridade || 'Baixa'}`)}</span>
+                        ${c.status === 'recusado' && c.statusRetornoPrevisto
+                            ? `<span class="item-seller">Retornar em: ${escapeHtml(c.statusRetornoPrevisto)}</span>`
+                            : ''}
+                        ${c.status === 'recusado' && c.statusPor
+                            ? `<span class="item-seller">Recusado por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span>`
+                            : ''}
+                        ${c.status === 'ja_atendido' && c.statusPor
+                            ? `<span class="item-seller">Marcado como cliente por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span>`
+                            : ''}
+                        ${c.status === 'ja_atendido' && c.indicadoPor
+                            ? `<span class="item-seller">Indicado por ${escapeHtml(c.indicadoPor)}</span>`
+                            : ''}
+                        ${reservaAtiva(c)
+                            ? `<span class="item-seller radar-reserva-tag">🔒 Reservado por ${escapeHtml(c.reservadoPor)} até ${escapeHtml(c.reservadoAte)}</span>`
+                            : ''}
+                    </div>
                 </div>
-                ${c.nomeFantasia && c.nome && c.nomeFantasia !== c.nome ? `<div class="radar-cliente-meta"><span>${escapeHtml(c.nome)}</span></div>` : ''}
-                <div class="radar-cliente-meta">
-                    ${c.telefone ? `<span>📞 ${escapeHtml(c.telefone)}</span>` : ''}
-                    <span>${escapeHtml(cidadeLabel(c))}</span>
-                </div>
-                ${c.status === 'recusado' && c.statusRetornoPrevisto
-                    ? `<div class="radar-cliente-meta"><span>Retornar em: ${escapeHtml(c.statusRetornoPrevisto)}</span></div>`
-                    : ''}
-                ${c.status === 'recusado' && c.statusPor
-                    ? `<div class="radar-cliente-meta"><span>Recusado por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span></div>`
-                    : ''}
-                ${c.status === 'ja_atendido' && c.statusPor
-                    ? `<div class="radar-cliente-meta"><span>Marcado como cliente por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span></div>`
-                    : ''}
-                ${c.status === 'ja_atendido' && c.indicadoPor
-                    ? `<div class="radar-cliente-meta"><span>Indicado por ${escapeHtml(c.indicadoPor)}</span></div>`
-                    : ''}
-                ${reservaAtiva(c)
-                    ? `<div class="radar-cliente-meta radar-reserva-tag"><span>🔒 Reservado por ${escapeHtml(c.reservadoPor)} até ${escapeHtml(c.reservadoAte)}</span></div>`
-                    : ''}
             </button>
         `).join('')}</div>
     `;
