@@ -438,13 +438,24 @@ export function updateHeaderUI(user) {
     if (_installBtn) {
         if (_installPrompt) _installBtn.style.display = '';
         _installBtn.addEventListener('click', async () => {
-            if (!_installPrompt) return;
-            _installPrompt.prompt();
-            await _installPrompt.userChoice;
-            _installPrompt = null;
-            _installBtn.style.display = 'none';
+            const used = await consumeInstallPrompt();
+            if (used) _installBtn.style.display = 'none';
         });
     }
+}
+
+// Pra quem quer oferecer o botão de instalar em outro lugar além do
+// header (ex.: o banner do Dashboard) sem duplicar a lógica de
+// consumir/zerar o prompt — o evento 'beforeinstallprompt' só dispara
+// uma vez, então _installPrompt (acima) é sempre a única instância viva.
+export function hasInstallPrompt() { return !!_installPrompt; }
+export async function consumeInstallPrompt() {
+    if (!_installPrompt) return false;
+    const prompt = _installPrompt;
+    _installPrompt = null;
+    prompt.prompt();
+    await prompt.userChoice;
+    return true;
 }
 
 

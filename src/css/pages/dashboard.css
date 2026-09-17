@@ -44,7 +44,7 @@
    em branco mesmo quando devia ficar escondido. */
 .push-banner[hidden] { display: none; }
 .push-banner-text { min-width: 0; flex: 1 1 220px; }
-.push-banner-actions { display: flex; gap: 0.5rem; flex: 0 0 auto; }
+.push-banner-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; flex: 0 0 auto; }
 
 .dash-action-primary {
     display: inline-flex;

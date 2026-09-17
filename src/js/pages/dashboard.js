@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, calculateDaysFromDisplayDate, visitTypeClass, parseDisplayDate } from '../utils/format.js';
-import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, refreshNotificacoesBadge, checkOverdueNotification, checkClientesPrincipaisNotification } from '../utils/ui.js';
+import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, refreshNotificacoesBadge, checkOverdueNotification, checkClientesPrincipaisNotification, hasInstallPrompt, consumeInstallPrompt } from '../utils/ui.js';
 import { showSuccessPopup, showToast, setSaving } from '../utils/dom.js';
 import { isPushSupported, isAppInstalled, isIOS, enablePush } from '../utils/push.js';
 
@@ -43,7 +43,8 @@ export function fillDashboard(mainContent, data, user) {
             </div>
             <div class="push-banner-actions">
                 <button type="button" class="mini-button" id="push-banner-dismiss">Agora não</button>
-                <button type="button" class="primary-button" id="push-banner-enable" style="width:auto">Ativar</button>
+                <button type="button" class="primary-button" id="push-banner-install" style="width:auto" hidden>Instalar app</button>
+                <button type="button" class="primary-button" id="push-banner-enable" style="width:auto" hidden>Ativar notificações</button>
             </div>
         </div>
 
@@ -345,43 +346,74 @@ export function fillDashboard(mainContent, data, user) {
     setupPushBanner();
 }
 
-// Convite pra ativar notificações (push de verdade, chega com o app
-// fechado — ver src/js/utils/push.js). Reaparece a cada 24h enquanto a
-// pessoa não ativar (ou recusar de vez, aí Notification.permission fica
-// "denied" e nem o navegador deixa perguntar de novo). No iPhone, sem o
-// app instalado na Tela de Início nem dá pra pedir notificação — a única
+// Convite (nunca trava o uso do app — só um banner dispensável) pra
+// instalar E ativar notificação push de verdade (ver src/js/utils/
+// push.js). Reaparece a cada 24h enquanto faltar alguma das duas coisas.
+// No iPhone sem instalar nem dá pra pedir notificação, então a única
 // coisa que ajuda ali é a instrução de instalação.
 async function setupPushBanner() {
     const banner = document.getElementById('push-banner');
     if (!banner) return;
-    if (!isPushSupported() && !isIOS()) return;
 
     const dismissedAt = parseInt(localStorage.getItem('push_banner_dismissed_at') || '0', 10);
-    if (Date.now() - dismissedAt < 24 * 60 * 60 * 1000) return;
+    if (Date.now() - dismissedAt < 24 * 60 * 60 * 1000) { banner.hidden = true; return; }
 
+    const installBtn = banner.querySelector('#push-banner-install');
     const enableBtn = banner.querySelector('#push-banner-enable');
-    if (isIOS() && !isAppInstalled()) {
-        banner.querySelector('.push-banner-title').textContent = '📲 Instale o app pra receber notificações';
-        banner.querySelector('.push-banner-desc').textContent = 'Toque em Compartilhar e depois em "Adicionar à Tela de Início". Depois, abra o app por esse ícone.';
-        enableBtn.hidden = true;
-        banner.hidden = false;
-    } else if (Notification.permission === 'granted') {
-        // Já autorizou antes — só garante que a inscrição deste aparelho
-        // ainda está válida no servidor, sem precisar mostrar nada.
+    const titleEl = banner.querySelector('.push-banner-title');
+    const descEl = banner.querySelector('.push-banner-desc');
+    installBtn.hidden = true;
+    enableBtn.hidden = true;
+
+    const installed = isAppInstalled();
+    const iosNeedsManualInstall = isIOS() && !installed;
+    const canPromptInstall = !installed && !isIOS() && hasInstallPrompt();
+    // Sem 'Notification' no navegador (raro, mas existe), trata como
+    // "nunca vai conseguir ativar" em vez de arriscar um erro ao ler
+    // Notification.permission — só o convite de instalar (se aplicável)
+    // ainda faz sentido mostrar.
+    const notifPermission = ('Notification' in window) ? Notification.permission : 'denied';
+
+    if (notifPermission === 'granted' && installed) {
+        // Já tem os dois — só garante que a inscrição deste aparelho segue
+        // válida no servidor, sem precisar mostrar nada.
         enablePush().catch(() => {});
-        return;
-    } else if (Notification.permission !== 'denied') {
-        banner.querySelector('.push-banner-title').textContent = '🔔 Ative as notificações';
-        banner.querySelector('.push-banner-desc').textContent = 'Receba um aviso no celular quando pedirem uma atualização sua.';
-        enableBtn.hidden = false;
-        banner.hidden = false;
-    } else {
+        banner.hidden = true;
         return;
     }
+    // Permissão bloqueada de vez e nada de instalação pendente: nenhum
+    // botão resolveria isso, então não insiste (nem trava, nem repete).
+    if (notifPermission === 'denied' && !iosNeedsManualInstall && !canPromptInstall) {
+        banner.hidden = true;
+        return;
+    }
+
+    let descText;
+    if (iosNeedsManualInstall) {
+        descText = 'Toque em Compartilhar e depois em "Adicionar à Tela de Início".';
+    } else {
+        const parts = [];
+        if (canPromptInstall) { installBtn.hidden = false; parts.push('instale o app pra ter acesso rápido'); }
+        if (isPushSupported() && notifPermission !== 'denied') { enableBtn.hidden = false; parts.push('ative as notificações pra saber na hora quando pedirem uma atualização sua'); }
+        if (!parts.length) { banner.hidden = true; return; }
+        descText = parts.join(' e ') + '.';
+        descText = descText.charAt(0).toUpperCase() + descText.slice(1);
+    }
+
+    titleEl.textContent = !installed ? '📲🔔 Instale o app e ative as notificações' : '🔔 Ative as notificações';
+    descEl.textContent = descText;
+    banner.hidden = false;
 
     banner.querySelector('#push-banner-dismiss').onclick = () => {
         localStorage.setItem('push_banner_dismissed_at', String(Date.now()));
         banner.hidden = true;
+    };
+    installBtn.onclick = async (e) => {
+        const btn = e.currentTarget;
+        setSaving(true, btn, 'Instalando...');
+        await consumeInstallPrompt();
+        setSaving(false, btn);
+        setupPushBanner();
     };
     enableBtn.onclick = async (e) => {
         const btn = e.currentTarget;
@@ -389,10 +421,11 @@ async function setupPushBanner() {
         try {
             await enablePush();
             showToast('Notificações ativadas!');
-            banner.hidden = true;
         } catch (err) {
             showToast(err.message || 'Não foi possível ativar.', true);
+        } finally {
             setSaving(false, btn);
+            setupPushBanner();
         }
     };
 }
