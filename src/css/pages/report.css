@@ -24,18 +24,6 @@
    impressão (o conteúdo é montado na hora do clique, não fica no DOM). */
 #report-detail-print { display: none; }
 
-.report-period-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-}
-
-.report-period-buttons .mini-button.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-}
-
 .report-custom-range {
     display: flex;
     gap: 0.75rem;

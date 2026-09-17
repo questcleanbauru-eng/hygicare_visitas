@@ -2276,8 +2276,9 @@ input[type="date"] {
 }
 
 .report-kpi {
-    background: var(--bg);
-    border-radius: var(--radius-sm);
+    background: var(--bg-sunken);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
     padding: 0.75rem 0.6rem;
     text-align: center;
     display: flex;
@@ -2285,15 +2286,17 @@ input[type="date"] {
     gap: 0.2rem;
 }
 
-.report-kpi strong { font-size: 1.3rem; font-weight: 800; color: var(--primary-dark); }
-.report-kpi span { font-size: 0.72rem; color: var(--text-muted-strong); }
+.report-kpi strong { font-size: 1.3rem; font-weight: 800; color: var(--ink); }
+.report-kpi span { font-size: 0.72rem; color: var(--ink-soft); }
 
-.report-kpi-alert strong { color: var(--warning); }
+.report-kpi-alert strong { color: var(--c-manutencao); }
 
 .report-subtitle {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--text-muted-strong);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
     margin: 0.6rem 0 0.4rem;
 }
 
@@ -2306,10 +2309,10 @@ input[type="date"] {
     font-size: 0.8rem;
 }
 
-.report-bar-label { flex: 0 0 150px; color: var(--text-muted-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.report-bar-track { flex: 1; height: 8px; background: var(--bg); border-radius: 999px; overflow: hidden; }
-.report-bar-fill { height: 100%; background: var(--primary); border-radius: 999px; }
-.report-bar-value { flex: 0 0 26px; text-align: right; font-weight: 700; }
+.report-bar-label { flex: 0 0 150px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report-bar-track { flex: 1; height: 8px; background: var(--bg-sunken); border-radius: 999px; overflow: hidden; }
+.report-bar-fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.report-bar-value { flex: 0 0 26px; text-align: right; font-weight: 700; color: var(--ink); }
 
 .report-top-list { display: flex; flex-direction: column; gap: 0.35rem; }
 
@@ -2318,7 +2321,7 @@ input[type="date"] {
     align-items: center;
     gap: 0.6rem;
     font-size: 0.8rem;
-    background: var(--bg);
+    background: var(--bg-sunken);
     border-radius: var(--radius-sm);
     padding: 0.45rem 0.6rem;
 }
@@ -2327,7 +2330,7 @@ input[type="date"] {
     flex: 0 0 20px;
     height: 20px;
     border-radius: 50%;
-    background: var(--primary);
+    background: var(--ink);
     color: #fff;
     font-size: 0.68rem;
     font-weight: 800;
@@ -2336,8 +2339,8 @@ input[type="date"] {
     justify-content: center;
 }
 
-.report-top-label { flex: 1; color: var(--text-muted-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.report-top-value { flex: 0 0 auto; font-weight: 700; color: var(--primary-dark); }
+.report-top-label { flex: 1; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-top-value { flex: 0 0 auto; font-weight: 700; color: var(--ink); }
 
 /* Sem break-inside:avoid na lista inteira — como o número de barras varia
    com os dados, isso empurraria a lista inteira pra página seguinte mesmo

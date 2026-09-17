@@ -373,15 +373,15 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             <div class="visits-filter-header">
                 <strong>Filtros</strong>
                 <div class="visits-filter-header-actions">
-                    <button type="button" class="mini-button" id="report-filter-clear">Limpar</button>
-                    <button type="button" class="mini-button" id="report-filter-toggle">Ocultar</button>
+                    <button type="button" class="text-link" id="report-filter-clear">Limpar</button>
+                    <button type="button" class="text-link" id="report-filter-toggle">Ocultar</button>
                 </div>
             </div>
-            <div class="report-period-buttons">
-                <button type="button" class="mini-button ${period === 'semana-atual' ? 'active' : ''}" data-period="semana-atual">Semana atual</button>
-                <button type="button" class="mini-button ${period === 'mes-atual' ? 'active' : ''}" data-period="mes-atual">Mês atual</button>
-                <button type="button" class="mini-button ${period === 'ultimos-3m' ? 'active' : ''}" data-period="ultimos-3m">Últimos 3 meses</button>
-                <button type="button" class="mini-button ${period === 'personalizado' ? 'active' : ''}" data-period="personalizado">Personalizado</button>
+            <div class="pill-row">
+                <button type="button" class="pill${period === 'semana-atual' ? ' active' : ''}" data-period="semana-atual">Semana atual</button>
+                <button type="button" class="pill${period === 'mes-atual' ? ' active' : ''}" data-period="mes-atual">Mês atual</button>
+                <button type="button" class="pill${period === 'ultimos-3m' ? ' active' : ''}" data-period="ultimos-3m">Últimos 3 meses</button>
+                <button type="button" class="pill${period === 'personalizado' ? ' active' : ''}" data-period="personalizado">Personalizado</button>
             </div>
             <div class="visits-filter-grid" id="report-filter-panel">
             ${period === 'personalizado' ? `
@@ -429,18 +429,18 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
 
         <div class="report-jump-nav no-print">
             <span>Ir para:</span>
-            <button type="button" class="mini-button" data-jump="visitas">📋 Visitas</button>
-            <button type="button" class="mini-button" data-jump="propostas">📄 Propostas</button>
-            <button type="button" class="mini-button" data-jump="funil">📊 Funil</button>
+            <button type="button" class="text-link" data-jump="visitas">📋 Visitas</button>
+            <button type="button" class="text-link" data-jump="propostas">📄 Propostas</button>
+            <button type="button" class="text-link" data-jump="funil">📊 Funil</button>
         </div>
 
         <div class="report-section report-section-visitas${secOpen('visitas') ? '' : ' is-collapsed'}" data-section-key="visitas">
             <div class="report-section-head">
                 <h3>📋 Visitas</h3>
                 <div class="report-section-actions no-print">
-                    <button type="button" class="mini-button" id="pdf-visitas">📄 Resumo</button>
-                    ${isAdmGer ? '<button type="button" class="mini-button" id="pdf-det-visitas">📄 Por gerência/vendedor</button>' : ''}
-                    <button type="button" class="mini-button" id="csv-visitas">📥 CSV</button>
+                    <button type="button" class="text-link" id="pdf-visitas">📄 Resumo</button>
+                    ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-visitas">📄 Por gerência/vendedor</button>' : ''}
+                    <button type="button" class="text-link" id="csv-visitas">📥 CSV</button>
                     ${secToggle('visitas')}
                 </div>
             </div>
@@ -460,9 +460,9 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             <div class="report-section-head">
                 <h3>📄 Propostas</h3>
                 <div class="report-section-actions no-print">
-                    <button type="button" class="mini-button" id="pdf-propostas">📄 Resumo</button>
-                    ${isAdmGer ? '<button type="button" class="mini-button" id="pdf-det-propostas">📄 Por vendedor</button>' : ''}
-                    <button type="button" class="mini-button" id="csv-propostas">📥 CSV</button>
+                    <button type="button" class="text-link" id="pdf-propostas">📄 Resumo</button>
+                    ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-propostas">📄 Por vendedor</button>' : ''}
+                    <button type="button" class="text-link" id="csv-propostas">📥 CSV</button>
                     ${secToggle('propostas')}
                 </div>
             </div>
@@ -494,9 +494,9 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             <div class="report-section-head">
                 <h3>📊 Funil</h3>
                 <div class="report-section-actions no-print">
-                    <button type="button" class="mini-button" id="pdf-funil">📄 Resumo</button>
-                    ${isAdmGer ? '<button type="button" class="mini-button" id="pdf-det-funil">📄 Por vendedor</button>' : ''}
-                    <button type="button" class="mini-button" id="csv-funil">📥 CSV</button>
+                    <button type="button" class="text-link" id="pdf-funil">📄 Resumo</button>
+                    ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-funil">📄 Por vendedor</button>' : ''}
+                    <button type="button" class="text-link" id="csv-funil">📥 CSV</button>
                     ${secToggle('funil')}
                 </div>
             </div>
