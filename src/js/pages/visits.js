@@ -300,19 +300,18 @@ export function fillVisitsContent(container, visits) {
                 <div class="visits-list">
                     ${visitsByMonth[monthKey].map((visit) => `
                         <div class="visit-card-wrap">
-                            <button class="visit-card" type="button" data-visit-id="${escapeHtml(visit.id)}">
-                                <div class="visit-card-header">
-                                    <div style="display:flex;align-items:center;gap:0.45rem;min-width:0">
-                                        <span class="type-chip sm ${visitTypeCategory(visit.tipoVisita)}" aria-hidden="true">${visitTypeIcon(visit.tipoVisita)}</span>
-                                        <strong>${escapeHtml(visit.cliente || 'Cliente não informado')}</strong>
+                            <button class="visit-card item-row" type="button" data-visit-id="${escapeHtml(visit.id)}">
+                                <span class="type-chip ${visitTypeCategory(visit.tipoVisita)}" aria-hidden="true">${visitTypeIcon(visit.tipoVisita)}</span>
+                                <div class="item-body">
+                                    <div class="item-top">
+                                        <span class="item-name">${escapeHtml(visit.cliente || 'Cliente não informado')}</span>
+                                        ${visit._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : ''}
                                     </div>
-                                    <span class="visit-date">${visit._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : escapeHtml(visit.dataVisita || '')}</span>
-                                </div>
-                                <div class="visit-card-body">
-                                    <span class="status-tag ${visitTypeCategory(visit.tipoVisita)}">${escapeHtml(visit.tipoVisita || '-')}</span>
-                                    <span>${escapeHtml(visit.cidade || '-')}</span>
-                                    <span>${escapeHtml(visit.horario || '-')}</span>
-                                    ${isAdmGer && visit.vendedorGerente ? `<span style="color:var(--primary);font-weight:600">${escapeHtml(visit.vendedorGerente)}</span>` : ''}
+                                    <div class="item-meta">${[visit.dataVisita, visit.cidade, visit.horario].filter(Boolean).map(escapeHtml).join(' · ') || '-'}</div>
+                                    <div class="item-bottom">
+                                        <span class="status-tag ${visitTypeCategory(visit.tipoVisita)}">${escapeHtml(visit.tipoVisita || '-')}</span>
+                                        ${isAdmGer && visit.vendedorGerente ? `<span class="item-seller">${escapeHtml(visit.vendedorGerente)}</span>` : ''}
+                                    </div>
                                 </div>
                             </button>
                             <div class="visit-card-actions">

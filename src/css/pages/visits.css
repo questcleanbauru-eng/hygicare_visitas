@@ -96,15 +96,26 @@
 
 .visit-card {
     background-color: var(--surface);
-    border-radius: var(--radius);
-    padding: 0.62rem 0.85rem;
-    box-shadow: var(--shadow-xs);
-    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 0.62rem 2rem 0.62rem 0.85rem;
+    box-shadow: none;
+    border: 1px solid var(--line);
     cursor: pointer;
     text-align: left;
     width: 100%;
-    transition: box-shadow 0.18s, transform 0.15s, border-color 0.15s, background-color 0.1s;
+    transition: border-color 0.15s, background-color 0.1s;
     position: relative;
+}
+
+/* Layout do item da lista principal (chip + .item-body lado a lado) —
+   classe própria em vez de mudar o .visit-card base, porque esse
+   também é usado no card do dia (Agenda), ainda com o layout antigo
+   empilhado (.visit-card-header em cima, .visit-card-body embaixo);
+   virar flex ali quebraria essa outra tela antes da vez dela. */
+.visit-card.item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
 }
 
 .visit-card::after {

@@ -69,19 +69,27 @@
     line-height: 1;
 }
 .type-chip svg { width: 16px; height: 16px; }
-/* Compacto — cabeçalho de item de lista, ao lado do nome (não como
-   coluna própria). */
-.type-chip.sm { width: 24px; height: 24px; border-radius: 7px; font-size: 12px; }
-.type-chip.sm svg { width: 13px; height: 13px; }
 .type-chip.manutencao { background: var(--c-manutencao-soft); color: var(--c-manutencao); }
 .type-chip.pedido { background: var(--c-pedido-soft); color: var(--c-pedido); }
 .type-chip.preventiva { background: var(--c-preventiva-soft); color: var(--c-preventiva); }
 .type-chip.apresentacao { background: var(--c-apresentacao-soft); color: var(--c-apresentacao); }
 
+/* Item de lista (Visitas/Propostas/Funil...) — chip + corpo lado a
+   lado. .item em si (padding/borda) fica por conta de cada tela porque
+   o app usa cards individuais, não lista com divisórias como o mockup
+   (ver comentário no piloto de Visitas); estas 5 classes de dentro do
+   item são literais do mockup. */
+.item-body { flex: 1; min-width: 0; }
+.item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.item-name { font-size: 14.5px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-meta { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+.item-bottom { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.item-seller { font-size: 12px; color: var(--ink-soft); font-weight: 500; }
+
 .status-tag {
-    font-size: 0.68rem;
+    font-size: 11px;
     font-weight: 600;
-    padding: 0.18rem 0.55rem;
+    padding: 3px 9px;
     border-radius: 6px;
     display: inline-block;
     background: var(--bg-sunken);
