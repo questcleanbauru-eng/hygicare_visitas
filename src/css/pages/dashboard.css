@@ -582,8 +582,8 @@
     .sidebar-tooltip.visible { opacity: 1; }
 
     .nav-btn.active .nav-icon {
-        background: rgba(30,58,138,0.08);
-        color: var(--primary-dark);
+        background: var(--bg-sunken);
+        color: var(--ink);
     }
     .nav-btn:hover:not(.active) .nav-icon { background: #f1f5f9; }
     .nav-btn:hover:not(.active) { background: transparent; }
@@ -637,7 +637,7 @@
         width: 28px;
         height: 28px;
         border-radius: 50%;
-        background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+        background: var(--ink);
         color: #fff;
         display: flex;
         align-items: center;

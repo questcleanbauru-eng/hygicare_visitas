@@ -278,7 +278,7 @@ input, textarea, select,
     color: var(--text);
 }
 
-.mobile-extra-menu .nav-btn.active { background: var(--primary-light); color: var(--primary); }
+.mobile-extra-menu .nav-btn.active { background: var(--bg-sunken); color: var(--ink); }
 
 .mobile-extra-menu .nav-btn .nav-btn-label { font-size: inherit; margin: 0; }
 
@@ -358,9 +358,9 @@ input, textarea, select,
     transition: background-color 0.2s, transform 0.15s;
 }
 
-.nav-btn.active { color: var(--primary-dark); font-weight: 700; }
+.nav-btn.active { color: var(--ink); font-weight: 700; }
 
-.nav-btn.active .nav-icon { background: var(--info-bg); transform: scale(1.08); }
+.nav-btn.active .nav-icon { background: var(--bg-sunken); transform: scale(1.08); }
 
 .nav-btn:active .nav-icon { transform: scale(0.9); }
 
