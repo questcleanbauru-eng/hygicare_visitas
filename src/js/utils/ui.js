@@ -449,13 +449,17 @@ export function updateHeaderUI(user) {
 // consumir/zerar o prompt — o evento 'beforeinstallprompt' só dispara
 // uma vez, então _installPrompt (acima) é sempre a única instância viva.
 export function hasInstallPrompt() { return !!_installPrompt; }
+// Devolve o outcome de verdade ('accepted'/'dismissed') em vez de só
+// true/false — quem chama (banner, botão do header) precisa saber se a
+// pessoa recusou o instalador nativo, pra poder avisar em vez de ficar
+// em silêncio como se nada tivesse acontecido.
 export async function consumeInstallPrompt() {
-    if (!_installPrompt) return false;
+    if (!_installPrompt) return null;
     const prompt = _installPrompt;
     _installPrompt = null;
     prompt.prompt();
-    await prompt.userChoice;
-    return true;
+    const choice = await prompt.userChoice;
+    return choice.outcome;
 }
 
 

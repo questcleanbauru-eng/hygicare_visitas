@@ -389,18 +389,25 @@ async function setupPushBanner() {
     }
 
     let descText;
+    let needsInstall = false, needsNotif = false;
     if (iosNeedsManualInstall) {
+        needsInstall = true;
         descText = 'Toque em Compartilhar e depois em "Adicionar à Tela de Início".';
     } else {
         const parts = [];
-        if (canPromptInstall) { installBtn.hidden = false; parts.push('instale o app pra ter acesso rápido'); }
-        if (isPushSupported() && notifPermission !== 'denied') { enableBtn.hidden = false; parts.push('ative as notificações pra saber na hora quando pedirem uma atualização sua'); }
+        if (canPromptInstall) { needsInstall = true; installBtn.hidden = false; parts.push('instale o app pra ter acesso rápido'); }
+        // Só quando ainda não foi decidido ('default') — 'granted' não tem
+        // mais nada a pedir aqui (bug antigo: mostrava o botão de novo
+        // mesmo já ativado, parecendo que o clique anterior não fez nada).
+        if (isPushSupported() && notifPermission === 'default') { needsNotif = true; enableBtn.hidden = false; parts.push('ative as notificações pra saber na hora quando pedirem uma atualização sua'); }
         if (!parts.length) { banner.hidden = true; return; }
         descText = parts.join(' e ') + '.';
         descText = descText.charAt(0).toUpperCase() + descText.slice(1);
     }
 
-    titleEl.textContent = !installed ? '📲🔔 Instale o app e ative as notificações' : '🔔 Ative as notificações';
+    titleEl.textContent = needsInstall && needsNotif ? '📲🔔 Instale o app e ative as notificações'
+        : needsInstall ? '📲 Instale o app'
+        : '🔔 Ative as notificações';
     descEl.textContent = descText;
     banner.hidden = false;
 
@@ -411,7 +418,10 @@ async function setupPushBanner() {
     installBtn.onclick = async (e) => {
         const btn = e.currentTarget;
         setSaving(true, btn, 'Instalando...');
-        await consumeInstallPrompt();
+        const outcome = await consumeInstallPrompt();
+        if (outcome === 'accepted') showToast('App instalado!');
+        else if (outcome === 'dismissed') showToast('Instalação cancelada — clique em "Instalar app" de novo quando quiser.', true);
+        else showToast('O navegador não ofereceu a instalação agora. Tente pelo menu (⋮) → "Instalar app".', true);
         setSaving(false, btn);
         setupPushBanner();
     };
