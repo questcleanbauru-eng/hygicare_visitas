@@ -222,7 +222,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 <h2 class="admin-hero-title">Painel Administrativo</h2>
                 <p class="admin-hero-sub">Gerencie usuários, notificações e configurações</p>
             </div>
-            <button type="button" class="mini-button" id="admin-force-refresh-btn" style="margin-left:auto;align-self:center" title="Use depois de editar a planilha (ex.: Clientes) direto no Google Sheets">🔄 Atualizar dados</button>
+            <button type="button" class="text-link" id="admin-force-refresh-btn" style="margin-left:auto;align-self:center" title="Use depois de editar a planilha (ex.: Clientes) direto no Google Sheets">🔄 Atualizar dados</button>
         </div>
 
         <div class="admin-tabs-bar">

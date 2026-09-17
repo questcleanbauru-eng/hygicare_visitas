@@ -332,7 +332,7 @@
 
 .admin-tab:hover { color: var(--text); }
 
-.admin-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.admin-tab.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
 
 .admin-tab-panel { display: none; }
 
