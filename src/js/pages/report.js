@@ -40,6 +40,39 @@ function printDetalhe(title, subtitle, innerHtml) {
     window.print();
 }
 
+// Modal do botão "Por gerência/vendedor" — deixa escolher UMA gerência só
+// pro PDF (sem mexer no filtro "Gerência" geral do relatório, que afeta os
+// KPIs/gráficos da tela inteira). null = cancelou; '' = "Todas as gerências".
+function pickGerenciaParaPdf(gerencias) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card" style="text-align:left;max-width:360px">
+                <h3 style="margin-top:0">📄 Gerência no PDF</h3>
+                <p class="helper-text" style="margin:-0.3rem 0 0.9rem">Escolha uma gerência pra gerar o PDF só dela, ou deixe "Todas" pra manter o relatório completo.</p>
+                <div class="form-group full-width">
+                    <label for="pdf-gerencia-select">Gerência</label>
+                    <select id="pdf-gerencia-select">
+                        <option value="">Todas as gerências</option>
+                        ${gerencias.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-actions full-width" style="display:flex;gap:0.5rem">
+                    <button type="button" class="secondary-button" id="pdf-gerencia-cancel">Cancelar</button>
+                    <button type="button" class="primary-button" id="pdf-gerencia-ok">Gerar PDF</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        const close = (result) => { overlay.remove(); resolve(result); };
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(null); });
+        overlay.querySelector('#pdf-gerencia-cancel').addEventListener('click', () => close(null));
+        overlay.querySelector('#pdf-gerencia-ok').addEventListener('click', () => {
+            close(overlay.querySelector('#pdf-gerencia-select').value);
+        });
+    });
+}
+
 // Probabilidade de fechamento por estágio do funil — usada no forecast
 // ponderado (Vl Mensal × probabilidade).
 const FUNIL_PROB = { IDENTIFICAR: 0.10, RETOMAR: 0.15, PROPOSTA: 0.30, NEGOCIAR: 0.60, CONCLUIDO: 1, PERDIDO: 0 };
@@ -592,10 +625,24 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             ]
         ));
     });
-    document.getElementById('pdf-det-visitas')?.addEventListener('click', () => {
+    document.getElementById('pdf-det-visitas')?.addEventListener('click', async () => {
         if (!visits.length) { showToast('Nenhuma visita no período.', true); return; }
-        printDetalhe('Visitas — detalhado por gerência e vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${visits.length} visita(s)`, groupedGerenciaVendorTables(
-            visits, (v) => v.gerencia, (v) => v.vendedorGerente, (v) => v.dataVisita,
+        let visitsParaPdf = visits;
+        let gerenciaEscolhida = gerencia;
+        // Já filtrado por uma gerência específica no painel de Filtros? Não
+        // faz sentido perguntar de novo — só pergunta quando o relatório
+        // ainda mostra mais de uma gerência.
+        if (isAdmin && !gerencia && gerenciasDisponiveis.length > 1) {
+            const escolha = await pickGerenciaParaPdf(gerenciasDisponiveis);
+            if (escolha === null) return;
+            if (escolha) {
+                gerenciaEscolhida = escolha;
+                visitsParaPdf = visits.filter((v) => titleCase(v.gerencia) === escolha);
+                if (!visitsParaPdf.length) { showToast(`Nenhuma visita de "${escolha}" no período.`, true); return; }
+            }
+        }
+        printDetalhe('Visitas — detalhado por gerência e vendedor', `${escapeHtml(periodLabel)}${gerenciaEscolhida ? ' · ' + gerenciaEscolhida : ''} — ${visitsParaPdf.length} visita(s)`, groupedGerenciaVendorTables(
+            visitsParaPdf, (v) => v.gerencia, (v) => v.vendedorGerente, (v) => v.dataVisita,
             ['Data', 'Cliente', 'Tipo da Visita', 'Cidade', 'Contato'],
             (v) => [
                 escapeHtml(v.dataVisita || '-'), escapeHtml(titleCase(v.cliente) || '-'), escapeHtml(v.tipoVisita || '-'),
