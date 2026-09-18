@@ -233,34 +233,40 @@ export async function renderRadarPage(options) {
             <div id="radar-reservas-expirando-wrap"></div>
             ${RADAR_MAP_ENABLED ? '<div id="radar-map-wrap"></div>' : ''}
             <div class="card radar-search-card">
-                <div class="form-group">
-                    <label for="radar-cidade">Cidade</label>
-                    <div class="searchable-select">
-                        <input type="text" id="radar-cidade" placeholder="Escolha uma cidade liberada" autocomplete="off">
-                        <div class="searchable-select-menu" id="radar-cidade-menu"></div>
+                <div class="radar-search-card-header">
+                    <button type="button" class="radar-search-toggle" id="radar-search-toggle" aria-expanded="true" aria-controls="radar-search-body">
+                        <span class="dash-cp-chevron" aria-hidden="true">▾</span>
+                        <span class="radar-search-toggle-label">Ocultar filtros</span>
+                    </button>
+                    <button type="button" class="text-link" id="radar-limpar-filtros" style="display:none">Limpar filtros</button>
+                </div>
+                <div class="radar-search-card-body" id="radar-search-body">
+                    <div class="form-group">
+                        <label for="radar-cidade">Cidade</label>
+                        <div class="searchable-select">
+                            <input type="text" id="radar-cidade" placeholder="Escolha uma cidade liberada" autocomplete="off">
+                            <div class="searchable-select-menu" id="radar-cidade-menu"></div>
+                        </div>
+                        <p class="field-helper-text" id="radar-dados-info" style="display:none"></p>
                     </div>
-                    <p class="field-helper-text" id="radar-dados-info" style="display:none"></p>
-                </div>
-                <div class="form-group" id="radar-busca-nome-group" style="display:none">
-                    <label for="radar-busca-nome">Buscar por nome ou CNPJ</label>
-                    <input type="text" id="radar-busca-nome" placeholder="Digite pra filtrar a lista..." autocomplete="off">
-                </div>
-                <div class="form-group" id="radar-segmento-group" style="display:none">
-                    <label for="radar-segmento">Segmento</label>
-                    <select id="radar-segmento">
-                        <option value="">Todos os segmentos</option>
-                    </select>
-                </div>
-                <div class="form-group" id="radar-status-filtro-group" style="display:none">
-                    <label>Status</label>
-                    <div class="radar-status-chips" id="radar-status-chips" role="group" aria-label="Filtrar por status">${STATUS_FILTER_CHIPS_HTML}</div>
-                </div>
-                <div class="form-group" id="radar-prioridade-group" style="display:none">
-                    <label for="radar-prioridade">Prioridade</label>
-                    <select id="radar-prioridade"><option value="">Todas as prioridades</option><option value="Alta">Alta (70–100)</option><option value="Media">Media (40–69)</option><option value="Baixa">Baixa (0–39)</option></select>
-                </div>
-                <div class="form-group" id="radar-limpar-group" style="display:none">
-                    <button type="button" class="text-link" id="radar-limpar-filtros">Limpar filtros</button>
+                    <div class="form-group" id="radar-busca-nome-group" style="display:none">
+                        <label for="radar-busca-nome">Buscar por nome ou CNPJ</label>
+                        <input type="text" id="radar-busca-nome" placeholder="Digite pra filtrar a lista..." autocomplete="off">
+                    </div>
+                    <div class="form-group" id="radar-segmento-group" style="display:none">
+                        <label for="radar-segmento">Segmento</label>
+                        <select id="radar-segmento">
+                            <option value="">Todos os segmentos</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="radar-status-filtro-group" style="display:none">
+                        <label>Status</label>
+                        <div class="radar-status-chips" id="radar-status-chips" role="group" aria-label="Filtrar por status">${STATUS_FILTER_CHIPS_HTML}</div>
+                    </div>
+                    <div class="form-group" id="radar-prioridade-group" style="display:none">
+                        <label for="radar-prioridade">Prioridade</label>
+                        <select id="radar-prioridade"><option value="">Todas as prioridades</option><option value="Alta">Alta (70–100)</option><option value="Media">Media (40–69)</option><option value="Baixa">Baixa (0–39)</option></select>
+                    </div>
                 </div>
             </div>
             ${RADAR_EMPRESA_MAP_ENABLED ? '<div id="radar-empresa-map-wrap"></div>' : ''}
@@ -268,22 +274,31 @@ export async function renderRadarPage(options) {
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'historico' ? ' active' : ''}" id="radar-tab-historico">
             <div class="card radar-search-card">
-                <div class="form-group">
-                    <label for="radar-historico-busca-nome">Buscar por nome ou CNPJ</label>
-                    <input type="text" id="radar-historico-busca-nome" placeholder="Digite pra filtrar a lista..." autocomplete="off">
+                <div class="radar-search-card-header">
+                    <button type="button" class="radar-search-toggle" id="radar-historico-search-toggle" aria-expanded="true" aria-controls="radar-historico-search-body">
+                        <span class="dash-cp-chevron" aria-hidden="true">▾</span>
+                        <span class="radar-search-toggle-label">Ocultar filtros</span>
+                    </button>
+                    <button type="button" class="text-link" id="radar-historico-limpar-filtros">Limpar filtros</button>
                 </div>
-                <div class="form-group">
-                    <label for="radar-historico-status">Status</label>
-                    <select id="radar-historico-status">
-                        <option value="todos">Todos</option>
-                        <option value="buscado">Nunca contatado</option>
-                        <option value="ja_atendido">Já é cliente</option>
-                        <option value="recusado">Recusou</option>
-                        <option value="prospeccao_agendada">Prospecção agendada</option>
-                    </select>
+                <div class="radar-search-card-body" id="radar-historico-search-body">
+                    <div class="form-group">
+                        <label for="radar-historico-busca-nome">Buscar por nome ou CNPJ</label>
+                        <input type="text" id="radar-historico-busca-nome" placeholder="Digite pra filtrar a lista..." autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="radar-historico-status">Status</label>
+                        <select id="radar-historico-status">
+                            <option value="todos">Todos</option>
+                            <option value="buscado">Nunca contatado</option>
+                            <option value="ja_atendido">Já é cliente</option>
+                            <option value="recusado">Recusou</option>
+                            <option value="prospeccao_agendada">Prospecção agendada</option>
+                        </select>
+                    </div>
+                    <p class="field-helper-text" id="radar-historico-scope-label"></p>
+                    <button type="button" class="text-link" id="radar-historico-scope-btn" style="display:none">Ver todas as cidades</button>
                 </div>
-                <p class="field-helper-text" id="radar-historico-scope-label"></p>
-                <button type="button" class="text-link" id="radar-historico-scope-btn" style="display:none">Ver todas as cidades</button>
             </div>
             <div id="radar-historico-results"></div>
         </div>
@@ -624,6 +639,23 @@ async function renderReservasExpirando() {
     });
 }
 
+// Botão "Ocultar/Mostrar filtros" — some com o corpo do card (todos os
+// campos), deixando só o cabeçalho, pra sobrar tela pra lista de
+// resultados depois que os filtros já foram ajustados. Usado nas abas
+// Buscar e Histórico (cada uma com seu próprio par toggle/body).
+function wireSearchCardToggle(toggleId, bodyId) {
+    const toggleBtn = document.getElementById(toggleId);
+    const body = document.getElementById(bodyId);
+    if (!toggleBtn || !body) return;
+    toggleBtn.addEventListener('click', () => {
+        const collapsing = body.style.display !== 'none';
+        body.style.display = collapsing ? 'none' : '';
+        toggleBtn.setAttribute('aria-expanded', String(!collapsing));
+        toggleBtn.classList.toggle('is-collapsed', collapsing);
+        toggleBtn.querySelector('.radar-search-toggle-label').textContent = collapsing ? 'Mostrar filtros' : 'Ocultar filtros';
+    });
+}
+
 async function renderBuscarTab() {
     renderReservasExpirando();
     const resultsEl = document.getElementById('radar-results');
@@ -652,8 +684,8 @@ async function renderBuscarTab() {
     const statusChips = document.getElementById('radar-status-chips');
     const prioridadeGroup = document.getElementById('radar-prioridade-group');
     const prioridadeInput = document.getElementById('radar-prioridade');
-    const limparGroup = document.getElementById('radar-limpar-group');
     const limparBtn = document.getElementById('radar-limpar-filtros');
+    wireSearchCardToggle('radar-search-toggle', 'radar-search-body');
 
     const selectCidade = async (match) => {
         cidadeInput.value = cidadeLabel(match);
@@ -670,7 +702,7 @@ async function renderBuscarTab() {
         segmentoGroup.style.display = '';
         statusFiltroGroup.style.display = '';
         prioridadeGroup.style.display = '';
-        limparGroup.style.display = '';
+        limparBtn.style.display = '';
         // Data mais recente entre as empresas da cidade — dá pra ter noção
         // de quão desatualizada a base pode estar (importação é periódica,
         // não em tempo real).
@@ -724,7 +756,7 @@ async function renderBuscarTab() {
         segmentoGroup.style.display = 'none';
         statusFiltroGroup.style.display = 'none';
         prioridadeGroup.style.display = 'none';
-        limparGroup.style.display = 'none';
+        limparBtn.style.display = 'none';
         dadosInfoEl.style.display = 'none';
         resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Escolha uma cidade acima pra ver as empresas.</p></div>`;
         if (empresaMapInstance) { empresaMapInstance.remove(); empresaMapInstance = null; }
@@ -1214,14 +1246,21 @@ function updateHistoricoScopeLabel() {
 
 function loadHistorico() {
     updateHistoricoScopeLabel();
-    document.getElementById('radar-historico-busca-nome')?.addEventListener('input', () => renderHistoricoResults());
+    wireSearchCardToggle('radar-historico-search-toggle', 'radar-historico-search-body');
+    const buscaNomeInput = document.getElementById('radar-historico-busca-nome');
     const statusSelect = document.getElementById('radar-historico-status');
+    buscaNomeInput?.addEventListener('input', () => renderHistoricoResults());
     statusSelect?.addEventListener('change', () => renderHistoricoResults());
     document.getElementById('radar-historico-scope-btn')?.addEventListener('click', () => {
         // Já está tudo em todasEmpresas — só troca o escopo e re-renderiza,
         // sem chamada nenhuma ao servidor (antes buscava de novo aqui).
         historicoScopeAll = true;
         updateHistoricoScopeLabel();
+        renderHistoricoResults();
+    });
+    document.getElementById('radar-historico-limpar-filtros')?.addEventListener('click', () => {
+        if (buscaNomeInput) buscaNomeInput.value = '';
+        if (statusSelect) statusSelect.value = 'todos';
         renderHistoricoResults();
     });
     renderHistoricoResults();

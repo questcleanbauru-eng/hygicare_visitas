@@ -58,6 +58,10 @@ export async function renderNotificacoesPage() {
     }
 
     const notificacoes = notifResult.notificacoes || [];
+    // Lida = arquivada: some do Histórico pra não acumular notificação
+    // antiga já vista (inclusive as marcadas "✓ Lida" em sessões
+    // anteriores) — só o que ainda não foi lido fica visível na lista.
+    const notificacoesVisiveis = notificacoes.filter((n) => !n.lida);
     updateNotificacoesBadge(notifResult.naoLidas || 0);
 
     const d = (dashResult && dashResult.status === 'success' && dashResult.data) || {};
@@ -188,10 +192,10 @@ export async function renderNotificacoesPage() {
         <h3 class="dash-section-heading">SUAS PENDÊNCIAS</h3>
         <div class="notif-summary-grid">${minhasPendencias.map(summaryCardHtml).join('')}</div>` : ''}
 
-        <h3 class="dash-section-heading" style="margin-top:0.9rem">HISTÓRICO <span class="helper-text" style="text-transform:none;font-weight:500">(${notificacoes.length}${notifResult.naoLidas ? ` · ${notifResult.naoLidas} nova${notifResult.naoLidas > 1 ? 's' : ''}` : ''})</span></h3>
-        ${notificacoes.length === 0
-            ? '<div class="empty-state"><span class="empty-state-icon">🔔</span><p>Nenhuma notificação ainda.</p></div>'
-            : `<div class="camp-cards">${notificacoes.map(notifRow).join('')}</div>`}
+        <h3 class="dash-section-heading" style="margin-top:0.9rem">HISTÓRICO <span class="helper-text" style="text-transform:none;font-weight:500">(${notificacoesVisiveis.length})</span></h3>
+        ${notificacoesVisiveis.length === 0
+            ? '<div class="empty-state"><span class="empty-state-icon">🔔</span><p>Nenhuma notificação pendente. As lidas ficam arquivadas.</p></div>'
+            : `<div class="camp-cards">${notificacoesVisiveis.map(notifRow).join('')}</div>`}
 
         ${isGestor ? `
         <h3 class="dash-section-heading" style="margin-top:0.9rem">PENDÊNCIAS POR VENDEDOR/GERENTE</h3>
