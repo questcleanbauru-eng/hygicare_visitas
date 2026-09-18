@@ -5,6 +5,9 @@
   "redirects": [
     { "source": "/c/:id", "destination": "/?c=:id", "permanent": false }
   ],
+  "crons": [
+    { "path": "/api/cron-resumo", "schedule": "0 10 * * *" }
+  ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],

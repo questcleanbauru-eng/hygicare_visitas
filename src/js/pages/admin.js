@@ -323,6 +323,25 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 </div>
             </div>
             <div class="admin-section" style="margin-bottom:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">📋 Resumo diário</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <p class="helper-text" style="text-align:left;margin:0">Todo dia de manhã, um resumo do dia anterior (visitas, agendamentos, relatórios, campanhas) por e-mail + notificação. Escolha quem recebe.</p>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-resumo-admin" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.resumo_diario_admin) ? 'checked' : ''}>
+                        Admins
+                    </label>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-resumo-gerente" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.resumo_diario_gerente) ? 'checked' : ''}>
+                        Gerentes
+                    </label>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-resumo-vendedor" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.resumo_diario_vendedor) ? 'checked' : ''}>
+                        Vendedores
+                    </label>
+                    <button type="button" id="save-resumo-diario" class="primary-button" style="align-self:flex-start">Salvar</button>
+                </div>
+            </div>
+            <div class="admin-section" style="margin-bottom:1.25rem">
                 <div class="section-title-row"><h3 class="section-title">Permissões</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
@@ -989,6 +1008,16 @@ export function bindAdminEvents(data) {
         } else {
             showToast(result.message || 'Não foi possível salvar.', true);
         }
+    });
+
+    document.getElementById('save-resumo-diario')?.addEventListener('click', async () => {
+        const result = await saveEmailConfig({
+            resumo_diario_admin: document.getElementById('config-resumo-admin').checked ? 'true' : 'false',
+            resumo_diario_gerente: document.getElementById('config-resumo-gerente').checked ? 'true' : 'false',
+            resumo_diario_vendedor: document.getElementById('config-resumo-vendedor').checked ? 'true' : 'false'
+        });
+        if (result.status === 'success') { showToast('Configuração salva.'); }
+        else { showToast(result.message || 'Não foi possível salvar.', true); }
     });
 
     // Permissões (Gerente/Vendedor): apagar registros, criar Proposta/Funil, acessar Radar, editar Manutenção assinada
