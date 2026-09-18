@@ -906,14 +906,19 @@ export function updateNotificacoesBadge(count) {
     }
     // O sino do cabeçalho usa a mesma contagem de não lidas — um único
     // "isso precisa da sua atenção", sem outro número/critério próprio.
+    // Mostra o número (não só uma bolinha) pra dar noção de urgência de
+    // longe, igual o badge do menu já faz.
     const notifBtn = document.getElementById('header-notif');
     if (notifBtn) {
         let dot = notifBtn.querySelector('.header-notif-dot');
-        if (count > 0 && !dot) {
-            dot = document.createElement('span');
-            dot.className = 'header-notif-dot';
-            notifBtn.appendChild(dot);
-        } else if (count === 0 && dot) {
+        if (count > 0) {
+            if (!dot) {
+                dot = document.createElement('span');
+                dot.className = 'header-notif-dot';
+                notifBtn.appendChild(dot);
+            }
+            dot.textContent = count > 99 ? '99+' : String(count);
+        } else if (dot) {
             dot.remove();
         }
     }
