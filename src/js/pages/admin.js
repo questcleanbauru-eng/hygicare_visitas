@@ -1028,7 +1028,7 @@ export function bindAdminEvents(data) {
         setSaving(true, btn, 'Enviando...');
         const result = await callAPI('testResumoDiario', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
         setSaving(false, btn);
-        if (result.status === 'success') { showToast(result.message); }
+        if (result.status === 'success') { showToast(result.message, result.emailEnviado === false); }
         else { showToast(result.message || 'Não foi possível testar.', true); }
     });
 
