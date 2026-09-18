@@ -185,6 +185,11 @@ export async function renderNotificacoesPage() {
         <h3 class="dash-section-heading">SUAS PENDÊNCIAS</h3>
         <div class="notif-summary-grid">${minhasPendencias.map(summaryCardHtml).join('')}</div>` : ''}
 
+        <h3 class="dash-section-heading" style="margin-top:0.9rem">HISTÓRICO <span class="helper-text" style="text-transform:none;font-weight:500">(${notificacoes.length}${notifResult.naoLidas ? ` · ${notifResult.naoLidas} nova${notifResult.naoLidas > 1 ? 's' : ''}` : ''})</span></h3>
+        ${notificacoes.length === 0
+            ? '<div class="empty-state"><span class="empty-state-icon">🔔</span><p>Nenhuma notificação ainda.</p></div>'
+            : `<div class="camp-cards">${notificacoes.map(notifRow).join('')}</div>`}
+
         ${isGestor ? `
         <h3 class="dash-section-heading" style="margin-top:0.9rem">PENDÊNCIAS POR VENDEDOR/GERENTE</h3>
         ${vendedoresPend.length ? `
@@ -198,11 +203,6 @@ export async function renderNotificacoesPage() {
         <div class="notif-vendor-list" id="notif-vendor-list"></div>
         ` : '<p class="helper-text">Nenhum vendedor/gerente pra mostrar.</p>'}
         ` : ''}
-
-        <h3 class="dash-section-heading" style="margin-top:0.9rem">HISTÓRICO <span class="helper-text" style="text-transform:none;font-weight:500">(${notificacoes.length}${notifResult.naoLidas ? ` · ${notifResult.naoLidas} nova${notifResult.naoLidas > 1 ? 's' : ''}` : ''})</span></h3>
-        ${notificacoes.length === 0
-            ? '<div class="empty-state"><span class="empty-state-icon">🔔</span><p>Nenhuma notificação ainda.</p></div>'
-            : `<div class="camp-cards">${notificacoes.map(notifRow).join('')}</div>`}
     `;
 
     if (isGestor && vendedoresPend.length) {
