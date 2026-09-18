@@ -457,6 +457,14 @@ async function loadResumoDiarioCard() {
     const hasAny = r.visitas.total || r.agendamentos.vencidosTotal || r.agendamentos.proximosTotal || r.relatorios.total || r.campanhas.respondidasOntem || r.campanhas.pendentesTotal;
     if (!hasAny) { container.remove(); return; }
 
+    // "Visto" é por data do resumo (não por sessão) — marcado, fica escondido
+    // até o resumo de amanhã trazer uma data nova. Sem isso, reaparecia toda
+    // vez que o Início recarregasse no mesmo dia.
+    const vistoKey = 'resumo_diario_visto_' + r.dataResumo;
+    let jaVisto = false;
+    try { jaVisto = localStorage.getItem(vistoKey) === '1'; } catch (e) {}
+    if (jaVisto) { container.remove(); return; }
+
     const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
     const rows = [
         { page: 'visits', text: plural(r.visitas.total, 'visita registrada', 'visitas registradas') },
@@ -488,13 +496,30 @@ async function loadResumoDiarioCard() {
         <div class="card resumo-diario-card">
             <div class="section-title-row">
                 <h3 style="font-size:0.88rem;font-weight:700;margin:0">📋 Resumo de ${escapeHtml(r.dataResumo)}</h3>
+                <div style="display:flex;align-items:center;gap:0.3rem">
+                    <button type="button" class="text-link" id="resumo-diario-visto">✓ Visto</button>
+                    <button type="button" class="resumo-diario-chevron-btn" id="resumo-diario-toggle" aria-expanded="true" aria-controls="resumo-diario-list" aria-label="Recolher resumo">
+                        <span class="dash-cp-chevron" aria-hidden="true">▾</span>
+                    </button>
+                </div>
             </div>
-            <div class="resumo-diario-list">
+            <div class="resumo-diario-list" id="resumo-diario-list">
                 ${rows.map((row) => `<button type="button" class="resumo-diario-row" data-page="${row.page}" data-params='${escapeHtml(JSON.stringify(row.params || {}))}'>${escapeHtml(row.text)}</button>`).join('')}
             </div>
         </div>`;
     container.querySelectorAll('[data-page]').forEach((btn) => {
         btn.addEventListener('click', () => navigateTo(btn.dataset.page, JSON.parse(btn.dataset.params || '{}')));
+    });
+    document.getElementById('resumo-diario-visto')?.addEventListener('click', () => {
+        try { localStorage.setItem(vistoKey, '1'); } catch (e) {}
+        container.remove();
+    });
+    document.getElementById('resumo-diario-toggle')?.addEventListener('click', (event) => {
+        const btn = event.currentTarget;
+        const list = document.getElementById('resumo-diario-list');
+        const collapsed = list.classList.toggle('resumo-diario-list-collapsed');
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        btn.classList.toggle('is-collapsed', collapsed);
     });
 }
 

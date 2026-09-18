@@ -275,6 +275,25 @@
 }
 .resumo-diario-row:hover { background: var(--bg-sunken); color: var(--ink); }
 
+.resumo-diario-chevron-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--ink-soft);
+    border-radius: 999px;
+}
+.resumo-diario-chevron-btn:hover { background: var(--bg-sunken); }
+.resumo-diario-chevron-btn .dash-cp-chevron { transition: transform 0.18s; }
+.resumo-diario-chevron-btn.is-collapsed .dash-cp-chevron { transform: rotate(-90deg); }
+.resumo-diario-list-collapsed { display: none; }
+
 /* Clientes Principais sem relatório no mês (ver fillDashboard em
    dashboard.js) — mesma "card" de .dash-today-card, mas com o acento em
    âmbar (tokens --warning) em vez de azul, pra ler como um aviso e não só
