@@ -297,7 +297,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
             await (await import('./pages/visits.js')).renderCalendarPage(options);
             break;
         case 'visit-new':
-            await (await import('./pages/visits.js')).renderVisitFormPage(options.prefill || null, options.radarClienteId || null);
+            await (await import('./pages/visits.js')).renderVisitFormPage(options.prefill || null, options.radarClienteId || null, options.routeContext || null);
             break;
         case 'visit-detail':
             await (await import('./pages/visits.js')).renderVisitDetailPage(options.id);

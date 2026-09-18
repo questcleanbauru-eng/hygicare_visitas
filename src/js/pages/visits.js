@@ -1051,7 +1051,7 @@ export async function renderCalendarPage(options) {
 }
 
 
-export async function renderVisitFormPage(visit = null, radarClienteId = null) {
+export async function renderVisitFormPage(visit = null, radarClienteId = null, routeContext = null) {
     ensureStyles('visits');
     const mainContent = document.getElementById('main-content');
     const isEdit = Boolean(visit && (visit.ID || visit.id));
@@ -1091,10 +1091,15 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
     // concluído virando Visita) só traz Cliente/Cidade — normalizedVisit fica
     // "verdadeiro" mas sem Data/Horário. Sem esse fallback, os campos vinham
     // em branco em vez de cair no padrão "agora" que uma Nova Visita comum já tem.
-    const currentDataVisita = (normalizedVisit && normalizedVisit.dataVisita) || formatDateForDisplay(now);
+    // routeContext (ver botão "Salvar e adicionar outra") só carrega
+    // data/horário/veículo — os campos que tendem a repetir entre paradas
+    // de um mesmo trajeto — nunca Cliente/Observação/etc, e não conta como
+    // prefill pra prospeccaoPendente (continua perguntando por cliente).
+    const currentDataVisita = (normalizedVisit && normalizedVisit.dataVisita) || (routeContext && routeContext.dataVisita) || formatDateForDisplay(now);
     const currentDataVisitaInput = (normalizedVisit && normalizedVisit.dataVisitaInput)
-        || (normalizedVisit && normalizedVisit.dataVisita ? formatInputDateFromDisplay(normalizedVisit.dataVisita) : formatDateForInput(now));
-    const currentHorario = (normalizedVisit && normalizedVisit.horario) || formatTimeForInput(now);
+        || (normalizedVisit && normalizedVisit.dataVisita ? formatInputDateFromDisplay(normalizedVisit.dataVisita) : null)
+        || (routeContext && routeContext.dataVisitaInput) || formatDateForInput(now);
+    const currentHorario = (normalizedVisit && normalizedVisit.horario) || (routeContext && routeContext.horario) || formatTimeForInput(now);
     // Admin pode reatribuir/corrigir o Vendedor/Gerente de uma visita (ex.:
     // editar visita de outro vendedor sem sobrescrever o dono original).
     // Outros perfis continuam travados no próprio nome, como sempre foi.
@@ -1235,7 +1240,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             <div class="form-group full-width">
                 <label>Qual o Veículo?</label>
                 <div class="radio-group" id="veiculo-group">
-                    ${renderVehicleOptions(normalizedVisit ? normalizedVisit.veiculo : 'Particular')}
+                    ${renderVehicleOptions((normalizedVisit && normalizedVisit.veiculo) || (routeContext && routeContext.veiculo) || 'Particular')}
                 </div>
             </div>
             <div class="form-group full-width">
@@ -1275,7 +1280,10 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             </div>` : ''}
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-visit">Cancelar</button>
-                <button type="submit" id="save-visit">${isEdit ? 'Salvar Alterações' : 'Salvar Visita'}</button>
+                ${isEdit
+                    ? `<button type="submit" id="save-visit">Salvar Alterações</button>`
+                    : `<button type="submit" id="save-visit-again" class="secondary-button">Salvar e adicionar outra</button>
+                       <button type="submit" id="save-visit">Salvar e sair</button>`}
             </div>
         </form>
     `;
@@ -1648,13 +1656,22 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             document.getElementById('prospeccao-field')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
             return;
         }
-        const saveButton = document.getElementById('save-visit');
+        // Nova Visita tem 2 botões de submit ("Salvar e sair" / "Salvar e
+        // adicionar outra") — event.submitter diz qual foi clicado.
+        const wantsAddAnother = !isEdit && event.submitter && event.submitter.id === 'save-visit-again';
+        const saveButton = event.submitter || document.getElementById('save-visit');
+        const otherSubmitButton = document.getElementById(wantsAddAnother ? 'save-visit' : 'save-visit-again');
+        if (otherSubmitButton) otherSubmitButton.disabled = true;
+        const resetSaveButtons = () => {
+            setSaving(false, saveButton);
+            if (otherSubmitButton) otherSubmitButton.disabled = false;
+        };
         setSaving(true, saveButton, isEdit ? 'Salvando...' : 'Criando...');
 
         const normalizedVisitDate = normalizeDisplayDateValue(dataVisitaInput.value);
         if (!normalizedVisitDate) {
             showToast('Informe a data no formato dd/mm/aaaa.', true);
-            setSaving(false, saveButton);
+            resetSaveButtons();
             dataVisitaInput.focus();
             return;
         }
@@ -1662,7 +1679,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
         const normalizedHorario = normalizeTimeValue(horarioInput.value);
         if (!normalizedHorario) {
             showToast('Informe o horário no formato hh:mm.', true);
-            setSaving(false, saveButton);
+            resetSaveButtons();
             horarioInput.focus();
             return;
         }
@@ -1699,21 +1716,21 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
 
         if (payload.teveDespesas === 'Sim' && !payload.valorDespesas) {
             showToast('Informe o valor das despesas.', true);
-            setSaving(false, saveButton);
+            resetSaveButtons();
             document.getElementById('valor-despesas')?.focus();
             return;
         }
 
         if (!isEdit && payload.tiposVisita.length === 0) {
             showToast('Selecione pelo menos um tipo de visita.', true);
-            setSaving(false, saveButton);
+            resetSaveButtons();
             tipoVisitaInput.focus();
             return;
         }
 
         if (isEdit && !payload.tipoVisita) {
             showToast('Selecione um tipo de visita.', true);
-            setSaving(false, saveButton);
+            resetSaveButtons();
             tipoVisitaInput.focus();
             return;
         }
@@ -1774,7 +1791,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                     showToast('Erro ao salvar. Tente novamente.', true);
                 });
 
-            setSaving(false, saveButton);
+            resetSaveButtons();
             return;
         }
 
@@ -1795,7 +1812,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                 if (_dupe) {
                     const _dupeDate = normalizeVisit(_dupe).dataVisita;
                     if (!confirm(`Já existe uma visita para "${payload.cliente}" nesta semana (${_dupeDate}). Registrar mesmo assim?`)) {
-                        setSaving(false, saveButton);
+                        resetSaveButtons();
                         return;
                     }
                 }
@@ -1830,6 +1847,8 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
             if (_dk) { try { localStorage.removeItem(_dk); } catch(e) {} }
             if (result.status === 'queued') {
                 showToast('Sem conexão — a visita foi salva no aparelho e será enviada quando a conexão voltar.');
+            } else if (wantsAddAnother) {
+                showToast('Visita criada. Pronto para a próxima.');
             } else {
                 const _visitMsg = createdVisits.length > 1 ? `${createdVisits.length} visitas criadas` : 'Visita criada com sucesso';
                 showToast(_visitMsg, false, () => navigateTo('visit-new'));
@@ -1849,16 +1868,25 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null) {
                     foco: payload.potencialCliente || '',
                     atuacao: payload.areaAtuacao || ''
                 };
-                setSaving(false, saveButton);
+                resetSaveButtons();
                 await navigateTo('funil-new');
                 return;
             }
-            await navigateTo('visits');
+            if (wantsAddAnother && result.status !== 'queued') {
+                // Só os campos que tendem a repetir num mesmo trajeto (data,
+                // horário, veículo) — Cliente/Observação/etc. sempre em
+                // branco pra próxima parada.
+                await navigateTo('visit-new', {
+                    routeContext: { dataVisita: payload.dataVisita, horario: payload.horario, veiculo: payload.veiculo }
+                });
+            } else {
+                await navigateTo('visits');
+            }
         } else {
             showToast((result && result.message) || 'Não foi possível salvar a visita.', true);
         }
 
-        setSaving(false, saveButton);
+        resetSaveButtons();
     });
 }
 
