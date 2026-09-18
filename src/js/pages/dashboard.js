@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
+import { callAPI, loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, calculateDaysFromDisplayDate, visitTypeClass, parseDisplayDate } from '../utils/format.js';
 import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, refreshNotificacoesBadge, checkOverdueNotification, checkClientesPrincipaisNotification, hasInstallPrompt, consumeInstallPrompt } from '../utils/ui.js';
 import { showSuccessPopup, showToast, setSaving } from '../utils/dom.js';
@@ -47,6 +47,8 @@ export function fillDashboard(mainContent, data, user) {
                 <button type="button" class="primary-button" id="push-banner-enable" style="width:auto" hidden>Ativar notificações</button>
             </div>
         </div>
+
+        ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<div id="resumo-diario-card"></div>' : ''}
 
         <!-- Ações rápidas -->
         <div class="dash-actions-bar">
@@ -442,6 +444,60 @@ async function setupPushBanner() {
 }
 
 
+// Card "Resumo de ontem" (só admin, por enquanto) — busca à parte da
+// getDashboardData principal, pra não atrasar/complicar o carregamento do
+// resto do Início; se não tiver nada pra mostrar (dia parado), o card nem
+// aparece, em vez de mostrar tudo zerado.
+async function loadResumoDiarioCard() {
+    const container = document.getElementById('resumo-diario-card');
+    if (!container) return;
+    const result = await callAPI('getResumoDiario', { user: state.currentUser }).catch(() => null);
+    if (!result || result.status !== 'success' || document.getElementById('resumo-diario-card') !== container) return;
+    const r = result.resumo;
+    const hasAny = r.visitas.total || r.agendamentos.vencidosTotal || r.agendamentos.proximosTotal || r.relatorios.total || r.campanhas.respondidasOntem || r.campanhas.pendentesTotal;
+    if (!hasAny) { container.remove(); return; }
+
+    const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
+    const rows = [
+        { page: 'visits', text: plural(r.visitas.total, 'visita registrada', 'visitas registradas') },
+        (r.agendamentos.vencidosTotal || r.agendamentos.proximosTotal) ? {
+            page: 'calendar', params: { filter: 'retornos' },
+            text: [
+                r.agendamentos.vencidosTotal ? plural(r.agendamentos.vencidosTotal, 'agendamento vencido', 'agendamentos vencidos') : '',
+                r.agendamentos.proximosTotal ? `${r.agendamentos.proximosTotal} nos próximos 7 dias` : ''
+            ].filter(Boolean).join(' · ')
+        } : null,
+        r.relatorios.total ? {
+            page: 'manutencao',
+            text: `${plural(r.relatorios.total, 'relatório criado', 'relatórios criados')} (${[
+                r.relatorios.aferição ? `${r.relatorios.aferição} Aferição` : '',
+                r.relatorios.spsp ? `${r.relatorios.spsp} SPSP` : '',
+                r.relatorios.geral ? `${r.relatorios.geral} Geral` : ''
+            ].filter(Boolean).join(' · ')})`
+        } : null,
+        (r.campanhas.respondidasOntem || r.campanhas.pendentesTotal) ? {
+            page: 'campanhas',
+            text: `Campanhas: ${[
+                r.campanhas.respondidasOntem ? plural(r.campanhas.respondidasOntem, 'respondida', 'respondidas') : '',
+                r.campanhas.pendentesTotal ? plural(r.campanhas.pendentesTotal, 'pendente', 'pendentes') : ''
+            ].filter(Boolean).join(' · ')}`
+        } : null
+    ].filter(Boolean);
+
+    container.innerHTML = `
+        <div class="card resumo-diario-card">
+            <div class="section-title-row">
+                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📋 Resumo de ${escapeHtml(r.dataResumo)}</h3>
+            </div>
+            <div class="resumo-diario-list">
+                ${rows.map((row) => `<button type="button" class="resumo-diario-row" data-page="${row.page}" data-params='${escapeHtml(JSON.stringify(row.params || {}))}'>${escapeHtml(row.text)}</button>`).join('')}
+            </div>
+        </div>`;
+    container.querySelectorAll('[data-page]').forEach((btn) => {
+        btn.addEventListener('click', () => navigateTo(btn.dataset.page, JSON.parse(btn.dataset.params || '{}')));
+    });
+}
+
 export async function renderDashboard() {
     const mainContent = document.getElementById('main-content');
     const cached = loadCache('dashboard');
@@ -458,6 +514,10 @@ export async function renderDashboard() {
     if (result.status === 'success' && document.getElementById('main-content') === mainContent) {
         if (result.data.loadDias) { state.loadDias = result.data.loadDias; }
         fillDashboard(mainContent, result.data, state.currentUser);
+        // Só depois do fillDashboard "de verdade" (dado fresco) — ele
+        // reescreve mainContent.innerHTML do zero, o que apagaria o card se
+        // ele já tivesse sido preenchido antes (ver #resumo-diario-card).
+        loadResumoDiarioCard();
     } else if (!cached && result.status !== 'success') {
         // Sem cache e a busca falhou — mostrar erro real, não um dashboard
         // "zerado" a partir de state.visits/proposals vazios, que passaria

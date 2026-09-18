@@ -254,6 +254,27 @@
     margin-bottom: 0.5rem;
 }
 
+/* Resumo de ontem (admin, ver loadResumoDiarioCard) — cada linha é uma
+   ação clicável pra tela correspondente, não só texto informativo. */
+.resumo-diario-card { margin-bottom: 0.5rem; padding: 0.7rem 0.9rem; }
+.resumo-diario-list { display: flex; flex-direction: column; gap: 0.1rem; margin-top: 0.3rem; }
+.resumo-diario-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    padding: 0.35rem 0.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+}
+.resumo-diario-row:hover { background: var(--bg-sunken); color: var(--ink); }
+
 /* Clientes Principais sem relatório no mês (ver fillDashboard em
    dashboard.js) — mesma "card" de .dash-today-card, mas com o acento em
    âmbar (tokens --warning) em vez de azul, pra ler como um aviso e não só
