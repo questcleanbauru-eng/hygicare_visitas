@@ -175,40 +175,6 @@ export async function renderAdminPage() {
 }
 
 function fillAdminContent(mainContent, data, emailConfig) {
-    function emailPanel(prefix, label, subtitle, vars, config, diasLabel) {
-        const isActive = isConfigOn(config[`${prefix}_ativas`]);
-        return `
-        <div class="email-notif-panel">
-            <div class="email-notif-panel-header">
-                <div>
-                    <strong style="font-size:0.93rem;font-weight:500">${label}</strong>
-                    <p class="helper-text" style="margin:0.2rem 0 0;font-size:0.8rem">${subtitle}</p>
-                </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="${prefix}-ativas" ${isActive ? 'checked' : ''} data-email-toggle="${prefix}">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div id="${prefix}-fields" class="${isActive ? '' : 'email-panel-disabled'}">
-                <div class="form-group">
-                    <label for="${prefix}-dias" style="font-size:0.8rem;color:var(--text-muted-strong)">${diasLabel || 'Dias sem atualização'}</label>
-                    <input type="number" id="${prefix}-dias" value="${escapeHtml(config[`${prefix}_dias`] || '30')}" min="1" max="365">
-                </div>
-                <div class="form-group">
-                    <label for="${prefix}-assunto" style="font-size:0.8rem;color:var(--text-muted-strong)">Assunto</label>
-                    <input type="text" id="${prefix}-assunto" value="${escapeHtml(config[`${prefix}_assunto`] || '')}">
-                </div>
-                <div class="form-group">
-                    <label for="${prefix}-corpo" style="font-size:0.8rem;color:var(--text-muted-strong)">Corpo do e-mail</label>
-                    <div style="margin-bottom:0.4rem;display:flex;flex-wrap:wrap;gap:0.2rem">
-                        ${vars.map((v) => `<span class="email-var-badge">{{${v}}}</span>`).join('')}
-                    </div>
-                    <textarea id="${prefix}-corpo" rows="5">${escapeHtml(config[`${prefix}_corpo`] || '')}</textarea>
-                </div>
-            </div>
-            <button type="button" class="secondary-button" data-save-email="${prefix}">Salvar configuração</button>
-        </div>`;
-    }
 
     mainContent.innerHTML = `
         <div class="admin-hero">
@@ -237,10 +203,6 @@ function fillAdminContent(mainContent, data, emailConfig) {
             <button type="button" class="admin-tab${activeAdminTab === 'config' ? ' active' : ''}" data-tab="config">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 Configurações
-            </button>
-            <button type="button" class="admin-tab${activeAdminTab === 'email' ? ' active' : ''}" data-tab="email">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
-                E-mail
             </button>
             <button type="button" class="admin-tab${activeAdminTab === 'auditoria' ? ' active' : ''}" data-tab="auditoria">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
@@ -415,21 +377,6 @@ function fillAdminContent(mainContent, data, emailConfig) {
                     </div>
                     <button type="button" id="save-manutencao" class="primary-button" style="align-self:flex-start">Salvar</button>
                 </div>
-            </div>
-        </div>
-
-        <!-- Tab: E-mail -->
-        <div class="admin-tab-panel${activeAdminTab === 'email' ? ' active' : ''}" id="admin-tab-email">
-            <div class="email-warning-card">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <span>Esta funcionalidade requer um trigger diário configurado no Google Apps Script.</span>
-            </div>
-            <div class="email-notif-grid">
-                ${emailPanel('propostas', 'Propostas sem atualização', 'Avisa vendedores com propostas paradas há X dias', ['nome', 'quantidade', 'dias'], emailConfig)}
-                ${emailPanel('visitas', 'Relatório de visitas pendente', 'Avisa vendedores sem visitas registradas em X dias', ['nome', 'dias'], emailConfig)}
-                ${emailPanel('funil', 'Funil sem atualização', 'Avisa vendedores com oportunidades ativas paradas há X dias', ['nome', 'quantidade', 'dias'], emailConfig)}
-                ${emailPanel('contratos', 'Contratos vencendo', 'Avisa vendedores com contratos vencendo nos próximos X dias', ['nome', 'quantidade', 'dias'], emailConfig, 'Dias de antecedência do vencimento')}
-                ${emailPanel('agendamentos', 'Retornos agendados', 'Avisa vendedores com retorno de visita agendado nos próximos X dias', ['nome', 'quantidade', 'dias'], emailConfig, 'Dias de antecedência do retorno')}
             </div>
         </div>
 
@@ -1006,15 +953,6 @@ export function bindAdminEvents(data) {
         });
     });
 
-    // Email toggle — enable/disable fields
-    document.querySelectorAll('[data-email-toggle]').forEach((toggle) => {
-        const prefix = toggle.dataset.emailToggle;
-        const fields = document.getElementById(`${prefix}-fields`);
-        toggle.addEventListener('change', () => {
-            if (fields) { fields.classList.toggle('email-panel-disabled', !toggle.checked); }
-        });
-    });
-
     // Lookup save buttons
     document.querySelectorAll('[data-lookup-key]').forEach((button) => {
         button.addEventListener('click', async () => {
@@ -1141,21 +1079,6 @@ export function bindAdminEvents(data) {
         });
         if (result.status === 'success') { showToast('Modo manutenção salvo.'); setSaving(false, btn); }
         else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
-    });
-
-    // Email save buttons
-    document.querySelectorAll('[data-save-email]').forEach((button) => {
-        button.addEventListener('click', async () => {
-            const prefix = button.dataset.saveEmail;
-            const config = {};
-            config[`${prefix}_ativas`] = document.getElementById(`${prefix}-ativas`).checked ? 'true' : 'false';
-            config[`${prefix}_dias`] = document.getElementById(`${prefix}-dias`).value.trim();
-            config[`${prefix}_assunto`] = document.getElementById(`${prefix}-assunto`).value.trim();
-            config[`${prefix}_corpo`] = document.getElementById(`${prefix}-corpo`).value;
-            const result = await saveEmailConfig(config);
-            if (result.status === 'success') { showToast('Configuração de e-mail salva.'); }
-            else { showToast(result.message || 'Não foi possível salvar.', true); }
-        });
     });
 
     bindImportarTab();
