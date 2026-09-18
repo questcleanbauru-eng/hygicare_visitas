@@ -73,6 +73,40 @@ function pickGerenciaParaPdf(gerencias) {
     });
 }
 
+// Mesma ideia do pickGerenciaParaPdf, mas pra status (multi-seleção — ex.:
+// só "Ganhamos" + "Perdido" pra ver fechadas). null = cancelou; array vazio
+// = nenhum filtro (todos marcados = mesma coisa que não filtrar).
+function pickStatusParaPdf(statusDisponiveis, titulo) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card" style="text-align:left;max-width:360px">
+                <h3 style="margin-top:0">📄 ${escapeHtml(titulo)}</h3>
+                <p class="helper-text" style="margin:-0.3rem 0 0.9rem">Marque os status que quer no PDF. Todos marcados = relatório completo.</p>
+                <div class="form-group full-width" style="display:flex;flex-direction:column;gap:0.5rem">
+                    ${statusDisponiveis.map((s) => `
+                        <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                            <input type="checkbox" class="pdf-status-check" value="${escapeHtml(s)}" style="width:auto;accent-color:var(--primary)" checked>
+                            ${escapeHtml(s)}
+                        </label>`).join('')}
+                </div>
+                <div class="form-actions full-width" style="display:flex;gap:0.5rem">
+                    <button type="button" class="secondary-button" id="pdf-status-cancel">Cancelar</button>
+                    <button type="button" class="primary-button" id="pdf-status-ok">Gerar PDF</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        const close = (result) => { overlay.remove(); resolve(result); };
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(null); });
+        overlay.querySelector('#pdf-status-cancel').addEventListener('click', () => close(null));
+        overlay.querySelector('#pdf-status-ok').addEventListener('click', () => {
+            const marcados = Array.from(overlay.querySelectorAll('.pdf-status-check:checked')).map((c) => c.value);
+            close(marcados.length === statusDisponiveis.length ? [] : marcados);
+        });
+    });
+}
+
 // Probabilidade de fechamento por estágio do funil — usada no forecast
 // ponderado (Vl Mensal × probabilidade).
 const FUNIL_PROB = { IDENTIFICAR: 0.10, RETOMAR: 0.15, PROPOSTA: 0.30, NEGOCIAR: 0.60, CONCLUIDO: 1, PERDIDO: 0 };
@@ -601,10 +635,19 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         });
     });
 
-    document.getElementById('pdf-det-propostas')?.addEventListener('click', () => {
+    document.getElementById('pdf-det-propostas')?.addEventListener('click', async () => {
         if (!proposals.length) { showToast('Nenhuma proposta no período.', true); return; }
-        printDetalhe('Propostas — detalhado por vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${proposals.length} proposta(s)`, groupedVendorTables(
-            proposals, (p) => p.vendedor, (p) => p.data,
+        let proposalsParaPdf = proposals;
+        if (!propStatus.length && propStatusDisponiveis.length > 1) {
+            const escolha = await pickStatusParaPdf(propStatusDisponiveis, 'Status no PDF');
+            if (escolha === null) return;
+            if (escolha.length) {
+                proposalsParaPdf = proposals.filter((p) => escolha.includes(p.status));
+                if (!proposalsParaPdf.length) { showToast('Nenhuma proposta com esses status no período.', true); return; }
+            }
+        }
+        printDetalhe('Propostas — detalhado por vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${proposalsParaPdf.length} proposta(s)`, groupedVendorTables(
+            proposalsParaPdf, (p) => p.vendedor, (p) => p.data,
             ['Data', 'Cliente', 'Foco', 'Produtos', 'Cidade', 'Status', 'Atualização', 'Tempo proposta'],
             (p) => [
                 escapeHtml(p.data || '-'), escapeHtml(titleCase(p.cliente) || '-'), escapeHtml(p.foco || '-'),
@@ -613,10 +656,19 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             ]
         ));
     });
-    document.getElementById('pdf-det-funil')?.addEventListener('click', () => {
+    document.getElementById('pdf-det-funil')?.addEventListener('click', async () => {
         if (!funil.length) { showToast('Nenhuma oportunidade no período.', true); return; }
-        printDetalhe('Funil — detalhado por vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${funil.length} oportunidade(s)`, groupedVendorTables(
-            funil, (f) => f.vendedor, (f) => f.data,
+        let funilParaPdf = funil;
+        if (!funilStatus.length && funilStatusDisponiveis.length > 1) {
+            const escolha = await pickStatusParaPdf(funilStatusDisponiveis, 'Status no PDF');
+            if (escolha === null) return;
+            if (escolha.length) {
+                funilParaPdf = funil.filter((f) => escolha.includes(f.status));
+                if (!funilParaPdf.length) { showToast('Nenhuma oportunidade com esses status no período.', true); return; }
+            }
+        }
+        printDetalhe('Funil — detalhado por vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${funilParaPdf.length} oportunidade(s)`, groupedVendorTables(
+            funilParaPdf, (f) => f.vendedor, (f) => f.data,
             ['Data', 'Cliente', 'Foco', 'Atuação', 'Cidade', 'Status', 'Vl Mensal', 'Atualização', 'Tempo no funil'],
             (f) => [
                 escapeHtml(f.data || '-'), escapeHtml(titleCase(f.cliente) || '-'), escapeHtml(f.foco || '-'),
