@@ -47,7 +47,7 @@ import {
     handleSubscribePush, handleUnsubscribePush, handleSendPushNotification,
     handleGetNotificacoes, handleMarcarNotificacaoLida
 } from '../lib/handlers/push.js';
-import { handleGetResumoDiario } from '../lib/handlers/resumo.js';
+import { handleGetResumoDiario, handleTestResumoDiario } from '../lib/handlers/resumo.js';
 
 function parseBody(req) {
     if (!req.body) return {};
@@ -163,6 +163,7 @@ const HANDLERS = {
     getNotificacoes: handleGetNotificacoes,
     marcarNotificacaoLida: handleMarcarNotificacaoLida,
     getResumoDiario: handleGetResumoDiario,
+    testResumoDiario: handleTestResumoDiario,
     ping: async () => ({ status: 'ok' })
 };
 

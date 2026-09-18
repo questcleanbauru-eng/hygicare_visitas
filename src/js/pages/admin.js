@@ -338,7 +338,10 @@ function fillAdminContent(mainContent, data, emailConfig) {
                         <input type="checkbox" id="config-resumo-vendedor" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.resumo_diario_vendedor) ? 'checked' : ''}>
                         Vendedores
                     </label>
-                    <button type="button" id="save-resumo-diario" class="primary-button" style="align-self:flex-start">Salvar</button>
+                    <div style="display:flex;gap:0.5rem">
+                        <button type="button" id="save-resumo-diario" class="primary-button">Salvar</button>
+                        <button type="button" id="test-resumo-diario" class="secondary-button" title="Manda o resumo de ontem só pra você (e-mail + notificação), sem esperar o horário programado">Testar agora</button>
+                    </div>
                 </div>
             </div>
             <div class="admin-section" style="margin-bottom:1.25rem">
@@ -1018,6 +1021,15 @@ export function bindAdminEvents(data) {
         });
         if (result.status === 'success') { showToast('Configuração salva.'); }
         else { showToast(result.message || 'Não foi possível salvar.', true); }
+    });
+
+    document.getElementById('test-resumo-diario')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Enviando...');
+        const result = await callAPI('testResumoDiario', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+        setSaving(false, btn);
+        if (result.status === 'success') { showToast(result.message); }
+        else { showToast(result.message || 'Não foi possível testar.', true); }
     });
 
     // Permissões (Gerente/Vendedor): apagar registros, criar Proposta/Funil, acessar Radar, editar Manutenção assinada
