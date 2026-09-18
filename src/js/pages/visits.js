@@ -1369,10 +1369,20 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
         });
     }
     if (document.getElementById('visit-notificar-usuario-menu')) {
+        // Lista restrita (não é "notifique qualquer um da empresa"): só o(s)
+        // gerente(s) da própria gerência de quem tá registrando + os admins
+        // — as pessoas que realmente fazem sentido avisar sobre uma visita.
+        const meuGerencia = String(state.currentUser?.gerencia || '').trim().toLowerCase();
+        const notificarOptions = (formData.vendedores || []).filter((v) => {
+            if (!v.nome || v.nome === state.currentUser?.name) return false;
+            const perfil = String(v.perfil || '').trim().toLowerCase();
+            if (perfil === 'admin') return true;
+            return perfil === 'gerente' && String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
+        }).map((v) => v.nome);
         initializeSearchableInput({
             input: document.getElementById('visit-notificar-usuario'),
             menu: document.getElementById('visit-notificar-usuario-menu'),
-            items: (formData.vendedores || []).map((v) => v.nome).filter(Boolean)
+            items: notificarOptions
         });
     }
     initializeSearchableInput({
