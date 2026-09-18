@@ -223,7 +223,7 @@ export async function openGerarCampanhaVisitaModal() {
         box.hidden = false;
         box.innerHTML = `
             <p class="helper-text" style="margin:0 0 0.35rem">Link pronto — mande pro ${escapeHtml(vendedorDestino)}${prazoAte ? ` (prazo ${escapeHtml(prazoAte)})` : ''}:</p>
-            <input type="text" id="cv-link" readonly value="${escapeHtml(link)}" style="font-size:0.82rem">
+            <input type="text" id="cv-link" readonly value="${escapeHtml(link)}" style="font-size:16px">
             <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
                 <button type="button" class="mini-button" id="cv-copy">Copiar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="cv-wa">WhatsApp</button>
@@ -401,7 +401,7 @@ export async function openGerarCampanhaManutencaoModal() {
         box.hidden = false;
         box.innerHTML = `
             <p class="helper-text" style="margin:0 0 0.35rem">Link pronto — mande pro ${escapeHtml(vendedorDestino)}${prazoAte ? ` (prazo ${escapeHtml(prazoAte)})` : ''}:</p>
-            <input type="text" id="cm-link" readonly value="${escapeHtml(link)}" style="font-size:0.82rem">
+            <input type="text" id="cm-link" readonly value="${escapeHtml(link)}" style="font-size:16px">
             <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
                 <button type="button" class="mini-button" id="cm-copy">Copiar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="cm-wa">WhatsApp</button>
@@ -546,7 +546,7 @@ export async function openGerarCampanhaModal(tipo, itemIds, selectedItems) {
         box.hidden = false;
         box.innerHTML = `
             <p class="helper-text" style="margin:0 0 0.35rem">Link pronto — mande pro ${escapeHtml(vendedorDestino)}${prazoAte ? ` (prazo ${escapeHtml(prazoAte)})` : ''}:</p>
-            <input type="text" id="camp-link" readonly value="${escapeHtml(link)}" style="font-size:0.82rem">
+            <input type="text" id="camp-link" readonly value="${escapeHtml(link)}" style="font-size:16px">
             <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
                 <button type="button" class="mini-button" id="camp-copy">Copiar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="camp-wa">WhatsApp</button>

@@ -49,7 +49,8 @@
     width: 100%;
     min-height: 40px;
     padding: 0.4rem 0.55rem;
-    font-size: 0.85rem;
+    /* 16px fixo — abaixo disso o iOS dá zoom automático ao focar o campo. */
+    font-size: 16px;
 }
 
 .rt-tab-del {
@@ -163,6 +164,11 @@
     white-space: pre-wrap;
 }
 
+/* Wrapper com scroll horizontal — rede de segurança em telas bem estreitas;
+   como as células não usam nowrap, o texto normalmente já quebra linha
+   sozinho antes de precisar rolar (mesmo princípio do .report-table-wrap). */
+.rt-table-wrap { overflow-x: auto; }
+
 .rt-table {
     width: 100%;
     border-collapse: collapse;
@@ -174,6 +180,7 @@
     border: 1px solid var(--border);
     padding: 0.35rem 0.5rem;
     text-align: left;
+    overflow-wrap: break-word;
 }
 .rt-table th {
     background: #f1f5f9;
@@ -184,6 +191,7 @@
 @media (max-width: 560px) {
     .rt-row { grid-template-columns: 1fr; }
     .rt-row-label { border-right: none; border-bottom: 1px solid var(--border); }
+    .rt-table { table-layout: fixed; }
 }
 
 @media print {

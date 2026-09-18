@@ -1418,7 +1418,14 @@ input:disabled {
    dropdown escapando do wrapper. */
 input[type="date"] {
     min-width: 0;
-    font-size: 0.84rem;
+    /* 16px fixo (não abaixar) — abaixo disso o iOS dá zoom automático ao
+       focar o campo. O texto por extenso do iOS ("20 de jul. de 2026") que
+       motivou reduzir a fonte antes agora só é cortado com ellipsis em vez
+       de estourar a largura do card. */
+    font-size: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .form-group:has(> input[type="date"]) {
@@ -1869,11 +1876,13 @@ input[type="date"] {
 .scope-load-btn:hover { background: var(--bg-sunken); }
 
 .scope-dias-input {
-    width: 54px;
+    width: 60px;
     padding: 0.15rem 0.3rem;
+    min-height: 30px;
     border: 1px solid var(--line);
     border-radius: 5px;
-    font-size: 0.78rem;
+    /* 16px fixo — abaixo disso o iOS dá zoom automático ao focar o campo. */
+    font-size: 16px;
     color: var(--ink);
     background: var(--surface);
     text-align: center;
@@ -2209,9 +2218,10 @@ input[type="date"] {
 .qe-info-edit > div > input { flex: 1; min-width: 0; }
 .qe-info-edit input {
     width: 100%;
-    min-height: 30px;
-    padding: 0.15rem 0.45rem;
-    font-size: 0.83rem;
+    min-height: 34px;
+    padding: 0.2rem 0.45rem;
+    /* 16px fixo — abaixo disso o iOS dá zoom automático ao focar o campo. */
+    font-size: 16px;
     border: 1px solid var(--border);
     border-radius: 5px;
     background: #fff;
@@ -2752,9 +2762,10 @@ input[type="date"] {
 .qe-panel .qe-panel-inner input,
 .qe-panel .qe-panel-inner textarea,
 .qe-panel .qe-panel-inner .searchable-select input {
-    min-height: 30px;
-    padding: 0.22rem 0.5rem;
-    font-size: 0.85rem;
+    min-height: 36px;
+    padding: 0.28rem 0.5rem;
+    /* 16px fixo — abaixo disso o iOS dá zoom automático ao focar o campo. */
+    font-size: 16px;
 }
 .qe-panel .qe-panel-inner textarea { min-height: 48px; }
 .qe-panel .qe-panel-inner .radio-group { flex-wrap: wrap; gap: 0.35rem; }

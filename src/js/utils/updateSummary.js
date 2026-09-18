@@ -103,7 +103,7 @@ export function openSummaryModal(onDone) {
         <div class="modal-card" style="max-width:480px">
             <h3 style="margin-top:0">Resumo de atualizações</h3>
             <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">Confira antes de mandar — dá pra editar aqui mesmo.</p>
-            <textarea id="summary-preview" rows="12" style="width:100%;font-size:0.85rem;line-height:1.4"></textarea>
+            <textarea id="summary-preview" rows="12" style="width:100%;font-size:16px;line-height:1.4"></textarea>
             <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
                 <button type="button" class="mini-button" id="summary-copy" style="flex:1">📋 Copiar</button>
                 <button type="button" class="mini-button mini-button-whatsapp" id="summary-wa" style="flex:1">🟢 WhatsApp</button>

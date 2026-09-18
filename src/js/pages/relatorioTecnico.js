@@ -298,6 +298,7 @@ function reportHtml(m, logoEmpresa) {
     `).join('');
 
     const tabela = m.comentariosTabela.length ? `
+        <div class="rt-table-wrap">
         <table class="rt-table">
             <thead><tr><th>Produto</th><th>Diluição referência</th><th>Ideal</th><th>Realizada</th></tr></thead>
             <tbody>${m.comentariosTabela.map((r) => `<tr>
@@ -306,7 +307,8 @@ function reportHtml(m, logoEmpresa) {
                 <td>${escapeHtml(r.ideal || '')}</td>
                 <td>${escapeHtml(r.realizada || '')}</td>
             </tr>`).join('')}</tbody>
-        </table>` : '';
+        </table>
+        </div>` : '';
 
     return `
     <div class="rt-report">
