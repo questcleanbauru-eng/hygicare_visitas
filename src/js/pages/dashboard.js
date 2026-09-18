@@ -451,11 +451,17 @@ async function setupPushBanner() {
 async function loadResumoDiarioCard() {
     const container = document.getElementById('resumo-diario-card');
     if (!container) return;
-    const result = await callAPI('getResumoDiario', { user: state.currentUser }).catch(() => null);
-    if (!result || result.status !== 'success' || document.getElementById('resumo-diario-card') !== container) return;
+    const result = await callAPI('getResumoDiario', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+    if (document.getElementById('resumo-diario-card') !== container) return;
+    if (!result || result.status !== 'success') {
+        // Mostra o erro em vez de sumir silenciosamente — já aconteceu de o
+        // card "desaparecer" sem dar pra saber se era falta de atividade ou
+        // uma falha de verdade.
+        container.innerHTML = `<div class="card resumo-diario-card"><p class="helper-text" style="margin:0">📋 Resumo de ontem: ${escapeHtml((result && result.message) || 'não foi possível carregar.')}</p></div>`;
+        return;
+    }
     const r = result.resumo;
     const hasAny = r.visitas.total || r.agendamentos.vencidosTotal || r.agendamentos.proximosTotal || r.relatorios.total || r.campanhas.respondidasOntem || r.campanhas.pendentesTotal;
-    if (!hasAny) { container.remove(); return; }
 
     // "Visto" é por data do resumo (não por sessão) — marcado, fica escondido
     // até o resumo de amanhã trazer uma data nova. Sem isso, reaparecia toda
@@ -464,6 +470,22 @@ async function loadResumoDiarioCard() {
     let jaVisto = false;
     try { jaVisto = localStorage.getItem(vistoKey) === '1'; } catch (e) {}
     if (jaVisto) { container.remove(); return; }
+
+    if (!hasAny) {
+        container.innerHTML = `
+            <div class="card resumo-diario-card">
+                <div class="section-title-row">
+                    <h3 style="font-size:0.88rem;font-weight:700;margin:0">📋 Resumo de ${escapeHtml(r.dataResumo)}</h3>
+                    <button type="button" class="text-link" id="resumo-diario-visto">✓ Visto</button>
+                </div>
+                <p class="helper-text" style="margin:0.3rem 0 0">Nenhuma atividade registrada.</p>
+            </div>`;
+        document.getElementById('resumo-diario-visto')?.addEventListener('click', () => {
+            try { localStorage.setItem(vistoKey, '1'); } catch (e) {}
+            container.remove();
+        });
+        return;
+    }
 
     const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
     const rows = [
