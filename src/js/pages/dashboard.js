@@ -55,6 +55,7 @@ export function fillDashboard(mainContent, data, user) {
             <button type="button" class="text-link" id="qa-new-visit">📋 Nova Visita</button>
             ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
             ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
+            ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<button type="button" class="text-link" id="qa-resumo-diario">📋 Resumo de ontem</button>' : ''}
         </div>
 
         <!-- Hoje -->
@@ -309,6 +310,7 @@ export function fillDashboard(mainContent, data, user) {
     document.getElementById('qa-new-visit').addEventListener('click',     () => navigateTo('visit-new'));
     document.getElementById('qa-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
     document.getElementById('qa-new-funil')?.addEventListener('click',    () => navigateTo('funil-new'));
+    document.getElementById('qa-resumo-diario')?.addEventListener('click', () => showResumoDiarioModal());
     mainContent.querySelectorAll('.metric-card[data-nav]').forEach((el) => {
         el.addEventListener('click', () => {
             const nav = el.dataset.nav;
@@ -444,6 +446,77 @@ async function setupPushBanner() {
 }
 
 
+// Compartilhado pelo card do Início (loadResumoDiarioCard) e pelo modal
+// "Resumo de ontem" (showResumoDiarioModal, acessível mesmo depois de
+// marcar o card como "Visto" pro dia) — mesma lista de linhas clicáveis
+// nos dois lugares.
+function buildResumoRows(r) {
+    const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
+    return [
+        { page: 'visits', text: plural(r.visitas.total, 'visita registrada', 'visitas registradas') },
+        (r.agendamentos.vencidosTotal || r.agendamentos.proximosTotal) ? {
+            page: 'calendar', params: { filter: 'retornos' },
+            text: [
+                r.agendamentos.vencidosTotal ? plural(r.agendamentos.vencidosTotal, 'agendamento vencido', 'agendamentos vencidos') : '',
+                r.agendamentos.proximosTotal ? `${r.agendamentos.proximosTotal} nos próximos 7 dias` : ''
+            ].filter(Boolean).join(' · ')
+        } : null,
+        r.relatorios.total ? {
+            page: 'manutencao',
+            text: `${plural(r.relatorios.total, 'relatório criado', 'relatórios criados')} (${[
+                r.relatorios.aferição ? `${r.relatorios.aferição} Aferição` : '',
+                r.relatorios.spsp ? `${r.relatorios.spsp} SPSP` : '',
+                r.relatorios.geral ? `${r.relatorios.geral} Geral` : ''
+            ].filter(Boolean).join(' · ')})`
+        } : null,
+        (r.campanhas.respondidasOntem || r.campanhas.pendentesTotal) ? {
+            page: 'campanhas',
+            text: `Campanhas: ${[
+                r.campanhas.respondidasOntem ? plural(r.campanhas.respondidasOntem, 'respondida', 'respondidas') : '',
+                r.campanhas.pendentesTotal ? plural(r.campanhas.pendentesTotal, 'pendente', 'pendentes') : ''
+            ].filter(Boolean).join(' · ')}`
+        } : null
+    ].filter(Boolean);
+}
+
+// Modal "Resumo de ontem" — acessível a qualquer momento pelo botão em
+// Ações rápidas, mesmo depois do card do topo já ter sido marcado "Visto"
+// (esse fica escondido até o dia seguinte; o modal não depende disso).
+export async function showResumoDiarioModal() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `<div class="modal-card" style="text-align:left;max-width:400px">
+        <h3 style="margin-top:0">📋 Resumo de ontem</h3>
+        <p class="helper-text" id="resumo-modal-body">Carregando...</p>
+        <div class="form-actions full-width"><button type="button" class="secondary-button" id="resumo-modal-close">Fechar</button></div>
+    </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#resumo-modal-close').addEventListener('click', close);
+
+    const result = await callAPI('getResumoDiario', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+    if (!overlay.isConnected) return;
+    const body = overlay.querySelector('#resumo-modal-body');
+    if (!result || result.status !== 'success') {
+        body.textContent = (result && result.message) || 'Não foi possível carregar o resumo.';
+        return;
+    }
+    const r = result.resumo;
+    overlay.querySelector('h3').textContent = `📋 Resumo de ${r.dataResumo}`;
+    const rows = buildResumoRows(r);
+    if (!rows.length) {
+        body.textContent = 'Nenhuma atividade registrada.';
+        return;
+    }
+    body.outerHTML = `<div class="resumo-diario-list" id="resumo-modal-list">
+        ${rows.map((row) => `<button type="button" class="resumo-diario-row" data-page="${row.page}" data-params='${escapeHtml(JSON.stringify(row.params || {}))}'>${escapeHtml(row.text)}</button>`).join('')}
+    </div>`;
+    overlay.querySelectorAll('[data-page]').forEach((btn) => {
+        btn.addEventListener('click', () => { close(); navigateTo(btn.dataset.page, JSON.parse(btn.dataset.params || '{}')); });
+    });
+}
+
 // Card "Resumo de ontem" (só admin, por enquanto) — busca à parte da
 // getDashboardData principal, pra não atrasar/complicar o carregamento do
 // resto do Início; se não tiver nada pra mostrar (dia parado), o card nem
@@ -487,32 +560,7 @@ async function loadResumoDiarioCard() {
         return;
     }
 
-    const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
-    const rows = [
-        { page: 'visits', text: plural(r.visitas.total, 'visita registrada', 'visitas registradas') },
-        (r.agendamentos.vencidosTotal || r.agendamentos.proximosTotal) ? {
-            page: 'calendar', params: { filter: 'retornos' },
-            text: [
-                r.agendamentos.vencidosTotal ? plural(r.agendamentos.vencidosTotal, 'agendamento vencido', 'agendamentos vencidos') : '',
-                r.agendamentos.proximosTotal ? `${r.agendamentos.proximosTotal} nos próximos 7 dias` : ''
-            ].filter(Boolean).join(' · ')
-        } : null,
-        r.relatorios.total ? {
-            page: 'manutencao',
-            text: `${plural(r.relatorios.total, 'relatório criado', 'relatórios criados')} (${[
-                r.relatorios.aferição ? `${r.relatorios.aferição} Aferição` : '',
-                r.relatorios.spsp ? `${r.relatorios.spsp} SPSP` : '',
-                r.relatorios.geral ? `${r.relatorios.geral} Geral` : ''
-            ].filter(Boolean).join(' · ')})`
-        } : null,
-        (r.campanhas.respondidasOntem || r.campanhas.pendentesTotal) ? {
-            page: 'campanhas',
-            text: `Campanhas: ${[
-                r.campanhas.respondidasOntem ? plural(r.campanhas.respondidasOntem, 'respondida', 'respondidas') : '',
-                r.campanhas.pendentesTotal ? plural(r.campanhas.pendentesTotal, 'pendente', 'pendentes') : ''
-            ].filter(Boolean).join(' · ')}`
-        } : null
-    ].filter(Boolean);
+    const rows = buildResumoRows(r);
 
     container.innerHTML = `
         <div class="card resumo-diario-card">

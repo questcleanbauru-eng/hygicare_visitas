@@ -91,7 +91,10 @@ export async function renderNotificacoesPage() {
         <div class="notif-history-row${n.lida ? '' : ' notif-history-row-unread'}" data-notif-id="${escapeHtml(n.id)}">
             <div class="notif-history-head">
                 <strong>${escapeHtml(n.titulo || 'Notificação')}</strong>
-                ${!n.lida ? '<span class="notif-history-badge">Nova</span>' : ''}
+                <span style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0">
+                    ${!n.lida ? '<span class="notif-history-badge">Nova</span>' : ''}
+                    <button type="button" class="text-link notif-history-lida" data-lida-id="${escapeHtml(n.id)}" title="Marcar como lida e arquivar" aria-label="Marcar como lida e arquivar">✓ Lida</button>
+                </span>
             </div>
             ${n.corpo ? `<p class="notif-history-body">${escapeHtml(n.corpo)}</p>` : ''}
             <p class="notif-history-date">${escapeHtml(n.criadaEm || '')}</p>
@@ -222,6 +225,21 @@ export async function renderNotificacoesPage() {
                 callAPI('marcarNotificacaoLida', { id: n.id, user: state.currentUser }).catch(() => {});
             }
             navigateTo((n && n.page) || 'dashboard', (n && n.params) || {});
+        });
+    });
+
+    // "✓ Lida" arquiva (some da lista na hora) sem abrir/navegar pra tela
+    // da notificação — útil pra limpar itens de teste ou já resolvidos sem
+    // precisar clicar em cada um pra "visitar".
+    main.querySelectorAll('[data-lida-id]').forEach((btn) => {
+        btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const id = btn.dataset.lidaId;
+            const n = notificacoes.find((x) => x.id === id);
+            if (n && !n.lida) {
+                callAPI('marcarNotificacaoLida', { id, user: state.currentUser }).catch(() => {});
+            }
+            btn.closest('[data-notif-id]')?.remove();
         });
     });
 
