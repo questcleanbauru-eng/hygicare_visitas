@@ -268,7 +268,7 @@ export function fillDashboard(mainContent, data, user) {
             </div>
             <div class="dash-activity-pane" data-pane="funil" hidden>
                 ${recentFunil.length === 0
-                    ? '<p class="helper-text">Nenhuma oportunidade ativa.</p>'
+                    ? '<p class="helper-text">Nenhuma oportunidade em atenção.</p>'
                     : `<div class="recent-list">${recentFunil.map((f) => {
                         const dias = calculateDaysFromDisplayDate(f.atualizacao || f.data || '');
                         return `<div class="recent-item recent-item-proposal">
