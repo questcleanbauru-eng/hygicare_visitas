@@ -559,22 +559,21 @@ export function downloadCSV(data, filename, columns) {
     URL.revokeObjectURL(url);
 }
 
-// "Salvar na agenda" — 5ª tentativa. As anteriores (blob:, data:, URL de
-// servidor de verdade em api/ics.js, Web Share com arquivo) ou travavam
-// numa aba/folha em branco "carregando" pra sempre, ou (Web Share) abriam
-// a folha de compartilhamento certa mas sem oferecer "Adicionar à
-// Agenda" — o iOS só mostra ações de "importar" (Agenda, Contatos) numa
-// navegação de verdade pro recurso, nunca dentro da folha de
-// compartilhar de um arquivo.
-//
-// webcal: em vez de https: — esquemas customizados (mesmo princípio de
-// tel:/mailto:, que já funcionam nesse app) são interceptados pelo
-// sistema ANTES de qualquer tentativa de carregar algo no WebView;
-// https:, mesmo servindo o Content-Type certo, exige que o WebView
-// processe a resposta primeiro — e é exatamente aí que travava dentro do
-// PWA instalado (modo standalone). No celular, navega a própria aba pro
-// link webcal:; no desktop (sem esse esquema) continua abrindo a URL
-// normal em nova aba.
+// "Salvar na agenda" — 6ª tentativa.
+// blob:/data: (tentativas 1-3) travavam numa aba em branco "carregando"
+// pra sempre — provavelmente bloqueio do próprio WebKit pra navegação de
+// topo com esses esquemas, não o app instalado em si.
+// Web Share com arquivo (tentativa 4) funcionava mas o iOS só oferece
+// "Adicionar à Agenda" numa navegação de verdade pro recurso, nunca
+// dentro da folha de compartilhar.
+// webcal: (tentativa 5) provou que dá pra navegar a própria aba e
+// escapar do app pro Calendário de verdade — mas webcal: sempre abre
+// como "Assinatura" (uma agenda pra sincronizar), não como "adicionar 1
+// evento", e isso não tem como ajustar (é o significado do esquema).
+// Essa é a única combinação ainda não testada isoladamente: https: de
+// verdade, navegando a própria aba (sem nova aba) — o jeito padrão que
+// qualquer link de calendário na web usa, e que webcal: acabou de provar
+// que consegue escapar do app instalado do mesmo jeito.
 const isMobileOS = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 export function openIcsEvent({ title, description, dateStr }) {
@@ -583,11 +582,12 @@ export function openIcsEvent({ title, description, dateStr }) {
         description: description || '',
         date: String(dateStr || '').replace(/-/g, '')
     });
+    const url = '/api/ics?' + params.toString();
     if (isMobileOS()) {
-        window.location.href = 'webcal://' + window.location.host + '/api/ics?' + params.toString();
+        window.location.href = url;
         return;
     }
-    window.open('/api/ics?' + params.toString(), '_blank', 'noopener');
+    window.open(url, '_blank', 'noopener');
 }
 
 
