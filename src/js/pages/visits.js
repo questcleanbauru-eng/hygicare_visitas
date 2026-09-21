@@ -682,7 +682,7 @@ export async function renderCalendarPage(options) {
                     ? `<span class="status-tag ${diasCor}">${diasLabel}</span>`
                     : `<span class="status-tag preventiva">Retorno agendado</span>`}
             </div>
-            <div class="item-meta">${escapeHtml([a.cidade, showDate ? a.dataAgendada : '', a.observacao].filter(Boolean).join(' · ')) || '-'}</div>
+            <div class="item-meta">${escapeHtml([a.campanhaOrigemId && a.vendedor ? `👤 ${a.vendedor}` : '', a.cidade, showDate ? a.dataAgendada : '', a.observacao].filter(Boolean).join(' · ')) || '-'}</div>
             <div class="ag-actions-row" style="display:flex;gap:0.9rem;margin-top:0.5rem;flex-wrap:wrap">
                 <button type="button" class="text-link" data-ag-done="${escapeHtml(a.id)}">Concluído</button>
                 <button type="button" class="text-link" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
