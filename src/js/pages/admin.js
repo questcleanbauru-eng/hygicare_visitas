@@ -352,10 +352,13 @@ function fillAdminContent(mainContent, data, emailConfig) {
                         <input type="checkbox" id="config-lembrete-agendamento" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.lembrete_agendamento_ativo) ? 'checked' : ''}>
                         Ativo
                     </label>
-                    <div style="display:flex;gap:0.5rem">
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
                         <button type="button" id="save-lembrete-agendamento" class="primary-button">Salvar</button>
                         <button type="button" id="test-lembrete-agendamento" class="secondary-button" title="Manda pra você (e-mail + notificação) os agendamentos reais de daqui a 7 dias, sem esperar o horário programado">Testar agora</button>
                     </div>
+                    <hr style="width:100%;border:none;border-top:1px solid var(--border);margin:0.15rem 0">
+                    <p class="helper-text" style="text-align:left;margin:0">Campanha aberta com prazo, criada ANTES desse recurso existir, não ganhou agendamento automático — rode uma vez pra cobrir as que já estavam abertas (pode rodar de novo sem duplicar).</p>
+                    <button type="button" id="backfill-agendamentos-campanha" class="secondary-button" style="align-self:flex-start">🔗 Aplicar às campanhas já abertas</button>
                 </div>
             </div>
             <div class="admin-section" style="margin-bottom:1.25rem">
@@ -1061,6 +1064,15 @@ export function bindAdminEvents(data) {
         setSaving(false, btn);
         if (result.status === 'success') { showToast(result.message, result.emailEnviado === false); }
         else { showToast(result.message || 'Não foi possível testar.', true); }
+    });
+
+    document.getElementById('backfill-agendamentos-campanha')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Aplicando...');
+        const result = await callAPI('backfillAgendamentosCampanha', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+        setSaving(false, btn);
+        if (result.status === 'success') { showToast(result.message); }
+        else { showToast(result.message || 'Não foi possível aplicar.', true); }
     });
 
     // Permissões (Gerente/Vendedor): apagar registros, criar Proposta/Funil, acessar Radar, editar Manutenção assinada
