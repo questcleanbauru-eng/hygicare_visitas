@@ -673,10 +673,11 @@ export async function renderCalendarPage(options) {
         const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
         const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
         const diasCor = dias < 0 ? 'erro' : dias <= 1 ? 'apresentacao' : 'preventiva';
+        const icon = a.campanhaOrigemId ? '🔗' : '📌';
         return `
         <div class="card" data-agendamento-id="${escapeHtml(a.id)}" style="margin-bottom:0.4rem">
             <div class="item-top">
-                <span class="item-name">📌 ${escapeHtml(a.cliente || '-')}</span>
+                <span class="item-name">${icon} ${escapeHtml(a.cliente || '-')}</span>
                 ${showDate
                     ? `<span class="status-tag ${diasCor}">${diasLabel}</span>`
                     : `<span class="status-tag preventiva">Retorno agendado</span>`}
@@ -836,7 +837,13 @@ export async function renderCalendarPage(options) {
         const showVisitas   = activeFilter === 'todos' || activeFilter === 'visitas';
         const showPropostas = activeFilter === 'todos' || activeFilter === 'propostas';
         const showFunil     = activeFilter === 'todos' || activeFilter === 'funil';
-        const showRetornos  = activeFilter === 'todos' || activeFilter === 'retornos';
+        const showRetornos  = activeFilter === 'todos' || activeFilter === 'retornos' || activeFilter === 'campanha';
+        // "Campanha" é um subconjunto de Retornos — só os agendamentos
+        // gerados automaticamente por prazo de campanha (ver
+        // campanhas.js/createAgendamentoInterno), não todo retorno.
+        const agendamentosParaGrade = activeFilter === 'campanha'
+            ? agendamentos.filter((a) => a.campanhaOrigemId)
+            : agendamentos;
 
         if (showVisitas) visits.forEach((v) => {
             const d = parseDisplayDate(v.dataVisita);
@@ -859,7 +866,7 @@ export async function renderCalendarPage(options) {
             if (!funilByDay[key]) { funilByDay[key] = []; }
             funilByDay[key].push(f);
         });
-        if (showRetornos) agendamentos.forEach((a) => {
+        if (showRetornos) agendamentosParaGrade.forEach((a) => {
             const d = parseDisplayDate(a.dataAgendada);
             if (!d || d.getFullYear() !== viewYear || d.getMonth() !== viewMonth) { return; }
             const key = d.getDate();
@@ -882,7 +889,7 @@ export async function renderCalendarPage(options) {
                 ...dayVisits.slice(0, 2).map((v) => `<span class="cal-dot" style="background:${typeColorMap[v.tipoVisita] || '#3b82f6'}" title="Visita: ${escapeHtml(v.cliente)}"></span>`),
                 ...dayProposals.slice(0, 1).map(() => `<span class="cal-dot" style="background:${PROPOSAL_COLOR}" title="Proposta"></span>`),
                 ...dayFunil.slice(0, 1).map(() => `<span class="cal-dot" style="background:${FUNIL_COLOR}" title="Funil"></span>`),
-                ...dayAgendamentos.slice(0, 1).map((a) => `<span class="cal-dot-agendamento" style="color:${AGENDAMENTO_COLOR}" title="Retorno agendado: ${escapeHtml(a.cliente)}" aria-hidden="true">📌</span>`)
+                ...dayAgendamentos.slice(0, 1).map((a) => `<span class="cal-dot-agendamento" style="color:${AGENDAMENTO_COLOR}" title="${a.campanhaOrigemId ? 'Prazo de campanha' : 'Retorno agendado'}: ${escapeHtml(a.cliente)}" aria-hidden="true">${a.campanhaOrigemId ? '🔗' : '📌'}</span>`)
             ];
             const totalExtra = dayVisits.length + dayProposals.length + dayFunil.length + dayAgendamentos.length - allDots.length;
             const more = totalExtra > 0 ? `<span class="cal-more">+${totalExtra}</span>` : '';
@@ -905,7 +912,7 @@ export async function renderCalendarPage(options) {
             ...(showVisitas ? typesThisMonth.map((t) => `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${typeColorMap[t]}"></span>${escapeHtml(t)}</span>`) : []),
             ...(showPropostas ? [`<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${PROPOSAL_COLOR}"></span>Proposta</span>`] : []),
             ...(showFunil ? [`<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${FUNIL_COLOR}"></span>Funil</span>`] : []),
-            ...(showRetornos ? [`<span class="cal-legend-item"><span class="cal-legend-dot-agendamento" style="color:${AGENDAMENTO_COLOR}" aria-hidden="true">📌</span>Retorno agendado</span>`] : [])
+            ...(showRetornos ? [`<span class="cal-legend-item"><span class="cal-legend-dot-agendamento" style="color:${AGENDAMENTO_COLOR}" aria-hidden="true">${activeFilter === 'campanha' ? '🔗' : '📌'}</span>${activeFilter === 'campanha' ? 'Prazo de campanha' : 'Retorno agendado'}</span>`] : [])
         ].join('');
 
         const filterOptions = [
@@ -913,7 +920,8 @@ export async function renderCalendarPage(options) {
             { key: 'visitas', label: 'Visitas' },
             { key: 'propostas', label: 'Propostas' },
             { key: 'funil', label: 'Funil' },
-            { key: 'retornos', label: 'Retornos' }
+            { key: 'retornos', label: 'Retornos' },
+            { key: 'campanha', label: 'Campanha' }
         ];
         const filterChipsHtml = filterOptions.map((opt) =>
             `<button type="button" class="pill${activeFilter === opt.key ? ' active' : ''}" data-cal-filter="${opt.key}">${opt.label}</button>`
