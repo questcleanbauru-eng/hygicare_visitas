@@ -688,6 +688,7 @@ export async function renderCalendarPage(options) {
                 <button type="button" class="text-link" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
                 <button type="button" class="text-link" data-ag-edit-date="${escapeHtml(a.id)}">Mudar data</button>
                 <button type="button" class="text-link" data-ag-ics="${escapeHtml(a.id)}">Salvar na agenda</button>
+                ${a.campanhaOrigemId ? `<button type="button" class="text-link" data-ag-share="${escapeHtml(a.id)}">Compartilhar</button>` : ''}
             </div>
             <div class="ag-edit-date-row" style="display:none;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
                 <input type="date" class="ag-edit-date-input" value="${escapeHtml(formatInputDateFromDisplay(a.dataAgendada) || '')}">
@@ -751,6 +752,32 @@ export async function renderCalendarPage(options) {
                     description: a.observacao || 'Visita de retorno agendada pelo App de Visitas.',
                     dateStr
                 });
+            });
+        });
+        container.querySelectorAll('[data-ag-share]').forEach((b) => {
+            b.addEventListener('click', async () => {
+                const a = sourceList.find((item) => String(item.id) === b.dataset.agShare);
+                if (!a || !a.campanhaOrigemId) return;
+                const fd = await ensureFormData().then((r) => r.data).catch(() => null);
+                const vendedorRow = ((fd && fd.vendedores) || []).find((v) => v.nome === a.vendedor);
+                const loginNome = vendedorRow?.nomeLogin || '';
+                const n = loginNome ? `&n=${encodeURIComponent(loginNome)}` : '';
+                const link = `${window.location.origin}/?c=${a.campanhaOrigemId}${n}`;
+                const primeiroNome = String(a.vendedor || '').split(' ')[0] || '';
+                const texto = [
+                    `Oi ${primeiroNome}! Lembrete: ${a.cliente || ''}`,
+                    a.observacao ? a.observacao : '',
+                    `Prazo: ${a.dataAgendada}`,
+                    loginNome
+                        ? `Pra entrar, é só abrir o link e informar seu PIN (4 últimos números do seu celular) — seu login já vem preenchido.`
+                        : `Pra entrar: login é seu nome (em minúsculo) e PIN são os 4 últimos números do seu celular.`,
+                    link
+                ].filter(Boolean).join('\n');
+                if (navigator.share) {
+                    navigator.share({ title: a.cliente || 'Campanha', text: texto }).catch(() => {});
+                } else {
+                    navigator.clipboard?.writeText(texto).then(() => showToast('Mensagem copiada.'));
+                }
             });
         });
         container.querySelectorAll('[data-ag-edit-date]').forEach((b) => {
@@ -821,6 +848,11 @@ export async function renderCalendarPage(options) {
     // retornos" na Home já abre aqui filtrado, em vez de cair sempre em
     // "Todos" e o usuário precisar clicar no chip de novo.
     let activeFilter = (options && options.filter) || 'todos';
+    // Legenda nasce oculta toda vez que a Agenda é aberta (ela já tem
+    // muitos tipos numa lista longa) — quem quiser vê-la, clica pra abrir;
+    // fica assim (aberta/fechada) enquanto navega entre meses/filtros na
+    // mesma visita à tela, mas volta a nascer oculta na próxima vez.
+    let legendVisible = false;
 
     const render = () => {
         const firstDay  = new Date(viewYear, viewMonth, 1);
@@ -948,7 +980,10 @@ export async function renderCalendarPage(options) {
                     <div class="cal-header-cell">Sab</div>
                     ${cells.join('')}
                 </div>
-                <div class="cal-legend">${legendHtml}</div>
+                <div class="cal-legend-toggle-row">
+                    <button type="button" class="text-link" id="cal-legend-toggle">${legendVisible ? 'Ocultar legenda' : 'Mostrar legenda'}</button>
+                </div>
+                ${legendVisible ? `<div class="cal-legend">${legendHtml}</div>` : ''}
             </div>
             <div id="cal-day-panel"></div>
             <div class="card" id="cal-agendamentos-section" style="margin-top:0.75rem"></div>
@@ -956,6 +991,10 @@ export async function renderCalendarPage(options) {
 
         renderAgendamentosSection();
 
+        document.getElementById('cal-legend-toggle').addEventListener('click', () => {
+            legendVisible = !legendVisible;
+            render();
+        });
         document.getElementById('cal-prev').addEventListener('click', () => {
             viewMonth--;
             if (viewMonth < 0) { viewMonth = 11; viewYear--; }

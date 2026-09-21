@@ -325,13 +325,19 @@
     border-color: var(--primary);
 }
 
+.cal-legend-toggle-row {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
+.cal-legend-toggle-row .text-link { font-size: var(--text-xs); }
+
 .cal-legend {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
+    margin-top: 0.6rem;
 }
 
 .cal-legend-item {

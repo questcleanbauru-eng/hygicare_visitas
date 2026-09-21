@@ -994,6 +994,13 @@ export async function renderCampanhasPage() {
         if (rr && rr.status === 'success') { showToast('Campanha apagada.'); renderCampanhasPage(); }
         else showToast((rr && rr.message) || 'Não foi possível apagar.', true);
     }));
+    main.querySelectorAll('[data-camp-encerrar]').forEach((el) => el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm('Encerrar esta campanha? O vendedor não vai mais conseguir acessar o link, mesmo que ainda falte cliente pra atualizar. O agendamento gerado pelo prazo (se houver) some da Agenda junto.')) return;
+        const rr = await callAPI('encerrarCampanha', { id: el.dataset.campEncerrar, user: state.currentUser }).catch(() => null);
+        if (rr && rr.status === 'success') { showToast('Campanha encerrada.'); renderCampanhasPage(); }
+        else showToast((rr && rr.message) || 'Não foi possível encerrar.', true);
+    }));
 
     const refreshCampSelBar = () => {
         const count = document.getElementById('camp-sel-count');
@@ -1064,8 +1071,10 @@ function campanhaRow(c, selectMode) {
         <p class="helper-text camp-admin-count">${c.respondidos} de ${c.total} atualizados</p>
         <div class="camp-admin-actions">
             <button type="button" class="text-link" data-camp-details="${escapeHtml(c.id)}">Ver clientes</button>
+            ${c.status !== 'concluida' ? `
             <button type="button" class="text-link" data-camp-copy="${escapeHtml(c.id)}">Copiar link</button>
             <button type="button" class="mini-button mini-button-whatsapp" data-camp-wa="${escapeHtml(c.id)}">WhatsApp</button>
+            <button type="button" class="mini-button" data-camp-encerrar="${escapeHtml(c.id)}">Concluir</button>` : ''}
             <button type="button" class="mini-button mini-button-danger" data-camp-del="${escapeHtml(c.id)}">Apagar</button>
         </div>
         <div class="camp-admin-itens" id="camp-itens-${escapeHtml(c.id)}" hidden></div>
