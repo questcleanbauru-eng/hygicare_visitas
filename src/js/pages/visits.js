@@ -2400,6 +2400,22 @@ export async function showCreateAgendamentoModal(onCreated) {
                     <input type="date" id="newag-data" value="${defaultDate.toISOString().slice(0, 10)}">
                 </div>
                 <div class="form-group full-width" style="text-align:left">
+                    <label style="display:flex;align-items:center;gap:0.5rem;font-weight:600;cursor:pointer">
+                        <input type="checkbox" id="newag-repetir" style="width:auto;min-height:0">
+                        🔁 Repetir a cada 30 dias
+                    </label>
+                    <p class="helper-text" style="text-align:left;margin:0.3rem 0 0">Pra acompanhar algo por mais tempo (ex.: teste de produto) — cria vários agendamentos de uma vez, um a cada 30 dias, cada um independente.</p>
+                </div>
+                <div class="form-group full-width" id="newag-repetir-group" style="text-align:left;display:none">
+                    <label for="newag-repetir-meses">Por quantos meses?</label>
+                    <select id="newag-repetir-meses">
+                        <option value="2">2 meses (2 lembretes)</option>
+                        <option value="3" selected>3 meses (3 lembretes)</option>
+                        <option value="6">6 meses (6 lembretes)</option>
+                        <option value="12">12 meses (12 lembretes)</option>
+                    </select>
+                </div>
+                <div class="form-group full-width" style="text-align:left">
                     <label for="newag-obs">Observação (opcional)</label>
                     <textarea id="newag-obs" rows="2" placeholder="Ex: ligar antes de ir..."></textarea>
                 </div>
@@ -2408,6 +2424,10 @@ export async function showCreateAgendamentoModal(onCreated) {
             </div>
         `;
         document.body.appendChild(overlay);
+
+        overlay.querySelector('#newag-repetir').addEventListener('change', (e) => {
+            overlay.querySelector('#newag-repetir-group').style.display = e.target.checked ? '' : 'none';
+        });
 
         // Busca no nome do cliente já cadastrado e autopreenche a cidade —
         // mas aceita texto livre (allowFreeText), já que o agendamento
@@ -2435,37 +2455,79 @@ export async function showCreateAgendamentoModal(onCreated) {
             if (!dataVal) { showToast('Informe a data do retorno.', true); return; }
             const cidadeVal = overlay.querySelector('#newag-cidade').value.trim();
             const obsVal = overlay.querySelector('#newag-obs').value.trim();
+            const repetir = overlay.querySelector('#newag-repetir').checked;
+            const qtd = repetir ? Number(overlay.querySelector('#newag-repetir-meses').value) : 1;
+
+            // Cada checkpoint é um agendamento independente de verdade (não
+            // uma "série" com vínculo entre si) — dá pra concluir/cancelar/
+            // mudar a data de um sem afetar os outros. Criados em sequência
+            // (não em paralelo) porque o Id de cada um é gerado por
+            // Date.now() no servidor — paralelo arriscaria colisão.
+            const checkpoints = [];
+            const dataBase = new Date(dataVal + 'T00:00:00');
+            for (let i = 0; i < qtd; i++) {
+                const d = new Date(dataBase);
+                d.setDate(d.getDate() + i * 30);
+                checkpoints.push(d);
+            }
+
             setSaving(true, btn, 'Salvando...');
-            const result = await callAPI('createAgendamento', {
-                cliente: clienteVal, cidade: cidadeVal, dataAgendada: dataVal,
-                observacao: obsVal, user: state.currentUser
-            });
-            if (result && result.status === 'success') {
-                showToast('Agendamento criado com sucesso.');
-                const card = overlay.querySelector('.modal-card');
+            const criados = [];
+            for (let i = 0; i < checkpoints.length; i++) {
+                const obsCheckpoint = qtd > 1
+                    ? `${obsVal ? obsVal + ' — ' : ''}Acompanhamento (${i + 1}/${qtd})`
+                    : obsVal;
+                const r = await callAPI('createAgendamento', {
+                    cliente: clienteVal, cidade: cidadeVal,
+                    dataAgendada: checkpoints[i].toISOString().slice(0, 10),
+                    observacao: obsCheckpoint, user: state.currentUser
+                }).catch((e) => ({ status: 'error', message: e.message }));
+                if (r && r.status === 'success') {
+                    criados.push(r.agendamento);
+                } else {
+                    showToast((r && r.message) || 'Erro ao criar agendamento.', true);
+                    setSaving(false, btn);
+                    return;
+                }
+            }
+
+            const card = overlay.querySelector('.modal-card');
+            if (criados.length > 1) {
+                showToast(`${criados.length} agendamentos criados com sucesso.`);
                 card.innerHTML = `
                     <div style="font-size:2rem;margin-bottom:0.75rem">✅</div>
-                    <h3>Agendamento criado</h3>
-                    <p>Quer salvar esse compromisso na agenda do seu telefone?</p>
-                    <button type="button" id="modal-newag-ics" class="primary-button">Salvar na agenda do telefone</button>
-                    <button type="button" id="modal-newag-done" class="secondary-button">Concluir</button>
+                    <h3>${criados.length} agendamentos criados</h3>
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.75rem">${checkpoints.map((d) => escapeHtml(formatDateForDisplay(d))).join(' · ')}</p>
+                    <button type="button" class="secondary-button" id="modal-newag-done">Concluir</button>
                 `;
-                card.querySelector('#modal-newag-ics').addEventListener('click', () => {
-                    openIcsEvent({
-                        title: `Retorno: ${clienteVal}`,
-                        description: obsVal || 'Agendamento criado pelo App de Visitas.',
-                        dateStr: dataVal
-                    });
-                });
                 card.querySelector('#modal-newag-done').addEventListener('click', () => {
                     overlay.remove();
                     resolve();
-                    if (onCreated) onCreated(result.agendamento);
+                    if (onCreated) onCreated(criados[0]);
                 });
-            } else {
-                showToast((result && result.message) || 'Erro ao criar agendamento.', true);
-                setSaving(false, btn);
+                return;
             }
+
+            showToast('Agendamento criado com sucesso.');
+            card.innerHTML = `
+                <div style="font-size:2rem;margin-bottom:0.75rem">✅</div>
+                <h3>Agendamento criado</h3>
+                <p>Quer salvar esse compromisso na agenda do seu telefone?</p>
+                <button type="button" id="modal-newag-ics" class="primary-button">Salvar na agenda do telefone</button>
+                <button type="button" id="modal-newag-done" class="secondary-button">Concluir</button>
+            `;
+            card.querySelector('#modal-newag-ics').addEventListener('click', () => {
+                openIcsEvent({
+                    title: `Retorno: ${clienteVal}`,
+                    description: obsVal || 'Agendamento criado pelo App de Visitas.',
+                    dateStr: dataVal
+                });
+            });
+            card.querySelector('#modal-newag-done').addEventListener('click', () => {
+                overlay.remove();
+                resolve();
+                if (onCreated) onCreated(criados[0]);
+            });
         });
     });
 }
