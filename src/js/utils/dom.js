@@ -584,23 +584,32 @@ export function buildIcsContent({ title, description, dateStr }) {
 }
 
 // Sem o atributo "download": isso faz o navegador entregar o conteúdo pelo
-// MIME (text/calendar), e o celular já reconhece como agenda, abrindo a
-// prévia de "Adicionar evento" direto. target=_blank evita que isso troque
-// a própria tela do app por uma aba em branco em navegadores desktop que
-// não sabem lidar com esse MIME.
-// data: URI em vez de blob: — blob: é só uma referência de memória presa
-// ao documento que criou (via URL.createObjectURL), e abrir em outro
-// contexto de navegação (target=_blank, ainda mais com rel=noopener) faz o
-// Safari do iPhone não conseguir resolver essa referência: fica preso numa
-// aba em branco "carregando" pra sempre (bug real, achado num iPhone).
-// data: já carrega o conteúdo dentro da própria URL, sem depender de
-// nenhum contexto — funciona igual em qualquer aba/navegador.
+// MIME (text/calendar), reconhecido como agenda. data: URI em vez de
+// blob: — blob: é só uma referência de memória presa ao documento que
+// criou (via URL.createObjectURL), e abrir em outro contexto de
+// navegação (nova aba) faz o Safari do iPhone não conseguir resolver essa
+// referência. data: carrega o conteúdo dentro da própria URL, sem
+// depender de nenhum contexto.
+//
+// target=_blank (nova aba) só funciona em desktop — é o que evita que
+// abrir o link troque a própria tela do app por uma aba em branco em
+// navegadores que não reconhecem text/calendar. No celular (iOS/Android)
+// é o INVERSO: nova aba quebra a interceptação nativa (testado num
+// iPhone real — mesmo com data:, "nova aba" trava numa tela em branco
+// "carregando" pra sempre). Precisa navegar a própria aba: aí sim o
+// sistema intercepta a navegação e abre a prévia nativa de "Adicionar
+// evento" por cima, sem sair do app de verdade — mesmo princípio de um
+// link tel:/mailto:.
+const isMobileOS = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
 export function downloadIcs(filename, content) {
     const dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(content);
     const a = document.createElement('a');
     a.href = dataUri;
-    a.target = '_blank';
-    a.rel = 'noopener';
+    if (!isMobileOS()) {
+        a.target = '_blank';
+        a.rel = 'noopener';
+    }
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
