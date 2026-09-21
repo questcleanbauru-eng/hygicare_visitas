@@ -49,6 +49,7 @@ import {
 } from '../lib/handlers/push.js';
 import { handleGetResumoDiario, handleTestResumoDiario } from '../lib/handlers/resumo.js';
 import { handleTestLembreteAgendamento } from '../lib/handlers/lembretesAgendamento.js';
+import { handleTestLembreteClientes } from '../lib/handlers/lembreteClientes.js';
 
 function parseBody(req) {
     if (!req.body) return {};
@@ -167,6 +168,7 @@ const HANDLERS = {
     getResumoDiario: handleGetResumoDiario,
     testResumoDiario: handleTestResumoDiario,
     testLembreteAgendamento: handleTestLembreteAgendamento,
+    testLembreteClientes: handleTestLembreteClientes,
     ping: async () => ({ status: 'ok' })
 };
 

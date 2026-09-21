@@ -367,6 +367,20 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 </div>
             </div>
             <div class="admin-section" style="margin-bottom:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">📋 Lembrete: Base de Clientes</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <p class="helper-text" style="text-align:left;margin:0">Todo dia de manhã, um aviso simples pro(s) admin(s) lembrando de revisar/atualizar a Base de Clientes (Admin → Listas) — não depende de nenhum dado, é só um lembrete.</p>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-lembrete-clientes" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.lembrete_atualizar_clientes_ativo) ? 'checked' : ''}>
+                        Ativo
+                    </label>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                        <button type="button" id="save-lembrete-clientes" class="primary-button">Salvar</button>
+                        <button type="button" id="test-lembrete-clientes" class="secondary-button" title="Manda a notificação pra você agora, sem esperar o horário programado">Testar agora</button>
+                    </div>
+                </div>
+            </div>
+            <div class="admin-section" style="margin-bottom:1.25rem">
                 <div class="section-title-row"><h3 class="section-title">Permissões</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
@@ -1034,6 +1048,23 @@ export function bindAdminEvents(data) {
         setSaving(false, btn);
         if (result.status === 'success') { showToast(result.message); }
         else { showToast(result.message || 'Não foi possível aplicar.', true); }
+    });
+
+    document.getElementById('save-lembrete-clientes')?.addEventListener('click', async () => {
+        const result = await saveEmailConfig({
+            lembrete_atualizar_clientes_ativo: document.getElementById('config-lembrete-clientes').checked ? 'true' : 'false'
+        });
+        if (result.status === 'success') { showToast('Configuração salva.'); }
+        else { showToast(result.message || 'Não foi possível salvar.', true); }
+    });
+
+    document.getElementById('test-lembrete-clientes')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Enviando...');
+        const result = await callAPI('testLembreteClientes', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+        setSaving(false, btn);
+        if (result.status === 'success') { showToast(result.message); }
+        else { showToast(result.message || 'Não foi possível testar.', true); }
     });
 
     // Permissões (Gerente/Vendedor): apagar registros, criar Proposta/Funil, acessar Radar, editar Manutenção assinada
