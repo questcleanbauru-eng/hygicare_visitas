@@ -1418,12 +1418,15 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
         // Lista restrita (não é "notifique qualquer um da empresa"): só o(s)
         // gerente(s) da própria gerência de quem tá registrando + os admins
         // — as pessoas que realmente fazem sentido avisar sobre uma visita.
+        // Pro Admin (que não tem uma "própria gerência" fixa pra comparar),
+        // a restrição de gerência não faz sentido — vê todos os gerentes.
         const meuGerencia = String(state.currentUser?.gerencia || '').trim().toLowerCase();
         const notificarOptions = (formData.vendedores || []).filter((v) => {
             if (!v.nome || v.nome === state.currentUser?.name) return false;
             const perfil = String(v.perfil || '').trim().toLowerCase();
             if (perfil === 'admin') return true;
-            return perfil === 'gerente' && String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
+            if (perfil !== 'gerente') return false;
+            return isAdminUser || String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
         }).map((v) => v.nome);
         initializeSearchableInput({
             input: document.getElementById('visit-notificar-usuario'),
