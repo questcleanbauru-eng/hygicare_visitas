@@ -559,60 +559,23 @@ export function downloadCSV(data, filename, columns) {
     URL.revokeObjectURL(url);
 }
 
-// Gera um evento de dia inteiro em formato .ics (RFC 5545) — usado pra
-// exportar um agendamento pro calendario nativo do celular (Google
-// Agenda, Apple Calendar), sem precisar de nenhuma API/permissao do Google.
-export function buildIcsContent({ title, description, dateStr }) {
-    const dt = String(dateStr || '').replace(/-/g, '');
-    const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const uid = 'agendamento-' + Date.now() + '@appdevisitas';
-    const esc = (s) => String(s || '').replace(/([,;])/g, '\\$1').replace(/\n/g, '\\n');
-    return [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//App de Visitas//PT-BR',
-        'CALSCALE:GREGORIAN',
-        'BEGIN:VEVENT',
-        `UID:${uid}`,
-        `DTSTAMP:${stamp}`,
-        `DTSTART;VALUE=DATE:${dt}`,
-        `SUMMARY:${esc(title)}`,
-        `DESCRIPTION:${esc(description)}`,
-        'END:VEVENT',
-        'END:VCALENDAR'
-    ].join('\r\n');
-}
-
-// Sem o atributo "download": isso faz o navegador entregar o conteúdo pelo
-// MIME (text/calendar), reconhecido como agenda. data: URI em vez de
-// blob: — blob: é só uma referência de memória presa ao documento que
-// criou (via URL.createObjectURL), e abrir em outro contexto de
-// navegação (nova aba) faz o Safari do iPhone não conseguir resolver essa
-// referência. data: carrega o conteúdo dentro da própria URL, sem
-// depender de nenhum contexto.
-//
-// target=_blank (nova aba) só funciona em desktop — é o que evita que
-// abrir o link troque a própria tela do app por uma aba em branco em
-// navegadores que não reconhecem text/calendar. No celular (iOS/Android)
-// é o INVERSO: nova aba quebra a interceptação nativa (testado num
-// iPhone real — mesmo com data:, "nova aba" trava numa tela em branco
-// "carregando" pra sempre). Precisa navegar a própria aba: aí sim o
-// sistema intercepta a navegação e abre a prévia nativa de "Adicionar
-// evento" por cima, sem sair do app de verdade — mesmo princípio de um
-// link tel:/mailto:.
-const isMobileOS = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-export function downloadIcs(filename, content) {
-    const dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(content);
-    const a = document.createElement('a');
-    a.href = dataUri;
-    if (!isMobileOS()) {
-        a.target = '_blank';
-        a.rel = 'noopener';
-    }
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+// "Salvar na agenda" — navega pra uma URL de servidor de verdade
+// (api/ics.js) que devolve o evento .ics com Content-Type text/calendar.
+// Chegamos aqui depois de duas tentativas só-no-cliente (blob:, depois
+// data:) que travavam numa tela em branco "carregando" pra sempre num
+// iPhone real: blob:/data: são conteúdo preso à própria navegação que os
+// gerou, e o Safari do iPhone não lida bem com isso em nova aba nem
+// mesmo navegando a aba atual. Uma URL http(s) de verdade servindo
+// text/calendar é o jeito padrão (usado por qualquer "adicionar à
+// agenda" da web) de fazer o iOS reconhecer e abrir a prévia nativa de
+// "Adicionar evento" — sem depender de blob/data URI nenhum.
+export function openIcsEvent({ title, description, dateStr }) {
+    const params = new URLSearchParams({
+        title: title || '',
+        description: description || '',
+        date: String(dateStr || '').replace(/-/g, '')
+    });
+    window.location.href = '/api/ics?' + params.toString();
 }
 
 

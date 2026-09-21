@@ -15,7 +15,7 @@ import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
     loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
-    buildIcsContent, downloadIcs, preventEnterSubmit,
+    openIcsEvent, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
@@ -746,12 +746,11 @@ export async function renderCalendarPage(options) {
                 if (!a) return;
                 const dt = parseDisplayDate(a.dataAgendada);
                 const dateStr = dt ? dt.toISOString().slice(0, 10) : '';
-                const ics = buildIcsContent({
+                openIcsEvent({
                     title: `Retorno: ${a.cliente || ''}`,
                     description: a.observacao || 'Visita de retorno agendada pelo App de Visitas.',
                     dateStr
                 });
-                downloadIcs(`retorno-${String(a.cliente || 'cliente').replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
             });
         });
         container.querySelectorAll('[data-ag-edit-date]').forEach((b) => {
@@ -2291,12 +2290,11 @@ export function showScheduleReturnModal(visit) {
                         <button type="button" id="modal-sched-done" class="secondary-button">Concluir</button>
                     `;
                     card.querySelector('#modal-sched-ics').addEventListener('click', () => {
-                        const ics = buildIcsContent({
+                        openIcsEvent({
                             title: `Retorno: ${visit.cliente || ''}`,
                             description: obsVal || 'Visita de retorno agendada pelo App de Visitas.',
                             dateStr: dataVal
                         });
-                        downloadIcs(`retorno-${String(visit.cliente || 'cliente').replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
                     });
                     card.querySelector('#modal-sched-done').addEventListener('click', close);
                 } else {
@@ -2411,12 +2409,11 @@ export async function showCreateAgendamentoModal(onCreated) {
                     <button type="button" id="modal-newag-done" class="secondary-button">Concluir</button>
                 `;
                 card.querySelector('#modal-newag-ics').addEventListener('click', () => {
-                    const ics = buildIcsContent({
+                    openIcsEvent({
                         title: `Retorno: ${clienteVal}`,
                         description: obsVal || 'Agendamento criado pelo App de Visitas.',
                         dateStr: dataVal
                     });
-                    downloadIcs(`retorno-${clienteVal.replace(/[^a-z0-9]/gi, '-')}.ics`, ics);
                 });
                 card.querySelector('#modal-newag-done').addEventListener('click', () => {
                     overlay.remove();
