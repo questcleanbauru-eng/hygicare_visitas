@@ -6,6 +6,11 @@ import { ensureStyles } from '../utils/ui.js';
 
 let activeAdminTab = 'users';
 
+// Mesma planilha do backend (lib/sheets.js, SPREADSHEET_ID) — aba
+// Auditoria não carrega mais nada no app (ver aba "Auditoria" abaixo),
+// só um link direto pra planilha de verdade.
+const AUDITORIA_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rW2cl0V-HWNnYWHsRTgtEv9dvR2PEIL0X92eBGAIrzQ/edit';
+
 // A API do Sheets pode devolver "TRUE" (maiúsculo) em vez do "true" que o
 // app grava, quando a célula vira um tipo booleano de verdade na planilha
 // (ex.: editada direto no Sheets) — comparação exata `=== 'true'` sem isso
@@ -420,8 +425,9 @@ function fillAdminContent(mainContent, data, emailConfig) {
         </div>
 
         <!-- Tab: Auditoria -->
-        <div class="admin-tab-panel${activeAdminTab === 'auditoria' ? ' active' : ''} card" id="admin-tab-auditoria" style="padding:1rem">
-            <div id="auditoria-content"><p class="helper-text">Carregando...</p></div>
+        <div class="admin-tab-panel${activeAdminTab === 'auditoria' ? ' active' : ''} card" id="admin-tab-auditoria" style="padding:1rem;display:flex;flex-direction:column;gap:0.75rem;align-items:flex-start">
+            <p class="helper-text" style="text-align:left;margin:0">Todo criar/editar/apagar do app já fica registrado direto na planilha "Auditoria" — sem necessidade de carregar isso aqui dentro do app.</p>
+            <a href="${AUDITORIA_SHEET_URL}" target="_blank" rel="noopener" class="primary-button" style="text-decoration:none;display:inline-block">📄 Abrir planilha de Auditoria</a>
         </div>
 
         <!-- Tab: Saúde -->
@@ -458,7 +464,6 @@ function fillAdminContent(mainContent, data, emailConfig) {
     `;
 
     bindAdminEvents(data);
-    if (activeAdminTab === 'auditoria') { loadAuditoriaTab(); }
     if (activeAdminTab === 'saude') { loadSaudeTab(); }
     if (activeAdminTab === 'listas') { loadClientesPrincipaisTab(); }
 }
@@ -506,50 +511,6 @@ async function loadSaudeTab() {
                     <tr><td data-label="Aba">Funil</td><td data-label="Registros">${d.registros.funil}</td></tr>
                     <tr><td data-label="Aba">Contratos</td><td data-label="Registros">${d.registros.contratos}</td></tr>
                     <tr><td data-label="Aba">Manutenções</td><td data-label="Registros">${d.registros.manutencoes}</td></tr>
-                </tbody>
-            </table>
-        </div>
-    `;
-}
-
-
-const ACAO_ICON = { criou: '✚', editou: '✏️', apagou: '🗑️', aprovou: '✅' };
-const ENTIDADE_LABEL = { visita: 'Visita', proposta: 'Proposta', funil: 'Funil', contrato: 'Contrato', manutencao: 'Manutenção', usuario: 'Usuário' };
-
-let _auditoriaEntries = null;
-
-async function loadAuditoriaTab() {
-    const container = document.getElementById('auditoria-content');
-    if (!container) return;
-    if (!_auditoriaEntries) {
-        try {
-            const result = await callAPI('getAuditoria', { user: state.currentUser });
-            _auditoriaEntries = result.status === 'success' ? result.entries : [];
-        } catch (e) {
-            container.innerHTML = '<p class="helper-text">Não foi possível carregar a auditoria.</p>';
-            return;
-        }
-    }
-    renderAuditoriaEntries(container, _auditoriaEntries);
-}
-
-function renderAuditoriaEntries(container, entries) {
-    if (!entries.length) {
-        container.innerHTML = '<p class="helper-text">Nenhum registro de auditoria nos últimos 7 dias.</p>';
-        return;
-    }
-    container.innerHTML = `
-        <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">Últimos 7 dias (${entries.length} registro${entries.length > 1 ? 's' : ''}).</p>
-        <div class="admin-user-table-wrap">
-            <table class="admin-user-table">
-                <thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Registro</th></tr></thead>
-                <tbody>
-                    ${entries.map((e) => `<tr>
-                        <td data-label="Quando" style="font-size:0.82rem;color:var(--text-muted-strong);white-space:nowrap">${escapeHtml(e.data)} ${escapeHtml(e.hora)}</td>
-                        <td data-label="Quem" style="font-size:0.85rem">${escapeHtml(e.usuarioNome || e.usuarioEmail)}</td>
-                        <td data-label="Ação" style="font-size:0.85rem">${ACAO_ICON[e.acao] || ''} ${escapeHtml(e.acao)}</td>
-                        <td data-label="Registro" style="font-size:0.85rem">${escapeHtml(ENTIDADE_LABEL[e.entidade] || e.entidade)} — ${escapeHtml(e.detalhes || e.entidadeId)}</td>
-                    </tr>`).join('')}
                 </tbody>
             </table>
         </div>
@@ -651,7 +612,6 @@ export function bindAdminEvents(data) {
             tab.classList.add('active');
             const panel = document.getElementById(`admin-tab-${tab.dataset.tab}`);
             if (panel) { panel.classList.add('active'); }
-            if (tab.dataset.tab === 'auditoria') { loadAuditoriaTab(); }
             if (tab.dataset.tab === 'saude') { loadSaudeTab(); }
             if (tab.dataset.tab === 'listas') { loadClientesPrincipaisTab(); }
         });

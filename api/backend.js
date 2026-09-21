@@ -43,7 +43,6 @@ import { handleGetDashboardData, handleGetPendenciasPorVendedor } from '../lib/h
 import { handleGetAdminData, handleSaveUser, handleSetUserAtivo, handleDeleteUser, handleSaveNotificationConfig, handleSaveLookupList, handleGetHealthPanel, handleForceRefreshData } from '../lib/handlers/admin.js';
 import { handleGetFormData } from '../lib/handlers/formdata.js';
 import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig, handleGetManutencao } from '../lib/handlers/config.js';
-import { handleGetAuditoria } from '../lib/audit.js';
 import {
     handleSubscribePush, handleUnsubscribePush, handleSendPushNotification,
     handleGetNotificacoes, handleMarcarNotificacaoLida
@@ -149,7 +148,6 @@ const HANDLERS = {
     getConfigVersion: handleGetConfigVersion,
     saveEmailConfig: handleSaveEmailConfig,
     getManutencao: handleGetManutencao,
-    getAuditoria: handleGetAuditoria,
     getHealthPanel: handleGetHealthPanel,
     forceRefreshData: handleForceRefreshData,
     getRelatoriosTecnicos: handleGetRelatoriosTecnicos,
