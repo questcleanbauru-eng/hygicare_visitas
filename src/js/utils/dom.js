@@ -559,59 +559,34 @@ export function downloadCSV(data, filename, columns) {
     URL.revokeObjectURL(url);
 }
 
-function buildIcsText({ title, description, dateStr }) {
-    const dt = String(dateStr || '').replace(/-/g, '');
-    const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const uid = 'agendamento-' + Date.now() + '@appdevisitas';
-    const esc = (s) => String(s || '').replace(/([,;])/g, '\\$1').replace(/\n/g, '\\n');
-    return [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//App de Visitas//PT-BR',
-        'CALSCALE:GREGORIAN',
-        'BEGIN:VEVENT',
-        `UID:${uid}`,
-        `DTSTAMP:${stamp}`,
-        `DTSTART;VALUE=DATE:${dt}`,
-        `SUMMARY:${esc(title)}`,
-        `DESCRIPTION:${esc(description)}`,
-        'END:VEVENT',
-        'END:VCALENDAR'
-    ].join('\r\n');
-}
-
-// "Salvar na agenda" — 4ª tentativa. As 3 anteriores (blob:, data:, e
-// depois uma URL de servidor de verdade em api/ics.js) travavam todas do
-// mesmo jeito num iPhone real: aba/folha em branco "carregando" pra
-// sempre. A causa comum só ficou clara depois da 3ª falha (nem sendo uma
-// URL http(s) de verdade resolveu) — o app roda instalado na tela de
-// início (PWA em modo standalone), e esse WKWebView não sabe renderizar
-// nem entregar um recurso que não é HTML pro visualizador nativo de
-// calendário; ele passa a navegação pra um visualizador do sistema que,
-// nesse contexto, nunca completa a interceptação.
+// "Salvar na agenda" — 5ª tentativa. As anteriores (blob:, data:, URL de
+// servidor de verdade em api/ics.js, Web Share com arquivo) ou travavam
+// numa aba/folha em branco "carregando" pra sempre, ou (Web Share) abriam
+// a folha de compartilhamento certa mas sem oferecer "Adicionar à
+// Agenda" — o iOS só mostra ações de "importar" (Agenda, Contatos) numa
+// navegação de verdade pro recurso, nunca dentro da folha de
+// compartilhar de um arquivo.
 //
-// A Web Share API não navega pra lugar nenhum — abre a folha de
-// compartilhamento nativa do iOS direto com o arquivo .ics, que a Apple
-// já reconhece e oferece "Adicionar a Agenda"/"Salvar Evento" como opção.
-// Funciona de dentro do PWA instalado porque não depende de navegação
-// nenhuma. Sem suporte (a maioria dos navegadores desktop), cai pro link
-// de servidor de antes, em nova aba.
-export async function openIcsEvent({ title, description, dateStr }) {
-    try {
-        const file = new File([buildIcsText({ title, description, dateStr })], 'evento.ics', { type: 'text/calendar' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({ files: [file], title: title || 'Evento' });
-            } catch (e) { /* AbortError = usuário cancelou a folha — não faz nada além disso */ }
-            return;
-        }
-    } catch (e) { /* File/canShare indisponível — cai pro fallback abaixo */ }
+// webcal: em vez de https: — esquemas customizados (mesmo princípio de
+// tel:/mailto:, que já funcionam nesse app) são interceptados pelo
+// sistema ANTES de qualquer tentativa de carregar algo no WebView;
+// https:, mesmo servindo o Content-Type certo, exige que o WebView
+// processe a resposta primeiro — e é exatamente aí que travava dentro do
+// PWA instalado (modo standalone). No celular, navega a própria aba pro
+// link webcal:; no desktop (sem esse esquema) continua abrindo a URL
+// normal em nova aba.
+const isMobileOS = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+export function openIcsEvent({ title, description, dateStr }) {
     const params = new URLSearchParams({
         title: title || '',
         description: description || '',
         date: String(dateStr || '').replace(/-/g, '')
     });
+    if (isMobileOS()) {
+        window.location.href = 'webcal://' + window.location.host + '/api/ics?' + params.toString();
+        return;
+    }
     window.open('/api/ics?' + params.toString(), '_blank', 'noopener');
 }
 
