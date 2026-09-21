@@ -535,10 +535,11 @@ async function loadAuditoriaTab() {
 
 function renderAuditoriaEntries(container, entries) {
     if (!entries.length) {
-        container.innerHTML = '<p class="helper-text">Nenhum registro de auditoria ainda.</p>';
+        container.innerHTML = '<p class="helper-text">Nenhum registro de auditoria nos últimos 7 dias.</p>';
         return;
     }
     container.innerHTML = `
+        <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">Últimos 7 dias (${entries.length} registro${entries.length > 1 ? 's' : ''}).</p>
         <div class="admin-user-table-wrap">
             <table class="admin-user-table">
                 <thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Registro</th></tr></thead>
