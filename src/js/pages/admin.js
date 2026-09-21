@@ -369,7 +369,7 @@ function fillAdminContent(mainContent, data, emailConfig) {
             <div class="admin-section" style="margin-bottom:1.25rem">
                 <div class="section-title-row"><h3 class="section-title">📋 Lembrete: Base de Clientes</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
-                    <p class="helper-text" style="text-align:left;margin:0">Todo dia de manhã, um aviso simples pro(s) admin(s) lembrando de revisar/atualizar a Base de Clientes (Admin → Listas) — não depende de nenhum dado, é só um lembrete.</p>
+                    <p class="helper-text" style="text-align:left;margin:0">A cada 30 dias, um aviso simples pro(s) admin(s) lembrando de revisar/atualizar a Base de Clientes (Admin → Listas) — não depende de nenhum dado, é só um lembrete.</p>
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
                         <input type="checkbox" id="config-lembrete-clientes" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.lembrete_atualizar_clientes_ativo) ? 'checked' : ''}>
                         Ativo

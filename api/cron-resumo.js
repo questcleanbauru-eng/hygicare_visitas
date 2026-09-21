@@ -6,10 +6,9 @@
 import { getSheetObjects, withCache } from '../lib/sheets.js';
 import { readEmailConfig } from '../lib/handlers/config.js';
 import { computeResumoDiario, buildResumoEmailHtml } from '../lib/handlers/resumo.js';
-import { resolveAdminsAtivos } from '../lib/handlers/lembreteClientes.js';
+import { runLembreteClientesDiario } from '../lib/handlers/lembreteClientes.js';
 import { sendPushToVendedor } from '../lib/handlers/push.js';
 import { sendEmail } from '../lib/email.js';
-import { isConfigOn } from '../lib/common.js';
 
 const TOGGLE_BY_PROFILE = {
     admin: 'resumo_diario_admin',
@@ -25,28 +24,6 @@ async function resolveRecipients(config) {
         if (!toggleKey || String(config[toggleKey]).trim().toLowerCase() !== 'true') return false;
         return String(row.Ativo || '').trim().toLowerCase() !== 'nao';
     }).map((row) => ({ email: row.EmailLogin, nome: row.NomeVendedor }));
-}
-
-// Lembrete pro admin revisar/atualizar a Base de Clientes — simples e
-// incondicional (não depende de "teve atividade ontem" como o resumo).
-// Roda dentro desse mesmo cron (em vez de um endpoint próprio) porque o
-// plano Hobby da Vercel só permite 2 cron jobs — juntar os dois nessa
-// mesma execução diária evita precisar de um 3º.
-async function sendLembreteClientes(config) {
-    if (!isConfigOn(config.lembrete_atualizar_clientes_ativo)) return 0;
-    const admins = await resolveAdminsAtivos();
-    const hoje = new Date().toISOString().slice(0, 10);
-    let enviados = 0;
-    for (const a of admins) {
-        if (!a.EmailLogin) continue;
-        await sendPushToVendedor(a.EmailLogin, {
-            title: '📋 Lembrete diário',
-            body: 'Hora de revisar/atualizar a base de Clientes.',
-            page: 'admin', tag: 'lembrete-clientes-' + hoje, tipo: 'aviso'
-        });
-        enviados++;
-    }
-    return enviados;
 }
 
 export default async function handler(req, res) {
@@ -66,7 +43,11 @@ export default async function handler(req, res) {
     try {
         const [resumo, config] = await Promise.all([computeResumoDiario(), readEmailConfig()]);
 
-        const lembreteClientesEnviados = await sendLembreteClientes(config);
+        // Chamado todo dia (esse cron roda diário), mas só manda de fato a
+        // cada 30 dias — a lógica do intervalo fica em
+        // lembreteClientes.js. Roda aqui dentro (em vez de um cron
+        // próprio) porque o plano Hobby da Vercel só permite 2 cron jobs.
+        const lembreteClientesEnviados = await runLembreteClientesDiario(config);
 
         const hasAny = resumo.visitas.total || resumo.agendamentos.vencidosTotal || resumo.agendamentos.proximosTotal
             || resumo.relatorios.total || resumo.campanhas.respondidasOntem || resumo.campanhas.pendentesTotal;
