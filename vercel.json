@@ -6,7 +6,8 @@
     { "source": "/c/:id", "destination": "/?c=:id", "permanent": false }
   ],
   "crons": [
-    { "path": "/api/cron-resumo", "schedule": "0 10 * * *" }
+    { "path": "/api/cron-resumo", "schedule": "0 10 * * *" },
+    { "path": "/api/cron-lembretes", "schedule": "15 10 * * *" }
   ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }

@@ -345,6 +345,20 @@ function fillAdminContent(mainContent, data, emailConfig) {
                 </div>
             </div>
             <div class="admin-section" style="margin-bottom:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">📅 Lembrete de agendamento</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <p class="helper-text" style="text-align:left;margin:0">Todo dia de manhã, quem tem um agendamento pendente marcado pra daqui a exatamente 7 dias recebe um aviso (e-mail + notificação) — vale pra qualquer dono de agendamento (admin, gerente ou vendedor), inclusive os gerados automaticamente por prazo de campanha.</p>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="config-lembrete-agendamento" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.lembrete_agendamento_ativo) ? 'checked' : ''}>
+                        Ativo
+                    </label>
+                    <div style="display:flex;gap:0.5rem">
+                        <button type="button" id="save-lembrete-agendamento" class="primary-button">Salvar</button>
+                        <button type="button" id="test-lembrete-agendamento" class="secondary-button" title="Manda pra você (e-mail + notificação) os agendamentos reais de daqui a 7 dias, sem esperar o horário programado">Testar agora</button>
+                    </div>
+                </div>
+            </div>
+            <div class="admin-section" style="margin-bottom:1.25rem">
                 <div class="section-title-row"><h3 class="section-title">Permissões</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
@@ -1027,6 +1041,23 @@ export function bindAdminEvents(data) {
         const btn = event.currentTarget;
         setSaving(true, btn, 'Enviando...');
         const result = await callAPI('testResumoDiario', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+        setSaving(false, btn);
+        if (result.status === 'success') { showToast(result.message, result.emailEnviado === false); }
+        else { showToast(result.message || 'Não foi possível testar.', true); }
+    });
+
+    document.getElementById('save-lembrete-agendamento')?.addEventListener('click', async () => {
+        const result = await saveEmailConfig({
+            lembrete_agendamento_ativo: document.getElementById('config-lembrete-agendamento').checked ? 'true' : 'false'
+        });
+        if (result.status === 'success') { showToast('Configuração salva.'); }
+        else { showToast(result.message || 'Não foi possível salvar.', true); }
+    });
+
+    document.getElementById('test-lembrete-agendamento')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Enviando...');
+        const result = await callAPI('testLembreteAgendamento', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
         setSaving(false, btn);
         if (result.status === 'success') { showToast(result.message, result.emailEnviado === false); }
         else { showToast(result.message || 'Não foi possível testar.', true); }
