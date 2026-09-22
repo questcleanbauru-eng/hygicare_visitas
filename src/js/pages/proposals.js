@@ -79,6 +79,7 @@ export function fillProposalsContent(mainContent, proposals) {
 
     const availableStatuses = Array.from(new Set(normalized.map((p) => p.status).filter(Boolean)));
     const availableCities   = Array.from(new Set(normalized.map((p) => p.cidade).filter(Boolean))).sort();
+    const availableFocos    = Array.from(new Set(normalized.map((p) => p.foco).filter(Boolean))).sort();
     const availableVendors  = isAdmGer
         ? Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort()
         : [];
@@ -115,6 +116,7 @@ export function fillProposalsContent(mainContent, proposals) {
             <div class="visits-filter-grid" id="proposal-filter-panel">
                 ${multiCheckFilterFieldHtml('Status', 'pf-status')}
                 ${multiCheckFilterFieldHtml('Cidade', 'pf-cidade', 'Todas')}
+                ${multiCheckFilterFieldHtml('Foco', 'pf-foco', 'Todos')}
                 <div class="form-group">
                     <label for="pf-atrasada">${filterLabelHtml('Situação')}</label>
                     <select id="pf-atrasada">
@@ -178,7 +180,7 @@ export function fillProposalsContent(mainContent, proposals) {
     // aos outros campos.
     state.proposalFilters = state.proposalFilters || {};
     const persistProposalFilters = () => {
-        ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-dup', 'pf-period', 'pf-vendor', 'pf-date-from', 'pf-date-to']
+        ['pf-search', 'pf-status', 'pf-cidade', 'pf-foco', 'pf-atrasada', 'pf-dup', 'pf-period', 'pf-vendor', 'pf-date-from', 'pf-date-to']
             .forEach((id) => { const el = document.getElementById(id); if (el) state.proposalFilters[id] = el.value; });
     };
 
@@ -209,6 +211,7 @@ export function fillProposalsContent(mainContent, proposals) {
         const search    = document.getElementById('pf-search')?.value.trim().toLowerCase() || '';
         const statusSel = (document.getElementById('pf-status')?.value || '').split(',').filter(Boolean);
         const cidade    = (document.getElementById('pf-cidade')?.value || '').split(',').filter(Boolean);
+        const foco      = (document.getElementById('pf-foco')?.value || '').split(',').filter(Boolean);
         const atrasada  = document.getElementById('pf-atrasada')?.value || '';
         const period    = document.getElementById('pf-period')?.value || '';
         const vendor    = (document.getElementById('pf-vendor')?.value || '').split(',').filter(Boolean);
@@ -245,6 +248,7 @@ export function fillProposalsContent(mainContent, proposals) {
             const matchSearch   = !search  || [p.cliente, p.cidade, p.obs, p.vendedor, p.foco].some((v) => String(v || '').toLowerCase().includes(search));
             const matchStatus   = !statusSel.length || statusSel.includes(p.status);
             const matchCidade   = !cidade.length || cidade.includes(p.cidade);
+            const matchFoco     = !foco.length || foco.includes(p.foco);
             const matchAtrasada = !atrasada || (atrasada === 'sim' ? p.atrasada : !p.atrasada);
             const matchVendor   = !vendor.length || vendor.includes(p.vendedor);
             const criacaoDate = parseDisplayDate(p.data);
@@ -253,7 +257,7 @@ export function fillProposalsContent(mainContent, proposals) {
             const matchTo   = !dateTo   || (criacaoDate && criacaoDate <= parseInputDate(dateTo));
             const matchYear = !state.proposalsYearFilter || (criacaoDate && criacaoDate.getFullYear() === state.proposalsYearFilter);
             const matchDup  = !dupFilter || isDup(p);
-            return matchSearch && matchStatus && matchCidade && matchAtrasada && matchVendor && matchPeriod && matchFrom && matchTo && matchYear && matchDup;
+            return matchSearch && matchStatus && matchCidade && matchFoco && matchAtrasada && matchVendor && matchPeriod && matchFrom && matchTo && matchYear && matchDup;
         });
 
         const container = document.getElementById('proposal-list-container');
@@ -577,10 +581,11 @@ export function fillProposalsContent(mainContent, proposals) {
         });
     }
 
-    const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-atrasada', 'pf-dup', 'pf-period', 'pf-vendor',
+    const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-foco', 'pf-atrasada', 'pf-dup', 'pf-period', 'pf-vendor',
         'pf-date-from', 'pf-date-to'];
     wireMultiCheckFilter({ triggerId: 'pf-status-trigger', inputId: 'pf-status', menuId: 'pf-status-menu', options: availableStatuses });
     wireMultiCheckFilter({ triggerId: 'pf-cidade-trigger', inputId: 'pf-cidade', menuId: 'pf-cidade-menu', options: availableCities });
+    wireMultiCheckFilter({ triggerId: 'pf-foco-trigger', inputId: 'pf-foco', menuId: 'pf-foco-menu', options: availableFocos });
     if (isAdmGer) {
         wireMultiCheckFilter({ triggerId: 'pf-vendor-trigger', inputId: 'pf-vendor', menuId: 'pf-vendor-menu', options: availableVendors });
     }
@@ -593,6 +598,7 @@ export function fillProposalsContent(mainContent, proposals) {
     const syncProposalMultiCheckLabels = () => {
         syncMultiCheckFilterLabel('pf-status-trigger', 'pf-status');
         syncMultiCheckFilterLabel('pf-cidade-trigger', 'pf-cidade');
+        syncMultiCheckFilterLabel('pf-foco-trigger', 'pf-foco');
         syncMultiCheckFilterLabel('pf-vendor-trigger', 'pf-vendor');
     };
     syncProposalMultiCheckLabels();
@@ -652,6 +658,7 @@ export function fillProposalsContent(mainContent, proposals) {
                 document.querySelector('.scope-banner')?.remove();
                 wireMultiCheckFilter({ triggerId: 'pf-status-trigger', inputId: 'pf-status', menuId: 'pf-status-menu', options: Array.from(new Set(normalized.map((p) => p.status).filter(Boolean))) });
                 wireMultiCheckFilter({ triggerId: 'pf-cidade-trigger', inputId: 'pf-cidade', menuId: 'pf-cidade-menu', options: Array.from(new Set(normalized.map((p) => p.cidade).filter(Boolean))).sort() });
+                wireMultiCheckFilter({ triggerId: 'pf-foco-trigger', inputId: 'pf-foco', menuId: 'pf-foco-menu', options: Array.from(new Set(normalized.map((p) => p.foco).filter(Boolean))).sort() });
                 if (isAdmGer) wireMultiCheckFilter({ triggerId: 'pf-vendor-trigger', inputId: 'pf-vendor', menuId: 'pf-vendor-menu', options: Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort() });
                 renderFiltered();
                 updateYearChips();

@@ -98,6 +98,7 @@ export function fillFunilContent(mainContent, funil) {
 
     const availableStatuses = Array.from(new Set(funilData.map((f) => f.status).filter(Boolean)));
     const availableCidades  = Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort();
+    const availableFocos    = Array.from(new Set(funilData.map((f) => f.foco).filter(Boolean))).sort();
     const availableVendors  = isAdmGer
         ? Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort()
         : [];
@@ -139,6 +140,7 @@ export function fillFunilContent(mainContent, funil) {
             <div class="visits-filter-grid" id="funil-filter-panel">
                 ${multiCheckFilterFieldHtml('Status', 'funil-filter-status')}
                 ${multiCheckFilterFieldHtml('Cidade', 'funil-filter-cidade', 'Todas')}
+                ${multiCheckFilterFieldHtml('Foco', 'funil-filter-foco', 'Todos')}
                 <div class="form-group">
                     <label for="funil-filter-ativo">${filterLabelHtml('Ativo')}</label>
                     <select id="funil-filter-ativo">
@@ -235,6 +237,7 @@ export function fillFunilContent(mainContent, funil) {
         const search       = document.getElementById('funil-filter-search')?.value.trim().toLowerCase() || '';
         const statusFilter = (document.getElementById('funil-filter-status')?.value || '').split(',').filter(Boolean);
         const cidadeFilter = (document.getElementById('funil-filter-cidade')?.value || '').split(',').filter(Boolean);
+        const focoFilter   = (document.getElementById('funil-filter-foco')?.value || '').split(',').filter(Boolean);
         const ativoFilter  = document.getElementById('funil-filter-ativo')?.value || '';
         const atrasadoFilter = document.getElementById('funil-filter-atrasado')?.value || '';
         const diverseyFilter = document.getElementById('funil-filter-diversey')?.value || '';
@@ -272,6 +275,7 @@ export function fillFunilContent(mainContent, funil) {
             const matchSearch  = !search || [f.cliente, f.cidade, f.foco, f.atuacao, f.comentarios].some((v) => String(v || '').toLowerCase().includes(search));
             const matchStatus  = !statusFilter.length || statusFilter.includes(f.status);
             const matchCidade  = !cidadeFilter.length || cidadeFilter.includes(f.cidade);
+            const matchFoco    = !focoFilter.length || focoFilter.includes(f.foco);
             const matchAtivo   = !ativoFilter || (ativoFilter === 'SIM' ? String(f.ativo).toLowerCase() === 'sim' : String(f.ativo).toLowerCase() !== 'sim');
             const isOverdue    = String(f.ativo || '').toLowerCase() === 'sim'
                 && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
@@ -285,7 +289,7 @@ export function fillFunilContent(mainContent, funil) {
             const matchVl      = !vlMin || parseCurrencyBR(f.vlMensal) >= vlMin;
             const matchYear    = !state.funilYearFilter || (atuDate && atuDate.getFullYear() === state.funilYearFilter);
             const matchDup     = !dupFilter || isDup(f);
-            return matchSearch && matchStatus && matchCidade && matchAtivo && matchAtrasado && matchDiversey && matchVendor && matchPeriod && matchVl && matchYear && matchDup;
+            return matchSearch && matchStatus && matchCidade && matchFoco && matchAtivo && matchAtrasado && matchDiversey && matchVendor && matchPeriod && matchVl && matchYear && matchDup;
         });
 
         const container = document.getElementById('funil-list-container');
@@ -651,10 +655,11 @@ export function fillFunilContent(mainContent, funil) {
         });
     }
 
-    const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-ativo',
+    const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-foco', 'funil-filter-ativo',
         'funil-filter-atrasado', 'funil-filter-diversey', 'funil-filter-dup', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
     wireMultiCheckFilter({ triggerId: 'funil-filter-status-trigger', inputId: 'funil-filter-status', menuId: 'funil-filter-status-menu', options: availableStatuses });
     wireMultiCheckFilter({ triggerId: 'funil-filter-cidade-trigger', inputId: 'funil-filter-cidade', menuId: 'funil-filter-cidade-menu', options: availableCidades });
+    wireMultiCheckFilter({ triggerId: 'funil-filter-foco-trigger', inputId: 'funil-filter-foco', menuId: 'funil-filter-foco-menu', options: availableFocos });
     if (isAdmGer) {
         wireMultiCheckFilter({ triggerId: 'funil-filter-vendor-trigger', inputId: 'funil-filter-vendor', menuId: 'funil-filter-vendor-menu', options: availableVendors });
     }
@@ -680,6 +685,7 @@ export function fillFunilContent(mainContent, funil) {
     const syncFunilMultiCheckLabels = () => {
         syncMultiCheckFilterLabel('funil-filter-status-trigger', 'funil-filter-status');
         syncMultiCheckFilterLabel('funil-filter-cidade-trigger', 'funil-filter-cidade');
+        syncMultiCheckFilterLabel('funil-filter-foco-trigger', 'funil-filter-foco');
         syncMultiCheckFilterLabel('funil-filter-vendor-trigger', 'funil-filter-vendor');
     };
     syncFunilMultiCheckLabels();
@@ -737,6 +743,7 @@ export function fillFunilContent(mainContent, funil) {
                 document.querySelector('.scope-banner')?.remove();
                 wireMultiCheckFilter({ triggerId: 'funil-filter-status-trigger', inputId: 'funil-filter-status', menuId: 'funil-filter-status-menu', options: Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))) });
                 wireMultiCheckFilter({ triggerId: 'funil-filter-cidade-trigger', inputId: 'funil-filter-cidade', menuId: 'funil-filter-cidade-menu', options: Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort() });
+                wireMultiCheckFilter({ triggerId: 'funil-filter-foco-trigger', inputId: 'funil-filter-foco', menuId: 'funil-filter-foco-menu', options: Array.from(new Set(funilData.map((f) => f.foco).filter(Boolean))).sort() });
                 if (isAdmGer) wireMultiCheckFilter({ triggerId: 'funil-filter-vendor-trigger', inputId: 'funil-filter-vendor', menuId: 'funil-filter-vendor-menu', options: Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort() });
                 renderFiltered();
                 updateYearChips();
