@@ -32,7 +32,8 @@ import {
     handleGetRadarCidadesAdmin, handleSetCidadeRestricao
 } from '../lib/handlers/radar.js';
 import {
-    handleImportVisitasLegacy, handleImportPropostasLegacy, handleImportFunilLegacy, handleImportClientesLegacy
+    handleImportVisitasLegacy, handleImportPropostasLegacy, handleImportFunilLegacy, handleImportClientesLegacy,
+    handleHideClientesCnpj
 } from '../lib/handlers/importacao.js';
 import {
     handleGetRelatoriosTecnicos, handleGetRelatorioTecnicoById, handleCreateRelatorioTecnico,
@@ -140,6 +141,7 @@ const HANDLERS = {
     importPropostasLegacy: handleImportPropostasLegacy,
     importFunilLegacy: handleImportFunilLegacy,
     importClientesLegacy: handleImportClientesLegacy,
+    hideClientesCnpj: handleHideClientesCnpj,
     getDashboardData: handleGetDashboardData,
     getPendenciasPorVendedor: handleGetPendenciasPorVendedor,
     getAdminData: handleGetAdminData,

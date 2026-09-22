@@ -474,6 +474,17 @@ function fillAdminContent(mainContent, data, emailConfig) {
                     <div id="import-resultado"></div>
                 </div>
             </div>
+            <div class="admin-section">
+                <div class="section-title-row"><h3 class="section-title">Ocultar CNPJ/CPF na Base de Clientes</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.6rem">
+                    <p class="helper-text" style="text-align:left;margin:0">
+                        A coluna CNPJ/CPF já fica escondida automaticamente a cada importação da Base de
+                        Clientes. Se ela já estava preenchida na planilha de ANTES dessa mudança, use o
+                        botão abaixo pra esconder agora, sem precisar reimportar o arquivo.
+                    </p>
+                    <button type="button" id="admin-hide-cnpj-btn" class="mini-button" style="align-self:flex-start">Ocultar coluna agora</button>
+                </div>
+            </div>
         </div>
     `;
 
@@ -1221,6 +1232,15 @@ const IMPORT_ENTIDADES = {
 };
 
 function bindImportarTab() {
+    document.getElementById('admin-hide-cnpj-btn')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        setSaving(true, btn, 'Ocultando...');
+        const r = await callAPI('hideClientesCnpj', { user: state.currentUser }).catch((err) => ({ status: 'error', message: err.message }));
+        setSaving(false, btn);
+        if (r && r.status === 'success') showToast('Coluna CNPJ/CPF ocultada na planilha.');
+        else showToast((r && r.message) || 'Não foi possível ocultar a coluna.', true);
+    });
+
     const entidadeSel = document.getElementById('import-entidade');
     const fileInput = document.getElementById('import-file');
     const analisarBtn = document.getElementById('import-analisar');
