@@ -1053,8 +1053,13 @@ function campanhaRow(c, selectMode) {
     const pct = c.total ? Math.round(c.respondidos / c.total * 100) : 0;
     const id = String(c.id);
     const vencida = campanhaEstaVencida(c);
-    const statusClass = c.status === 'concluida' ? 'funil-status-concluido' : (vencida ? 'funil-status-perdido' : 'funil-status-proposta');
-    const statusLabel = c.status === 'concluida' ? 'Concluída' : (vencida ? '⚠️ Vencida' : 'Aberta');
+    // Encerrada na mão (Admin > Campanhas > Concluir) é diferente de
+    // concluída de verdade (todos os itens respondidos) — mesmo status
+    // no banco (pra bloquear o link do mesmo jeito), etiqueta diferente
+    // pra não parecer que "0 de 1 atualizados" foi um sucesso.
+    const encerrada = c.status === 'concluida' && c.encerradaManualmente;
+    const statusClass = encerrada ? 'funil-status-encerrada' : (c.status === 'concluida' ? 'funil-status-concluido' : (vencida ? 'funil-status-perdido' : 'funil-status-proposta'));
+    const statusLabel = encerrada ? 'Encerrada' : (c.status === 'concluida' ? 'Concluída' : (vencida ? '⚠️ Vencida' : 'Aberta'));
     return `
     <div class="card camp-admin-row${selectMode && campSelectedIds.has(id) ? ' is-selected' : ''}${vencida ? ' camp-admin-row-vencida' : ''}">
         <div class="camp-card-head">

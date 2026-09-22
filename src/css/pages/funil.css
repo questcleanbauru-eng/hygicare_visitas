@@ -10,6 +10,8 @@
 
 .status-pill.funil-status-retomar     { background: #f1f5f9; color: var(--text-muted-strong); }
 
+.status-pill.funil-status-encerrada   { background: #f1f5f9; color: var(--text-muted-strong); }
+
 .funil-filter-card { padding: 0.85rem; margin-bottom: 0.75rem; }
 .funil-filter-card .year-chips-row { margin: 0.6rem 0 0; }
 
