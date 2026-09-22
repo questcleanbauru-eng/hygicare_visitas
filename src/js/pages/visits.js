@@ -135,6 +135,11 @@ export function fillVisitsContent(container, visits) {
     const availableCities  = Array.from(new Set(normalizedVisits.map((v) => v.cidade).filter(Boolean))).sort();
     const isAdmGer         = isAdminOrGerenteUser();
     const isAdmin          = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+    // Administrativo já enxerga as visitas de todos (hasBroadDataAccess, no
+    // servidor) — só faltava a tela deixar filtrar/baixar por vendedor, que
+    // até aqui era só de Admin/Gerente.
+    const isAdministrativo = (state.currentUser?.profile || '').toLowerCase() === 'administrativo';
+    const canVendorTools   = isAdmGer || isAdministrativo;
     // Edição rápida (só admin, só desktop): lista + painel de Observação na
     // mesma tela — anota uma visita atrás da outra sem abrir/voltar. qeActive
     // relê o localStorage a cada chamada pra o toggle valer sem re-render.
@@ -142,7 +147,7 @@ export function fillVisitsContent(container, visits) {
     const quickEdit = isAdmin && qeStored();
     const qeActive = () => isAdmin && window.innerWidth >= 1024 && qeStored();
     let qeSelectedId = null;
-    const availableVendors = isAdmGer
+    const availableVendors = canVendorTools
         ? Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort()
         : [];
 
@@ -157,7 +162,7 @@ export function fillVisitsContent(container, visits) {
             <div class="visits-filter-header">
                 <div><strong>Filtros</strong></div>
                 <div class="visits-filter-header-actions">
-                    ${isAdmin ? `<button type="button" class="text-link" id="visits-csv-btn" title="Baixar Excel/CSV das visitas filtradas">📥 Excel</button>` : ''}
+                    ${canVendorTools ? `<button type="button" class="text-link" id="visits-csv-btn" title="Baixar Excel/CSV das visitas filtradas">📥 Excel</button>` : ''}
                     <button type="button" class="text-link" id="visit-filters-clear">Limpar</button>
                     <button type="button" class="mini-button visits-filter-toggle" id="visit-filters-toggle" aria-expanded="true" aria-controls="visit-filters-panel">Ocultar</button>
                 </div>
@@ -181,7 +186,7 @@ export function fillVisitsContent(container, visits) {
                         <option value="Nao">Não</option>
                     </select>
                 </div>
-                ${isAdmGer && availableVendors.length > 0 ? multiCheckFilterFieldHtml('Vendedor', 'visit-filter-vendor') : ''}
+                ${canVendorTools && availableVendors.length > 0 ? multiCheckFilterFieldHtml('Vendedor', 'visit-filter-vendor') : ''}
                 <div class="form-group">
                     <label for="visit-filter-date-from">${filterLabelHtml('Data inicial')}</label>
                     <input type="date" id="visit-filter-date-from">
@@ -225,7 +230,7 @@ export function fillVisitsContent(container, visits) {
 
     wireMultiCheckFilter({ triggerId: 'visit-filter-type-trigger', inputId: 'visit-filter-type', menuId: 'visit-filter-type-menu', options: availableTypes });
     wireMultiCheckFilter({ triggerId: 'visit-filter-city-trigger', inputId: 'visit-filter-city', menuId: 'visit-filter-city-menu', options: availableCities });
-    if (isAdmGer) {
+    if (canVendorTools) {
         wireMultiCheckFilter({ triggerId: 'visit-filter-vendor-trigger', inputId: 'visit-filter-vendor', menuId: 'visit-filter-vendor-menu', options: availableVendors });
     }
 
@@ -309,7 +314,7 @@ export function fillVisitsContent(container, visits) {
                                     <div class="item-meta">${[visit.dataVisita, visit.cidade, visit.horario].filter(Boolean).map(escapeHtml).join(' · ') || '-'}</div>
                                     <div class="item-bottom">
                                         <span class="status-tag ${visitTypeCategory(visit.tipoVisita)}">${escapeHtml(visit.tipoVisita || '-')}</span>
-                                        ${isAdmGer && visit.vendedorGerente ? `<span class="item-seller">${escapeHtml(visit.vendedorGerente)}</span>` : ''}
+                                        ${canVendorTools && visit.vendedorGerente ? `<span class="item-seller">${escapeHtml(visit.vendedorGerente)}</span>` : ''}
                                     </div>
                                 </div>
                             </button>
@@ -510,7 +515,7 @@ export function fillVisitsContent(container, visits) {
                 document.querySelector('.scope-banner')?.remove();
                 wireMultiCheckFilter({ triggerId: 'visit-filter-type-trigger', inputId: 'visit-filter-type', menuId: 'visit-filter-type-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.tipoVisita).filter(Boolean))).sort() });
                 wireMultiCheckFilter({ triggerId: 'visit-filter-city-trigger', inputId: 'visit-filter-city', menuId: 'visit-filter-city-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.cidade).filter(Boolean))).sort() });
-                if (isAdmGer) wireMultiCheckFilter({ triggerId: 'visit-filter-vendor-trigger', inputId: 'visit-filter-vendor', menuId: 'visit-filter-vendor-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort() });
+                if (canVendorTools) wireMultiCheckFilter({ triggerId: 'visit-filter-vendor-trigger', inputId: 'visit-filter-vendor', menuId: 'visit-filter-vendor-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort() });
                 renderFilteredVisits();
                 updateYearChips();
             }
