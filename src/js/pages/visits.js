@@ -687,13 +687,21 @@ export async function renderCalendarPage(options) {
                 <button type="button" class="text-link" data-ag-done="${escapeHtml(a.id)}">Concluído</button>
                 <button type="button" class="text-link" data-ag-cancel="${escapeHtml(a.id)}">Cancelar</button>
                 <button type="button" class="text-link" data-ag-edit-date="${escapeHtml(a.id)}">Mudar data</button>
+                <button type="button" class="text-link" data-ag-edit-obs="${escapeHtml(a.id)}">Editar texto</button>
                 <button type="button" class="text-link" data-ag-ics="${escapeHtml(a.id)}">Salvar na agenda</button>
-                ${a.campanhaOrigemId ? `<button type="button" class="text-link" data-ag-share="${escapeHtml(a.id)}">Compartilhar</button>` : ''}
+                <button type="button" class="text-link" data-ag-share="${escapeHtml(a.id)}">Compartilhar</button>
             </div>
             <div class="ag-edit-date-row" style="display:none;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
                 <input type="date" class="ag-edit-date-input" value="${escapeHtml(formatInputDateFromDisplay(a.dataAgendada) || '')}">
                 <button type="button" class="text-link" data-ag-save-date="${escapeHtml(a.id)}">Salvar</button>
                 <button type="button" class="text-link" data-ag-cancel-date="${escapeHtml(a.id)}">Cancelar</button>
+            </div>
+            <div class="ag-edit-obs-row" style="display:none;flex-direction:column;gap:0.5rem;margin-top:0.5rem">
+                <textarea class="ag-edit-obs-input" rows="2" placeholder="Observação">${escapeHtml(a.observacao || '')}</textarea>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                    <button type="button" class="text-link" data-ag-save-obs="${escapeHtml(a.id)}">Salvar</button>
+                    <button type="button" class="text-link" data-ag-cancel-obs="${escapeHtml(a.id)}">Cancelar</button>
+                </div>
             </div>
         </div>`;
     };
@@ -757,24 +765,39 @@ export async function renderCalendarPage(options) {
         container.querySelectorAll('[data-ag-share]').forEach((b) => {
             b.addEventListener('click', async () => {
                 const a = sourceList.find((item) => String(item.id) === b.dataset.agShare);
-                if (!a || !a.campanhaOrigemId) return;
-                const fd = await ensureFormData().then((r) => r.data).catch(() => null);
-                const vendedorRow = ((fd && fd.vendedores) || []).find((v) => v.nome === a.vendedor);
-                const loginNome = vendedorRow?.nomeLogin || '';
-                const n = loginNome ? `&n=${encodeURIComponent(loginNome)}` : '';
-                const link = `${window.location.origin}/?c=${a.campanhaOrigemId}${n}`;
-                const primeiroNome = String(a.vendedor || '').split(' ')[0] || '';
-                const texto = [
-                    `Oi ${primeiroNome}! Lembrete: ${a.cliente || ''}`,
-                    a.observacao ? a.observacao : '',
-                    `Prazo: ${a.dataAgendada}`,
-                    loginNome
-                        ? `Pra entrar, é só abrir o link e informar seu PIN (4 últimos números do seu celular) — seu login já vem preenchido.`
-                        : `Pra entrar: login é seu nome (em minúsculo) e PIN são os 4 últimos números do seu celular.`,
-                    link
-                ].filter(Boolean).join('\n');
+                if (!a) return;
+
+                let texto;
+                if (a.campanhaOrigemId) {
+                    // Retorno gerado por prazo de campanha — reenvia o link +
+                    // instrução de login, igual ao que foi mandado na hora.
+                    const fd = await ensureFormData().then((r) => r.data).catch(() => null);
+                    const vendedorRow = ((fd && fd.vendedores) || []).find((v) => v.nome === a.vendedor);
+                    const loginNome = vendedorRow?.nomeLogin || '';
+                    const n = loginNome ? `&n=${encodeURIComponent(loginNome)}` : '';
+                    const link = `${window.location.origin}/?c=${a.campanhaOrigemId}${n}`;
+                    const primeiroNome = String(a.vendedor || '').split(' ')[0] || '';
+                    texto = [
+                        `Oi ${primeiroNome}! Lembrete: ${a.cliente || ''}`,
+                        a.observacao ? a.observacao : '',
+                        `Prazo: ${a.dataAgendada}`,
+                        loginNome
+                            ? `Pra entrar, é só abrir o link e informar seu PIN (4 últimos números do seu celular) — seu login já vem preenchido.`
+                            : `Pra entrar: login é seu nome (em minúsculo) e PIN são os 4 últimos números do seu celular.`,
+                        link
+                    ].filter(Boolean).join('\n');
+                } else {
+                    // Retorno normal — resumo simples, sem link nenhum.
+                    texto = [
+                        `📌 Retorno: ${a.cliente || ''}`,
+                        a.cidade || '',
+                        `Data: ${a.dataAgendada}`,
+                        a.observacao ? a.observacao : ''
+                    ].filter(Boolean).join('\n');
+                }
+
                 if (navigator.share) {
-                    navigator.share({ title: a.cliente || 'Campanha', text: texto }).catch(() => {});
+                    navigator.share({ title: a.cliente || 'Retorno', text: texto }).catch(() => {});
                 } else {
                     navigator.clipboard?.writeText(texto).then(() => showToast('Mensagem copiada.'));
                 }
@@ -813,6 +836,47 @@ export async function renderCalendarPage(options) {
                     onMutated();
                 } else {
                     showToast((r && r.message) || 'Erro ao atualizar a data.', true);
+                    setSaving(false, b);
+                }
+            });
+        });
+        container.querySelectorAll('[data-ag-edit-obs]').forEach((b) => {
+            b.addEventListener('click', () => {
+                const row = b.closest('[data-agendamento-id]');
+                row.querySelector('.ag-actions-row').style.display = 'none';
+                row.querySelector('.ag-edit-obs-row').style.display = 'flex';
+                row.querySelector('.ag-edit-obs-input')?.focus();
+            });
+        });
+        container.querySelectorAll('[data-ag-cancel-obs]').forEach((b) => {
+            b.addEventListener('click', () => {
+                const row = b.closest('[data-agendamento-id]');
+                row.querySelector('.ag-edit-obs-row').style.display = 'none';
+                row.querySelector('.ag-actions-row').style.display = 'flex';
+            });
+        });
+        container.querySelectorAll('[data-ag-save-obs]').forEach((b) => {
+            b.addEventListener('click', async () => {
+                const row = b.closest('[data-agendamento-id]');
+                const newObs = row.querySelector('.ag-edit-obs-input')?.value.trim() || '';
+                setSaving(true, b, 'Salvando...');
+                const id = b.dataset.agSaveObs;
+                const r = await callAPI('updateAgendamento', { id, observacao: newObs, user: state.currentUser });
+                if (r && r.status === 'success') {
+                    const found = state.agendamentos.find((item) => String(item.id) === id);
+                    if (found) found.observacao = r.agendamento?.observacao ?? newObs;
+                    const item = sourceList.find((x) => String(x.id) === id);
+                    if (item) item.observacao = r.agendamento?.observacao ?? newObs;
+                    showToast('Observação atualizada.');
+                    onMutated();
+                    row.querySelector('.ag-edit-obs-row').style.display = 'none';
+                    row.querySelector('.ag-actions-row').style.display = 'flex';
+                    const metaEl = row.querySelector('.item-meta');
+                    if (metaEl) {
+                        metaEl.textContent = [item?.campanhaOrigemId && item?.vendedor ? `👤 ${item.vendedor}` : '', item?.cidade, item?.dataAgendada, newObs].filter(Boolean).join(' · ') || '-';
+                    }
+                } else {
+                    showToast((r && r.message) || 'Erro ao salvar a observação.', true);
                     setSaving(false, b);
                 }
             });
