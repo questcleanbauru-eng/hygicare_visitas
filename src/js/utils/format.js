@@ -54,6 +54,7 @@ export function normalizeProposal(proposal) {
         email: proposal['E-mail'] || proposal.email || '',
         resumo: proposal.Resumo || proposal.resumo || '',
         funilVinculado: proposal.FunilVinculado || proposal.funilVinculado || '',
+        naoDuplicado: proposal.NaoDuplicado || proposal.naoDuplicado || '',
         atrasada: (proposal.Status || proposal.status || '').toUpperCase() === 'AGUARDANDO' && daysWithoutUpdate > 30,
         diasAtraso: daysWithoutUpdate,
         _pending: !!proposal._pending

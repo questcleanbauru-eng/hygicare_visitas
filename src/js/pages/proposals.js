@@ -234,6 +234,7 @@ export function fillProposalsContent(mainContent, proposals) {
         const dupSeenKeys = new Set();
         const dupMarkedIds = new Set();
         dupSortedAll.forEach((p) => {
+            if (p.naoDuplicado) return; // dispensado manualmente — nunca marca
             const k = propostaDupKey(p);
             if (dupSeenKeys.has(k)) { dupMarkedIds.add(String(p.id)); }
             else { dupSeenKeys.add(k); }
@@ -297,7 +298,7 @@ export function fillProposalsContent(mainContent, proposals) {
                             </div>
                             <div class="item-meta">${escapeHtml([p.cidade, p.foco, isAdmGer && p.vendedor ? p.vendedor : '', p.data].filter(Boolean).join(' · ') || '-')}</div>
                             <div class="item-bottom">
-                                ${isDup(p) ? '<span class="funil-dup-tag" title="Existe outra proposta com o mesmo cliente e foco">⚠️ Duplicado</span>' : ''}
+                                ${isDup(p) ? `<span class="funil-dup-tag" title="Existe outra proposta com o mesmo cliente e foco">⚠️ Duplicado</span><span class="text-link" role="button" tabindex="0" data-nao-dup="${escapeHtml(p.id)}" title="Marca que essa proposta NÃO é duplicada de outra — o aviso some">Não é duplicado</span>` : ''}
                                 <span class="card-quick-edit-btn" role="button" tabindex="0" aria-label="Atualização rápida" title="Atualização rápida" data-proposal-quick="${escapeHtml(p.id)}">⚡</span>
                                 ${state.canCreateProposalFunil && p.cliente ? (() => {
                                     const _fi = funilItemForProposta(p.cliente, p.foco);
@@ -360,6 +361,21 @@ export function fillProposalsContent(mainContent, proposals) {
                 e.stopPropagation();
                 const item = normalized.find((p) => String(p.id) === el.dataset.proposalQuick);
                 if (item) openProposalQuickUpdateModal(item, renderFiltered);
+            });
+        });
+        container.querySelectorAll('[data-nao-dup]').forEach((el) => {
+            el.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = el.dataset.naoDup;
+                const item = normalized.find((p) => String(p.id) === id);
+                if (item) item.naoDuplicado = 'Sim';
+                renderFiltered();
+                const r = await callAPI('markPropostaNaoDuplicado', { id, naoDuplicado: true, user: state.currentUser }).catch(() => null);
+                if (!r || r.status !== 'success') {
+                    if (item) item.naoDuplicado = '';
+                    renderFiltered();
+                    showToast('Não foi possível salvar. Tente novamente.', true);
+                }
             });
         });
         container.querySelectorAll('[data-proposal-funil]').forEach((el) => {

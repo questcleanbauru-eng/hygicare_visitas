@@ -2,9 +2,9 @@ import { checkRateLimit } from '../lib/common.js';
 import { readSession } from '../lib/security.js';
 import { handleLogin, handleForgotPassword, handleLoginWithPin, handleSetupPin, handleRemovePin, handleAdminSetPin } from '../lib/handlers/auth.js';
 import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit } from '../lib/handlers/visits.js';
-import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal, handleDeleteProposalBatch } from '../lib/handlers/proposals.js';
+import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal, handleDeleteProposalBatch, handleMarkPropostaNaoDuplicado } from '../lib/handlers/proposals.js';
 import {
-    handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDeleteFunilBatch, handleDebugFunilHeaders
+    handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDeleteFunilBatch, handleDebugFunilHeaders, handleMarkFunilNaoDuplicado
 } from '../lib/handlers/funil.js';
 import {
     handleCriarCampanha, handleGetCampanha, handleResponderCampanhaItem, handleGetCampanhas, handleDeleteCampanha, handleDeleteCampanhaBatch,
@@ -82,12 +82,14 @@ const HANDLERS = {
     updateProposal: handleUpdateProposal,
     deleteProposal: handleDeleteProposal,
     deleteProposalBatch: handleDeleteProposalBatch,
+    markPropostaNaoDuplicado: handleMarkPropostaNaoDuplicado,
     getFunil: handleGetFunil,
     getFunilById: handleGetFunilById,
     createFunil: handleCreateFunil,
     updateFunil: handleUpdateFunil,
     deleteFunil: handleDeleteFunil,
     deleteFunilBatch: handleDeleteFunilBatch,
+    markFunilNaoDuplicado: handleMarkFunilNaoDuplicado,
     criarCampanha: handleCriarCampanha,
     getCampanha: handleGetCampanha,
     responderCampanhaItem: handleResponderCampanhaItem,

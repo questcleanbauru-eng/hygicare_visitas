@@ -261,6 +261,7 @@ export function fillFunilContent(mainContent, funil) {
         const dupSeenKeys = new Set();
         const dupMarkedIds = new Set();
         dupSortedAll.forEach((f) => {
+            if (f.naoDuplicado) return; // dispensado manualmente — nunca marca
             const k = funilDupKey(f);
             if (dupSeenKeys.has(k)) { dupMarkedIds.add(String(f.id)); }
             else { dupSeenKeys.add(k); }
@@ -343,7 +344,7 @@ export function fillFunilContent(mainContent, funil) {
                             <div class="item-meta">${escapeHtml([f.cidade, f.foco].filter(Boolean).join(' · ') || '-')}${f.aplicacao ? ` · <span class="funil-aplicacao-tag">${escapeHtml(f.aplicacao)}</span>` : ''}${isAdmGer && f.vendedor ? ' · ' + escapeHtml(f.vendedor) : ''} · ${escapeHtml(f.data || f.atualizacao || '-')}${f.vlMensal ? ` · <span class="funil-value">${escapeHtml(formatCurrency(f.vlMensal))}</span>` : ''}</div>
                             <div class="item-bottom">
                                 ${f.funilDiversey === 'Sim' ? '<span class="funil-diversey-tag" title="Funil Diversey — acompanhar de perto">⭐ Diversey</span>' : ''}
-                                ${isDup(f) ? '<span class="funil-dup-tag" title="Existe outro registro com o mesmo cliente, foco e aplicação">⚠️ Duplicado</span>' : ''}
+                                ${isDup(f) ? `<span class="funil-dup-tag" title="Existe outro registro com o mesmo cliente, foco e aplicação">⚠️ Duplicado</span><span class="text-link" role="button" tabindex="0" data-nao-dup="${escapeHtml(f.id)}" title="Marca que esse registro NÃO é duplicado de outro — o aviso some">Não é duplicado</span>` : ''}
                                 ${(() => {
                                     const _pi = propostaItemFor(f.cliente, f.foco);
                                     if (!_pi) return '';
@@ -625,6 +626,21 @@ export function fillFunilContent(mainContent, funil) {
                 e.stopPropagation();
                 const item = funilData.find((f) => String(f.id) === el.dataset.funilQuick);
                 if (item) openFunilQuickUpdateModal(item, renderFiltered);
+            });
+        });
+        container.querySelectorAll('[data-nao-dup]').forEach((el) => {
+            el.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = el.dataset.naoDup;
+                const item = funilData.find((f) => String(f.id) === id);
+                if (item) item.naoDuplicado = 'Sim';
+                renderFiltered();
+                const r = await callAPI('markFunilNaoDuplicado', { id, naoDuplicado: true, user: state.currentUser }).catch(() => null);
+                if (!r || r.status !== 'success') {
+                    if (item) item.naoDuplicado = '';
+                    renderFiltered();
+                    showToast('Não foi possível salvar. Tente novamente.', true);
+                }
             });
         });
         container.querySelectorAll('[data-inline-funil-status]').forEach((pill) => {
