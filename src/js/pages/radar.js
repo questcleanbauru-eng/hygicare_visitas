@@ -330,6 +330,19 @@ export async function renderRadarPage(options) {
                     </div>
                     <div id="radar-import-summary" style="margin-top:1rem"></div>
                 </div>
+                <div class="card">
+                    <h3 style="margin-top:0">Cruzar com Base de Clientes</h3>
+                    <p class="helper-text" style="text-align:left">
+                        Compara o CNPJ de cada empresa do Radar com o CNPJ da Base de Clientes
+                        (Admin → Importação → Clientes). Empresa que já é cliente vira "já
+                        atendido" automaticamente. Só marca — nunca desfaz um status já dado
+                        manualmente.
+                    </p>
+                    <div class="form-actions">
+                        <button type="button" class="primary-button" id="radar-cruzar-btn">Cruzar agora</button>
+                    </div>
+                    <div id="radar-cruzar-summary" style="margin-top:1rem"></div>
+                </div>
             </div>
         ` : ''}
         ${isAdmin ? `
@@ -510,6 +523,30 @@ function bindImportTab() {
             summaryEl.innerHTML = `<p class="error-message">Não foi possível ler o arquivo.</p>`;
         };
         reader.readAsText(selectedFile, 'UTF-8');
+    });
+
+    const cruzarBtn = document.getElementById('radar-cruzar-btn');
+    const cruzarSummaryEl = document.getElementById('radar-cruzar-summary');
+    cruzarBtn.addEventListener('click', async () => {
+        setSaving(true, cruzarBtn, 'Cruzando...');
+        cruzarSummaryEl.innerHTML = '';
+        const result = await callAPI('cruzarClientesComRadar', { user: state.currentUser });
+        setSaving(false, cruzarBtn);
+        if (result.status !== 'success') {
+            cruzarSummaryEl.innerHTML = `<p class="error-message">${escapeHtml(result.message || 'Erro ao cruzar com a Base de Clientes.')}</p>`;
+            return;
+        }
+        cruzarSummaryEl.innerHTML = `
+            <div class="card" style="background:var(--bg-alt, #f8fafc)">
+                <p style="margin:0 0 0.4rem"><strong>${result.clientesComCnpj}</strong> CNPJ(s) na Base de Clientes</p>
+                <p style="margin:0"><strong>${result.atualizados}</strong> empresa(s) do Radar marcada(s) como já cliente</p>
+            </div>
+        `;
+        showToast(`${result.atualizados} empresa(s) marcada(s) como já cliente.`);
+        if (result.atualizados > 0) {
+            const novosClientesResult = await callAPI('getRadarClientes', { user: state.currentUser, scope: 'all' });
+            if (novosClientesResult.status === 'success') todasEmpresas = novosClientesResult.clientes || [];
+        }
     });
 }
 

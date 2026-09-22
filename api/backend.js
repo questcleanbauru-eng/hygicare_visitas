@@ -25,7 +25,7 @@ import {
 } from '../lib/handlers/manutencao.js';
 import {
     handleGetRadarCidadesDisponiveis, handleGetRadarClientes, handleUpdateRadarClienteStatus,
-    handleImportRadarClientesCsv,
+    handleImportRadarClientesCsv, handleCruzarClientesComRadar,
     handleRenovarReservaRadarCliente,
     handleRegistrarAcessoRadar, handleGetRadarAcessos, handleGetRadarPanorama,
     handleReservarRadarCliente, handleSetRadarClienteIndicacao,
@@ -127,6 +127,7 @@ const HANDLERS = {
     getRadarClientes: handleGetRadarClientes,
     updateRadarClienteStatus: handleUpdateRadarClienteStatus,
     importRadarClientesCsv: handleImportRadarClientesCsv,
+    cruzarClientesComRadar: handleCruzarClientesComRadar,
     renovarReservaRadarCliente: handleRenovarReservaRadarCliente,
     registrarAcessoRadar: handleRegistrarAcessoRadar,
     getRadarAcessos: handleGetRadarAcessos,
