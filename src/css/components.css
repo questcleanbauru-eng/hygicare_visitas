@@ -314,6 +314,39 @@ input[readonly] {
 
 textarea { resize: vertical; }
 
+/* input[type=date/time/datetime-local/month] no WebKit/iOS renderiza com
+   pele nativa própria — texto CENTRALIZADO (todo o resto do app é alinhado
+   à esquerda) e uma largura mínima intrínseca que ignora width:100% do
+   container. iOS ainda escreve a data por extenso no idioma do aparelho
+   ("20 de jul. de 2026", bem mais largo que o "20/07/2026" do Chromium —
+   por isso nunca reproduzia em teste automatizado, só num iPhone real).
+   appearance:none tira essa pele (não remove o comportamento nativo de
+   abrir o seletor ao tocar, só o desenho); os pseudo-elementos webkit
+   realinham o valor à esquerda; min-width:0 permite encolher dentro de um
+   pai flex/grid; overflow+ellipsis é rede de segurança pro texto por
+   extenso do iOS não estourar a largura mesmo assim. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
+}
+
 /* ── Errors & helpers ── */
 
 .error-message {
@@ -1408,26 +1441,12 @@ input:disabled {
    filtros (Propostas) em vez de soltos abaixo dele. */
 .visits-filter-card .year-chips-row { margin: 0.6rem 0 0; }
 
-/* iOS Safari desenha input[type=date] com o valor por extenso no idioma do
-   aparelho ("20 de jul. de 2026"), bem mais largo que o "20/07/2026"
-   compacto que o Chromium sempre mostra — por isso não reproduzia em teste
-   automatizado (Chromium), só num iPhone real. Fonte um pouco menor ajuda
-   o texto longo caber; overflow:hidden no wrapper clipa qualquer sobra que
-   ainda assim não caiba, pra nunca estourar o card. Restrito a filho direto
-   pra não afetar .form-group de searchable-select, que precisa do próprio
-   dropdown escapando do wrapper. */
-input[type="date"] {
-    min-width: 0;
-    /* 16px fixo (não abaixar) — abaixo disso o iOS dá zoom automático ao
-       focar o campo. O texto por extenso do iOS ("20 de jul. de 2026") que
-       motivou reduzir a fonte antes agora só é cortado com ellipsis em vez
-       de estourar a largura do card. */
-    font-size: 16px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
+/* input[type=date] no iOS: ver bloco global logo depois da regra base de
+   input/select/textarea ("── Form elements ──", perto do topo do arquivo)
+   — fix de aparência nativa (appearance:none + alinhamento à esquerda) e
+   de overflow ficam junto da regra base, não aqui, pra valer em toda
+   página sem precisar duplicar por seção. .form-group:has(...) abaixo é
+   só o wrapper específico dos filtros da Agenda/Visitas. */
 .form-group:has(> input[type="date"]) {
     overflow: hidden;
 }
