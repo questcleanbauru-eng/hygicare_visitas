@@ -596,6 +596,10 @@
     width: 100%;
 }
 
+/* O padding shorthand acima zera o padding-right reservado (components.css)
+   pra caber a seta custom do select sem sobrepor o texto. */
+.uif-field select { padding-right: 2.2rem; }
+
 .uif-actions {
     display: flex;
     gap: 0.5rem;

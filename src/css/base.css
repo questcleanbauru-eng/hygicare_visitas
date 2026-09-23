@@ -11,11 +11,18 @@ html {
        atualização (botão de refresh no cabeçalho), esse gesto nativo só
        atrapalha (às vezes recarrega a página inteira sem querer). */
     overscroll-behavior-y: none;
+    /* Rede de segurança: #app é fixed/inset:0 e cada tela cuida do próprio
+       overflow-x (tabelas largas sempre em wrapper com overflow-x:auto),
+       então isso nunca deveria disparar de fato — mas sem essa trava, um
+       componente futuro que esqueça o wrapper vazaria rolagem horizontal
+       pra página inteira em vez de ficar contido. */
+    overflow-x: hidden;
 }
 
 body {
     margin: 0;
     height: 100%;
+    overflow-x: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: var(--surface);
     color: var(--text);
