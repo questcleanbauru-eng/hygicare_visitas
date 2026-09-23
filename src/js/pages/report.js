@@ -422,6 +422,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         'semana-atual': 'Semana atual',
         'mes-atual': 'Mês atual',
         'ultimos-3m': 'Últimos 3 meses',
+        'tudo': 'Tudo',
         'personalizado': 'Período personalizado'
     }[period] || 'Mês atual';
 
@@ -448,6 +449,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 <button type="button" class="pill${period === 'semana-atual' ? ' active' : ''}" data-period="semana-atual">Semana atual</button>
                 <button type="button" class="pill${period === 'mes-atual' ? ' active' : ''}" data-period="mes-atual">Mês atual</button>
                 <button type="button" class="pill${period === 'ultimos-3m' ? ' active' : ''}" data-period="ultimos-3m">Últimos 3 meses</button>
+                <button type="button" class="pill${period === 'tudo' ? ' active' : ''}" data-period="tudo">Tudo</button>
                 <button type="button" class="pill${period === 'personalizado' ? ' active' : ''}" data-period="personalizado">Personalizado</button>
             </div>
             <div class="visits-filter-grid" id="report-filter-panel">
