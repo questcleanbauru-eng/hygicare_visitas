@@ -229,7 +229,7 @@ export async function renderReportPage() {
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatório' }])}
-        <div class="page-header">
+        <div class="page-header no-print">
             <div><h2>Relatório de KPIs</h2><p class="page-subtitle">Resumo de visitas, propostas e funil</p></div>
             <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
         </div>
