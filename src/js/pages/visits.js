@@ -653,6 +653,10 @@ export async function renderCalendarPage(options) {
     }
     const agResult = await callAPI('getAgendamentos', { user: state.currentUser });
     state.agendamentos = agResult.status === 'success' ? (agResult.agendamentos || []) : [];
+    // Pro botão "Notificar" nos cards de retorno já existente — mesma regra
+    // de quem pode notificar quem usada na criação (Novo agendamento/Funil).
+    const fdCalendar = await ensureFormData().then((r) => r.data).catch(() => null);
+    const notifyOptionsAg = resolveNotifyOptions((fdCalendar && fdCalendar.vendedores) || [], state.currentUser);
 
     const visits       = state.visits.map(normalizeVisit);
     const proposals    = (state.proposals || []).map(normalizeProposal);
@@ -695,6 +699,7 @@ export async function renderCalendarPage(options) {
                 <button type="button" class="text-link" data-ag-edit-obs="${escapeHtml(a.id)}">Editar texto</button>
                 <button type="button" class="text-link" data-ag-ics="${escapeHtml(a.id)}">Salvar na agenda</button>
                 <button type="button" class="text-link" data-ag-share="${escapeHtml(a.id)}">Compartilhar</button>
+                ${notifyOptionsAg.length ? `<button type="button" class="text-link" data-ag-notify="${escapeHtml(a.id)}">Notificar</button>` : ''}
             </div>
             <div class="ag-edit-date-row" style="display:none;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
                 <input type="date" class="ag-edit-date-input" value="${escapeHtml(formatInputDateFromDisplay(a.dataAgendada) || '')}">
@@ -709,6 +714,49 @@ export async function renderCalendarPage(options) {
                 </div>
             </div>
         </div>`;
+    };
+
+    // Overlay avulso (não fica embutido no card) de propósito: o mesmo
+    // agendamento pode estar renderizado 2x na tela ao mesmo tempo (painel
+    // do dia + lista "todos os agendamentos"), e wireMultiCheckFilter usa
+    // document.getElementById — um campo embutido no card duplicaria id.
+    // Criado sob demanda no clique e removido ao fechar, então nunca há mais
+    // de uma instância no documento.
+    const openNotificarAgendamentoModal = (a) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card" style="text-align:left">
+                <h3 style="margin-top:0">📣 Notificar sobre este retorno</h3>
+                <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">${escapeHtml(a.cliente || 'Cliente')}${a.dataAgendada ? ` — ${escapeHtml(a.dataAgendada)}` : ''}</p>
+                <div class="form-group full-width">
+                    ${multiCheckFilterFieldHtml('Notificar', 'agnotify-usuarios')}
+                </div>
+                <div class="form-actions full-width" style="display:flex;gap:0.5rem">
+                    <button type="button" class="secondary-button" id="agnotify-cancel">Cancelar</button>
+                    <button type="button" class="primary-button" id="agnotify-send">Enviar</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        wireMultiCheckFilter({
+            triggerId: 'agnotify-usuarios-trigger', inputId: 'agnotify-usuarios', menuId: 'agnotify-usuarios-menu',
+            options: notifyOptionsAg, emptyLabel: 'Escolha...'
+        });
+        const close = () => overlay.remove();
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('#agnotify-cancel').addEventListener('click', close);
+        overlay.querySelector('#agnotify-send').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            const selecionados = (document.getElementById('agnotify-usuarios')?.value || '').split(',').filter(Boolean);
+            if (!selecionados.length) { showToast('Escolha ao menos um usuário.', true); return; }
+            setSaving(true, btn, 'Enviando...');
+            const r = await callAPI('notifyRegistroCriado', {
+                destinatarios: selecionados, tipo: 'agendamento', cliente: a.cliente, detalhe: a.dataAgendada,
+                user: state.currentUser
+            }).catch((err) => ({ status: 'error', message: err.message }));
+            if (r && r.status === 'success') { showToast('Notificação enviada.'); close(); }
+            else { showToast((r && r.message) || 'Não foi possível notificar.', true); setSaving(false, btn); }
+        });
     };
 
     // Escopado por elemento (closest/querySelector), nunca por id global —
@@ -808,6 +856,12 @@ export async function renderCalendarPage(options) {
                 }
             });
         });
+        container.querySelectorAll('[data-ag-notify]').forEach((b) => {
+            b.addEventListener('click', () => {
+                const a = sourceList.find((item) => String(item.id) === b.dataset.agNotify);
+                if (a) openNotificarAgendamentoModal(a);
+            });
+        });
         container.querySelectorAll('[data-ag-edit-date]').forEach((b) => {
             b.addEventListener('click', () => {
                 const row = b.closest('[data-agendamento-id]');
@@ -898,15 +952,38 @@ export async function renderCalendarPage(options) {
                 const db = parseDisplayDate(b.dataAgendada);
                 return (da ? da.getTime() : 0) - (db ? db.getTime() : 0);
             });
-        sectionEl.innerHTML = pending.length === 0 ? `
-            <div class="visit-month-header"><h3>📌 Retornos agendados</h3></div>
-            <p class="helper-text" style="text-align:center;padding:0.5rem 0">Nenhum retorno pendente.</p>
-        ` : `
-            <div class="visit-month-header">
-                <h3>📌 Retornos agendados</h3>
-                <span>${pending.length} pendente(s)</span>
-            </div>
-            <div class="visits-list">${pending.map((a) => agendamentoCardHtml(a, { showDate: true })).join('')}</div>
+
+        if (pending.length === 0) {
+            sectionEl.innerHTML = `
+                <div class="visit-month-header"><h3>📌 Retornos agendados</h3></div>
+                <p class="helper-text" style="text-align:center;padding:0.5rem 0">Nenhum retorno pendente.</p>
+            `;
+            return;
+        }
+
+        // Separado por mês (pedido do admin — lista corrida ficava difícil de
+        // ler com muitos pendentes). Ascendente (mês mais próximo primeiro):
+        // ao contrário de Visitas/Propostas/Funil (mais recente primeiro,
+        // olhando pra trás), retorno agendado é sempre olhar pra frente.
+        const byMonth = pending.reduce((groups, a) => {
+            const d = parseDisplayDate(a.dataAgendada);
+            const key = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'Sem data';
+            (groups[key] = groups[key] || []).push(a);
+            return groups;
+        }, {});
+        const groupsHtml = Object.keys(byMonth).sort((a, b) => a.localeCompare(b)).map((key) => `
+            <section class="visit-month-group">
+                <div class="visit-month-header">
+                    <h3>${escapeHtml(formatMonthKey(key))}</h3>
+                    <span>${byMonth[key].length} pendente(s)</span>
+                </div>
+                <div class="visits-list">${byMonth[key].map((a) => agendamentoCardHtml(a, { showDate: true })).join('')}</div>
+            </section>
+        `).join('');
+
+        sectionEl.innerHTML = `
+            <div class="visit-month-header"><h3>📌 Retornos agendados</h3><span>${pending.length} pendente(s)</span></div>
+            ${groupsHtml}
         `;
         bindAgendamentoRowActions(sectionEl, pending, { onMutated: renderAgendamentosSection });
     };
