@@ -40,6 +40,28 @@ function campanhaLink(id, loginNome) {
     return `${window.location.origin}/?c=${id}${n}`;
 }
 
+const CAMPANHA_TIPO_ACAO = {
+    proposta: 'atualizar as propostas', funil: 'atualizar o funil de vendas',
+    visita: 'completar o relatório de visita', manutencao: 'completar o relatório de aferição',
+    relatoriotecnico: 'completar o relatório SPSP'
+};
+
+// Mensagem pronta (nome + pedido + prazo + link) pro "Copiar link"/WhatsApp
+// da LISTA do admin — mesmo espírito das mensagens já montadas na hora de
+// CRIAR a campanha (ver buildMsg em cada modal acima), só mais enxuta
+// porque aqui não tem a lista de clientes já carregada (a lista é só um
+// resumo da campanha, não os itens dela).
+function campanhaMensagem(c, loginNome) {
+    const link = campanhaLink(c.id, loginNome);
+    const primeiroNome = String(c.vendedorDestino || '').trim().split(' ')[0] || '';
+    const acao = CAMPANHA_TIPO_ACAO[c.tipo] || 'atualizar';
+    return [
+        `${primeiroNome ? primeiroNome + ', p' : 'P'}or gentileza, ${acao}.`,
+        c.prazoAte ? `\nPrazo de envio: até o dia ${c.prazoAte}` : '',
+        `\n${link}`
+    ].filter(Boolean).join('\n');
+}
+
 // ── Modal "Selecionar clientes" (aberto pelas telas Propostas/Funil) ────
 // items: [{ id, cliente, cidade, extra }]  — normalmente a lista já filtrada.
 export function openSelecionarClientesModal(tipo, items) {
@@ -975,18 +997,23 @@ export async function renderCampanhasPage() {
                   .sort((a, b) => (campanhaEstaVencida(b) ? 1 : 0) - (campanhaEstaVencida(a) ? 1 : 0))
                   .map((c) => campanhaRow(c, campSelectMode)).join('')}</div>`}
     `;
+    const campanhaPorId = (id) => campanhas.find((x) => String(x.id) === String(id));
     const loginNomeParaCampanha = (id) => {
-        const c = campanhas.find((x) => String(x.id) === String(id));
+        const c = campanhaPorId(id);
         return c ? (loginNomeByVendedor.get(c.vendedorDestino) || '') : '';
     };
     main.querySelectorAll('[data-camp-copy]').forEach((el) => el.addEventListener('click', (e) => {
         e.stopPropagation();
-        const link = campanhaLink(el.dataset.campCopy, loginNomeParaCampanha(el.dataset.campCopy));
-        navigator.clipboard?.writeText(link).then(() => showToast('Link copiado.'));
+        const c = campanhaPorId(el.dataset.campCopy);
+        if (!c) return;
+        const msg = campanhaMensagem(c, loginNomeParaCampanha(el.dataset.campCopy));
+        navigator.clipboard?.writeText(msg).then(() => showToast('Mensagem copiada.'));
     }));
     main.querySelectorAll('[data-camp-wa]').forEach((el) => el.addEventListener('click', (e) => {
         e.stopPropagation();
-        openExternal(`https://wa.me/?text=${encodeURIComponent(campanhaLink(el.dataset.campWa, loginNomeParaCampanha(el.dataset.campWa)))}`);
+        const c = campanhaPorId(el.dataset.campWa);
+        if (!c) return;
+        openExternal(`https://wa.me/?text=${encodeURIComponent(campanhaMensagem(c, loginNomeParaCampanha(el.dataset.campWa)))}`);
     }));
     main.querySelectorAll('[data-camp-details]').forEach((btn) => btn.addEventListener('click', async (e) => {
         e.stopPropagation();
