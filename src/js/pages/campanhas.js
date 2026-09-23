@@ -1066,6 +1066,28 @@ export async function renderCampanhasPage() {
         if (rr && rr.status === 'success') { showToast('Campanha encerrada.'); renderCampanhasPage(); }
         else showToast((rr && rr.message) || 'Não foi possível encerrar.', true);
     }));
+    main.querySelectorAll('[data-camp-edit-prazo]').forEach((el) => el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const row = document.getElementById('camp-edit-prazo-' + el.dataset.campEditPrazo);
+        if (row) row.style.display = 'flex';
+    }));
+    main.querySelectorAll('[data-camp-cancel-prazo]').forEach((el) => el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const row = document.getElementById('camp-edit-prazo-' + el.dataset.campCancelPrazo);
+        if (row) row.style.display = 'none';
+    }));
+    main.querySelectorAll('[data-camp-save-prazo]').forEach((el) => el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = el.dataset.campSavePrazo;
+        const row = document.getElementById('camp-edit-prazo-' + id);
+        const novoPrazo = row?.querySelector('.camp-edit-prazo-input')?.value;
+        if (!novoPrazo) { showToast('Informe o novo prazo.', true); return; }
+        setSaving(true, el, 'Salvando...');
+        const rr = await callAPI('updateCampanhaPrazo', { id, prazoAte: novoPrazo, user: state.currentUser }).catch((err) => ({ status: 'error', message: err.message }));
+        setSaving(false, el);
+        if (rr && rr.status === 'success') { showToast('Prazo atualizado.'); renderCampanhasPage(); }
+        else showToast((rr && rr.message) || 'Não foi possível atualizar o prazo.', true);
+    }));
 
     const refreshCampSelBar = () => {
         const count = document.getElementById('camp-sel-count');
@@ -1148,9 +1170,15 @@ function campanhaRow(c, selectMode) {
             ${c.status !== 'concluida' ? `
             <button type="button" class="text-link" data-camp-copy="${escapeHtml(c.id)}">Copiar link</button>
             <button type="button" class="mini-button mini-button-whatsapp" data-camp-wa="${escapeHtml(c.id)}">WhatsApp</button>
+            <button type="button" class="text-link" data-camp-edit-prazo="${escapeHtml(c.id)}">${vencida ? 'Prorrogar prazo' : 'Alterar prazo'}</button>
             <button type="button" class="mini-button" data-camp-encerrar="${escapeHtml(c.id)}">Concluir</button>` : ''}
             <button type="button" class="mini-button mini-button-danger" data-camp-del="${escapeHtml(c.id)}">Apagar</button>
         </div>
+        ${c.status !== 'concluida' ? `<div class="camp-edit-prazo-row" id="camp-edit-prazo-${escapeHtml(c.id)}" style="display:none;gap:0.4rem;margin-top:0.5rem;align-items:center;flex-wrap:wrap">
+            <input type="date" class="camp-edit-prazo-input" value="${escapeHtml(formatInputDateFromDisplay(c.prazoAte) || '')}">
+            <button type="button" class="text-link" data-camp-save-prazo="${escapeHtml(c.id)}">Salvar</button>
+            <button type="button" class="text-link" data-camp-cancel-prazo="${escapeHtml(c.id)}">Cancelar</button>
+        </div>` : ''}
         <div class="camp-admin-itens" id="camp-itens-${escapeHtml(c.id)}" hidden></div>
     </div>`;
 }
