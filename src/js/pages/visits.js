@@ -943,8 +943,21 @@ export async function renderCalendarPage(options) {
     const renderAgendamentosSection = () => {
         const sectionEl = document.getElementById('cal-agendamentos-section');
         if (!sectionEl) return;
+        // Mesmo critério dos pontos/painel do dia no calendário (showRetornos/
+        // agendamentosParaGrade, mais abaixo em render()) — Visitas/Propostas/
+        // Funil não têm retorno agendado, então a seção some; "Campanha" é um
+        // recorte de Retornos, só os gerados por prazo de campanha.
+        const showRetornos = activeFilter === 'todos' || activeFilter === 'retornos' || activeFilter === 'campanha';
+        if (!showRetornos) {
+            sectionEl.style.display = 'none';
+            sectionEl.innerHTML = '';
+            return;
+        }
+        sectionEl.style.display = '';
+
         const pending = (state.agendamentos || [])
             .filter((a) => a.status === 'Pendente')
+            .filter((a) => activeFilter !== 'campanha' || a.campanhaOrigemId)
             .sort((a, b) => {
                 const da = parseDisplayDate(a.dataAgendada);
                 const db = parseDisplayDate(b.dataAgendada);
