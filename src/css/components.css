@@ -2398,6 +2398,20 @@ input:disabled {
 @media print {
     .report-kpi-row, .report-bar-row, .report-top-row { break-inside: avoid; }
 
+    /* .report-bar-list/.report-top-list são display:flex (coluna) na tela —
+       motor de impressão do Chromium (e a maioria dos outros) NÃO pagina o
+       conteúdo de um container flex/grid entre páginas: se a lista crescer
+       mais que uma página (comum agora com o filtro "Tudo", que pode trazer
+       dezenas de vendedores/cidades), tudo que passasse da altura da
+       primeira página simplesmente sumia da impressão — mesmo cada linha
+       tendo break-inside:avoid, que só vale dentro de fluxo de bloco normal.
+       Só bloco de verdade fragmenta corretamente entre páginas; troca aqui,
+       só na impressão. gap não tem efeito em display:block, substituído por
+       margin-bottom equivalente direto nas linhas. */
+    .report-bar-list, .report-top-list { display: block; }
+    .report-bar-row { margin-bottom: 0.2rem; }
+    .report-top-row { margin-bottom: 0.18rem; }
+
     /* Esses tamanhos/respiros foram pensados pra tela (dedo, não cursor) —
        no papel só sobra espaço em branco. Aperta tudo pra caber mais
        relatório por folha. */
@@ -2408,12 +2422,10 @@ input:disabled {
 
     .report-subtitle { margin: 0.35rem 0 0.2rem; font-size: 0.72rem; }
 
-    .report-bar-list { gap: 0.2rem; }
     .report-bar-row { font-size: 0.72rem; gap: 0.35rem; }
     .report-bar-label { flex-basis: 120px; }
     .report-bar-track { height: 6px; }
 
-    .report-top-list { gap: 0.18rem; }
     .report-top-row { padding: 0.25rem 0.4rem; font-size: 0.72rem; }
     .report-top-rank { flex: 0 0 16px; height: 16px; font-size: 0.58rem; }
 }

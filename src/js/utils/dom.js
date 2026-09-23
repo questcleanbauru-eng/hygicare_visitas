@@ -555,22 +555,6 @@ export function addScrollTop() {
 
 // ── Session expiry ──────────────────────────────────────────────
 
-export function downloadCSV(data, filename, columns) {
-    const header = columns.map(c => `"${c.label}"`).join(',');
-    const rows = (data || []).map(row =>
-        columns.map(c => `"${String(row[c.key] || '').replace(/"/g, '""')}"`).join(',')
-    );
-    const blob = new Blob(['﻿' + [header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
 // "Salvar na agenda" — 6ª tentativa.
 // blob:/data: (tentativas 1-3) travavam numa aba em branco "carregando"
 // pra sempre — provavelmente bloqueio do próprio WebKit pra navegação de

@@ -1,7 +1,8 @@
 import { state, navigateTo } from '../app.js';
 import { escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, normalizeVisit, normalizeProposal, titleCase, parseCurrencyBR, calculateDaysFromDisplayDate } from '../utils/format.js';
-import { loadingState, showToast, downloadCSV, initializeSearchableInput } from '../utils/dom.js';
+import { loadingState, showToast, initializeSearchableInput } from '../utils/dom.js';
 import { ensureStyles, renderBreadcrumb } from '../utils/ui.js';
+import { downloadXLSX } from '../utils/xlsxWriter.js';
 
 function formatMoney(value) {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -509,7 +510,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 <div class="report-section-actions no-print">
                     <button type="button" class="text-link" id="pdf-visitas">📄 Resumo</button>
                     ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-visitas">📄 Por gerência/vendedor</button>' : ''}
-                    <button type="button" class="text-link" id="csv-visitas">📥 CSV</button>
+                    <button type="button" class="text-link" id="csv-visitas">📥 Excel</button>
                     ${secToggle('visitas')}
                 </div>
             </div>
@@ -531,7 +532,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 <div class="report-section-actions no-print">
                     <button type="button" class="text-link" id="pdf-propostas">📄 Resumo</button>
                     ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-propostas">📄 Por vendedor</button>' : ''}
-                    <button type="button" class="text-link" id="csv-propostas">📥 CSV</button>
+                    <button type="button" class="text-link" id="csv-propostas">📥 Excel</button>
                     ${secToggle('propostas')}
                 </div>
             </div>
@@ -565,7 +566,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 <div class="report-section-actions no-print">
                     <button type="button" class="text-link" id="pdf-funil">📄 Resumo</button>
                     ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-funil">📄 Por vendedor</button>' : ''}
-                    <button type="button" class="text-link" id="csv-funil">📥 CSV</button>
+                    <button type="button" class="text-link" id="csv-funil">📥 Excel</button>
                     ${secToggle('funil')}
                 </div>
             </div>
@@ -714,11 +715,11 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 areaAtuacao: v.areaAtuacao || '', contato: v.contato || '', prospeccao: v.prospeccao || ''
             }));
         if (!rows.length) { showToast('Nenhuma visita no período.', true); return; }
-        downloadCSV(rows, `visitas-${_stamp}.csv`, [
+        downloadXLSX(rows, `visitas-${_stamp}.xlsx`, [
             { key: 'data', label: 'Data' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
             { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'tipoVisita', label: 'Tipo da Visita' },
             { key: 'areaAtuacao', label: 'Área de Atuação' }, { key: 'contato', label: 'Contato' }, { key: 'prospeccao', label: 'Prospecção' }
-        ]);
+        ], 'Visitas');
     });
     document.getElementById('csv-propostas')?.addEventListener('click', () => {
         const rows = proposals
@@ -732,13 +733,13 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 atrasada: p.atrasada ? 'Sim' : 'Não', dataLimite: p.dataLimite || '', email: p.email || ''
             }));
         if (!rows.length) { showToast('Nenhuma proposta no período.', true); return; }
-        downloadCSV(rows, `propostas-${_stamp}.csv`, [
+        downloadXLSX(rows, `propostas-${_stamp}.xlsx`, [
             { key: 'data', label: 'Data' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
             { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'foco', label: 'Foco' },
             { key: 'produtos', label: 'Produtos' }, { key: 'status', label: 'Status' }, { key: 'situacao', label: 'Situação' },
             { key: 'atualizacao', label: 'Última atualização' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
             { key: 'atrasada', label: 'Atrasada' }, { key: 'dataLimite', label: 'Data limite' }, { key: 'email', label: 'E-mail' }
-        ]);
+        ], 'Propostas');
     });
     document.getElementById('csv-funil')?.addEventListener('click', () => {
         const rows = funil
@@ -754,7 +755,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 conclusao: f.conclusao || '', motivoPerda: f.motivoPerda || ''
             }));
         if (!rows.length) { showToast('Nenhuma oportunidade no período.', true); return; }
-        downloadCSV(rows, `funil-${_stamp}.csv`, [
+        downloadXLSX(rows, `funil-${_stamp}.xlsx`, [
             { key: 'data', label: 'Data' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
             { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'status', label: 'Status' },
             { key: 'ativo', label: 'Ativo' }, { key: 'foco', label: 'Foco' }, { key: 'atuacao', label: 'Atuação' },
@@ -762,7 +763,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             { key: 'vlMensal', label: 'Vl Mensal (R$)' }, { key: 'forecast', label: 'Forecast ponderado (R$)' },
             { key: 'atualizacao', label: 'Última atualização' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
             { key: 'conclusao', label: 'Conclusão prevista' }, { key: 'motivoPerda', label: 'Motivo da perda' }
-        ]);
+        ], 'Funil');
     });
     document.getElementById('report-date-from')?.addEventListener('change', (e) => {
         state.reportCustomFrom = e.target.value;
