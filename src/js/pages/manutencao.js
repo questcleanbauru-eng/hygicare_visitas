@@ -195,7 +195,7 @@ export function fillManutencaoContent(mainContent, itens) {
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
-            <div class="header-actions-group">
+            <div class="header-actions-group mnt-header-actions-stack">
                 <button type="button" class="text-link" id="btn-ver-modelos">📋 Modelos</button>
                 ${isAdmGer ? `<button type="button" class="text-link" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
                 <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. SPSP</button>
@@ -204,7 +204,10 @@ export function fillManutencaoContent(mainContent, itens) {
                 <button type="button" class="primary-btn" id="btn-new-geral" title="Sem tabela de aferição">📄 Rel. Geral</button>
             </div>
         </div>
-        <p class="mnt-tipo-legenda">
+        <p class="mnt-legenda-toggle-row">
+            <span class="text-link" role="button" tabindex="0" id="mnt-legenda-toggle">👁️ Mostrar legenda dos tipos</span>
+        </p>
+        <p class="mnt-tipo-legenda" id="mnt-tipo-legenda" hidden>
             <span class="mnt-legenda-item">📋 <strong>Rel. SPSP</strong> → Grupo SPSP</span>
             <span class="mnt-legenda-item">✍️ <strong>SPSP - Paulo</strong> → variante com assinatura</span>
             <span class="mnt-legenda-item">🔧 <strong>Rel. de Aferição</strong> → com tabela de vazão</span>
@@ -251,6 +254,13 @@ export function fillManutencaoContent(mainContent, itens) {
         collapsed = !collapsed;
         filterPanel.classList.toggle('collapsed', collapsed);
         filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
+    });
+
+    const legendaToggle = document.getElementById('mnt-legenda-toggle');
+    const legenda = document.getElementById('mnt-tipo-legenda');
+    legendaToggle.addEventListener('click', () => {
+        legenda.hidden = !legenda.hidden;
+        legendaToggle.textContent = legenda.hidden ? '👁️ Mostrar legenda dos tipos' : '🙈 Ocultar legenda dos tipos';
     });
 
     const renderFiltered = () => {

@@ -211,16 +211,34 @@
 .mnt-foto-add { display: inline-block; cursor: pointer; }
 .mnt-foto-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
-/* Legenda dos tipos de relatório (abaixo dos botões do cabeçalho) */
+/* Botões do cabeçalho (Modelos, Pedir Relatório, Rel. SPSP, SPSP - Paulo,
+   Rel. de Aferição, Rel. Geral) — 6 itens numa linha só ficava apertado e
+   quebrava feio; empilha um abaixo do outro, alinhado à direita (mesmo
+   canto onde já ficavam). Não mexe em .header-actions-group "puro" porque
+   é compartilhado com o resto do app — só essa combinação de classes. */
+.mnt-header-actions-stack {
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 0.35rem;
+}
+
+/* Legenda dos tipos de relatório — some por padrão (link "Mostrar/Ocultar"
+   logo acima) pra não ocupar espaço fixo toda vez que a lista abre. */
+.mnt-legenda-toggle-row { margin: -0.25rem 0 0.4rem; }
 .mnt-tipo-legenda {
     display: flex;
     flex-wrap: wrap;
     gap: 0.2rem 1rem;
-    margin: -0.25rem 0 0.85rem;
+    margin: 0 0 0.85rem;
     font-size: 0.8rem;
     color: var(--text-muted-strong);
     line-height: 1.4;
 }
+/* display:flex acima bate com o [hidden] nativo (mesma especificidade,
+   e essa regra vem depois no cascade) — sem isso, o atributo "hidden" é
+   ignorado e a legenda aparece mesmo "escondida". */
+.mnt-tipo-legenda[hidden] { display: none; }
 .mnt-legenda-item { white-space: nowrap; }
 
 /* Etiqueta Técnico / Manutenção no card da lista */
