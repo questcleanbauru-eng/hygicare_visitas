@@ -1539,6 +1539,57 @@ export async function renderFunilDetailPage(id, _revalidated) {
 }
 
 
+// Mesmo padrão do "Agendar retorno?" de Nova Visita (modal do app, não
+// confirm() nativo) — só que aqui é uma ação direta no formulário do
+// Funil, não um prompt pós-salvar, já que editar um Funil já existente
+// não é um evento único como criar uma visita nova.
+function showAgendarRetornoFunilModal(f) {
+    return new Promise((resolve) => {
+        const defaultDate = new Date();
+        defaultDate.setDate(defaultDate.getDate() + 30);
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card">
+                <div style="font-size:2rem;margin-bottom:0.75rem">📅</div>
+                <h3>Agendar retorno</h3>
+                <p class="helper-text" style="margin-top:-0.5rem">${escapeHtml(f.cliente || 'Cliente')}</p>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="fag-data">Data do retorno</label>
+                    <input type="date" id="fag-data" value="${defaultDate.toISOString().slice(0, 10)}">
+                </div>
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="fag-obs">Observação (opcional)</label>
+                    <textarea id="fag-obs" rows="2" placeholder="Ex: retomar contato, enviar proposta..."></textarea>
+                </div>
+                <button type="button" id="fag-save" class="primary-button">Salvar agendamento</button>
+                <button type="button" id="fag-cancel" class="secondary-button">Cancelar</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        const close = () => { overlay.remove(); resolve(); };
+        overlay.querySelector('#fag-cancel').addEventListener('click', close);
+        overlay.querySelector('#fag-save').addEventListener('click', async () => {
+            const btn = overlay.querySelector('#fag-save');
+            const dataVal = overlay.querySelector('#fag-data').value;
+            if (!dataVal) { showToast('Informe a data do retorno.', true); return; }
+            const obsVal = overlay.querySelector('#fag-obs').value.trim();
+            setSaving(true, btn, 'Salvando...');
+            const result = await callAPI('createAgendamento', {
+                cliente: f.cliente, cidade: f.cidade, dataAgendada: dataVal, observacao: obsVal, user: state.currentUser
+            });
+            if (result && result.status === 'success') {
+                showToast('Retorno agendado com sucesso.');
+                close();
+            } else {
+                showToast((result && result.message) || 'Erro ao agendar retorno.', true);
+                setSaving(false, btn);
+            }
+        });
+    });
+}
+
+
 export async function renderFunilFormPage(funil) {
     ensureStyles('funil');
     const f = funil || state.currentFunil;
@@ -1658,6 +1709,7 @@ export async function renderFunilFormPage(funil) {
                 <textarea id="funil-comentarios" rows="5" placeholder="Observações e próximos passos">${escapeHtml(withDatedNoteHeader(f.comentarios))}</textarea>
             </div>
             <div class="form-actions full-width">
+                <button type="button" class="secondary-button" id="agendar-funil-retorno">📅 Agendar retorno</button>
                 <button type="button" class="secondary-button" id="cancel-funil">Cancelar</button>
                 <button type="submit" id="save-funil">Salvar Alterações</button>
             </div>
@@ -1701,6 +1753,7 @@ export async function renderFunilFormPage(funil) {
                 <textarea id="funil-comentarios" rows="5" placeholder="Observações e próximos passos">${escapeHtml(withDatedNoteHeader(f.comentarios))}</textarea>
             </div>
             <div class="form-actions full-width">
+                <button type="button" class="secondary-button" id="agendar-funil-retorno">📅 Agendar retorno</button>
                 <button type="button" class="secondary-button" id="cancel-funil">Cancelar</button>
                 <button type="submit" id="save-funil">Salvar Alterações</button>
             </div>
@@ -1718,6 +1771,7 @@ export async function renderFunilFormPage(funil) {
 
     document.getElementById('back-funil-detail').addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
     document.getElementById('cancel-funil').addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
+    document.getElementById('agendar-funil-retorno')?.addEventListener('click', () => showAgendarRetornoFunilModal(f));
 
     preventEnterSubmit(document.getElementById('funil-form'));
     document.getElementById('funil-form').addEventListener('submit', async (event) => {
