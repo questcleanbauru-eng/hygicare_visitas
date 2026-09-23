@@ -680,8 +680,9 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
                 ${chips('avaliacaoAtendimento', AVALIACAO_OPCOES, m.avaliacaoAtendimento || '')}
             </div>
             ${field('Observações do cliente', 'rt-clienteObservacoes', m.clienteObservacoes, { type: 'textarea', rows: 2 })}
+            ${isPaulo ? `<p class="helper-text" id="rt-obs-required-hint" style="text-align:left;margin:-0.4rem 0 0.6rem;display:${['Insatisfeito', 'Totalmente Insatisfeito'].includes(m.avaliacaoAtendimento) ? '' : 'none'}">Obrigatório explicar o motivo quando a avaliação é Insatisfeito/Totalmente Insatisfeito.</p>` : ''}
             ${field('E-mail do cliente', 'rt-clienteEmail', m.clienteEmail, { type: 'email', inputmode: 'email' })}
-            ${isPaulo ? `<div class="form-group full-width" id="rt-sig-cliente-group" style="display:${['Insatisfeito', 'Totalmente Insatisfeito'].includes(m.avaliacaoAtendimento) ? '' : 'none'}">
+            ${isPaulo ? `<div class="form-group full-width">
                 <label>Assinatura Cliente</label>
                 <canvas id="rt-signature-cliente" class="signature-pad"></canvas>
                 <div class="signature-pad-actions"><button type="button" class="mini-button" id="rt-signature-cliente-clear">Limpar assinatura</button></div>
@@ -724,14 +725,15 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
     });
 
     if (isPaulo) {
-        // Assinatura Cliente só faz sentido registrar quando o atendimento
-        // foi mal avaliado — aparece/some junto com a escolha do chip.
-        const sigClienteGroup = document.getElementById('rt-sig-cliente-group');
+        // Assinatura Cliente fica sempre visível (o cliente pode assinar
+        // independente da avaliação) — só o aviso de "Observações"
+        // obrigatória acompanha o chip de avaliação ruim.
+        const obsHint = document.getElementById('rt-obs-required-hint');
         const avaliacaoWrap = mainContent.querySelector('[data-chips="avaliacaoAtendimento"]');
         avaliacaoWrap?.querySelectorAll('.radio-pill').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const val = mainContent.querySelector('input[name="avaliacaoAtendimento"]').value;
-                if (sigClienteGroup) sigClienteGroup.style.display = ['Insatisfeito', 'Totalmente Insatisfeito'].includes(val) ? '' : 'none';
+                if (obsHint) obsHint.style.display = ['Insatisfeito', 'Totalmente Insatisfeito'].includes(val) ? '' : 'none';
             });
         });
 
@@ -843,6 +845,10 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
         event.preventDefault();
         const payload = collect();
         if (!payload.cliente) { showToast('Informe o cliente.', true); return; }
+        if (isPaulo && ['Insatisfeito', 'Totalmente Insatisfeito'].includes(payload.avaliacaoAtendimento) && !payload.clienteObservacoes) {
+            showToast('Explique o motivo em "Observações do cliente".', true);
+            return;
+        }
         aprenderCidadeUf(payload.cidade, payload.estado);
         const btn = document.getElementById('rt-submit');
         setSaving(true, btn, isEdit ? 'Salvando...' : 'Criando...');
