@@ -1209,9 +1209,7 @@ export async function renderFunilCreatePage() {
                 <label for="fc-comentarios">Comentários</label>
                 <textarea id="fc-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(withDatedNoteHeader(''))}</textarea>
             </div>
-            ${temNotifyReal ? `<div class="form-group full-width">
-                ${multiCheckFilterFieldHtml('Notificar outros usuários *', 'fc-notificar')}
-            </div>` : ''}
+            ${temNotifyReal ? multiCheckFilterFieldHtml('Notificar outros usuários *', 'fc-notificar') : ''}
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-funil-create">Cancelar</button>
                 <button type="submit" id="save-funil-create">Salvar Funil</button>

@@ -729,9 +729,7 @@ export async function renderCalendarPage(options) {
             <div class="modal-card" style="text-align:left">
                 <h3 style="margin-top:0">📣 Notificar sobre este retorno</h3>
                 <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">${escapeHtml(a.cliente || 'Cliente')}${a.dataAgendada ? ` — ${escapeHtml(a.dataAgendada)}` : ''}</p>
-                <div class="form-group full-width">
-                    ${multiCheckFilterFieldHtml('Notificar', 'agnotify-usuarios')}
-                </div>
+                ${multiCheckFilterFieldHtml('Notificar', 'agnotify-usuarios')}
                 <div class="form-actions full-width" style="display:flex;gap:0.5rem">
                     <button type="button" class="secondary-button" id="agnotify-cancel">Cancelar</button>
                     <button type="button" class="primary-button" id="agnotify-send">Enviar</button>
@@ -2578,9 +2576,7 @@ export async function showCreateAgendamentoModal(onCreated) {
                     <label for="newag-obs">Observação (opcional)</label>
                     <textarea id="newag-obs" rows="2" placeholder="Ex: ligar antes de ir..."></textarea>
                 </div>
-                ${temNotifyReal ? `<div class="form-group full-width" style="text-align:left">
-                    ${multiCheckFilterFieldHtml('Notificar outros usuários *', 'newag-notificar')}
-                </div>` : ''}
+                ${temNotifyReal ? `<div style="text-align:left">${multiCheckFilterFieldHtml('Notificar outros usuários *', 'newag-notificar')}</div>` : ''}
                 <button type="button" class="primary-button" id="modal-newag-save">Salvar agendamento</button>
                 <button type="button" class="secondary-button" id="modal-newag-cancel">Cancelar</button>
             </div>
