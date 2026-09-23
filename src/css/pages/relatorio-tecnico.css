@@ -204,3 +204,23 @@
 }
 
 @page { size: A4; margin: 12mm 14mm; }
+
+/* Assinatura por desenho (variante "SPSP - Paulo") — mesmo componente já
+   usado em Manutenção (manutencao.css), copiado aqui pra não precisar
+   carregar o bundle de CSS inteiro da Manutenção só por causa disso. */
+.signature-pad {
+    display: block;
+    width: 100%;
+    height: 160px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    touch-action: none;
+    cursor: crosshair;
+}
+
+.signature-pad-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.4rem;
+}

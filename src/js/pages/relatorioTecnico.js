@@ -167,6 +167,12 @@ function normalize(item) {
         contatoGestor: pick('contatoGestor', 'ContatoGestor'),
         inicioAtendimento: pick('inicioAtendimento', 'InicioAtendimento'),
         fimAtendimento: pick('fimAtendimento', 'FimAtendimento'),
+        // Variante "SPSP - Paulo" (ver renderRelatorioTecnicoFormPage) — tipoRelatorio
+        // decide na criação e nunca muda depois, igual ao mesmo campo em Manutenção.
+        tipoRelatorio: pick('tipoRelatorio', 'TipoRelatorio'),
+        assinaturaCliente: pick('assinaturaCliente', 'AssinaturaCliente'),
+        assinaturaTecnico: pick('assinaturaTecnico', 'AssinaturaTecnico'),
+        equipamentoAferido: pick('equipamentoAferido', 'EquipamentoAferido'),
         _pending: !!m._pending
     };
 }
@@ -206,6 +212,7 @@ function fillList(mainContent, list) {
             <div><h2>Relatório SPSP</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
             <div class="header-actions-group">
                 <button type="button" class="text-link" id="rt-goto-manutencao">🔧 Manutenção</button>
+                <button type="button" class="text-link" id="rt-new-paulo">+ SPSP - Paulo</button>
                 <button type="button" class="primary-btn" id="rt-new">+ Novo Relatório</button>
             </div>
         </div>`;
@@ -219,6 +226,7 @@ function fillList(mainContent, list) {
             </div>`;
         document.getElementById('rt-new')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
         document.getElementById('rt-new2')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
+        document.getElementById('rt-new-paulo')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }));
         document.getElementById('rt-goto-manutencao')?.addEventListener('click', () => navigateTo('manutencao'));
         return;
     }
@@ -275,6 +283,7 @@ function fillList(mainContent, list) {
     render();
     document.getElementById('rt-search').addEventListener('input', debounce(render, 200));
     document.getElementById('rt-new').addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
+    document.getElementById('rt-new-paulo').addEventListener('click', () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }));
     document.getElementById('rt-goto-manutencao').addEventListener('click', () => navigateTo('manutencao'));
     addScrollTop();
 }
@@ -292,6 +301,7 @@ function respRow(label, value) {
 }
 
 function reportHtml(m, logoEmpresa) {
+    const isPaulo = m.tipoRelatorio === 'paulo';
     const secoesHtml = SECOES.map((sec, si) => `
         <div class="rt-band">${escapeHtml(sec.titulo)}</div>
         ${sec.perguntas.map((p, qi) => respRow(p, m.respostas[qKey(si, qi)])).join('')}
@@ -321,7 +331,7 @@ function reportHtml(m, logoEmpresa) {
         ${respRow('Data da Visita', m.dataVisita)}
 
         <div class="rt-band">DADOS DO CLIENTE</div>
-        ${respRow('Código (Ship To)', m.codigoShipTo)}
+        ${isPaulo ? '' : respRow('Código (Ship To)', m.codigoShipTo)}
         ${respRow('Cliente', m.cliente)}
         ${respRow('Cidade', m.cidade)}
         ${respRow('Estado', m.estado)}
@@ -334,9 +344,10 @@ function reportHtml(m, logoEmpresa) {
         <div class="rt-band">COMENTÁRIOS</div>
         <div class="rt-freetext">${escapeHtml(m.comentarios || '—').replace(/\n/g, '<br>')}</div>
         ${tabela}
+        ${isPaulo ? respRow('Equipamentos aferidos', m.equipamentoAferido) : ''}
 
-        <div class="rt-band">ESTOQUE</div>
-        ${respRow('O estoque de produtos foi verificado?', m.estoqueVerificado)}
+        ${isPaulo ? '' : `<div class="rt-band">ESTOQUE</div>
+        ${respRow('O estoque de produtos foi verificado?', m.estoqueVerificado)}`}
 
         <div class="rt-band">AVALIAÇÃO DO CLIENTE</div>
         ${respRow('Nome e Sobrenome do Cliente', m.clienteAvaliador)}
@@ -344,15 +355,18 @@ function reportHtml(m, logoEmpresa) {
         ${respRow('Avaliação do Atendimento', m.avaliacaoAtendimento)}
         ${respRow('Observações do Cliente', m.clienteObservacoes)}
         ${respRow('E-mail do Cliente', m.clienteEmail)}
-        <div class="rt-row"><div class="rt-row-label">Assinatura do Cliente</div><div class="rt-row-value rt-sign-line">&nbsp;</div></div>
+        ${m.assinaturaCliente
+            ? `<div class="rt-row"><div class="rt-row-label">Assinatura do Cliente</div><div class="rt-row-value"><img src="${escapeHtml(m.assinaturaCliente)}" alt="Assinatura do cliente" style="max-height:70px"></div></div>`
+            : `<div class="rt-row"><div class="rt-row-label">Assinatura do Cliente</div><div class="rt-row-value rt-sign-line">&nbsp;</div></div>`}
 
         <div class="rt-band">ATENDIMENTO REALIZADO POR</div>
         ${respRow('Atendido por', m.tecnico ? titleCase(m.tecnico) : '')}
         ${respRow('Departamento', m.departamento)}
         ${respRow('Gestor', m.gestor)}
-        ${respRow('Contato do Gestor', m.contatoGestor)}
+        ${isPaulo ? '' : respRow('Contato do Gestor', m.contatoGestor)}
         ${respRow('Início do Atendimento', m.inicioAtendimento)}
         ${respRow('Fim do Atendimento', m.fimAtendimento)}
+        ${m.assinaturaTecnico ? `<div class="rt-row"><div class="rt-row-label">Assinatura do Técnico</div><div class="rt-row-value"><img src="${escapeHtml(m.assinaturaTecnico)}" alt="Assinatura do técnico" style="max-height:70px"></div></div>` : ''}
     </div>`;
 }
 
@@ -438,6 +452,89 @@ async function shareRelatorio(m) {
     openExternal(`https://wa.me/?text=${encodeURIComponent(linhas)}`);
 }
 
+// ── Assinatura por desenho (variante "SPSP - Paulo") ─────────────────────
+// Mesmo componente hand-rolled (canvas + Pointer Events) já usado em
+// Manutenção (manutencao.js) — copiado aqui em vez de importado porque as
+// páginas deste app não se importam entre si (cada uma só depende de
+// utils/app/api), então duplicar essas ~40 linhas é o padrão já seguido
+// no resto do projeto.
+function bindSignaturePad(canvas) {
+    const ctx = canvas.getContext('2d');
+    const ratio = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1a1a1a';
+
+    let drawing = false;
+    let last = null;
+    const pos = (e) => {
+        const r = canvas.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+    canvas.addEventListener('pointerdown', (e) => {
+        drawing = true;
+        canvas.setPointerCapture(e.pointerId);
+        last = pos(e);
+        canvas.dataset.signed = '1';
+    });
+    canvas.addEventListener('pointermove', (e) => {
+        if (!drawing) return;
+        const p = pos(e);
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        last = p;
+    });
+    const stop = () => { drawing = false; };
+    canvas.addEventListener('pointerup', stop);
+    canvas.addEventListener('pointerleave', stop);
+    canvas.addEventListener('pointercancel', stop);
+}
+
+function clearSignaturePad(canvas) {
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    canvas.dataset.signed = '';
+}
+
+function loadSignatureIntoCanvas(canvas, dataUrl) {
+    if (!dataUrl) return;
+    const img = new Image();
+    img.onload = () => {
+        const ratio = window.devicePixelRatio || 1;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width / ratio, canvas.height / ratio);
+        canvas.dataset.signed = '1';
+    };
+    img.src = dataUrl;
+}
+
+function signaturePadToDataUrl(canvas) {
+    return canvas.dataset.signed ? canvas.toDataURL('image/png') : '';
+}
+
+// dd/mm/aaaa hh:mm (mesmo formato já usado nesses 2 campos) <-> valor nativo
+// de <input type="datetime-local"> (aaaa-mm-ddThh:mm).
+function toDatetimeLocalValue(display) {
+    const m = String(display || '').match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+    if (!m) return '';
+    return `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}`;
+}
+function fromDatetimeLocalValue(value) {
+    const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return '';
+    return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+}
+function nowAsDatetimeLocalValue() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+
 // ── Formulário (novo / editar) ─────────────────────────────────────────
 export function renderRelatorioTecnicoCreatePage(options) {
     return renderRelatorioTecnicoFormPage(null, options);
@@ -479,6 +576,15 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
     const m = normalize(record || {});
     const fd = await ensureFormData();
     const clientes = (fd && fd.data && fd.data.clientes) || [];
+    // Variante "SPSP - Paulo": decidida na criação (options.tipoRelatorio) e
+    // travada dali pra frente pelo próprio registro (mesmo padrão já usado
+    // em Manutenção pra "Relatório Geral" vs. "Relatório de Aferição").
+    const isPaulo = isEdit ? m.tipoRelatorio === 'paulo' : !!(options && options.tipoRelatorio === 'paulo');
+    if (!isEdit && isPaulo) {
+        m.tipoRelatorio = 'paulo';
+        if (!m.gestor) m.gestor = 'FERNANDO ALQUATI';
+        if (!m.inicioAtendimento) m.inicioAtendimento = fromDatetimeLocalValue(nowAsDatetimeLocalValue());
+    }
 
     if (!isEdit && options && options.prefillModelo) {
         const d = safeJson(options.prefillModelo, {});
@@ -499,7 +605,7 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
 
     const breadcrumbHtml = renderBreadcrumb([
         { label: 'Manutenção', page: 'manutencao' },
-        { label: 'Relatório SPSP', page: 'relatorio-tecnico' },
+        { label: isPaulo ? 'SPSP - Paulo' : 'Relatório SPSP', page: 'relatorio-tecnico' },
         { label: isEdit ? 'Editar' : 'Novo' }
     ]);
 
@@ -515,14 +621,14 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
     mainContent.innerHTML = `
         ${breadcrumbHtml}
         <div class="page-header compact-header">
-            <div><h2>${isEdit ? 'Editar' : 'Novo'} relatório técnico</h2></div>
+            <div><h2>${isEdit ? 'Editar' : 'Novo'} relatório técnico${isPaulo ? ' — SPSP Paulo' : ''}</h2></div>
         </div>
         <form id="rt-form" class="form-layout form-layout-stack">
             ${field('Relatório (mês)', 'rt-relatorioMes', m.relatorioMes, { placeholder: 'AGOSTO 2026' })}
             ${field('Data da Visita', 'rt-dataVisita', m.dataVisita, { placeholder: 'dd/mm/aaaa', inputmode: 'numeric' })}
 
             <div class="rt-section-title">Dados do cliente</div>
-            ${field('Código (Ship To)', 'rt-codigoShipTo', m.codigoShipTo)}
+            ${isPaulo ? '' : field('Código (Ship To)', 'rt-codigoShipTo', m.codigoShipTo)}
             <div class="form-group">
                 <label for="rt-cliente">Cliente</label>
                 <div class="searchable-select">
@@ -555,11 +661,16 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
                 <button type="button" class="mini-button" id="rt-tab-add">+ Adicionar linha</button>
             </div>
 
-            <div class="rt-section-title">Estoque</div>
+            ${isPaulo ? `<div class="form-group">
+                <label>Equipamentos aferidos</label>
+                ${chips('equipamentoAferido', ['Sim', 'Não'], m.equipamentoAferido || '')}
+            </div>` : ''}
+
+            ${isPaulo ? '' : `<div class="rt-section-title">Estoque</div>
             <div class="form-group">
                 <label>O estoque de produtos foi verificado?</label>
                 ${chips('estoqueVerificado', SIM_NAO_NA, m.estoqueVerificado || '')}
-            </div>
+            </div>`}
 
             <div class="rt-section-title">Avaliação do cliente</div>
             ${field('Nome e sobrenome do cliente', 'rt-clienteAvaliador', m.clienteAvaliador)}
@@ -570,13 +681,26 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
             </div>
             ${field('Observações do cliente', 'rt-clienteObservacoes', m.clienteObservacoes, { type: 'textarea', rows: 2 })}
             ${field('E-mail do cliente', 'rt-clienteEmail', m.clienteEmail, { type: 'email', inputmode: 'email' })}
+            ${isPaulo ? `<div class="form-group full-width" id="rt-sig-cliente-group" style="display:${['Insatisfeito', 'Totalmente Insatisfeito'].includes(m.avaliacaoAtendimento) ? '' : 'none'}">
+                <label>Assinatura Cliente</label>
+                <canvas id="rt-signature-cliente" class="signature-pad"></canvas>
+                <div class="signature-pad-actions"><button type="button" class="mini-button" id="rt-signature-cliente-clear">Limpar assinatura</button></div>
+            </div>` : ''}
 
             <div class="rt-section-title">Atendimento realizado por</div>
             ${field('Departamento', 'rt-departamento', m.departamento || 'SETOR TÉCNICO E COMERCIAL')}
             ${field('Gestor', 'rt-gestor', m.gestor)}
-            ${field('Contato do gestor', 'rt-contatoGestor', m.contatoGestor, { type: 'email', inputmode: 'email' })}
-            ${field('Início do atendimento', 'rt-inicioAtendimento', m.inicioAtendimento, { placeholder: 'dd/mm/aaaa hh:mm' })}
-            ${field('Fim do atendimento', 'rt-fimAtendimento', m.fimAtendimento, { placeholder: 'dd/mm/aaaa hh:mm' })}
+            ${isPaulo ? '' : field('Contato do gestor', 'rt-contatoGestor', m.contatoGestor, { type: 'email', inputmode: 'email' })}
+            ${isPaulo
+                ? `<div class="form-group"><label for="rt-inicioAtendimento">Início do atendimento</label><input type="datetime-local" id="rt-inicioAtendimento" value="${escapeHtml(toDatetimeLocalValue(m.inicioAtendimento))}"></div>
+                   <div class="form-group"><label for="rt-fimAtendimento">Fim do atendimento</label><input type="datetime-local" id="rt-fimAtendimento" value="${escapeHtml(toDatetimeLocalValue(m.fimAtendimento))}"></div>`
+                : `${field('Início do atendimento', 'rt-inicioAtendimento', m.inicioAtendimento, { placeholder: 'dd/mm/aaaa hh:mm' })}
+                   ${field('Fim do atendimento', 'rt-fimAtendimento', m.fimAtendimento, { placeholder: 'dd/mm/aaaa hh:mm' })}`}
+            ${isPaulo ? `<div class="form-group full-width">
+                <label>Assinatura do Técnico</label>
+                <canvas id="rt-signature-tecnico" class="signature-pad"></canvas>
+                <div class="signature-pad-actions"><button type="button" class="mini-button" id="rt-signature-tecnico-clear">Limpar assinatura</button></div>
+            </div>` : ''}
 
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="rt-cancel">Cancelar</button>
@@ -598,6 +722,30 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
             });
         });
     });
+
+    if (isPaulo) {
+        // Assinatura Cliente só faz sentido registrar quando o atendimento
+        // foi mal avaliado — aparece/some junto com a escolha do chip.
+        const sigClienteGroup = document.getElementById('rt-sig-cliente-group');
+        const avaliacaoWrap = mainContent.querySelector('[data-chips="avaliacaoAtendimento"]');
+        avaliacaoWrap?.querySelectorAll('.radio-pill').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const val = mainContent.querySelector('input[name="avaliacaoAtendimento"]').value;
+                if (sigClienteGroup) sigClienteGroup.style.display = ['Insatisfeito', 'Totalmente Insatisfeito'].includes(val) ? '' : 'none';
+            });
+        });
+
+        const sigCliente = document.getElementById('rt-signature-cliente');
+        const sigTecnico = document.getElementById('rt-signature-tecnico');
+        bindSignaturePad(sigCliente);
+        bindSignaturePad(sigTecnico);
+        if (isEdit) {
+            loadSignatureIntoCanvas(sigCliente, m.assinaturaCliente);
+            loadSignatureIntoCanvas(sigTecnico, m.assinaturaTecnico);
+        }
+        document.getElementById('rt-signature-cliente-clear').addEventListener('click', () => clearSignaturePad(sigCliente));
+        document.getElementById('rt-signature-tecnico-clear').addEventListener('click', () => clearSignaturePad(sigTecnico));
+    }
 
     // Estado segue a cidade — mas respeita edição manual do usuário.
     const estadoEl = document.getElementById('rt-estado');
@@ -660,6 +808,8 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
             ideal: row.querySelector('.rt-tab-ideal').value.trim(),
             realizada: row.querySelector('.rt-tab-realizada').value.trim()
         })).filter((r) => r.produto || r.diluicao || r.ideal || r.realizada);
+        const sigClienteEl = document.getElementById('rt-signature-cliente');
+        const sigTecnicoEl = document.getElementById('rt-signature-tecnico');
         return {
             relatorioMes: g('rt-relatorioMes'), dataVisita: g('rt-dataVisita'),
             codigoShipTo: g('rt-codigoShipTo'), cliente: g('rt-cliente'),
@@ -669,12 +819,17 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
             respostas: JSON.stringify(respostas),
             comentarios: g('rt-comentarios'),
             comentariosTabela: JSON.stringify(comentariosTabela),
-            estoqueVerificado: mainContent.querySelector('input[name="estoqueVerificado"]').value,
+            estoqueVerificado: mainContent.querySelector('input[name="estoqueVerificado"]')?.value || '',
+            equipamentoAferido: mainContent.querySelector('input[name="equipamentoAferido"]')?.value || '',
             clienteAvaliador: g('rt-clienteAvaliador'), clienteCargo: g('rt-clienteCargo'),
             avaliacaoAtendimento: mainContent.querySelector('input[name="avaliacaoAtendimento"]').value,
             clienteObservacoes: g('rt-clienteObservacoes'), clienteEmail: g('rt-clienteEmail'),
             departamento: g('rt-departamento'), gestor: g('rt-gestor'), contatoGestor: g('rt-contatoGestor'),
-            inicioAtendimento: g('rt-inicioAtendimento'), fimAtendimento: g('rt-fimAtendimento')
+            inicioAtendimento: isPaulo ? fromDatetimeLocalValue(g('rt-inicioAtendimento')) : g('rt-inicioAtendimento'),
+            fimAtendimento: isPaulo ? fromDatetimeLocalValue(g('rt-fimAtendimento')) : g('rt-fimAtendimento'),
+            tipoRelatorio: isPaulo ? 'paulo' : (m.tipoRelatorio || ''),
+            assinaturaCliente: sigClienteEl ? signaturePadToDataUrl(sigClienteEl) : (m.assinaturaCliente || ''),
+            assinaturaTecnico: sigTecnicoEl ? signaturePadToDataUrl(sigTecnicoEl) : (m.assinaturaTecnico || '')
         };
     };
 
