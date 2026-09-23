@@ -158,6 +158,11 @@ export function fillManutencaoContent(mainContent, itens) {
                         <button type="button" class="primary-btn" id="btn-new-rel-tecnico">+ Relatório SPSP</button>
                     </div>
                     <div class="mnt-tipo-card">
+                        <strong>✍️ SPSP - Paulo</strong>
+                        <span>Variante do Relatório SPSP com assinatura por desenho.</span>
+                        <button type="button" class="primary-btn" id="btn-new-rel-tecnico-paulo2">+ SPSP - Paulo</button>
+                    </div>
+                    <div class="mnt-tipo-card">
                         <strong>🔧 Relatório de Aferição</strong>
                         <span>Com tabela de aferição de vazão (equipamento/produto/diluição).</span>
                         <button type="button" class="primary-btn" id="btn-new-manutencao2">+ Relatório de Aferição</button>
@@ -173,6 +178,7 @@ export function fillManutencaoContent(mainContent, itens) {
         document.getElementById('btn-new-manutencao2')?.addEventListener('click', () => navigateTo('manutencao-new'));
         document.getElementById('btn-new-geral2')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }));
         document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
+        document.getElementById('btn-new-rel-tecnico-paulo2')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }));
         document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
         document.getElementById('mnt-nova-campanha')?.addEventListener('click', async () => {
             const { openGerarCampanhaManutencaoModal } = await import('./campanhas.js');
@@ -193,12 +199,14 @@ export function fillManutencaoContent(mainContent, itens) {
                 <button type="button" class="text-link" id="btn-ver-modelos">📋 Modelos</button>
                 ${isAdmGer ? `<button type="button" class="text-link" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
                 <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. SPSP</button>
+                <button type="button" class="primary-btn" id="btn-new-rel-tecnico-paulo" title="Variante do Relatório SPSP com assinatura por desenho">✍️ SPSP - Paulo</button>
                 <button type="button" class="primary-btn" id="btn-new-manutencao" title="Com tabela de aferição de vazão">🔧 Rel. de Aferição</button>
                 <button type="button" class="primary-btn" id="btn-new-geral" title="Sem tabela de aferição">📄 Rel. Geral</button>
             </div>
         </div>
         <p class="mnt-tipo-legenda">
             <span class="mnt-legenda-item">📋 <strong>Rel. SPSP</strong> → Grupo SPSP</span>
+            <span class="mnt-legenda-item">✍️ <strong>SPSP - Paulo</strong> → variante com assinatura</span>
             <span class="mnt-legenda-item">🔧 <strong>Rel. de Aferição</strong> → com tabela de vazão</span>
             <span class="mnt-legenda-item">📄 <strong>Rel. Geral</strong> → sem tabela de aferição</span>
         </p>
@@ -348,6 +356,7 @@ export function fillManutencaoContent(mainContent, itens) {
     document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
     document.getElementById('btn-new-geral')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }));
     document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
+    document.getElementById('btn-new-rel-tecnico-paulo')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }));
     document.getElementById('mnt-nova-campanha')?.addEventListener('click', async () => {
         const { openGerarCampanhaManutencaoModal } = await import('./campanhas.js');
         openGerarCampanhaManutencaoModal();
