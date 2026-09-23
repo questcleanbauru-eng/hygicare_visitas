@@ -15,7 +15,7 @@ import {
     handleUploadContratoPdf
 } from '../lib/handlers/contratos.js';
 import {
-    handleGetAgendamentos, handleCreateAgendamento, handleUpdateAgendamento, handleDeleteAgendamento
+    handleGetAgendamentos, handleCreateAgendamento, handleUpdateAgendamento, handleDeleteAgendamento, handleNotifyAgendamentoCriado
 } from '../lib/handlers/agendamentos.js';
 import {
     handleGetManutencoes, handleGetManutencaoById, handleCreateManutencao, handleUpdateManutencao,
@@ -110,6 +110,7 @@ const HANDLERS = {
     deleteContrato: handleDeleteContrato,
     getAgendamentos: handleGetAgendamentos,
     createAgendamento: handleCreateAgendamento,
+    notifyAgendamentoCriado: handleNotifyAgendamentoCriado,
     updateAgendamento: handleUpdateAgendamento,
     deleteAgendamento: handleDeleteAgendamento,
     getManutencoes: handleGetManutencoes,

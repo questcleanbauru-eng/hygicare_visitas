@@ -2443,6 +2443,22 @@ export function showAddToFunilModal(clienteNome) {
 export async function showCreateAgendamentoModal(onCreated) {
     const formDataResult = await ensureFormData();
     const clientes = (formDataResult.data && formDataResult.data.clientes) || [];
+    // Quem pode notificar quem: admin notifica qualquer um; gerente notifica
+    // admins + a própria equipe (mesma gerência); vendedor comum notifica só
+    // o(s) admin(s)/gerente(s) da própria gerência — mesmo espírito do
+    // "Notificar um usuário" de Nova Visita, só que aqui é multi-seleção e
+    // (pra admin/gerente) mais abrangente, a pedido explícito do admin.
+    const vendedoresAll = (formDataResult.data && formDataResult.data.vendedores) || [];
+    const meuPerfil = String(state.currentUser?.profile || '').trim().toLowerCase();
+    const meuGerencia = String(state.currentUser?.gerencia || '').trim().toLowerCase();
+    const notifyOptions = vendedoresAll.filter((v) => {
+        if (!v.nome || v.nome === state.currentUser?.name) return false;
+        const perfil = String(v.perfil || '').trim().toLowerCase();
+        if (meuPerfil === 'admin') return true;
+        if (perfil === 'admin') return true;
+        if (meuPerfil === 'gerente') return String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
+        return perfil === 'gerente' && String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
+    }).map((v) => v.nome);
 
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
@@ -2488,11 +2504,21 @@ export async function showCreateAgendamentoModal(onCreated) {
                     <label for="newag-obs">Observação (opcional)</label>
                     <textarea id="newag-obs" rows="2" placeholder="Ex: ligar antes de ir..."></textarea>
                 </div>
+                ${notifyOptions.length ? `<div class="form-group full-width" style="text-align:left">
+                    ${multiCheckFilterFieldHtml('Notificar outros usuários (opcional)', 'newag-notificar', 'Ninguém')}
+                </div>` : ''}
                 <button type="button" class="primary-button" id="modal-newag-save">Salvar agendamento</button>
                 <button type="button" class="secondary-button" id="modal-newag-cancel">Cancelar</button>
             </div>
         `;
         document.body.appendChild(overlay);
+
+        if (notifyOptions.length) {
+            wireMultiCheckFilter({
+                triggerId: 'newag-notificar-trigger', inputId: 'newag-notificar', menuId: 'newag-notificar-menu',
+                options: notifyOptions
+            });
+        }
 
         overlay.querySelector('#newag-repetir').addEventListener('change', (e) => {
             overlay.querySelector('#newag-repetir-group').style.display = e.target.checked ? '' : 'none';
@@ -2558,6 +2584,17 @@ export async function showCreateAgendamentoModal(onCreated) {
                     setSaving(false, btn);
                     return;
                 }
+            }
+
+            // Um só aviso pra tudo (não um por checkpoint) — pedido explícito
+            // de poder notificar mais de um usuário; best-effort, não trava a
+            // tela nem falha a criação se o push não sair.
+            const notificarSelecionados = (overlay.querySelector('#newag-notificar')?.value || '').split(',').filter(Boolean);
+            if (notificarSelecionados.length) {
+                callAPI('notifyAgendamentoCriado', {
+                    destinatarios: notificarSelecionados, cliente: clienteVal,
+                    datas: checkpoints.map((d) => formatDateForDisplay(d)), user: state.currentUser
+                }).catch(() => {});
             }
 
             const card = overlay.querySelector('.modal-card');
