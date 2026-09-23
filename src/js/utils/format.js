@@ -416,6 +416,26 @@ export function isAdminOrGerenteUser() {
 }
 
 
+// Quem pode notificar quem ao criar um registro (Agenda, Funil, Propostas):
+// admin notifica qualquer um; gerente notifica admins + a própria equipe
+// (mesma gerência); vendedor comum notifica só admins/gerentes da própria
+// gerência — mesmo espírito do "Notificar um usuário" de Nova Visita, só
+// que aqui é multi-seleção. Uma função só (não duplicada por tela) pra essa
+// regra de negócio nunca divergir entre Agenda/Funil/Propostas.
+export function resolveNotifyOptions(vendedoresList, currentUser) {
+    const meuPerfil = String(currentUser?.profile || '').trim().toLowerCase();
+    const meuGerencia = String(currentUser?.gerencia || '').trim().toLowerCase();
+    return (vendedoresList || []).filter((v) => {
+        if (!v.nome || v.nome === currentUser?.name) return false;
+        const perfil = String(v.perfil || '').trim().toLowerCase();
+        if (meuPerfil === 'admin') return true;
+        if (perfil === 'admin') return true;
+        if (meuPerfil === 'gerente') return String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
+        return perfil === 'gerente' && String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
+    }).map((v) => v.nome);
+}
+
+
 export function parseSheetTime(value) {
     if (!value || typeof value !== 'string') { return value || ''; }
     // Google Sheets serializes time-only cells as ISO datetime with 1899-12-30 epoch

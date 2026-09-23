@@ -5,7 +5,7 @@ import {
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
     funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
-    clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml
+    clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml, resolveNotifyOptions
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
@@ -1114,6 +1114,9 @@ export async function renderFunilCreatePage() {
     const equipamentosList = (fdResult.data && fdResult.data.equipamentos) || [];
     const vendedoresList = (fdResult.data && fdResult.data.vendedores) || [];
     const isAdminUser = String(state.currentUser.profile || '').trim().toLowerCase() === 'admin';
+    const NAO_NOTIFICAR = 'Não notificar';
+    const notifyOptions = [NAO_NOTIFICAR, ...resolveNotifyOptions(vendedoresList, state.currentUser)];
+    const temNotifyReal = notifyOptions.length > 1;
 
     // Conclusão nasce com +30 dias da data de hoje (usuário pode mudar) —
     // igual ao que já fazíamos pra Data Limite das Propostas.
@@ -1206,12 +1209,22 @@ export async function renderFunilCreatePage() {
                 <label for="fc-comentarios">Comentários</label>
                 <textarea id="fc-comentarios" rows="4" placeholder="Observações e próximos passos">${escapeHtml(withDatedNoteHeader(''))}</textarea>
             </div>
+            ${temNotifyReal ? `<div class="form-group full-width">
+                ${multiCheckFilterFieldHtml('Notificar outros usuários *', 'fc-notificar')}
+            </div>` : ''}
             <div class="form-actions full-width">
                 <button type="button" class="secondary-button" id="cancel-funil-create">Cancelar</button>
                 <button type="submit" id="save-funil-create">Salvar Funil</button>
             </div>
         </form>
     `;
+
+    if (temNotifyReal) {
+        wireMultiCheckFilter({
+            triggerId: 'fc-notificar-trigger', inputId: 'fc-notificar', menuId: 'fc-notificar-menu',
+            options: notifyOptions, emptyLabel: 'Escolha...', exclusiveValue: NAO_NOTIFICAR
+        });
+    }
 
     initializeSearchableInput({
         input: document.getElementById('fc-cidade'),
@@ -1278,6 +1291,8 @@ export async function renderFunilCreatePage() {
     preventEnterSubmit(document.getElementById('funil-create-form'));
     document.getElementById('funil-create-form').addEventListener('submit', async (event) => {
         event.preventDefault();
+        const notificarVal = document.getElementById('fc-notificar')?.value || '';
+        if (temNotifyReal && !notificarVal) { showToast('Escolha quem notificar (ou "Não notificar").', true); return; }
         const btn = document.getElementById('save-funil-create');
         setSaving(true, btn, 'Salvando...');
 
@@ -1322,6 +1337,13 @@ export async function renderFunilCreatePage() {
                     const real = result.funil || optimisticFunil;
                     state.funil = state.funil.map(f => f.id === tempFCId ? real : f);
                     saveCache('funil', state.funil);
+                    const notificarSelecionados = notificarVal.split(',').filter((v) => v && v !== NAO_NOTIFICAR);
+                    if (notificarSelecionados.length) {
+                        callAPI('notifyRegistroCriado', {
+                            destinatarios: notificarSelecionados, tipo: 'funil',
+                            cliente: funilPayload.cliente, detalhe: funilPayload.foco, user: state.currentUser
+                        }).catch(() => {});
+                    }
                 } else if (result && result.status === 'queued') {
                     state.funil = state.funil.map(f => f.id === tempFCId ? { ...optimisticFunil, _pending: true } : f);
                     saveCache('funil', state.funil);

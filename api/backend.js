@@ -15,7 +15,7 @@ import {
     handleUploadContratoPdf
 } from '../lib/handlers/contratos.js';
 import {
-    handleGetAgendamentos, handleCreateAgendamento, handleUpdateAgendamento, handleDeleteAgendamento, handleNotifyAgendamentoCriado
+    handleGetAgendamentos, handleCreateAgendamento, handleUpdateAgendamento, handleDeleteAgendamento
 } from '../lib/handlers/agendamentos.js';
 import {
     handleGetManutencoes, handleGetManutencaoById, handleCreateManutencao, handleUpdateManutencao,
@@ -46,7 +46,7 @@ import { handleGetFormData } from '../lib/handlers/formdata.js';
 import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig, handleGetManutencao } from '../lib/handlers/config.js';
 import {
     handleSubscribePush, handleUnsubscribePush, handleSendPushNotification,
-    handleGetNotificacoes, handleMarcarNotificacaoLida
+    handleGetNotificacoes, handleMarcarNotificacaoLida, handleNotifyRegistroCriado
 } from '../lib/handlers/push.js';
 import { handleGetResumoDiario, handleTestResumoDiario } from '../lib/handlers/resumo.js';
 import { handleTestLembreteAgendamento } from '../lib/handlers/lembretesAgendamento.js';
@@ -110,7 +110,7 @@ const HANDLERS = {
     deleteContrato: handleDeleteContrato,
     getAgendamentos: handleGetAgendamentos,
     createAgendamento: handleCreateAgendamento,
-    notifyAgendamentoCriado: handleNotifyAgendamentoCriado,
+    notifyRegistroCriado: handleNotifyRegistroCriado,
     updateAgendamento: handleUpdateAgendamento,
     deleteAgendamento: handleDeleteAgendamento,
     getManutencoes: handleGetManutencoes,

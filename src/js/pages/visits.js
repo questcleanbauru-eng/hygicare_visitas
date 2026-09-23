@@ -9,7 +9,7 @@ import {
     calculateDaysFromDisplayDate,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, clienteNomeParaGravar, multiCheckFilterFieldHtml,
-    formatCurrency, parseCurrencyBR
+    formatCurrency, parseCurrencyBR, resolveNotifyOptions
 } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
@@ -2443,22 +2443,13 @@ export function showAddToFunilModal(clienteNome) {
 export async function showCreateAgendamentoModal(onCreated) {
     const formDataResult = await ensureFormData();
     const clientes = (formDataResult.data && formDataResult.data.clientes) || [];
-    // Quem pode notificar quem: admin notifica qualquer um; gerente notifica
-    // admins + a própria equipe (mesma gerência); vendedor comum notifica só
-    // o(s) admin(s)/gerente(s) da própria gerência — mesmo espírito do
-    // "Notificar um usuário" de Nova Visita, só que aqui é multi-seleção e
-    // (pra admin/gerente) mais abrangente, a pedido explícito do admin.
     const vendedoresAll = (formDataResult.data && formDataResult.data.vendedores) || [];
-    const meuPerfil = String(state.currentUser?.profile || '').trim().toLowerCase();
-    const meuGerencia = String(state.currentUser?.gerencia || '').trim().toLowerCase();
-    const notifyOptions = vendedoresAll.filter((v) => {
-        if (!v.nome || v.nome === state.currentUser?.name) return false;
-        const perfil = String(v.perfil || '').trim().toLowerCase();
-        if (meuPerfil === 'admin') return true;
-        if (perfil === 'admin') return true;
-        if (meuPerfil === 'gerente') return String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
-        return perfil === 'gerente' && String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
-    }).map((v) => v.nome);
+    const NAO_NOTIFICAR = 'Não notificar';
+    const notifyOptions = [NAO_NOTIFICAR, ...resolveNotifyOptions(vendedoresAll, state.currentUser)];
+    // Só faz sentido exigir a escolha quando existe alguém real pra notificar
+    // — sem isso, "Não notificar" seria a única opção da lista, o que não
+    // ajuda ninguém.
+    const temNotifyReal = notifyOptions.length > 1;
 
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
@@ -2489,7 +2480,8 @@ export async function showCreateAgendamentoModal(onCreated) {
                         <input type="checkbox" id="newag-repetir" style="width:auto;min-height:0">
                         🔁 Repetir a cada 30 dias
                     </label>
-                    <p class="helper-text" style="text-align:left;margin:0.3rem 0 0">Pra acompanhar algo por mais tempo (ex.: teste de produto) — cria vários agendamentos de uma vez, um a cada 30 dias, cada um independente.</p>
+                    <span class="text-link" role="button" tabindex="0" id="newag-repetir-help-toggle" style="font-size:0.8rem">O que é isso?</span>
+                    <p class="helper-text" id="newag-repetir-help" hidden style="text-align:left;margin:0.3rem 0 0">Pra acompanhar algo por mais tempo (ex.: teste de produto) — cria vários agendamentos de uma vez, um a cada 30 dias, cada um independente.</p>
                 </div>
                 <div class="form-group full-width" id="newag-repetir-group" style="text-align:left;display:none">
                     <label for="newag-repetir-meses">Por quantos meses?</label>
@@ -2504,8 +2496,8 @@ export async function showCreateAgendamentoModal(onCreated) {
                     <label for="newag-obs">Observação (opcional)</label>
                     <textarea id="newag-obs" rows="2" placeholder="Ex: ligar antes de ir..."></textarea>
                 </div>
-                ${notifyOptions.length ? `<div class="form-group full-width" style="text-align:left">
-                    ${multiCheckFilterFieldHtml('Notificar outros usuários (opcional)', 'newag-notificar', 'Ninguém')}
+                ${temNotifyReal ? `<div class="form-group full-width" style="text-align:left">
+                    ${multiCheckFilterFieldHtml('Notificar outros usuários *', 'newag-notificar')}
                 </div>` : ''}
                 <button type="button" class="primary-button" id="modal-newag-save">Salvar agendamento</button>
                 <button type="button" class="secondary-button" id="modal-newag-cancel">Cancelar</button>
@@ -2513,15 +2505,19 @@ export async function showCreateAgendamentoModal(onCreated) {
         `;
         document.body.appendChild(overlay);
 
-        if (notifyOptions.length) {
+        if (temNotifyReal) {
             wireMultiCheckFilter({
                 triggerId: 'newag-notificar-trigger', inputId: 'newag-notificar', menuId: 'newag-notificar-menu',
-                options: notifyOptions
+                options: notifyOptions, emptyLabel: 'Escolha...', exclusiveValue: NAO_NOTIFICAR
             });
         }
 
         overlay.querySelector('#newag-repetir').addEventListener('change', (e) => {
             overlay.querySelector('#newag-repetir-group').style.display = e.target.checked ? '' : 'none';
+        });
+        overlay.querySelector('#newag-repetir-help-toggle').addEventListener('click', () => {
+            const help = overlay.querySelector('#newag-repetir-help');
+            help.hidden = !help.hidden;
         });
 
         // Busca no nome do cliente já cadastrado e autopreenche a cidade —
@@ -2548,6 +2544,8 @@ export async function showCreateAgendamentoModal(onCreated) {
             const dataVal = overlay.querySelector('#newag-data').value;
             if (!clienteVal) { showToast('Informe o cliente.', true); return; }
             if (!dataVal) { showToast('Informe a data do retorno.', true); return; }
+            const notificarVal = overlay.querySelector('#newag-notificar')?.value || '';
+            if (temNotifyReal && !notificarVal) { showToast('Escolha quem notificar (ou "Não notificar").', true); return; }
             const cidadeVal = overlay.querySelector('#newag-cidade').value.trim();
             const obsVal = overlay.querySelector('#newag-obs').value.trim();
             const repetir = overlay.querySelector('#newag-repetir').checked;
@@ -2589,11 +2587,14 @@ export async function showCreateAgendamentoModal(onCreated) {
             // Um só aviso pra tudo (não um por checkpoint) — pedido explícito
             // de poder notificar mais de um usuário; best-effort, não trava a
             // tela nem falha a criação se o push não sair.
-            const notificarSelecionados = (overlay.querySelector('#newag-notificar')?.value || '').split(',').filter(Boolean);
+            const notificarSelecionados = notificarVal.split(',').filter((v) => v && v !== NAO_NOTIFICAR);
             if (notificarSelecionados.length) {
-                callAPI('notifyAgendamentoCriado', {
-                    destinatarios: notificarSelecionados, cliente: clienteVal,
-                    datas: checkpoints.map((d) => formatDateForDisplay(d)), user: state.currentUser
+                const detalhe = checkpoints.length > 1
+                    ? `${checkpoints.length} agendamentos, a partir de ${formatDateForDisplay(checkpoints[0])}`
+                    : formatDateForDisplay(checkpoints[0]);
+                callAPI('notifyRegistroCriado', {
+                    destinatarios: notificarSelecionados, tipo: 'agendamento', cliente: clienteVal, detalhe,
+                    user: state.currentUser
                 }).catch(() => {});
             }
 

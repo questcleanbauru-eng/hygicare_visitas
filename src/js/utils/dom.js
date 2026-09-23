@@ -283,7 +283,13 @@ export function initializeSearchableInput({ input, menu, items = [], onSelect = 
 // `options` pode mudar depois (ex.: "Ver tudo" carregando mais status) —
 // chamar de novo com a lista atualizada não reanexa os listeners de clique
 // (senão um toque no botão abriria e fechunderia o menu ao mesmo tempo).
-export function wireMultiCheckFilter({ triggerId, inputId, menuId, options }) {
+// emptyLabel: texto do botão quando nada está marcado — 'Todos' faz sentido
+// pra filtro ("sem filtro = mostra todos"), mas fica enganoso num campo tipo
+// "quem notificar" (nada marcado não deveria parecer "notificar todos").
+// exclusiveValue: valor de uma opção tipo "Nenhum"/"Não notificar" que, ao
+// ser marcada, desmarca todas as outras (e vice-versa) — as duas coisas não
+// fazem sentido juntas.
+export function wireMultiCheckFilter({ triggerId, inputId, menuId, options, emptyLabel = 'Todos', exclusiveValue }) {
     const trigger = document.getElementById(triggerId);
     const input = document.getElementById(inputId);
     const menu = document.getElementById(menuId);
@@ -292,7 +298,7 @@ export function wireMultiCheckFilter({ triggerId, inputId, menuId, options }) {
     trigger._multiCheckOptions = options;
     const sync = () => {
         const sel = (input.value || '').split(',').filter(Boolean);
-        trigger.textContent = sel.length === 0 ? 'Todos' : sel.length === 1 ? sel[0] : `${sel.length} selecionados`;
+        trigger.textContent = sel.length === 0 ? emptyLabel : sel.length === 1 ? sel[0] : `${sel.length} selecionados`;
         trigger.classList.toggle('has-value', sel.length > 0);
     };
     sync();
@@ -311,10 +317,16 @@ export function wireMultiCheckFilter({ triggerId, inputId, menuId, options }) {
         menu.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
             cb.addEventListener('change', () => {
                 const cur = new Set((input.value || '').split(',').filter(Boolean));
-                if (cb.checked) cur.add(cb.value); else cur.delete(cb.value);
+                if (cb.checked) {
+                    if (exclusiveValue) cur.clear();
+                    cur.add(cb.value);
+                } else {
+                    cur.delete(cb.value);
+                }
                 input.value = Array.from(cur).join(',');
                 sync();
                 input.dispatchEvent(new Event('change', { bubbles: true }));
+                if (exclusiveValue) renderMenu();
             });
         });
     };
