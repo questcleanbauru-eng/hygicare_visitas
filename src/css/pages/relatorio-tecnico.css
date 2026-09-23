@@ -196,14 +196,33 @@
 
 @media print {
     .no-print { display: none !important; }
-    .rt-report { border: none; padding: 0; font-size: 9pt; }
+    .rt-report { border: none; padding: 0; font-size: 8.3pt; }
     .rt-row { break-inside: avoid; }
     .rt-band, .rt-title, .rt-header { break-after: avoid; break-inside: avoid; }
     .rt-table { break-inside: auto; }
     .rt-table tr { break-inside: avoid; }
+
+    /* Compactação só na impressão — na tela o espaçamento maior ajuda a
+       leitura/toque, mas no PDF cada rem "sobrando" empurra o relatório
+       inteiro pra uma 2ª página só por causa de respiro visual. rem não
+       encolhe sozinho com o font-size do .rt-report (rem sempre olha pro
+       html, não pro elemento), por isso os paddings/margins precisam de
+       override explícito aqui. */
+    .rt-header { margin-bottom: 0.35rem; }
+    .rt-logo { max-height: 38px; }
+    .rt-title { padding: 0.3rem; font-size: 0.82rem; }
+    .rt-band { padding: 0.2rem 0.45rem; margin: 0.3rem 0 0; font-size: 0.72rem; }
+    .rt-row-label, .rt-row-value { padding: 0.16rem 0.45rem; }
+    .rt-sign-line { min-height: 1.4rem; }
+    .rt-freetext { padding: 0.25rem 0.45rem; }
+    .rt-table { margin-top: 0.2rem; }
+    .rt-table th, .rt-table td { padding: 0.16rem 0.4rem; }
+    /* Assinaturas (variante "SPSP - Paulo") — o max-height:70px é inline
+       (style="max-height:70px" no <img>), precisa de !important pra vencer. */
+    .rt-row-value img { max-height: 42px !important; }
 }
 
-@page { size: A4; margin: 12mm 14mm; }
+@page { size: A4; margin: 8mm 10mm; }
 
 /* Assinatura por desenho (variante "SPSP - Paulo") — mesmo componente já
    usado em Manutenção (manutencao.css), copiado aqui pra não precisar
