@@ -879,12 +879,22 @@ main {
     #bottom-nav, header, #page-scroll-top, #offline-banner, #pending-sync-banner, #sidebar-tooltip, .no-print {
         display: none !important;
     }
-    #app, #main-content {
+    html, body, #app, #main-content {
         display: block !important;
         /* #app é position:fixed no app (ver regra normal) — um subárvore
            fixa não pagina, então quebra de página forçada era ignorada e
            tudo caía numa folha só. static devolve a paginação normal. */
         position: static !important;
+        /* html/body têm height:100% + overflow-y:auto (pra virar uma
+           "tela" de app com main rolando por dentro). Isso sozinho já
+           corta a impressão: mesmo com #app/#main-content resetados pra
+           height:auto, o html/body continuam sendo uma caixa fixa do
+           tamanho da viewport com overflow:auto — e o Chrome, ao gerar o
+           PDF, só desenha o que cabe dentro dessa caixa (como se fosse
+           uma janela com scroll), descartando o resto em vez de paginar.
+           Confirmado num teste isolado: o conteúdo ficava certinho no
+           DOM (altura total correta), mas o PDF saía com 1 página só,
+           cortando bem onde a "tela" (viewport) acabava. */
         height: auto !important;
         overflow: visible !important;
         padding: 0 !important;
