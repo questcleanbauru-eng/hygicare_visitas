@@ -3,7 +3,7 @@ import { callAPI, ensureFormData, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint, formatCurrency,
     formatDateFieldValue, normalizeDisplayDateValue, parseDisplayDate, clienteSearchItem, findClienteByNome,
-    normalizeVisit, compareVisitsByDateDesc
+    normalizeVisit, compareVisitsByDateDesc, formatInputDateFromDisplay
 } from '../utils/format.js';
 import { showToast, setSaving, skeletonList, addScrollTop, openExternal, initializeSearchableInput } from '../utils/dom.js';
 import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
@@ -16,6 +16,9 @@ const FUNIL_STATUS = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDI
 // (apagar, etc.), então precisa sobreviver a esses re-renders.
 let campSelectMode = false;
 const campSelectedIds = new Set();
+// Filtro por status na lista do admin — mesmo motivo do campSelectMode
+// (sobreviver a re-render depois de apagar/encerrar).
+let campStatusFilter = 'todas';
 
 // Vencida = já passou do prazo e ainda não terminou — concluída não vence
 // mais, mesmo que tenha passado do prazo depois. Compartilhado entre a
@@ -656,7 +659,8 @@ export async function renderCampanhaPreencherPage(id) {
             </div>` : ''}
             <label style="font-size:0.8rem;font-weight:600;margin-top:0.5rem;display:block">Comentário</label>
             <textarea class="camp-coment" rows="4">${escapeHtml(withDatedNoteHeader(it.comentarios))}</textarea>
-            <button type="button" class="primary-button camp-save" data-idx="${idx}" style="margin-top:0.5rem">Salvar este cliente</button>
+            <p class="helper-text" style="margin:0.35rem 0 0">Atualize o status e o comentário deste cliente e toque em "Salvar" abaixo — senão a atualização não é enviada.</p>
+            <button type="button" class="primary-button camp-save" data-idx="${idx}" style="margin-top:0.35rem">Salvar este cliente</button>
         </div>`;
     };
 
@@ -920,17 +924,32 @@ export async function renderCampanhasPage() {
     main.innerHTML = skeletonList(4);
     const r = await callAPI('getCampanhas', { user: state.currentUser }).catch(() => null);
     const campanhas = (r && r.status === 'success') ? r.campanhas : [];
+    // Pro link copiado/mandado por WhatsApp levar &n=<login> junto (login do
+    // vendedor destino pré-preenchido na tela de login) — mesmo dado que as
+    // telas de criação de campanha já usam, só que aqui a campanha já existe
+    // (vendedorDestino vem do registro salvo, não de um <select> na hora).
+    const fdCamp = await ensureFormData().then((rr) => rr.data).catch(() => null);
+    const loginNomeByVendedor = new Map(((fdCamp && fdCamp.vendedores) || []).filter((v) => v.nome).map((v) => [v.nome, v.nomeLogin || v.nome]));
     // Campanha apagada em outra visita não fica mais na lista — tira do
     // conjunto marcado pra não sobrar id fantasma no contador/toolbar.
     const idsAtuais = new Set(campanhas.map((c) => String(c.id)));
     Array.from(campSelectedIds).forEach((id) => { if (!idsAtuais.has(id)) campSelectedIds.delete(id); });
+
+    // Mesmo critério de campanhaRow (encerrada manual vs concluída de
+    // verdade vs vencida vs aberta) — reaproveitado aqui pro filtro pra não
+    // duplicar/divergir da etiqueta que aparece em cada card.
+    const statusOf = (c) => (c.status === 'concluida' && c.encerradaManualmente) ? 'encerrada'
+        : c.status === 'concluida' ? 'concluida'
+        : campanhaEstaVencida(c) ? 'vencida' : 'aberta';
+    const campanhasFiltradas = campStatusFilter === 'todas' ? campanhas : campanhas.filter((c) => statusOf(c) === campStatusFilter);
+    const filtroBtn = (valor, label) => `<button type="button" class="mini-button${campStatusFilter === valor ? ' is-on' : ''}" data-camp-status-filter="${valor}">${label}</button>`;
 
     main.innerHTML = `
         ${renderBreadcrumb([{ label: 'Admin', page: 'admin' }, { label: 'Campanhas' }])}
         <div class="page-header">
             <div>
                 <h2>Campanhas de atualização</h2>
-                <p class="page-subtitle">${campanhas.length} campanha(s)</p>
+                <p class="page-subtitle">${campanhasFiltradas.length} de ${campanhas.length} campanha(s)</p>
             </div>
             <div class="page-header-actions">
                 <button type="button" class="text-link" id="camp-nova-visita" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>
@@ -938,8 +957,13 @@ export async function renderCampanhasPage() {
                 ${campanhas.length ? `<button type="button" class="text-link${campSelectMode ? ' is-on' : ''}" id="camp-select-toggle" title="Marcar várias campanhas para apagar de uma vez">☑️ Selecionar</button>` : ''}
             </div>
         </div>
+        ${campanhas.length ? `<div class="year-chips-row" style="margin-bottom:0.75rem">
+            ${filtroBtn('todas', 'Todas')}${filtroBtn('aberta', 'Aberta')}${filtroBtn('vencida', 'Vencida')}${filtroBtn('encerrada', 'Encerrada')}
+        </div>` : ''}
         ${campanhas.length === 0
             ? '<div class="empty-state"><span class="empty-state-icon">🔗</span><p>Nenhuma campanha ainda. Crie uma pela tela de Propostas ou Funil (botão "🔗 Campanha"), ou peça um relatório de visita acima.</p></div>'
+            : campanhasFiltradas.length === 0
+            ? '<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Nenhuma campanha para esse filtro.</p></div>'
             : `${campSelectMode ? `
                 <div class="funil-sel-bar" id="camp-sel-bar">
                     <strong id="camp-sel-count">${campSelectedIds.size} selecionada(s)</strong>
@@ -947,18 +971,22 @@ export async function renderCampanhasPage() {
                     <button type="button" class="mini-button" id="camp-sel-none">Limpar</button>
                     <button type="button" class="mini-button mini-button-danger" id="camp-sel-delete" ${campSelectedIds.size ? '' : 'disabled'}>🗑️ Excluir selecionadas</button>
                 </div>` : ''}
-              <div class="camp-list">${[...campanhas]
+              <div class="camp-list">${[...campanhasFiltradas]
                   .sort((a, b) => (campanhaEstaVencida(b) ? 1 : 0) - (campanhaEstaVencida(a) ? 1 : 0))
                   .map((c) => campanhaRow(c, campSelectMode)).join('')}</div>`}
     `;
+    const loginNomeParaCampanha = (id) => {
+        const c = campanhas.find((x) => String(x.id) === String(id));
+        return c ? (loginNomeByVendedor.get(c.vendedorDestino) || '') : '';
+    };
     main.querySelectorAll('[data-camp-copy]').forEach((el) => el.addEventListener('click', (e) => {
         e.stopPropagation();
-        const link = campanhaLink(el.dataset.campCopy);
+        const link = campanhaLink(el.dataset.campCopy, loginNomeParaCampanha(el.dataset.campCopy));
         navigator.clipboard?.writeText(link).then(() => showToast('Link copiado.'));
     }));
     main.querySelectorAll('[data-camp-wa]').forEach((el) => el.addEventListener('click', (e) => {
         e.stopPropagation();
-        openExternal(`https://wa.me/?text=${encodeURIComponent(campanhaLink(el.dataset.campWa))}`);
+        openExternal(`https://wa.me/?text=${encodeURIComponent(campanhaLink(el.dataset.campWa, loginNomeParaCampanha(el.dataset.campWa)))}`);
     }));
     main.querySelectorAll('[data-camp-details]').forEach((btn) => btn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -978,13 +1006,50 @@ export async function renderCampanhasPage() {
         }
         const itens = rr.itens || [];
         box.innerHTML = itens.map((it) => `
-            <div class="camp-admin-item${it.respondidoEm ? ' camp-admin-item-done' : ''}">
-                <span>${it.respondidoEm ? '✓' : '⏳'}</span>
-                <span class="camp-admin-item-nome">${escapeHtml(it.ausente ? 'Registro não encontrado (pode ter sido apagado)' : (it.cliente || 'Cliente'))}${it.funilDiversey ? ' ⭐' : ''}</span>
-                <span class="helper-text">${it.respondidoEm ? `atualizado em ${escapeHtml(it.respondidoEm)}` : 'pendente'}</span>
+            <div class="camp-admin-item${it.respondidoEm ? ' camp-admin-item-done' : ''}" data-camp-item-id="${escapeHtml(it.id)}" style="display:block">
+                <div style="display:flex;align-items:baseline;gap:0.4rem">
+                    <span>${it.respondidoEm ? '✓' : '⏳'}</span>
+                    <span class="camp-admin-item-nome">${escapeHtml(it.ausente ? 'Registro não encontrado (pode ter sido apagado)' : (it.cliente || 'Cliente'))}${it.funilDiversey ? ' ⭐' : ''}</span>
+                    <span class="helper-text camp-admin-item-data">
+                        ${it.respondidoEm ? `atualizado em ${escapeHtml(it.respondidoEm)}` : 'pendente'}
+                        ${it.respondidoEm ? `<span class="text-link" role="button" tabindex="0" data-camp-item-edit-data>Editar data</span>` : ''}
+                    </span>
+                </div>
+                ${it.respondidoEm ? `<div class="camp-item-edit-data-row" style="display:none;gap:0.4rem;margin-top:0.3rem;align-items:center">
+                    <input type="date" class="camp-item-edit-data-input" value="${escapeHtml(formatInputDateFromDisplay(it.respondidoEm) || '')}">
+                    <button type="button" class="text-link" data-camp-item-save-data>Salvar</button>
+                    <button type="button" class="text-link" data-camp-item-cancel-data>Cancelar</button>
+                </div>` : ''}
             </div>`).join('');
         box.dataset.loaded = '1';
         box.hidden = false;
+        box.querySelectorAll('[data-camp-item-edit-data]').forEach((el) => el.addEventListener('click', () => {
+            const row = el.closest('[data-camp-item-id]');
+            row.querySelector('.camp-item-edit-data-row').style.display = 'flex';
+        }));
+        box.querySelectorAll('[data-camp-item-cancel-data]').forEach((el) => el.addEventListener('click', () => {
+            const row = el.closest('[data-camp-item-id]');
+            row.querySelector('.camp-item-edit-data-row').style.display = 'none';
+        }));
+        box.querySelectorAll('[data-camp-item-save-data]').forEach((el) => el.addEventListener('click', async () => {
+            const row = el.closest('[data-camp-item-id]');
+            const itemId = row.dataset.campItemId;
+            const novaData = row.querySelector('.camp-item-edit-data-input')?.value;
+            if (!novaData) { showToast('Informe a nova data.', true); return; }
+            setSaving(true, el, 'Salvando...');
+            const rr2 = await callAPI('updateCampanhaItemRespondidoEm', { campanhaId: id, itemId, data: novaData, user: state.currentUser }).catch((err) => ({ status: 'error', message: err.message }));
+            setSaving(false, el);
+            if (rr2 && rr2.status === 'success') {
+                row.querySelector('.camp-admin-item-data').innerHTML = `atualizado em ${escapeHtml(rr2.respondidoEm)} <span class="text-link" role="button" tabindex="0" data-camp-item-edit-data>Editar data</span>`;
+                row.querySelector('.camp-item-edit-data-row').style.display = 'none';
+                row.querySelector('[data-camp-item-edit-data]')?.addEventListener('click', () => {
+                    row.querySelector('.camp-item-edit-data-row').style.display = 'flex';
+                });
+                showToast('Data atualizada.');
+            } else {
+                showToast((rr2 && rr2.message) || 'Não foi possível atualizar a data.', true);
+            }
+        }));
         btn.textContent = 'Ocultar clientes';
     }));
     main.querySelectorAll('[data-camp-del]').forEach((el) => el.addEventListener('click', async (e) => {
@@ -1016,6 +1081,10 @@ export async function renderCampanhasPage() {
     }));
     document.getElementById('camp-nova-visita')?.addEventListener('click', () => openGerarCampanhaVisitaModal());
     document.getElementById('camp-nova-manutencao')?.addEventListener('click', () => openGerarCampanhaManutencaoModal());
+    main.querySelectorAll('[data-camp-status-filter]').forEach((el) => el.addEventListener('click', () => {
+        campStatusFilter = el.dataset.campStatusFilter;
+        renderCampanhasPage();
+    }));
     document.getElementById('camp-select-toggle')?.addEventListener('click', () => {
         campSelectMode = !campSelectMode;
         if (!campSelectMode) campSelectedIds.clear();
