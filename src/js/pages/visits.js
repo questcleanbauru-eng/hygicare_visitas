@@ -2396,6 +2396,7 @@ export function showMandatoryWhatsappModal(waConfig, visit) {
     return new Promise((resolve) => {
         const msg = buildWhatsappMessage(waConfig.mensagemPadrao, visit);
         const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        const isAdminUser = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
 
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
@@ -2406,6 +2407,7 @@ export function showMandatoryWhatsappModal(waConfig, visit) {
                 <p>O tipo de visita selecionado exige compartilhamento via WhatsApp antes de continuar.</p>
                 <p class="helper-text" style="margin-top:-0.5rem">Direcione esta mensagem ao grupo correto (manutenção, comercial, etc.) antes de enviar.</p>
                 <button type="button" id="modal-wa-share" class="primary-button">Abrir WhatsApp</button>
+                ${isAdminUser ? `<button type="button" id="modal-wa-copy" class="secondary-button">Copiar texto</button>` : ''}
                 <button type="button" id="modal-wa-done" class="secondary-button">Já compartilhei — Continuar</button>
             </div>
         `;
@@ -2413,6 +2415,9 @@ export function showMandatoryWhatsappModal(waConfig, visit) {
 
         overlay.querySelector('#modal-wa-share').addEventListener('click', () => {
             openExternal(url);
+        });
+        overlay.querySelector('#modal-wa-copy')?.addEventListener('click', () => {
+            navigator.clipboard?.writeText(msg).then(() => showToast('Texto copiado.'));
         });
         overlay.querySelector('#modal-wa-done').addEventListener('click', () => {
             overlay.remove();
