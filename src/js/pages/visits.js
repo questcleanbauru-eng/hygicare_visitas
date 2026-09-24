@@ -786,6 +786,36 @@ export async function renderCalendarPage(options) {
         });
     };
 
+    // Modal "ver texto e copiar" pro botão "Compartilhar" dos cards de
+    // retorno — antes chamava navigator.share() direto, que no desktop
+    // abre o painel nativo do Windows (pesado, cheio de apps tipo Teams/
+    // Copilot que não fazem sentido aqui) sem deixar a pessoa nem ver o
+    // texto antes. Mostra o texto pra conferir e um botão de copiar;
+    // "Compartilhar" (nativo) continua disponível como atalho a mais só
+    // onde o navegador suporta.
+    const showCompartilharTextoModal = (titulo, texto) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card" style="text-align:left">
+                <h3 style="margin-top:0">📤 ${escapeHtml(titulo)}</h3>
+                <textarea readonly class="form-input" rows="7" style="resize:none;width:100%;margin-bottom:0.5rem">${escapeHtml(texto)}</textarea>
+                <button type="button" class="primary-button" id="share-text-copy">📋 Copiar texto</button>
+                ${navigator.share ? `<button type="button" class="secondary-button" id="share-text-native">Compartilhar</button>` : ''}
+                <button type="button" class="secondary-button" id="share-text-close">Fechar</button>
+            </div>`;
+        document.body.appendChild(overlay);
+        const close = () => overlay.remove();
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('#share-text-copy').addEventListener('click', () => {
+            navigator.clipboard?.writeText(texto).then(() => showToast('Texto copiado.'));
+        });
+        overlay.querySelector('#share-text-native')?.addEventListener('click', () => {
+            navigator.share({ title: titulo, text: texto }).catch(() => {});
+        });
+        overlay.querySelector('#share-text-close').addEventListener('click', close);
+    };
+
     // Escopado por elemento (closest/querySelector), nunca por id global —
     // o painel do dia e a lista "todos os agendamentos" podem exibir o
     // mesmo agendamento ao mesmo tempo, e ids duplicados no documento
@@ -876,11 +906,7 @@ export async function renderCalendarPage(options) {
                     ].filter(Boolean).join('\n');
                 }
 
-                if (navigator.share) {
-                    navigator.share({ title: a.cliente || 'Retorno', text: texto }).catch(() => {});
-                } else {
-                    navigator.clipboard?.writeText(texto).then(() => showToast('Mensagem copiada.'));
-                }
+                showCompartilharTextoModal(a.cliente || 'Retorno', texto);
             });
         });
         container.querySelectorAll('[data-ag-notify]').forEach((b) => {
