@@ -638,6 +638,32 @@ export async function renderCampanhaPreencherPage(id) {
         addScrollTop();
     };
 
+    // Último cliente respondível (ignora "ausente" — não tem botão de
+    // salvar) ganha um botão diferente ("Salvar e enviar") que, além de
+    // salvar esse cliente, confere se sobrou algum outro sem atualização —
+    // pedido depois de vendedores esquecerem de salvar justamente o
+    // último item da lista e a campanha nunca fechar sozinha.
+    const lastRespondableIdx = (() => {
+        for (let i = r.itens.length - 1; i >= 0; i--) { if (!r.itens[i].ausente) return i; }
+        return -1;
+    })();
+
+    // Só é chamado pelo botão do último cliente respondível — depois de
+    // salvar, confere se sobrou algum outro cliente sem resposta (alguém
+    // pode ter pulado um no meio da lista) e avisa quais, em vez de deixar
+    // a pessoa achar que terminou só porque salvou o último card.
+    const avisarPendentesNoUltimo = (itens, semConexao = false) => {
+        const pendentes = itens.filter((x) => !x.ausente && !x.respondidoEm);
+        if (!pendentes.length) {
+            showToast(semConexao ? 'Sem conexão agora — vai ser enviado sozinho assim que a internet voltar.' : 'Salvo.');
+            return;
+        }
+        const nomes = pendentes.slice(0, 5).map((x) => x.cliente || 'Cliente').join(', ');
+        const resto = pendentes.length > 5 ? ` e mais ${pendentes.length - 5}` : '';
+        const prefixo = semConexao ? 'Cliente salvo (offline), mas' : 'Cliente salvo, mas';
+        showToast(`${prefixo} ainda falta${pendentes.length > 1 ? 'm' : ''} ${pendentes.length} cliente${pendentes.length > 1 ? 's' : ''}: ${nomes}${resto}`, true);
+    };
+
     const render = (itens) => {
         const done = itens.filter((i) => i.respondidoEm).length;
         main.innerHTML = `
@@ -682,7 +708,7 @@ export async function renderCampanhaPreencherPage(id) {
             <label style="font-size:0.8rem;font-weight:600;margin-top:0.5rem;display:block">Comentário</label>
             <textarea class="camp-coment" rows="4">${escapeHtml(withDatedNoteHeader(it.comentarios))}</textarea>
             <p class="helper-text" style="margin:0.35rem 0 0">Atualize o status e o comentário deste cliente e toque em "Salvar" abaixo — senão a atualização não é enviada.</p>
-            <button type="button" class="primary-button camp-save" data-idx="${idx}" style="margin-top:0.35rem">Salvar este cliente</button>
+            <button type="button" class="primary-button camp-save" data-idx="${idx}" style="margin-top:0.35rem">${idx === lastRespondableIdx ? '✅ Salvar e enviar' : 'Salvar este cliente'}</button>
         </div>`;
     };
 
@@ -719,6 +745,9 @@ export async function renderCampanhaPreencherPage(id) {
                 it.comentarios = comentario;
                 if (rr.concluida) {
                     renderObrigado();
+                } else if (idx === lastRespondableIdx) {
+                    avisarPendentesNoUltimo(itens);
+                    render(itens);
                 } else {
                     showToast('Salvo.');
                     render(itens);
@@ -727,7 +756,11 @@ export async function renderCampanhaPreencherPage(id) {
                 it.respondidoEm = 'agora';
                 it.status = sel;
                 it.comentarios = comentario;
-                showToast('Sem conexão agora — vai ser enviado sozinho assim que a internet voltar.');
+                if (idx === lastRespondableIdx) {
+                    avisarPendentesNoUltimo(itens, true);
+                } else {
+                    showToast('Sem conexão agora — vai ser enviado sozinho assim que a internet voltar.');
+                }
                 render(itens);
             } else {
                 showToast((rr && rr.message) || 'Não foi possível salvar.', true);
