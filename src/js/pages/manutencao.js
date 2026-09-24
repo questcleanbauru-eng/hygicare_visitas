@@ -94,6 +94,25 @@ function formatDocNumber(id) {
     return id;
 }
 
+// Lista padrão de equipamentos do relatório BIOPET — mesmos 10 pontos de
+// toda inspeção nesse cliente, só o "Aferido" muda a cada visita (medição
+// de verdade, não dá pra pré-preencher). Entra sozinha numa criação nova
+// (sem sobrescrever edição/rascunho/modelo já carregado) pra não digitar
+// os mesmos 10 nomes toda vez — quem precisar de outra lista edita/remove
+// as linhas normalmente.
+const BIOPET_ITENS_PADRAO = [
+    { equipamento: 'TOTAL MIX-Tron/EMBAL.(Estufa 28 *)', produto: 'Easyfoam', diluicao: '2%' },
+    { equipamento: 'TOTAL MIX-Tron/PADRONIZAÇÃO', produto: 'Easyfoam', diluicao: '2%' },
+    { equipamento: 'DHD/TRON/LAV. BOMBONAS', produto: 'Easyfoam', diluicao: '2%' },
+    { equipamento: 'TOTAL MIX-Tron/CENTRIFUGAS', produto: 'Easyfoam', diluicao: '2%' },
+    { equipamento: 'TOTAL MIX-Tron/PENDURA I', produto: 'Easyfoam', diluicao: '2%' },
+    { equipamento: 'TOTAL MIX-Tron/LAV. CARRINHOS *', produto: 'Easyfoam', diluicao: '2%' },
+    { equipamento: 'TOTAL MIX-Tron/CAMARA FRIA', produto: 'Easyfoam', diluicao: '2%' },
+    { equipamento: 'TOTAL MIX-Tron/EST.ICOMAFF', produto: 'Easyfoam', diluicao: '2%' },
+    { equipamento: 'TOTAL MIX-Tron/BARREIRAS', produto: 'Easyfoam', diluicao: '2%' },
+    { equipamento: 'TOTAL MIX–Tron-BIFINHO', produto: 'Easyfoam', diluicao: '2%' }
+];
+
 function safeParseJson(value, fallback) {
     try {
         const parsed = JSON.parse(value);
@@ -1095,7 +1114,7 @@ export async function renderManutencaoFormPage(record, options) {
 
     const itensIniciais = isEdit
         ? safeParseJson(m.itensTabela, [])
-        : (options && options.prefillItens ? safeParseJson(options.prefillItens, []) : []);
+        : (options && options.prefillItens ? safeParseJson(options.prefillItens, []) : (isBiopet ? BIOPET_ITENS_PADRAO : []));
 
     mainContent.innerHTML = `
         <div class="page-header compact-header">
