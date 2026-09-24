@@ -103,6 +103,27 @@ function safeParseJson(value, fallback) {
     }
 }
 
+// Rascunho de relatório novo (localStorage, por aparelho) — pedido do
+// admin: sair da tela no meio do preenchimento (troca de aba, app fechado
+// sem querer, sem conexão) não pode fazer perder tudo. Só entra em jogo na
+// CRIAÇÃO (nunca numa edição, que já tem os dados de verdade salvos no
+// servidor) e nunca guarda as assinaturas (imagem grande, e o normal é
+// assinar por último, já perto de salvar de vez). Uma chave por tipo
+// (afericao/geral/biopet) — dá pra ter um rascunho de cada tipo em
+// andamento ao mesmo tempo, sem um sobrescrever o outro.
+const mntDraftKey = (tipo) => `mnt_rascunho_${tipo}`;
+function saveMntDraft(tipo, data) {
+    try { localStorage.setItem(mntDraftKey(tipo), JSON.stringify({ ...data, savedAt: Date.now() })); }
+    catch (e) { /* localStorage indisponível (privado, cheio etc.) — sem rascunho, sem quebrar o resto */ }
+}
+function loadMntDraft(tipo) {
+    try { return JSON.parse(localStorage.getItem(mntDraftKey(tipo)) || 'null'); }
+    catch (e) { return null; }
+}
+function clearMntDraft(tipo) {
+    try { localStorage.removeItem(mntDraftKey(tipo)); } catch (e) {}
+}
+
 // Busca os Relatórios Técnicos (entidade separada) pra listar junto com os
 // de Manutenção nesta tela.
 function getRelatoriosTecnicosLite() {
@@ -1027,6 +1048,14 @@ export async function renderManutencaoFormPage(record, options) {
     const BIOPET_OBS_PADRAO = 'VAZÃO E PRESSÃO DA REDE: As variações nas concentrações continuam presentes, tendo em vista as instalações da rede hidráulica e quando se usa vários pontos e mangueiras de enxágue ao mesmo tempo. O sistema de tratamento da ETA também tem interferido nas centrais de diluições, transferindo resíduos que interferem nos chips de diluições.\nApesar deste fato, todas as concentrações medidas deram superiores ao mínimo padronizado de 2%, obedecendo o Boletim Técnico e cumprindo a função do hipoclorito.';
     if (!isEdit && isBiopet && !m.observacao) m.observacao = BIOPET_OBS_PADRAO;
 
+    // Rascunho salvo de uma visita anterior a esta tela (ver mntDraftKey
+    // acima) — só relevante numa criação nova, nunca numa edição. Só
+    // aplica se a pessoa confirmar clicando em "Continuar rascunho" (ver
+    // wiring mais abaixo); só ficar sabendo que existe não já sobrescreve
+    // nada na tela.
+    const draftTipo = isBiopet ? 'biopet' : isGeral ? 'geral' : 'afericao';
+    const existingDraft = !isEdit ? loadMntDraft(draftTipo) : null;
+
     // Vindo de "Usar" no modal de modelos salvos (ver openModelosSalvosModal)
     // — pré-preenche cliente e a tabela de aferição só na criação, nunca
     // sobrescrevendo uma edição em andamento. currentModeloNome acompanha
@@ -1077,6 +1106,12 @@ export async function renderManutencaoFormPage(record, options) {
             <button type="button" class="mini-button" id="back-manutencao-form">Voltar</button>
             <h2>${formTitulo}</h2>
         </div>
+        ${existingDraft ? `
+        <div class="alert-banner mnt-draft-banner">
+            <span style="flex:1">📝 Tem um rascunho salvo${existingDraft.cliente ? ` de <strong>${escapeHtml(existingDraft.cliente)}</strong>` : ''}${existingDraft.savedAt ? ` (${new Date(existingDraft.savedAt).toLocaleString('pt-BR')})` : ''}.</span>
+            <button type="button" class="mini-button" id="mnt-draft-restore">Continuar rascunho</button>
+            <button type="button" class="text-link" id="mnt-draft-discard">Descartar</button>
+        </div>` : ''}
         <form id="manutencao-form" class="card form-card form-layout">
             <div class="form-group full-width">
                 <label for="mnt-cliente">Cliente</label>
@@ -1329,6 +1364,61 @@ export async function renderManutencaoFormPage(record, options) {
     document.getElementById('back-manutencao-form').addEventListener('click', () => navigateTo(isEdit ? 'manutencao-detail' : 'manutencao', isEdit ? { id: m.id } : {}));
     document.getElementById('cancel-manutencao').addEventListener('click', () => navigateTo(isEdit ? 'manutencao-detail' : 'manutencao', isEdit ? { id: m.id } : {}));
 
+    // Rascunho: salva sozinho enquanto a pessoa preenche (debounced), só na
+    // criação — ver mntDraftKey/saveMntDraft/loadMntDraft no topo do
+    // arquivo. Escuta 'input'+'change' (campos de texto/select) e 'click'
+    // (chips de Tipo de manutenção, +Adicionar linha, remover linha — são
+    // <button>, não disparam input/change sozinhos) direto no <form>, sem
+    // precisar de um listener por campo.
+    if (!isEdit) {
+        const manutencaoFormEl = document.getElementById('manutencao-form');
+        const collectDraftData = () => ({
+            cliente: document.getElementById('mnt-cliente')?.value.trim() || '',
+            cidade: document.getElementById('mnt-cidade')?.value.trim() || '',
+            tecnico: document.getElementById('mnt-tecnico')?.value.trim() || '',
+            tipoManutencao: isBiopet ? (document.getElementById('mnt-tipo-mnt')?.value || '') : '',
+            itensTabela: (!isGeral && itensContainer) ? collectItens(itensContainer) : [],
+            observacao: document.getElementById('mnt-observacao')?.value || '',
+            clienteAssinanteNome: isBiopet ? (document.getElementById('mnt-cliente-assinante-nome')?.value.trim() || '') : '',
+            clienteAssinanteFuncao: isBiopet ? (document.getElementById('mnt-cliente-assinante-funcao')?.value.trim() || '') : ''
+        });
+        const scheduleDraftSave = debounce(() => {
+            const data = collectDraftData();
+            // Só grava se tiver algo — não cria rascunho vazio só de abrir a tela.
+            if (data.cliente || data.observacao || data.itensTabela.length) saveMntDraft(draftTipo, data);
+        }, 800);
+        manutencaoFormEl.addEventListener('input', scheduleDraftSave);
+        manutencaoFormEl.addEventListener('change', scheduleDraftSave);
+        manutencaoFormEl.addEventListener('click', scheduleDraftSave);
+
+        document.getElementById('mnt-draft-restore')?.addEventListener('click', () => {
+            const d = existingDraft;
+            if (!d) return;
+            if (d.cliente) document.getElementById('mnt-cliente').value = d.cliente;
+            if (d.cidade) document.getElementById('mnt-cidade').value = d.cidade;
+            if (d.tecnico) document.getElementById('mnt-tecnico').value = d.tecnico;
+            document.getElementById('mnt-observacao').value = d.observacao || '';
+            if (isBiopet && d.tipoManutencao) {
+                document.getElementById('mnt-tipo-mnt').value = d.tipoManutencao;
+                document.querySelectorAll('.radio-pill[data-tipo-mnt]').forEach((b) => b.classList.toggle('is-checked', b.dataset.tipoMnt === d.tipoManutencao));
+            }
+            if (isBiopet) {
+                document.getElementById('mnt-cliente-assinante-nome').value = d.clienteAssinanteNome || '';
+                document.getElementById('mnt-cliente-assinante-funcao').value = d.clienteAssinanteFuncao || '';
+            }
+            if (!isGeral && itensContainer && d.itensTabela && d.itensTabela.length) {
+                itensContainer.innerHTML = d.itensTabela.map((i) => itemRowHtml(i, isBiopet)).join('');
+                bindItemRowRemove(itensContainer);
+            }
+            document.querySelector('.mnt-draft-banner')?.remove();
+            showToast('Rascunho restaurado.');
+        });
+        document.getElementById('mnt-draft-discard')?.addEventListener('click', () => {
+            clearMntDraft(draftTipo);
+            document.querySelector('.mnt-draft-banner')?.remove();
+        });
+    }
+
     document.getElementById('manutencao-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const button = document.getElementById('save-manutencao');
@@ -1420,6 +1510,7 @@ export async function renderManutencaoFormPage(record, options) {
             const tempId = 'temp_' + Date.now();
             const result = await attemptOrQueue('createManutencao', payload, { entity: 'manutencao', tempId });
             if (result && result.status === 'success') {
+                clearMntDraft(draftTipo);
                 saveCache('manutencoes', null);
                 state.manutencoes = [];
                 showToast('Relatório criado com sucesso.');
@@ -1439,6 +1530,7 @@ export async function renderManutencaoFormPage(record, options) {
                 }
                 navigateTo('manutencao');
             } else if (result && result.status === 'queued') {
+                clearMntDraft(draftTipo);
                 showToast('Sem conexão — o relatório foi salvo no aparelho e será enviado quando a conexão voltar.');
                 await gerarVisitaFromManutencao(null);
                 navigateTo('manutencao');
