@@ -487,26 +487,35 @@ async function openModelosSalvosModal() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal-card" style="text-align:left;max-width:460px">
-            <h3 style="margin-top:0">📋 Modelos salvos</h3>
-            <p class="helper-text" style="margin:-0.4rem 0 0.9rem">Modelos de <strong>Relatório SPSP</strong> e de <strong>Relatório de Aferição</strong> — carregue num relatório novo com um clique. Um cliente pode ter mais de um modelo (nomes diferentes).</p>
-            <input type="text" id="mnt-modelos-search" class="form-input" placeholder="Buscar cliente ou nome do modelo..." style="margin-bottom:0.75rem">
-            <div id="mnt-modelos-list" style="max-height:55vh;overflow-y:auto">
-                <p class="helper-text">Carregando...</p>
+        <div class="modal-card mnt-modelos-modal">
+            <div class="mnt-modelos-modal-header">
+                <span class="mnt-modelos-modal-header-icon" aria-hidden="true">📋</span>
+                <h3>Modelos salvos</h3>
+                <button type="button" class="mnt-modal-close" id="mnt-modelos-close-x" aria-label="Fechar">✕</button>
             </div>
-            <div class="form-actions full-width" style="margin-top:1rem">
-                <button type="button" class="secondary-button" id="mnt-modelos-close">Fechar</button>
+            <div class="mnt-modelos-modal-body">
+                <p class="helper-text" style="margin:0 0 0.6rem">Carregue um modelo em um relatório novo.</p>
+                <input type="text" id="mnt-modelos-search" class="form-input" placeholder="🔍 Buscar cliente ou modelo">
+                <div class="mnt-modelos-chips" id="mnt-modelos-chips"></div>
+                <div id="mnt-modelos-list">
+                    <p class="helper-text">Carregando...</p>
+                </div>
             </div>
         </div>
     `;
     document.body.appendChild(overlay);
     const close = () => overlay.remove();
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    overlay.querySelector('#mnt-modelos-close').addEventListener('click', close);
+    const closeAnyMenu = () => overlay.querySelectorAll('.mnt-modelo-menu.is-open').forEach((el) => el.classList.remove('is-open'));
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) { close(); return; }
+        if (!e.target.closest('.mnt-modelo-menu-wrap')) closeAnyMenu();
+    });
+    overlay.querySelector('#mnt-modelos-close-x').addEventListener('click', close);
 
     const listEl = overlay.querySelector('#mnt-modelos-list');
-    let modelos = [];   // Relatório de Manutenção
-    let tecnicos = [];  // Relatório Técnico
+    const chipsEl = overlay.querySelector('#mnt-modelos-chips');
+    let modelos = [];   // Relatório de Manutenção (Aferição/BIOPET, distinguidos por mo.tipoRelatorio)
+    let tecnicos = [];  // Relatório Técnico (SPSP)
     try {
         const [rM, rT] = await Promise.all([
             callAPI('getManutencaoModelos', { user: state.currentUser }).catch(() => null),
@@ -523,106 +532,155 @@ async function openModelosSalvosModal() {
     tecnicos.sort(byNome);
 
     const searchEl = () => overlay.querySelector('#mnt-modelos-search');
+    let activeFilter = 'todos'; // todos | spsp | afericao | biopet
+
+    // Chips com contagem por tipo (Todos/SPSP/Aferição/BIOPET) — só mostra a
+    // chip de um tipo que não tem nenhum modelo se for "Todos" (sempre
+    // visível); os outros somem em vez de ficar uma pílula morta "X 0".
+    const renderChips = () => {
+        const nSpsp = tecnicos.length;
+        const nAfericao = modelos.filter((mo) => mo.tipoRelatorio !== 'biopet').length;
+        const nBiopet = modelos.filter((mo) => mo.tipoRelatorio === 'biopet').length;
+        const chip = (key, label, count) => (count > 0 || key === 'todos')
+            ? `<button type="button" class="mnt-modelos-chip${activeFilter === key ? ' is-active' : ''}" data-filter="${key}">${label} <span class="mnt-modelos-chip-count">${count}</span></button>`
+            : '';
+        chipsEl.innerHTML = [
+            chip('todos', 'Todos', nSpsp + nAfericao + nBiopet),
+            chip('spsp', 'SPSP', nSpsp),
+            chip('afericao', 'Aferição', nAfericao),
+            chip('biopet', 'BIOPET', nBiopet)
+        ].join('');
+        chipsEl.querySelectorAll('[data-filter]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                activeFilter = btn.dataset.filter;
+                renderChips();
+                renderList(searchEl().value);
+            });
+        });
+    };
 
     const renderList = (filterText) => {
         const q = (filterText || '').toLowerCase();
         const match = (mo) => !q || String(mo.cliente || '').toLowerCase().includes(q) || String(mo.nome || '').toLowerCase().includes(q);
-        const fT = tecnicos.filter(match);
-        const fM = modelos.filter(match);
+        const fT = (activeFilter === 'afericao' || activeFilter === 'biopet') ? [] : tecnicos.filter(match);
+        const fMAfericao = (activeFilter === 'spsp' || activeFilter === 'biopet') ? [] : modelos.filter((mo) => mo.tipoRelatorio !== 'biopet').filter(match);
+        const fMBiopet = (activeFilter === 'spsp' || activeFilter === 'afericao') ? [] : modelos.filter((mo) => mo.tipoRelatorio === 'biopet').filter(match);
 
-        if (fT.length === 0 && fM.length === 0) {
+        if (fT.length === 0 && fMAfericao.length === 0 && fMBiopet.length === 0) {
             listEl.innerHTML = `<p class="helper-text">${(tecnicos.length + modelos.length) === 0 ? 'Nenhum modelo salvo ainda. Salve um na tela de um relatório novo/edição.' : 'Nenhum modelo encontrado.'}</p>`;
             return;
         }
 
-        const rowTecnico = (mo) => {
+        const rowHtml = (mo, { icon, iconClass, tipoLabel, kind }) => {
             const nomeDifere = mo.nome && mo.nome.trim().toLowerCase() !== String(mo.cliente || '').trim().toLowerCase();
+            const infoLine = kind === 'tecnico'
+                ? (nomeDifere ? `Cliente: ${escapeHtml(mo.cliente || '-')}` : tipoLabel)
+                : `${nomeDifere ? `Cliente: ${escapeHtml(mo.cliente || '-')} · ` : ''}${safeParseJson(mo.itensTabela, []).length} item(ns)${mo.atualizadoEm ? ` · ${escapeHtml(mo.atualizadoEm)}` : ''}`;
             return `
-                <div class="mnt-modelo-list-row" data-t-id="${escapeHtml(String(mo.id))}">
+                <div class="mnt-modelo-list-row">
+                    <span class="mnt-modelo-list-icon ${iconClass}" aria-hidden="true">${icon}</span>
                     <div class="mnt-modelo-list-info">
                         <strong>${escapeHtml(mo.nome || mo.cliente || '-')}</strong>
-                        <span class="helper-text">${nomeDifere ? `Cliente: ${escapeHtml(mo.cliente || '-')}` : 'Relatório SPSP'}</span>
+                        <span class="helper-text">${infoLine}</span>
                     </div>
                     <div class="mnt-modelo-list-actions">
-                        <button type="button" class="mini-button mnt-modelo-t-use" data-id="${escapeHtml(String(mo.id))}">Usar</button>
-                        <button type="button" class="mini-button mini-button-danger mnt-modelo-t-del" data-id="${escapeHtml(String(mo.id))}" aria-label="Apagar modelo" title="Apagar modelo">🗑</button>
-                    </div>
-                </div>`;
-        };
-        const rowManut = (mo) => {
-            const itens = safeParseJson(mo.itensTabela, []);
-            const originalIdx = modelos.indexOf(mo);
-            const nomeDifere = mo.nome && mo.nome.trim().toLowerCase() !== String(mo.cliente || '').trim().toLowerCase();
-            return `
-                <div class="mnt-modelo-list-row" data-idx="${originalIdx}">
-                    <div class="mnt-modelo-list-info">
-                        <strong>${escapeHtml(mo.nome || mo.cliente || '-')}</strong>
-                        <span class="helper-text">${nomeDifere ? `Cliente: ${escapeHtml(mo.cliente || '-')} · ` : ''}${itens.length} item(ns)${mo.atualizadoPor ? ` · atualizado por ${escapeHtml(mo.atualizadoPor)}` : ''}${mo.atualizadoEm ? ` em ${escapeHtml(mo.atualizadoEm)}` : ''}</span>
-                    </div>
-                    <div class="mnt-modelo-list-actions">
-                        <button type="button" class="mini-button mnt-modelo-use-btn" data-idx="${originalIdx}">Usar</button>
-                        <button type="button" class="mini-button mini-button-danger mnt-modelo-delete-btn" data-idx="${originalIdx}" aria-label="Apagar modelo" title="Apagar modelo">🗑</button>
+                        <button type="button" class="mini-button mnt-modelo-use-btn" data-kind="${kind}" data-id="${escapeHtml(String(mo.id))}">Usar</button>
+                        <div class="mnt-modelo-menu-wrap">
+                            <button type="button" class="mnt-modelo-menu-toggle" data-kind="${kind}" data-id="${escapeHtml(String(mo.id))}" aria-label="Mais ações">⋮</button>
+                            <div class="mnt-modelo-menu">
+                                <button type="button" class="mnt-modelo-menu-rename" data-kind="${kind}" data-id="${escapeHtml(String(mo.id))}">✏️ Renomear</button>
+                                <button type="button" class="mnt-modelo-menu-delete" data-kind="${kind}" data-id="${escapeHtml(String(mo.id))}">🗑️ Excluir</button>
+                            </div>
+                        </div>
                     </div>
                 </div>`;
         };
 
         listEl.innerHTML =
-            (fT.length ? `<p class="mnt-modelo-group-label">📋 Relatório SPSP</p>${fT.map(rowTecnico).join('')}` : '')
-            + (fM.length ? `<p class="mnt-modelo-group-label">🔧 Relatório de Aferição</p>${fM.map(rowManut).join('')}` : '');
+            (fT.length ? `<p class="mnt-modelo-group-label">RELATÓRIO SPSP</p>${fT.map((mo) => rowHtml(mo, { icon: '📋', iconClass: 'mnt-modelo-icon-spsp', tipoLabel: 'Relatório SPSP', kind: 'tecnico' })).join('')}` : '')
+            + (fMAfericao.length ? `<p class="mnt-modelo-group-label">RELATÓRIO DE AFERIÇÃO</p>${fMAfericao.map((mo) => rowHtml(mo, { icon: '🔧', iconClass: 'mnt-modelo-icon-afericao', kind: 'manutencao' })).join('')}` : '')
+            + (fMBiopet.length ? `<p class="mnt-modelo-group-label">RELATÓRIO BIOPET</p>${fMBiopet.map((mo) => rowHtml(mo, { icon: '🧪', iconClass: 'mnt-modelo-icon-biopet', kind: 'manutencao' })).join('')}` : '');
 
-        // ── Relatório Técnico ──
-        listEl.querySelectorAll('.mnt-modelo-t-use').forEach((btn) => {
+        const findModelo = (kind, id) => (kind === 'tecnico' ? tecnicos : modelos).find((x) => String(x.id) === id);
+
+        listEl.querySelectorAll('.mnt-modelo-use-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
-                const mo = tecnicos.find((x) => String(x.id) === btn.dataset.id);
+                const mo = findModelo(btn.dataset.kind, btn.dataset.id);
                 if (!mo) return;
                 close();
-                let dados;
-                try { dados = JSON.parse(mo.dados || '{}'); } catch (e) { dados = {}; }
-                dados.cliente = mo.cliente;
-                navigateTo('relatorio-tecnico-new', { prefillModelo: JSON.stringify(dados) });
+                if (btn.dataset.kind === 'tecnico') {
+                    let dados;
+                    try { dados = JSON.parse(mo.dados || '{}'); } catch (e) { dados = {}; }
+                    dados.cliente = mo.cliente;
+                    navigateTo('relatorio-tecnico-new', { prefillModelo: JSON.stringify(dados) });
+                } else {
+                    navigateTo('manutencao-new', {
+                        prefillCliente: mo.cliente, prefillItens: mo.itensTabela, prefillModeloNome: mo.nome,
+                        ...(mo.tipoRelatorio ? { tipoRelatorio: mo.tipoRelatorio } : {})
+                    });
+                }
             });
         });
-        listEl.querySelectorAll('.mnt-modelo-t-del').forEach((btn) => {
+
+        listEl.querySelectorAll('.mnt-modelo-menu-toggle').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const menu = btn.parentElement.querySelector('.mnt-modelo-menu');
+                const wasOpen = menu.classList.contains('is-open');
+                closeAnyMenu();
+                menu.classList.toggle('is-open', !wasOpen);
+            });
+        });
+
+        // Reusa promptModeloNome (já existe pro "Salvar como modelo" do
+        // formulário) — passar o id força atualizar essa linha específica
+        // mesmo mudando o nome, em vez de criar um modelo duplicado (ver
+        // comentário em handleSaveManutencaoModelo/handleSaveRelatorioTecnicoModelo).
+        listEl.querySelectorAll('.mnt-modelo-menu-rename').forEach((btn) => {
             btn.addEventListener('click', async () => {
-                const mo = tecnicos.find((x) => String(x.id) === btn.dataset.id);
+                closeAnyMenu();
+                const kind = btn.dataset.kind;
+                const mo = findModelo(kind, btn.dataset.id);
+                if (!mo) return;
+                const novoNome = await promptModeloNome(mo.nome || mo.cliente);
+                if (novoNome === null) return;
+                const action = kind === 'tecnico' ? 'saveRelatorioTecnicoModelo' : 'saveManutencaoModelo';
+                const payload = kind === 'tecnico'
+                    ? { id: mo.id, cliente: mo.cliente, nome: novoNome, dados: mo.dados, user: state.currentUser }
+                    : { id: mo.id, cliente: mo.cliente, nome: novoNome, itensTabela: mo.itensTabela, tipoRelatorio: mo.tipoRelatorio, user: state.currentUser };
+                const r = await callAPI(action, payload).catch(() => null);
+                if (r && r.status === 'success') {
+                    mo.nome = r.modelo.nome;
+                    showToast('Modelo renomeado.');
+                    renderList(searchEl().value);
+                } else {
+                    showToast((r && r.message) || 'Não foi possível renomear o modelo.', true);
+                }
+            });
+        });
+
+        listEl.querySelectorAll('.mnt-modelo-menu-delete').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                closeAnyMenu();
+                const kind = btn.dataset.kind;
+                const mo = findModelo(kind, btn.dataset.id);
                 if (!mo) return;
                 if (!confirm(`Apagar o modelo "${mo.nome || mo.cliente}"? Essa ação não pode ser desfeita.`)) return;
-                const r = await callAPI('deleteRelatorioTecnicoModelo', { user: state.currentUser, id: mo.id }).catch(() => null);
+                const action = kind === 'tecnico' ? 'deleteRelatorioTecnicoModelo' : 'deleteManutencaoModelo';
+                const r = await callAPI(action, { id: mo.id, user: state.currentUser }).catch(() => null);
                 if (r && r.status === 'success') {
-                    tecnicos = tecnicos.filter((x) => String(x.id) !== String(mo.id));
+                    if (kind === 'tecnico') tecnicos = tecnicos.filter((x) => String(x.id) !== String(mo.id));
+                    else modelos = modelos.filter((x) => String(x.id) !== String(mo.id));
                     showToast('Modelo apagado.');
+                    renderChips();
                     renderList(searchEl().value);
                 } else {
                     showToast((r && r.message) || 'Não foi possível apagar o modelo.', true);
                 }
             });
         });
-
-        // ── Relatório de Manutenção ──
-        listEl.querySelectorAll('.mnt-modelo-use-btn').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const mo = modelos[Number(btn.dataset.idx)];
-                if (!mo) return;
-                close();
-                navigateTo('manutencao-new', { prefillCliente: mo.cliente, prefillItens: mo.itensTabela, prefillModeloNome: mo.nome });
-            });
-        });
-        listEl.querySelectorAll('.mnt-modelo-delete-btn').forEach((btn) => {
-            btn.addEventListener('click', async () => {
-                const mo = modelos[Number(btn.dataset.idx)];
-                if (!mo) return;
-                if (!confirm(`Apagar o modelo "${mo.nome || mo.cliente}"? Essa ação não pode ser desfeita.`)) return;
-                const result = await callAPI('deleteManutencaoModelo', { id: mo.id, user: state.currentUser });
-                if (result.status === 'success') {
-                    modelos = modelos.filter((item) => item.id !== mo.id);
-                    showToast('Modelo apagado.');
-                    renderList(searchEl().value);
-                } else {
-                    showToast(result.message || 'Não foi possível apagar o modelo.', true);
-                }
-            });
-        });
     };
+    renderChips();
     renderList('');
     searchEl().addEventListener('input', (e) => renderList(e.target.value));
 }
@@ -1370,7 +1428,7 @@ export async function renderManutencaoFormPage(record, options) {
             if (nome === null) return;
             const btn = event.currentTarget;
             setSaving(true, btn, 'Salvando...');
-            const result = await callAPI('saveManutencaoModelo', { cliente: clienteVal, nome, itensTabela: JSON.stringify(itensParaModelo), user: state.currentUser });
+            const result = await callAPI('saveManutencaoModelo', { cliente: clienteVal, nome, itensTabela: JSON.stringify(itensParaModelo), tipoRelatorio: isBiopet ? 'biopet' : '', user: state.currentUser });
             setSaving(false, btn);
             if (result.status === 'success') {
                 const idx = modelos.findIndex((mo) => mo.id === result.modelo.id);

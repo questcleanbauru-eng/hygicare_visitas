@@ -96,10 +96,133 @@
     flex-shrink: 0;
 }
 
-.mnt-modelo-list-actions .mnt-modelo-delete-btn {
-    padding: 0.4rem 0.55rem;
-    line-height: 1;
+/* ── Modal "Modelos salvos" — cabeçalho com X, chips de tipo, ícone
+   colorido por linha, menu "⋮" (Renomear/Excluir) no lugar da lixeira
+   fixa. ── */
+.mnt-modal-close {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: none;
+    background: var(--bg);
+    color: var(--text-muted-strong);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.15s;
 }
+.mnt-modal-close:hover { background: var(--border); }
+
+.mnt-modelos-modal {
+    display: flex;
+    flex-direction: column;
+    width: min(480px, 92vw);
+    max-width: 480px;
+    max-height: 85vh;
+    padding: 0;
+    overflow: hidden;
+}
+.mnt-modelos-modal-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+}
+.mnt-modelos-modal-header-icon { font-size: 1.3rem; }
+.mnt-modelos-modal-header h3 { margin: 0; flex: 1 1 auto; font-size: 1.05rem; }
+.mnt-modelos-modal-body {
+    overflow-y: auto;
+    padding: 1rem 1.1rem;
+    text-align: left;
+}
+
+.mnt-modelos-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.65rem 0 0.85rem;
+}
+.mnt-modelos-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-pill);
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted-strong);
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.mnt-modelos-chip:hover { border-color: var(--text-muted); }
+.mnt-modelos-chip.is-active { background: var(--ink); border-color: var(--ink); color: #fff; }
+.mnt-modelos-chip-count { font-size: 0.72rem; opacity: 0.75; }
+
+.mnt-modelo-list-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+}
+.mnt-modelo-icon-spsp { background: #e0edff; }
+.mnt-modelo-icon-afericao { background: var(--mnt-accent-soft); }
+.mnt-modelo-icon-biopet { background: var(--primary-light); }
+
+.mnt-modelo-menu-wrap { position: relative; }
+.mnt-modelo-menu-toggle {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 999px;
+    color: var(--text-muted-strong);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.mnt-modelo-menu-toggle:hover { background: var(--bg); }
+.mnt-modelo-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    /* Abre pra CIMA, não pra baixo — o corpo do modal rola
+       (.mnt-modelos-modal-body), e o último item da lista é o caso mais
+       comum de abrir o "⋮"; pra baixo, o menu saía cortado pela borda do
+       modal/viewport. Pra cima quase sempre tem mais espaço (busca + chips
+       + o resto da lista acima). */
+    bottom: calc(100% + 0.25rem);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    z-index: 5;
+    min-width: 140px;
+    overflow: hidden;
+}
+.mnt-modelo-menu.is-open { display: block; }
+.mnt-modelo-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.55rem 0.8rem;
+    border: none;
+    background: none;
+    font-size: 0.83rem;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--text);
+}
+.mnt-modelo-menu button:hover { background: var(--bg); }
+.mnt-modelo-menu-delete { color: #b91c1c; }
 
 /* Áreas nomeadas (não auto-fit) — cada campo fica sempre na mesma célula
    lógica, independente de quantas colunas cabem na largura disponível.
