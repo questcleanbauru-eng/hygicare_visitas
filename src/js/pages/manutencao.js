@@ -196,13 +196,20 @@ export function fillManutencaoContent(mainContent, itens) {
         <div class="page-header">
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
             <div class="header-actions-group mnt-header-actions-row">
-                <button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="btn-ver-modelos">📋 Modelos</button>
-                ${isAdmGer ? `<button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
-                <span class="mnt-header-divider" aria-hidden="true"></span>
-                <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. SPSP</button>
-                <button type="button" class="primary-btn" id="btn-new-rel-tecnico-paulo" title="Variante do Relatório SPSP com assinatura por desenho">✍️ SPSP - Paulo</button>
-                <button type="button" class="primary-btn" id="btn-new-manutencao" title="Com tabela de aferição de vazão">🔧 Rel. de Aferição</button>
-                <button type="button" class="primary-btn" id="btn-new-geral" title="Sem tabela de aferição">📄 Rel. Geral</button>
+                <div class="mnt-actions-desktop">
+                    <button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="btn-ver-modelos">📋 Modelos</button>
+                    ${isAdmGer ? `<button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
+                    <span class="mnt-header-divider" aria-hidden="true"></span>
+                    <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. SPSP</button>
+                    <button type="button" class="primary-btn" id="btn-new-rel-tecnico-paulo" title="Variante do Relatório SPSP com assinatura por desenho">✍️ SPSP - Paulo</button>
+                    <button type="button" class="primary-btn" id="btn-new-manutencao" title="Com tabela de aferição de vazão">🔧 Rel. de Aferição</button>
+                    <button type="button" class="primary-btn" id="btn-new-geral" title="Sem tabela de aferição">📄 Rel. Geral</button>
+                </div>
+                <div class="mnt-actions-mobile">
+                    <button type="button" class="mnt-header-icon-btn" id="btn-ver-modelos-m" aria-label="Modelos" title="Modelos">📋</button>
+                    ${isAdmGer ? `<button type="button" class="mnt-header-icon-btn" id="mnt-nova-campanha-m" aria-label="Pedir Relatório" title="Pedir Relatório">🔧</button>` : ''}
+                    <button type="button" class="primary-btn" id="btn-mnt-novo">+ Novo</button>
+                </div>
             </div>
         </div>
         <p class="mnt-legenda-toggle-row">
@@ -373,7 +380,51 @@ export function fillManutencaoContent(mainContent, itens) {
         openGerarCampanhaManutencaoModal();
     });
     document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
+    // Variante celular do cabeçalho: "Modelos"/"Pedir Relatório" viram
+    // botões só de ícone (mesma ação de sempre) e os 4 botões de criar
+    // relatório colapsam num "+ Novo" só, que abre uma folha com as 4
+    // opções — no desktop a tela é larga o bastante pros 6 botões numa
+    // linha só, então essa variante fica escondida por CSS (ver
+    // .mnt-actions-mobile, manutencao.css).
+    document.getElementById('btn-ver-modelos-m')?.addEventListener('click', openModelosSalvosModal);
+    document.getElementById('mnt-nova-campanha-m')?.addEventListener('click', async () => {
+        const { openGerarCampanhaManutencaoModal } = await import('./campanhas.js');
+        openGerarCampanhaManutencaoModal();
+    });
+    document.getElementById('btn-mnt-novo')?.addEventListener('click', openNovoRelatorioSheet);
     renderFiltered();
+}
+
+function openNovoRelatorioSheet() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay mnt-sheet-overlay';
+    const opcoes = [
+        { icon: '📋', titulo: 'Rel. SPSP', desc: 'Atendimento ao Grupo SPSP', onClick: () => navigateTo('relatorio-tecnico-new') },
+        { icon: '✍️', titulo: 'SPSP - Paulo', desc: 'Variante com assinatura por desenho', onClick: () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }) },
+        { icon: '🔧', titulo: 'Rel. de Aferição', desc: 'Com tabela de aferição de vazão', onClick: () => navigateTo('manutencao-new') },
+        { icon: '📄', titulo: 'Rel. Geral', desc: 'Sem tabela de aferição', onClick: () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }) }
+    ];
+    overlay.innerHTML = `
+        <div class="modal-card mnt-sheet-card">
+            <div class="mnt-sheet-handle" aria-hidden="true"></div>
+            <h3 style="margin-top:0">Novo relatório</h3>
+            ${opcoes.map((o, i) => `
+                <button type="button" class="mnt-sheet-item" data-sheet-idx="${i}">
+                    <span class="mnt-sheet-item-icon">${o.icon}</span>
+                    <span class="mnt-sheet-item-text"><strong>${escapeHtml(o.titulo)}</strong><span>${escapeHtml(o.desc)}</span></span>
+                    <span class="mnt-sheet-item-chevron" aria-hidden="true">›</span>
+                </button>`).join('')}
+        </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelectorAll('[data-sheet-idx]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const opcao = opcoes[Number(btn.dataset.sheetIdx)];
+            close();
+            opcao.onClick();
+        });
+    });
 }
 
 // Lista os modelos de tabela de aferição já salvos (ver comentário acima de
