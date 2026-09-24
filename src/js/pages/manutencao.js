@@ -1163,6 +1163,13 @@ export async function renderManutencaoFormPage(record, options) {
                     <button type="button" class="mini-button" id="mnt-load-modelo">📋 Carregar modelo do cliente</button>
                     <button type="button" class="mini-button" id="mnt-save-modelo">💾 Salvar como modelo</button>
                 </div>
+                <div class="mnt-item-row mnt-item-row-header" aria-hidden="true">
+                    <span class="mnt-item-col-label">Equipamento</span>
+                    <span class="mnt-item-col-label">Produto</span>
+                    <span class="mnt-item-col-label">Diluição</span>
+                    <span class="mnt-item-col-label">Aferido</span>
+                    <span></span>
+                </div>
                 <div id="mnt-itens-container">${(itensIniciais.length ? itensIniciais : [{}, {}, {}]).map((i) => itemRowHtml(i, isBiopet)).join('')}</div>
                 <button type="button" class="mini-button" id="mnt-add-item" style="margin-top:0.5rem">+ Adicionar linha</button>
             </div>`}

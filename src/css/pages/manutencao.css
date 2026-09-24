@@ -109,7 +109,11 @@
    pra ocupar uma coluna inteira). */
 .mnt-item-row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) 40px;
+    /* Equipamento tem nomes bem mais longos ("TOTAL MIX-Tron/LAV.
+       CARRINHOS *") que Diluição/Aferido (só "2%"/"2,5%") — 4 colunas
+       iguais deixava Equipamento sempre cortado e Aferido com espaço
+       sobrando à toa. */
+    grid-template-columns: 2.2fr 1.1fr 0.75fr 0.75fr 40px;
     grid-template-areas: "equip prod dil aferido remove";
     gap: 0.5rem;
     align-items: center;
@@ -132,10 +136,32 @@
     padding: 0;
 }
 
+/* Nome das colunas (Equipamento/Produto/Diluição/Aferido) acima da
+   primeira linha — sem isso, assim que a pessoa preenche o campo o
+   placeholder some e não sobra nenhuma pista de qual coluna é qual. Reusa
+   .mnt-item-row de propósito: mesmo grid-template-columns garante que os
+   rótulos ficam alinhados exatamente em cima de cada campo, sem duplicar
+   a definição das colunas em outro lugar. */
+.mnt-item-row-header {
+    margin-bottom: 0.35rem;
+}
+.mnt-item-col-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted-strong);
+}
+
 /* Abaixo de 640px os 4 campos não cabem numa linha só sem espremer —
    agrupa em card 2x2 com o botão remover virando um ícone redondo no
    canto, em vez de tentar forçar tudo numa linha horizontal. */
 @media (max-width: 639px) {
+    /* Cada linha vira um card próprio com os 4 campos 2x2 — um rótulo de
+       coluna só faria sentido em cima de uma linha horizontal, então some
+       aqui (o placeholder de cada campo já identifica ele dentro do card). */
+    .mnt-item-row-header { display: none; }
+
     .mnt-item-row {
         grid-template-columns: 1fr 1fr;
         grid-template-areas:
