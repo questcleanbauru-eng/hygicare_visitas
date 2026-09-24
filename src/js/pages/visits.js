@@ -2638,17 +2638,45 @@ export async function showCreateAgendamentoModal(onCreated) {
                     <label for="newag-obs">Observação (opcional)</label>
                     <textarea id="newag-obs" rows="2" placeholder="Ex: ligar antes de ir..."></textarea>
                 </div>
-                ${temNotifyReal ? `<div style="text-align:left">${multiCheckFilterFieldHtml('Notificar outros usuários *', 'newag-notificar')}</div>` : ''}
+                ${temNotifyReal ? `
+                <div class="form-group full-width" style="text-align:left">
+                    <label for="newag-notificar-list">Notificar outros usuários *</label>
+                    <p class="helper-text" style="margin:0 0 0.4rem">Pode marcar mais de um.</p>
+                    <input type="hidden" id="newag-notificar">
+                    <div class="agnotify-list" id="newag-notificar-list" style="max-height:180px">
+                        ${notifyOptions.map((nome) => `
+                            <label class="agnotify-list-item">
+                                <input type="checkbox" class="newag-notify-check" value="${escapeHtml(nome)}">
+                                <span>${escapeHtml(nome)}</span>
+                            </label>`).join('')}
+                    </div>
+                </div>` : ''}
                 <button type="button" class="primary-button" id="modal-newag-save">Salvar agendamento</button>
                 <button type="button" class="secondary-button" id="modal-newag-cancel">Cancelar</button>
             </div>
         `;
         document.body.appendChild(overlay);
 
+        // Lista de checkbox sempre visível (não dropdown) — deixa claro que
+        // dá pra marcar mais de um sem precisar reabrir nada, e evita o
+        // menu "position:absolute" que, dentro de um modal já rolável,
+        // criava duas barras de rolagem (mesmo problema já corrigido no
+        // modal "Notificar sobre este retorno"). "Não notificar" continua
+        // exclusivo (marcar ele desmarca o resto e vice-versa).
         if (temNotifyReal) {
-            wireMultiCheckFilter({
-                triggerId: 'newag-notificar-trigger', inputId: 'newag-notificar', menuId: 'newag-notificar-menu',
-                options: notifyOptions, emptyLabel: 'Escolha...', exclusiveValue: NAO_NOTIFICAR
+            const notifyListEl = overlay.querySelector('#newag-notificar-list');
+            const notifyHidden = overlay.querySelector('#newag-notificar');
+            const notifyChecks = Array.from(notifyListEl.querySelectorAll('.newag-notify-check'));
+            notifyChecks.forEach((cb) => {
+                cb.addEventListener('change', () => {
+                    if (cb.checked && cb.value === NAO_NOTIFICAR) {
+                        notifyChecks.forEach((c) => { if (c !== cb) c.checked = false; });
+                    } else if (cb.checked) {
+                        const naoCb = notifyChecks.find((c) => c.value === NAO_NOTIFICAR);
+                        if (naoCb) naoCb.checked = false;
+                    }
+                    notifyHidden.value = notifyChecks.filter((c) => c.checked).map((c) => c.value).join(',');
+                });
             });
         }
 
