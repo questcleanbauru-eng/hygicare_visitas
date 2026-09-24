@@ -5,12 +5,13 @@ import {
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
     funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
-    clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml, resolveNotifyOptions
+    clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml, resolveNotifyOptions,
+    scopeYearFilterFieldsHtml
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     showRefreshIndicator, hideRefreshIndicator, skeletonDetail, loadingState, addScrollTop,
-    openExternal, initializeSearchableInput, renderYearChips, setSaving, preventEnterSubmit,
+    openExternal, initializeSearchableInput, wireYearSelect, setSaving, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
@@ -185,14 +186,7 @@ export function fillFunilContent(mainContent, funil) {
                     <label for="funil-filter-vl">${filterLabelHtml('Valor minimo R$')}</label>
                     <input type="number" id="funil-filter-vl" placeholder="0" min="0">
                 </div>
-                <div id="funil-year-chips" class="year-chips-row"></div>
-                <div class="scope-banner scope-days-ctrl">
-                    <label for="scope-dias-input">Período:</label>
-                    <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
-                    <span>dias</span>
-                    <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
-                    <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
-                </div>
+                ${scopeYearFilterFieldsHtml({ scopeSelectId: 'funil-scope-select', yearSelectId: 'funil-year-select', loadDias: state.loadDias, scopeAll: state.funilScope === 'all' })}
             </div>
         </div>
         <div id="funil-list-container"></div>
@@ -695,8 +689,10 @@ export function fillFunilContent(mainContent, funil) {
         _funilFilterMemory = {};
         syncFunilMultiCheckLabels();
         state.funilYearFilter = null;
+        const scopeSelect = document.getElementById('funil-scope-select');
+        if (scopeSelect && scopeSelect.value !== '90') { scopeSelect.value = '90'; applyFunilScopeChange('90'); }
         renderFiltered();
-        updateYearChips();
+        updateYearSelect();
     });
 
     document.getElementById('funil-excel-btn')?.addEventListener('click', () => {
@@ -712,44 +708,44 @@ export function fillFunilContent(mainContent, funil) {
         ], 'Funil');
     });
 
-    document.getElementById('scope-load-days')?.addEventListener('click', () => {
-        const v = parseInt(document.getElementById('scope-dias-input')?.value, 10);
+    // "Carregar últimos" — select único no lugar do antigo input+"Carregar"
+    // +"Ver tudo". Dia-count reusa o mesmo caminho de sempre (recarrega a
+    // página com state.loadDias novo); "Tudo" reusa o fetch-all em memória
+    // que já existia (sem navegar/recarregar a tela inteira).
+    async function applyFunilScopeChange(value) {
+        if (value === 'all') {
+            const listEl = document.getElementById('funil-list-container');
+            if (listEl) listEl.innerHTML = `<div class="scope-loading">Carregando histórico completo...</div>`;
+            try {
+                const r = await callAPI('getFunil', { user: state.currentUser, meses: 0 });
+                if (r.status === 'success') {
+                    state.funil = r.funil || r.data || [];
+                    state.funilScope = 'all';
+                    saveCache('funil_all', state.funil);
+                    funilData = state.funil;
+                    wireMultiCheckFilter({ triggerId: 'funil-filter-status-trigger', inputId: 'funil-filter-status', menuId: 'funil-filter-status-menu', options: Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))) });
+                    wireMultiCheckFilter({ triggerId: 'funil-filter-cidade-trigger', inputId: 'funil-filter-cidade', menuId: 'funil-filter-cidade-menu', options: Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort() });
+                    wireMultiCheckFilter({ triggerId: 'funil-filter-foco-trigger', inputId: 'funil-filter-foco', menuId: 'funil-filter-foco-menu', options: Array.from(new Set(funilData.map((f) => f.foco).filter(Boolean))).sort() });
+                    if (isAdmGer) wireMultiCheckFilter({ triggerId: 'funil-filter-vendor-trigger', inputId: 'funil-filter-vendor', menuId: 'funil-filter-vendor-menu', options: Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort() });
+                    renderFiltered();
+                    updateYearSelect();
+                }
+            } catch (e) {}
+            return;
+        }
+        const v = parseInt(value, 10);
         if (v > 0) { state.loadDias = v; saveCache('funil', null); navigateTo('funil'); }
-    });
+    }
+    document.getElementById('funil-scope-select')?.addEventListener('change', (e) => applyFunilScopeChange(e.target.value));
 
-    function updateYearChips() {
-        const chipsEl = document.getElementById('funil-year-chips');
-        if (!chipsEl) return;
-        if (state.funilScope !== 'all') { chipsEl.innerHTML = ''; return; }
+    function updateYearSelect() {
         const dates = funilData.map((f) => parseDisplayDate(f.atualizacao) || parseDisplayDate(f.data));
-        renderYearChips(chipsEl, dates, state.funilYearFilter, (year) => {
+        wireYearSelect('funil-year-select', dates, state.funilYearFilter, (year) => {
             state.funilYearFilter = year;
             renderFiltered();
-            updateYearChips();
         });
     }
-    updateYearChips();
-
-    document.getElementById('scope-load-all')?.addEventListener('click', async () => {
-        const listEl = document.getElementById('funil-list-container');
-        if (listEl) listEl.innerHTML = `<div class="scope-loading">Carregando histórico completo...</div>`;
-        try {
-            const r = await callAPI('getFunil', { user: state.currentUser, meses: 0 });
-            if (r.status === 'success') {
-                state.funil = r.funil || r.data || [];
-                state.funilScope = 'all';
-                saveCache('funil_all', state.funil);
-                funilData = state.funil;
-                document.querySelector('.scope-banner')?.remove();
-                wireMultiCheckFilter({ triggerId: 'funil-filter-status-trigger', inputId: 'funil-filter-status', menuId: 'funil-filter-status-menu', options: Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))) });
-                wireMultiCheckFilter({ triggerId: 'funil-filter-cidade-trigger', inputId: 'funil-filter-cidade', menuId: 'funil-filter-cidade-menu', options: Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort() });
-                wireMultiCheckFilter({ triggerId: 'funil-filter-foco-trigger', inputId: 'funil-filter-foco', menuId: 'funil-filter-foco-menu', options: Array.from(new Set(funilData.map((f) => f.foco).filter(Boolean))).sort() });
-                if (isAdmGer) wireMultiCheckFilter({ triggerId: 'funil-filter-vendor-trigger', inputId: 'funil-filter-vendor', menuId: 'funil-filter-vendor-menu', options: Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort() });
-                renderFiltered();
-                updateYearChips();
-            }
-        } catch(e) {}
-    });
+    updateYearSelect();
 
     document.getElementById('btn-new-funil')?.addEventListener('click', () => navigateTo('funil-new'));
     document.getElementById('funil-campanha-btn')?.addEventListener('click', async () => {

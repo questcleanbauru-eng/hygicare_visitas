@@ -355,6 +355,83 @@
     flex-shrink: 0;
 }
 
+/* ── Modal "Notificar sobre este retorno" ─────────────────────────────
+   3 partes (cabeçalho fixo / corpo rolável / rodapé fixo) com uma única
+   área de rolagem — a lista. O .modal-card padrão tem overflow-y:auto
+   pra caber conteúdo variado (Radar etc.); aqui isso é desligado de
+   propósito (o card inteiro não rola) e o scroll fica só no
+   .agnotify-list, que cresce/encolhe pro espaço que sobrar entre
+   cabeçalho/busca/rodapé (flex:1 1 auto + min-height:0). */
+.agnotify-modal {
+    display: flex;
+    flex-direction: column;
+    width: min(480px, 92vw);
+    max-width: 480px;
+    max-height: 85vh;
+    padding: 0;
+    overflow: hidden;
+}
+
+.agnotify-modal-header {
+    flex-shrink: 0;
+    padding: 1.1rem 1.25rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+}
+.agnotify-modal-header h3 { margin: 0 0 0.3rem; }
+.agnotify-modal-header .helper-text { margin: 0; }
+
+.agnotify-modal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0.85rem 1.25rem;
+    gap: 0.5rem;
+    overflow: hidden;
+}
+
+#agnotify-search { flex-shrink: 0; }
+
+.agnotify-select-all-row {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+    color: var(--text-muted-strong);
+    cursor: pointer;
+}
+
+.agnotify-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.agnotify-list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.7rem;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+.agnotify-list-item:hover { background: var(--bg); }
+.agnotify-list-item + .agnotify-list-item { border-top: 1px solid var(--border); }
+
+.agnotify-modal-footer {
+    flex-shrink: 0;
+    padding: 0.85rem 1.25rem 1.1rem;
+    border-top: 1px solid var(--border);
+    margin: 0;
+}
+
 /* ── Responsive: mobile (< 640px) ── */
 
 .gs-result-item {

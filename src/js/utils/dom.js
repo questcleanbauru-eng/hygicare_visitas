@@ -70,18 +70,17 @@ export function rebuildFilterOptions(selector, values) {
 
 // Fileira de chips de ano — usado depois de "Ver tudo" pra filtrar o
 // historico completo por ano em vez de olhar tudo de uma vez.
-export function renderYearChips(container, dates, selectedYear, onSelectYear) {
-    if (!container) return;
+// Select "Ano" (ver scopeYearFilterFieldsHtml, format.js) — reaproveita o
+// mesmo elemento <select> a cada chamada (via .onchange=, não
+// addEventListener, pra não empilhar listener duplicado a cada re-render),
+// então pode ser chamado de novo sempre que o conjunto de dados carregado
+// mudar (ex.: depois de "Tudo" trazer o histórico completo).
+export function wireYearSelect(selectId, dates, selectedYear, onSelectYear) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
     const years = Array.from(new Set(dates.map((d) => d && d.getFullYear()).filter(Boolean))).sort((a, b) => b - a);
-    if (years.length <= 1) { container.innerHTML = ''; return; }
-    container.innerHTML = `
-        <span class="year-chips-label">Ano:</span>
-        <button type="button" class="mini-button year-chip${!selectedYear ? ' active' : ''}" data-year="">Todos</button>
-        ${years.map((y) => `<button type="button" class="mini-button year-chip${selectedYear === y ? ' active' : ''}" data-year="${y}">${y}</button>`).join('')}
-    `;
-    container.querySelectorAll('[data-year]').forEach((btn) => {
-        btn.addEventListener('click', () => onSelectYear(btn.dataset.year ? Number(btn.dataset.year) : null));
-    });
+    select.innerHTML = `<option value="">Todos</option>${years.map((y) => `<option value="${y}"${selectedYear === y ? ' selected' : ''}>${y}</option>`).join('')}`;
+    select.onchange = () => onSelectYear(select.value ? Number(select.value) : null);
 }
 
 

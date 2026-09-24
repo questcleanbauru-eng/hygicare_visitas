@@ -345,7 +345,7 @@ export function getFieldIcon(label) {
     if (l.includes('prospec')) { return fieldIconSvg('target'); }
     if (l.includes('vendedor')) { return fieldIconSvg('user'); }
     if (l.includes('horário') || l.includes('horario') || l === 'hora') { return fieldIconSvg('clock'); }
-    if (l.includes('data') || l.includes('início') || l.includes('inicio') || l.includes('fim') || l.includes('limite') || l.includes('atualiza') || l.includes('período') || l.includes('periodo') || l.includes('criaç') || l.includes('criac')) { return fieldIconSvg('calendar'); }
+    if (l.includes('data') || l.includes('início') || l.includes('inicio') || l.includes('fim') || l.includes('limite') || l.includes('atualiza') || l.includes('período') || l.includes('periodo') || l.includes('criaç') || l.includes('criac') || l === 'ano' || l.includes('carregar')) { return fieldIconSvg('calendar'); }
     if (l.includes('cliente')) { return fieldIconSvg('building'); }
     if (l.includes('contato')) { return fieldIconSvg('phone'); }
     if (l.includes('e-mail') || l.includes('email')) { return fieldIconSvg('mail'); }
@@ -381,6 +381,33 @@ export function filterLabelHtml(label) {
 // mesmo markup em Visitas/Propostas/Funil: rótulo + botão-resumo + menu de
 // checkbox, escondidos atrás de um <input type="hidden"> que guarda o valor
 // de verdade (string separada por vírgula).
+// "Carregar últimos" (período de carga do backend: 30/90/180/365 dias ou
+// Tudo) + "Ano" (filtro client-side sobre o que já foi carregado) — mesmo
+// padrão visual dos demais filtros (rótulo com ícone + select), usado em
+// Visitas/Propostas/Funil. Substitui o antigo trio input+"Carregar"+"Ver
+// tudo" e a fileira de chips de ano (ver wireScopeSelect/wireYearSelect,
+// dom.js, pro wiring — o "Ano" nasce só com a opção "Todos" porque as
+// opções dependem dos dados já carregados na tela, preenchidas por lá).
+export function scopeYearFilterFieldsHtml({ scopeSelectId, yearSelectId, loadDias, scopeAll }) {
+    const dias = Number(loadDias) || 90;
+    const sel = (v) => (v === 'all' ? !!scopeAll : (!scopeAll && dias === Number(v))) ? ' selected' : '';
+    return `
+        <div class="form-group">
+            <label for="${scopeSelectId}">${filterLabelHtml('Carregar últimos')}</label>
+            <select id="${scopeSelectId}">
+                <option value="30"${sel('30')}>30 dias</option>
+                <option value="90"${sel('90')}>90 dias</option>
+                <option value="180"${sel('180')}>180 dias</option>
+                <option value="365"${sel('365')}>1 ano</option>
+                <option value="all"${sel('all')}>Tudo</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="${yearSelectId}">${filterLabelHtml('Ano')}</label>
+            <select id="${yearSelectId}"><option value="">Todos</option></select>
+        </div>`;
+}
+
 export function multiCheckFilterFieldHtml(label, id, placeholder = 'Todos') {
     return `
         <div class="form-group">

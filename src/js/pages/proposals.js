@@ -5,12 +5,12 @@ import {
     formatMonthKey, normalizeProposal, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml,
     formatInputDateFromDisplay, formatDateFromDisplay,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
-    clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml
+    clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml, scopeYearFilterFieldsHtml
 } from '../utils/format.js';
 import {
     debounce, renderDetailRow, actionIcon, showToast, renderSimpleOptions,
     initializeSearchableInput, showRefreshIndicator, hideRefreshIndicator, skeletonDetail,
-    loadingState, addScrollTop, openExternal, renderYearChips, setSaving, preventEnterSubmit,
+    loadingState, addScrollTop, openExternal, wireYearSelect, setSaving, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
@@ -149,14 +149,7 @@ export function fillProposalsContent(mainContent, proposals) {
                     <label for="pf-date-to">${filterLabelHtml('Criação até')}</label>
                     <input type="date" id="pf-date-to">
                 </div>
-                <div id="proposal-year-chips" class="year-chips-row"></div>
-                <div class="scope-banner scope-days-ctrl">
-                    <label for="scope-dias-input">Período:</label>
-                    <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
-                    <span>dias</span>
-                    <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
-                    <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
-                </div>
+                ${scopeYearFilterFieldsHtml({ scopeSelectId: 'proposal-scope-select', yearSelectId: 'proposal-year-select', loadDias: state.loadDias, scopeAll: state.proposalsScope === 'all' })}
             </div>
         </div>
         <div id="proposal-list-container"></div>
@@ -623,48 +616,50 @@ export function fillProposalsContent(mainContent, proposals) {
         syncProposalMultiCheckLabels();
         state.proposalFilters = {};
         state.proposalsYearFilter = null;
+        const scopeSelect = document.getElementById('proposal-scope-select');
+        if (scopeSelect && scopeSelect.value !== '90') { scopeSelect.value = '90'; applyProposalScopeChange('90'); }
         renderFiltered();
-        updateYearChips();
+        updateYearSelect();
     });
 
-    document.getElementById('scope-load-days')?.addEventListener('click', () => {
-        const v = parseInt(document.getElementById('scope-dias-input')?.value, 10);
+    // "Carregar últimos" — select único no lugar do antigo input+"Carregar"
+    // +"Ver tudo". Dia-count reusa o mesmo caminho de sempre (recarrega a
+    // página com state.loadDias novo); "Tudo" reusa o fetch-all em memória
+    // que já existia (sem navegar/recarregar a tela inteira).
+    async function applyProposalScopeChange(value) {
+        if (value === 'all') {
+            const listEl = document.getElementById('proposal-list-container');
+            if (listEl) listEl.innerHTML = `<div class="scope-loading">Carregando histórico completo...</div>`;
+            try {
+                const r = await callAPI('getProposals', { user: state.currentUser, meses: 0 });
+                if (r.status === 'success') {
+                    state.proposals = r.proposals || [];
+                    state.proposalsScope = 'all';
+                    saveCache('proposals_all', state.proposals);
+                    normalized = state.proposals.map(normalizeProposal);
+                    wireMultiCheckFilter({ triggerId: 'pf-status-trigger', inputId: 'pf-status', menuId: 'pf-status-menu', options: Array.from(new Set(normalized.map((p) => p.status).filter(Boolean))) });
+                    wireMultiCheckFilter({ triggerId: 'pf-cidade-trigger', inputId: 'pf-cidade', menuId: 'pf-cidade-menu', options: Array.from(new Set(normalized.map((p) => p.cidade).filter(Boolean))).sort() });
+                    wireMultiCheckFilter({ triggerId: 'pf-foco-trigger', inputId: 'pf-foco', menuId: 'pf-foco-menu', options: Array.from(new Set(normalized.map((p) => p.foco).filter(Boolean))).sort() });
+                    if (isAdmGer) wireMultiCheckFilter({ triggerId: 'pf-vendor-trigger', inputId: 'pf-vendor', menuId: 'pf-vendor-menu', options: Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort() });
+                    renderFiltered();
+                    updateYearSelect();
+                }
+            } catch (e) {}
+            return;
+        }
+        const v = parseInt(value, 10);
         if (v > 0) { state.loadDias = v; saveCache('proposals', null); navigateTo('proposals'); }
-    });
+    }
+    document.getElementById('proposal-scope-select')?.addEventListener('change', (e) => applyProposalScopeChange(e.target.value));
 
-    function updateYearChips() {
-        const chipsEl = document.getElementById('proposal-year-chips');
-        if (!chipsEl) return;
-        if (state.proposalsScope !== 'all') { chipsEl.innerHTML = ''; return; }
+    function updateYearSelect() {
         const dates = normalized.map((p) => parseDisplayDate(p.data));
-        renderYearChips(chipsEl, dates, state.proposalsYearFilter, (year) => {
+        wireYearSelect('proposal-year-select', dates, state.proposalsYearFilter, (year) => {
             state.proposalsYearFilter = year;
             renderFiltered();
-            updateYearChips();
         });
     }
-    updateYearChips();
-
-    document.getElementById('scope-load-all')?.addEventListener('click', async () => {
-        const listEl = document.getElementById('proposal-list-container');
-        if (listEl) listEl.innerHTML = `<div class="scope-loading">Carregando histórico completo...</div>`;
-        try {
-            const r = await callAPI('getProposals', { user: state.currentUser, meses: 0 });
-            if (r.status === 'success') {
-                state.proposals = r.proposals || [];
-                state.proposalsScope = 'all';
-                saveCache('proposals_all', state.proposals);
-                normalized = state.proposals.map(normalizeProposal);
-                document.querySelector('.scope-banner')?.remove();
-                wireMultiCheckFilter({ triggerId: 'pf-status-trigger', inputId: 'pf-status', menuId: 'pf-status-menu', options: Array.from(new Set(normalized.map((p) => p.status).filter(Boolean))) });
-                wireMultiCheckFilter({ triggerId: 'pf-cidade-trigger', inputId: 'pf-cidade', menuId: 'pf-cidade-menu', options: Array.from(new Set(normalized.map((p) => p.cidade).filter(Boolean))).sort() });
-                wireMultiCheckFilter({ triggerId: 'pf-foco-trigger', inputId: 'pf-foco', menuId: 'pf-foco-menu', options: Array.from(new Set(normalized.map((p) => p.foco).filter(Boolean))).sort() });
-                if (isAdmGer) wireMultiCheckFilter({ triggerId: 'pf-vendor-trigger', inputId: 'pf-vendor', menuId: 'pf-vendor-menu', options: Array.from(new Set(normalized.map((p) => p.vendedor).filter(Boolean))).sort() });
-                renderFiltered();
-                updateYearChips();
-            }
-        } catch(e) {}
-    });
+    updateYearSelect();
 
     document.getElementById('btn-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
     document.getElementById('proposal-select-toggle')?.addEventListener('click', (e) => {

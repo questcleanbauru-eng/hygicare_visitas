@@ -195,9 +195,10 @@ export function fillManutencaoContent(mainContent, itens) {
     mainContent.innerHTML = `
         <div class="page-header">
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
-            <div class="header-actions-group mnt-header-actions-stack">
-                <button type="button" class="text-link" id="btn-ver-modelos">📋 Modelos</button>
-                ${isAdmGer ? `<button type="button" class="text-link" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
+            <div class="header-actions-group mnt-header-actions-row">
+                <button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="btn-ver-modelos">📋 Modelos</button>
+                ${isAdmGer ? `<button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
+                <span class="mnt-header-divider" aria-hidden="true"></span>
                 <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. SPSP</button>
                 <button type="button" class="primary-btn" id="btn-new-rel-tecnico-paulo" title="Variante do Relatório SPSP com assinatura por desenho">✍️ SPSP - Paulo</button>
                 <button type="button" class="primary-btn" id="btn-new-manutencao" title="Com tabela de aferição de vazão">🔧 Rel. de Aferição</button>

@@ -212,15 +212,63 @@
 .mnt-foto-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
 /* Botões do cabeçalho (Modelos, Pedir Relatório, Rel. SPSP, SPSP - Paulo,
-   Rel. de Aferição, Rel. Geral) — 6 itens numa linha só ficava apertado e
-   quebrava feio; empilha um abaixo do outro, alinhado à direita (mesmo
-   canto onde já ficavam). Não mexe em .header-actions-group "puro" porque
-   é compartilhado com o resto do app — só essa combinação de classes. */
-.mnt-header-actions-stack {
-    flex-direction: column;
-    align-items: flex-end;
-    justify-content: flex-start;
-    gap: 0.35rem;
+   Rel. de Aferição, Rel. Geral) — uma linha só: título à esquerda, ações à
+   direita. Modelos/Pedir Relatório como botões secundários (fundo
+   transparente, borda clara) separados por um divisor sutil dos 4 botões
+   escuros de criar relatório. Não mexe em .header-actions-group "puro"
+   porque é compartilhado com o resto do app — só essa combinação de
+   classes. */
+.mnt-header-actions-row {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.mnt-header-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    padding: 0 0.9rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.mnt-header-btn-secondary {
+    background: transparent;
+    border: 1.5px solid var(--border);
+    color: var(--text-muted-strong);
+}
+.mnt-header-btn-secondary:hover { background: var(--bg); border-color: var(--text-muted); }
+
+.mnt-header-divider {
+    width: 1px;
+    align-self: stretch;
+    min-height: 38px;
+    background: var(--border);
+}
+
+/* .primary-btn (Rel. SPSP/SPSP - Paulo/Rel. de Aferição/Rel. Geral) já vem
+   com pill + peso de fonte do padrão do app — só ajusta altura/padding
+   pra bater com os botões secundários ao lado (~38px, gap de 8px) e
+   adiciona um hover, que o botão base não tem. */
+.mnt-header-actions-row .primary-btn {
+    height: 38px;
+    min-height: 38px;
+    padding: 0 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+}
+.mnt-header-actions-row .primary-btn:hover { opacity: 0.85; }
+
+@media (max-width: 560px) {
+    .mnt-header-actions-row { justify-content: flex-start; }
 }
 
 /* Legenda dos tipos de relatório — some por padrão (link "Mostrar/Ocultar"

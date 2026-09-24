@@ -9,12 +9,12 @@ import {
     calculateDaysFromDisplayDate,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, clienteNomeParaGravar, multiCheckFilterFieldHtml,
-    formatCurrency, parseCurrencyBR, resolveNotifyOptions
+    formatCurrency, parseCurrencyBR, resolveNotifyOptions, scopeYearFilterFieldsHtml
 } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
-    loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, renderYearChips, setSaving,
+    loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, wireYearSelect, setSaving,
     openIcsEvent, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
@@ -195,16 +195,9 @@ export function fillVisitsContent(container, visits) {
                     <label for="visit-filter-date-to">${filterLabelHtml('Data final')}</label>
                     <input type="date" id="visit-filter-date-to">
                 </div>
-                <div class="scope-banner scope-days-ctrl">
-                    <label for="scope-dias-input">Período:</label>
-                    <input type="number" id="scope-dias-input" class="scope-dias-input" value="${state.loadDias || 90}" min="1" max="365">
-                    <span>dias</span>
-                    <button type="button" id="scope-load-days" class="scope-days-load-btn">Carregar</button>
-                    <button type="button" id="scope-load-all" class="scope-load-btn">Ver tudo</button>
-                </div>
+                ${scopeYearFilterFieldsHtml({ scopeSelectId: 'visit-scope-select', yearSelectId: 'visit-year-select', loadDias: state.loadDias, scopeAll: state.visitsScope === 'all' })}
             </div>
         </div>
-        <div id="visit-year-chips" class="year-chips-row"></div>
         <div id="visits-list-container"></div>
     `;
 
@@ -463,8 +456,10 @@ export function fillVisitsContent(container, visits) {
         state.visitFilters = {};
         syncVisitMultiCheckLabels();
         state.visitsYearFilter = null;
+        const scopeSelect = document.getElementById('visit-scope-select');
+        if (scopeSelect && scopeSelect.value !== '90') { scopeSelect.value = '90'; applyVisitsScopeChange('90'); }
         renderFilteredVisits();
-        updateYearChips();
+        updateYearSelect();
     });
 
     // Exposto pro toggle "Edição rápida" que fica no cabeçalho da página
@@ -484,43 +479,43 @@ export function fillVisitsContent(container, visits) {
         ], 'Visitas');
     });
 
-    document.getElementById('scope-load-days')?.addEventListener('click', () => {
-        const v = parseInt(document.getElementById('scope-dias-input')?.value, 10);
+    // "Carregar últimos" — select único no lugar do antigo input+"Carregar"
+    // +"Ver tudo". Dia-count reusa o mesmo caminho de sempre (recarrega a
+    // página com state.loadDias novo); "Tudo" reusa o fetch-all em memória
+    // que já existia (sem navegar/recarregar a tela inteira).
+    async function applyVisitsScopeChange(value) {
+        if (value === 'all') {
+            const listEl = document.getElementById('visits-list-container');
+            if (listEl) listEl.innerHTML = `<div class="scope-loading">Carregando histórico completo...</div>`;
+            try {
+                const r = await callAPI('getVisits', { user: state.currentUser, meses: 0 });
+                if (r.status === 'success') {
+                    state.visits = r.visits || [];
+                    state.visitsScope = 'all';
+                    saveCache('visits_all', state.visits);
+                    normalizedVisits = state.visits.map((v) => normalizeVisit(v)).sort((a, b) => compareVisitsByDateDesc(a, b));
+                    wireMultiCheckFilter({ triggerId: 'visit-filter-type-trigger', inputId: 'visit-filter-type', menuId: 'visit-filter-type-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.tipoVisita).filter(Boolean))).sort() });
+                    wireMultiCheckFilter({ triggerId: 'visit-filter-city-trigger', inputId: 'visit-filter-city', menuId: 'visit-filter-city-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.cidade).filter(Boolean))).sort() });
+                    if (canVendorTools) wireMultiCheckFilter({ triggerId: 'visit-filter-vendor-trigger', inputId: 'visit-filter-vendor', menuId: 'visit-filter-vendor-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort() });
+                    renderFilteredVisits();
+                    updateYearSelect();
+                }
+            } catch (e) {}
+            return;
+        }
+        const v = parseInt(value, 10);
         if (v > 0) { state.loadDias = v; saveCache('visits', null); navigateTo('visits'); }
-    });
+    }
+    document.getElementById('visit-scope-select')?.addEventListener('change', (e) => applyVisitsScopeChange(e.target.value));
 
-    function updateYearChips() {
-        const chipsEl = document.getElementById('visit-year-chips');
-        if (!chipsEl) return;
-        if (state.visitsScope !== 'all') { chipsEl.innerHTML = ''; return; }
+    function updateYearSelect() {
         const dates = normalizedVisits.map((v) => parseDisplayDate(v.dataVisita));
-        renderYearChips(chipsEl, dates, state.visitsYearFilter, (year) => {
+        wireYearSelect('visit-year-select', dates, state.visitsYearFilter, (year) => {
             state.visitsYearFilter = year;
             renderFilteredVisits();
-            updateYearChips();
         });
     }
-    updateYearChips();
-
-    document.getElementById('scope-load-all')?.addEventListener('click', async () => {
-        const listEl = document.getElementById('visits-list-container');
-        if (listEl) listEl.innerHTML = `<div class="scope-loading">Carregando histórico completo...</div>`;
-        try {
-            const r = await callAPI('getVisits', { user: state.currentUser, meses: 0 });
-            if (r.status === 'success') {
-                state.visits = r.visits || [];
-                state.visitsScope = 'all';
-                saveCache('visits_all', state.visits);
-                normalizedVisits = state.visits.map((v) => normalizeVisit(v)).sort((a, b) => compareVisitsByDateDesc(a, b));
-                document.querySelector('.scope-banner')?.remove();
-                wireMultiCheckFilter({ triggerId: 'visit-filter-type-trigger', inputId: 'visit-filter-type', menuId: 'visit-filter-type-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.tipoVisita).filter(Boolean))).sort() });
-                wireMultiCheckFilter({ triggerId: 'visit-filter-city-trigger', inputId: 'visit-filter-city', menuId: 'visit-filter-city-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.cidade).filter(Boolean))).sort() });
-                if (canVendorTools) wireMultiCheckFilter({ triggerId: 'visit-filter-vendor-trigger', inputId: 'visit-filter-vendor', menuId: 'visit-filter-vendor-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort() });
-                renderFilteredVisits();
-                updateYearChips();
-            }
-        } catch(e) {}
-    });
+    updateYearSelect();
 
     renderFilteredVisits();
 
@@ -722,30 +717,64 @@ export async function renderCalendarPage(options) {
     // document.getElementById — um campo embutido no card duplicaria id.
     // Criado sob demanda no clique e removido ao fechar, então nunca há mais
     // de uma instância no documento.
+    // Modal em 3 partes (cabeçalho fixo / corpo rolável / rodapé fixo) com
+    // UMA área de rolagem só (a lista) — não usa multiCheckFilterFieldHtml/
+    // wireMultiCheckFilter aqui de propósito: aquele padrão abre a lista
+    // como um menu "position:absolute" flutuando por cima do card, que
+    // dentro de um modal já com overflow-y:auto acabava criando DUAS barras
+    // de rolagem (a do menu e a do modal) e empurrando Cancelar/Enviar pra
+    // fora da área visível. Lista sempre aberta, embutida no corpo, resolve
+    // isso de vez.
     const openNotificarAgendamentoModal = (a) => {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
+        const optionsHtml = notifyOptionsAg.length
+            ? notifyOptionsAg.map((nome) => `
+                <label class="agnotify-list-item">
+                    <input type="checkbox" class="agnotify-check" value="${escapeHtml(nome)}">
+                    <span>${escapeHtml(nome)}</span>
+                </label>`).join('')
+            : `<p class="helper-text" style="text-align:center;padding:0.5rem 0">Nenhum destinatário disponível.</p>`;
         overlay.innerHTML = `
-            <div class="modal-card" style="text-align:left">
-                <h3 style="margin-top:0">📣 Notificar sobre este retorno</h3>
-                <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">${escapeHtml(a.cliente || 'Cliente')}${a.dataAgendada ? ` — ${escapeHtml(a.dataAgendada)}` : ''}</p>
-                ${multiCheckFilterFieldHtml('Notificar', 'agnotify-usuarios')}
-                <div class="form-actions full-width" style="display:flex;gap:0.5rem">
+            <div class="modal-card agnotify-modal" style="text-align:left">
+                <div class="agnotify-modal-header">
+                    <h3>📣 Notificar sobre este retorno</h3>
+                    <p class="helper-text">${escapeHtml(a.cliente || 'Cliente')}${a.dataAgendada ? ` — ${escapeHtml(a.dataAgendada)}` : ''}</p>
+                </div>
+                <div class="agnotify-modal-body">
+                    ${notifyOptionsAg.length ? `<input type="text" class="form-input" id="agnotify-search" placeholder="Buscar pessoa...">
+                    <label class="agnotify-select-all-row"><input type="checkbox" id="agnotify-select-all"> Selecionar todos</label>` : ''}
+                    <div class="agnotify-list" id="agnotify-list">${optionsHtml}</div>
+                </div>
+                <div class="agnotify-modal-footer form-actions full-width">
                     <button type="button" class="secondary-button" id="agnotify-cancel">Cancelar</button>
                     <button type="button" class="primary-button" id="agnotify-send">Enviar</button>
                 </div>
             </div>`;
         document.body.appendChild(overlay);
-        wireMultiCheckFilter({
-            triggerId: 'agnotify-usuarios-trigger', inputId: 'agnotify-usuarios', menuId: 'agnotify-usuarios-menu',
-            options: notifyOptionsAg, emptyLabel: 'Escolha...'
+
+        const listEl = overlay.querySelector('#agnotify-list');
+        const searchEl = overlay.querySelector('#agnotify-search');
+        const selectAllEl = overlay.querySelector('#agnotify-select-all');
+        const getChecks = () => Array.from(listEl.querySelectorAll('.agnotify-check'));
+
+        searchEl?.addEventListener('input', () => {
+            const q = searchEl.value.trim().toLowerCase();
+            listEl.querySelectorAll('.agnotify-list-item').forEach((row) => {
+                const nome = row.querySelector('.agnotify-check').value.toLowerCase();
+                row.style.display = !q || nome.includes(q) ? '' : 'none';
+            });
         });
+        selectAllEl?.addEventListener('change', () => {
+            getChecks().forEach((c) => { if (c.closest('.agnotify-list-item').style.display !== 'none') c.checked = selectAllEl.checked; });
+        });
+
         const close = () => overlay.remove();
         overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
         overlay.querySelector('#agnotify-cancel').addEventListener('click', close);
         overlay.querySelector('#agnotify-send').addEventListener('click', async (e) => {
             const btn = e.currentTarget;
-            const selecionados = (document.getElementById('agnotify-usuarios')?.value || '').split(',').filter(Boolean);
+            const selecionados = getChecks().filter((c) => c.checked).map((c) => c.value);
             if (!selecionados.length) { showToast('Escolha ao menos um usuário.', true); return; }
             setSaving(true, btn, 'Enviando...');
             const r = await callAPI('notifyRegistroCriado', {
@@ -955,46 +984,40 @@ export async function renderCalendarPage(options) {
         }
         sectionEl.style.display = '';
 
+        // Só os retornos do mês/ano que o calendário está mostrando — antes
+        // a lista trazia TODOS os pendentes, de qualquer mês, o que não
+        // batia com o mês exibido no calendário acima. viewYear/viewMonth
+        // são as mesmas variáveis que o grid do calendário usa (fechamento
+        // sobre o escopo de renderCalendarPage), então navegar com ←/→
+        // chama render() → renderAgendamentosSection() de novo já filtrado
+        // pro novo mês, sem precisar de nenhum outro fio.
         const pending = (state.agendamentos || [])
             .filter((a) => a.status === 'Pendente')
             .filter((a) => activeFilter !== 'campanha' || a.campanhaOrigemId)
+            .filter((a) => {
+                const d = parseDisplayDate(a.dataAgendada);
+                return d && d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+            })
             .sort((a, b) => {
                 const da = parseDisplayDate(a.dataAgendada);
                 const db = parseDisplayDate(b.dataAgendada);
                 return (da ? da.getTime() : 0) - (db ? db.getTime() : 0);
             });
 
+        const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        const monthLabelCap = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
         if (pending.length === 0) {
             sectionEl.innerHTML = `
                 <div class="visit-month-header"><h3>📌 Retornos agendados</h3></div>
-                <p class="helper-text" style="text-align:center;padding:0.5rem 0">Nenhum retorno pendente.</p>
+                <p class="helper-text" style="text-align:center;padding:0.5rem 0">Nenhum retorno agendado para ${escapeHtml(monthLabelCap)}.</p>
             `;
             return;
         }
 
-        // Separado por mês (pedido do admin — lista corrida ficava difícil de
-        // ler com muitos pendentes). Ascendente (mês mais próximo primeiro):
-        // ao contrário de Visitas/Propostas/Funil (mais recente primeiro,
-        // olhando pra trás), retorno agendado é sempre olhar pra frente.
-        const byMonth = pending.reduce((groups, a) => {
-            const d = parseDisplayDate(a.dataAgendada);
-            const key = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'Sem data';
-            (groups[key] = groups[key] || []).push(a);
-            return groups;
-        }, {});
-        const groupsHtml = Object.keys(byMonth).sort((a, b) => a.localeCompare(b)).map((key) => `
-            <section class="visit-month-group">
-                <div class="visit-month-header">
-                    <h3>${escapeHtml(formatMonthKey(key))}</h3>
-                    <span>${byMonth[key].length} pendente(s)</span>
-                </div>
-                <div class="visits-list">${byMonth[key].map((a) => agendamentoCardHtml(a, { showDate: true })).join('')}</div>
-            </section>
-        `).join('');
-
         sectionEl.innerHTML = `
-            <div class="visit-month-header"><h3>📌 Retornos agendados</h3><span>${pending.length} pendente(s)</span></div>
-            ${groupsHtml}
+            <div class="visit-month-header"><h3>📌 Retornos agendados — ${escapeHtml(monthLabelCap)}</h3><span>${pending.length} pendente(s)</span></div>
+            <div class="visits-list">${pending.map((a) => agendamentoCardHtml(a, { showDate: true })).join('')}</div>
         `;
         bindAgendamentoRowActions(sectionEl, pending, { onMutated: renderAgendamentosSection });
     };
