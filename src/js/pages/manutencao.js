@@ -1043,10 +1043,6 @@ export async function renderManutencaoFormPage(record, options) {
     const isBiopet = isEdit ? m.tipoRelatorio === 'biopet' : !!(options && options.tipoRelatorio === 'biopet');
     const formTitulo = isEdit ? 'Editar Relatório' : (isBiopet ? 'Novo Relatório BIOPET' : isGeral ? 'Novo Relatório Geral' : 'Novo Relatório de Aferição');
     const TIPOS_MANUTENCAO = ['Preventiva', 'Corretiva', 'Aferição'];
-    // Texto padrão que o técnico sempre escreve na Observação desse modelo —
-    // evita digitar de novo em toda visita; continua editável.
-    const BIOPET_OBS_PADRAO = 'VAZÃO E PRESSÃO DA REDE: As variações nas concentrações continuam presentes, tendo em vista as instalações da rede hidráulica e quando se usa vários pontos e mangueiras de enxágue ao mesmo tempo. O sistema de tratamento da ETA também tem interferido nas centrais de diluições, transferindo resíduos que interferem nos chips de diluições.\nApesar deste fato, todas as concentrações medidas deram superiores ao mínimo padronizado de 2%, obedecendo o Boletim Técnico e cumprindo a função do hipoclorito.';
-    if (!isEdit && isBiopet && !m.observacao) m.observacao = BIOPET_OBS_PADRAO;
 
     // Rascunho salvo de uma visita anterior a esta tela (ver mntDraftKey
     // acima) — só relevante numa criação nova, nunca numa edição. Só
