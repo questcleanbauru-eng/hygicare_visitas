@@ -314,8 +314,10 @@ export async function openGerarCampanhaManutencaoModal() {
             <div class="form-group full-width">
                 <label>Tipo de relatório</label>
                 <div class="radio-group">
-                    <button type="button" class="radio-pill is-checked" data-tipo="manutencao">🔧 Aferição</button>
-                    <button type="button" class="radio-pill" data-tipo="relatoriotecnico">📋 SPSP (Grupo SPSP)</button>
+                    <button type="button" class="radio-pill is-checked" data-tipo="manutencao" data-sub="">🔧 Aferição</button>
+                    <button type="button" class="radio-pill" data-tipo="manutencao" data-sub="geral">📄 Geral</button>
+                    <button type="button" class="radio-pill" data-tipo="relatoriotecnico" data-sub="">📋 SPSP</button>
+                    <button type="button" class="radio-pill" data-tipo="relatoriotecnico" data-sub="paulo">✍️ SPSP - Paulo</button>
                 </div>
             </div>
             <div class="form-group full-width">
@@ -357,12 +359,19 @@ export async function openGerarCampanhaManutencaoModal() {
     document.body.appendChild(overlay);
     let created = false;
     let tipoRelatorio = 'manutencao';
+    // '' | 'geral' (dentro de manutencao) | '' | 'paulo' (dentro de
+    // relatoriotecnico) — variante específica do relatório, guardada em
+    // cada item (ver handleCriarCampanha) pra abrir o formulário certo
+    // quando o vendedor for preencher (RELATORIO_PREENCHER_CONFIG/
+    // wireCard, mais abaixo neste arquivo).
+    let subVariante = '';
     const close = () => { overlay.remove(); if (created) renderCampanhasPage(); };
     overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
     overlay.querySelector('#cm-cancel').addEventListener('click', close);
 
     overlay.querySelectorAll('.radio-pill[data-tipo]').forEach((btn) => btn.addEventListener('click', () => {
         tipoRelatorio = btn.dataset.tipo;
+        subVariante = btn.dataset.sub || '';
         overlay.querySelectorAll('.radio-pill[data-tipo]').forEach((b) => b.classList.toggle('is-checked', b === btn));
     }));
 
@@ -402,17 +411,22 @@ export async function openGerarCampanhaManutencaoModal() {
         const relatorio = overlay.querySelector('#cm-relatorio').value.trim();
         const prazoInput = overlay.querySelector('#cm-prazo').value;
         const prazoAte = prazoInput ? formatDateFromInputValue(prazoInput) : '';
-        const rotulo = tipoRelatorio === 'relatoriotecnico' ? 'relatório SPSP' : 'relatório de aferição';
+        const rotuloTitulo = tipoRelatorio === 'relatoriotecnico'
+            ? (subVariante === 'paulo' ? 'SPSP - Paulo' : 'Relatório SPSP')
+            : (subVariante === 'geral' ? 'Relatório Geral' : 'Aferição');
+        const rotulo = tipoRelatorio === 'relatoriotecnico'
+            ? (subVariante === 'paulo' ? 'relatório SPSP - Paulo' : 'relatório SPSP')
+            : (subVariante === 'geral' ? 'relatório geral' : 'relatório de aferição');
 
         setSaving(true, btn, 'Gerando...');
         const r = await callAPI('criarCampanha', {
             tipo: tipoRelatorio,
-            titulo: `${tipoRelatorio === 'relatoriotecnico' ? 'Relatório SPSP' : 'Aferição'} — ${cliente}`,
+            titulo: `${rotuloTitulo} — ${cliente}`,
             vendedorDestino,
             prazoAte,
             ...(tipoRelatorio === 'relatoriotecnico'
-                ? { itensRelatorioTecnico: [{ cliente, cidade, relatorio }] }
-                : { itensManutencao: [{ cliente, cidade, relatorio }] }),
+                ? { itensRelatorioTecnico: [{ cliente, cidade, relatorio, tipoRelatorio: subVariante }] }
+                : { itensManutencao: [{ cliente, cidade, relatorio, tipoRelatorio: subVariante }] }),
             user: state.currentUser
         }).catch(() => null);
         if (!r || r.status !== 'success') {
@@ -943,7 +957,12 @@ async function renderCampanhaManutencaoPreencher(main, camp, itens) {
         card.querySelector('.camp-save').addEventListener('click', () => {
             navigateTo(cfg.rota, {
                 prefillCliente: it.cliente, prefillCidade: it.cidade, [cfg.prefillKey]: it.relatorio,
-                campanhaId: camp.id, itemId: it.id
+                campanhaId: camp.id, itemId: it.id,
+                // 'geral'/'paulo' (ver openGerarCampanhaManutencaoModal) — sem
+                // isso, pedir via campanha sempre abria a variante padrão
+                // (Aferição/SPSP), mesmo quando quem pediu escolheu Geral ou
+                // SPSP - Paulo.
+                ...(it.tipoRelatorio ? { tipoRelatorio: it.tipoRelatorio } : {})
             });
         });
     };
