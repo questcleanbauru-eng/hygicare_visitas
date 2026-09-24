@@ -815,7 +815,8 @@ export async function renderManutencaoDetailPage(id) {
                         </div>
                         <div class="mnt-signature-block">
                             <div class="mnt-signature-box">${m.assinaturaCliente ? `<img src="${escapeHtml(m.assinaturaCliente)}" alt="Assinatura do cliente">` : ''}</div>
-                            <p class="mnt-signature-name">${escapeHtml(titleCase(m.cliente) || 'Cliente')}</p>
+                            <p class="mnt-signature-name">${escapeHtml(m.clienteAssinanteNome ? m.clienteAssinanteNome : (titleCase(m.cliente) || 'Cliente'))}</p>
+                            ${m.clienteAssinanteFuncao ? `<p class="mnt-signature-funcao">${escapeHtml(m.clienteAssinanteFuncao)}</p>` : ''}
                         </div>
                     </div>
                 </div>
@@ -1138,6 +1139,17 @@ export async function renderManutencaoFormPage(record, options) {
                 <canvas id="mnt-signature-tecnico" class="signature-pad"></canvas>
                 <div class="signature-pad-actions"><button type="button" class="mini-button" id="mnt-signature-tecnico-clear">Limpar assinatura</button></div>
             </div>
+            ${isBiopet ? `
+            <div class="form-row-pair">
+                <div class="form-group">
+                    <label for="mnt-cliente-assinante-nome">Nome de quem assina (Cliente)</label>
+                    <input type="text" id="mnt-cliente-assinante-nome" value="${escapeHtml(m.clienteAssinanteNome || '')}" placeholder="Nome completo">
+                </div>
+                <div class="form-group">
+                    <label for="mnt-cliente-assinante-funcao">Cargo/Função</label>
+                    <input type="text" id="mnt-cliente-assinante-funcao" value="${escapeHtml(m.clienteAssinanteFuncao || '')}" placeholder="Ex.: Gerente de Compras">
+                </div>
+            </div>` : ''}
             <div class="form-group full-width">
                 <label>Assinatura do Cliente</label>
                 <canvas id="mnt-signature-cliente" class="signature-pad"></canvas>
@@ -1379,6 +1391,8 @@ export async function renderManutencaoFormPage(record, options) {
             itensTabela: isGeral ? '[]' : JSON.stringify(collectItens(itensContainer)),
             tipoRelatorio: isBiopet ? 'biopet' : isGeral ? 'geral' : '',
             tipoManutencao: isBiopet ? (document.getElementById('mnt-tipo-mnt')?.value || 'Aferição') : '',
+            clienteAssinanteNome: isBiopet ? document.getElementById('mnt-cliente-assinante-nome').value.trim() : '',
+            clienteAssinanteFuncao: isBiopet ? document.getElementById('mnt-cliente-assinante-funcao').value.trim() : '',
             fotos: fotoIds.slice(),
             // Sempre manda o que está no canvas agora (mesmo vazio) — assim
             // clicar em "Limpar" numa edição realmente apaga a assinatura

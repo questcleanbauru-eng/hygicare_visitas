@@ -726,6 +726,15 @@
     overflow-wrap: break-word;
 }
 
+.mnt-signature-funcao {
+    margin: 0.1rem 0 0;
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    overflow-wrap: break-word;
+}
+
 .mnt-report-footer {
     display: flex;
     justify-content: space-between;

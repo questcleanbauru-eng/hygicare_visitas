@@ -108,6 +108,8 @@ export function normalizeManutencao(item) {
         tipoManutencao: m.TipoManutencao || m.tipoManutencao || '',
         assinaturaTecnico: m.AssinaturaTecnico || m.assinaturaTecnico || '',
         assinaturaCliente: m.AssinaturaCliente || m.assinaturaCliente || '',
+        clienteAssinanteNome: m.ClienteAssinanteNome || m.clienteAssinanteNome || '',
+        clienteAssinanteFuncao: m.ClienteAssinanteFuncao || m.clienteAssinanteFuncao || '',
         pendenteAprovacao: m.PendenteAprovacao || m.pendenteAprovacao || '',
         fotos: Array.isArray(m.fotos)
             ? m.fotos
