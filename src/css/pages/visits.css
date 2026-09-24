@@ -449,6 +449,126 @@
     margin: 0;
 }
 
+/* ── Modal "Novo agendamento" ────────────────────────────────────────
+   Mesma estrutura de 3 partes (cabeçalho fixo / corpo rolável / rodapé
+   fixo) do modal "Notificar sobre este retorno" — o formulário é comprido
+   (Cliente, Cidade, Data, Repetir, Observação, Notificar) e sem isso o
+   botão "Salvar agendamento" ficava difícil de alcançar rolando o modal
+   inteiro. Cliente/Cidade e Data/Repetir usam .form-row-pair (já existe,
+   mesmo grid 2 colunas de outros formulários do app). */
+.newag-modal {
+    display: flex;
+    flex-direction: column;
+    width: min(480px, 92vw);
+    max-width: 480px;
+    max-height: 85vh;
+    padding: 0;
+    overflow: hidden;
+}
+.newag-modal-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+}
+.newag-modal-header-icon { font-size: 1.3rem; }
+.newag-modal-header h3 { margin: 0; flex: 1 1 auto; font-size: 1.05rem; }
+.newag-modal-close {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: none;
+    background: var(--bg);
+    color: var(--text-muted-strong);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+.newag-modal-close:hover { background: var(--border); }
+
+.newag-modal-body {
+    overflow-y: auto;
+    padding: 1rem 1.1rem;
+    text-align: left;
+}
+
+.newag-modal-footer {
+    flex-shrink: 0;
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.85rem 1.1rem 1.1rem;
+    border-top: 1px solid var(--border);
+}
+.newag-modal-footer button { flex: 1; margin: 0; width: auto; }
+
+.newag-repetir-spacer { display: block; }
+.newag-repetir-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    min-height: 44px;
+}
+.newag-label-optional { font-weight: 400; color: var(--text-muted); }
+
+.newag-notify-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.newag-notify-search-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.35rem 0 0.6rem;
+}
+.newag-notify-search-row input { flex: 1 1 auto; }
+.newag-notify-count {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.newag-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 0.1rem;
+}
+.newag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: var(--radius-pill);
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.84rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.newag-chip:hover { border-color: var(--text-muted); }
+.newag-chip .newag-chip-check { display: none; }
+.newag-chip.is-checked {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+.newag-chip.is-checked .newag-chip-check { display: inline; }
+
 /* ── Responsive: mobile (< 640px) ── */
 
 .gs-result-item {

@@ -2599,87 +2599,131 @@ export async function showCreateAgendamentoModal(onCreated) {
         const defaultDate = new Date();
         defaultDate.setDate(defaultDate.getDate() + 1);
         overlay.innerHTML = `
-            <div class="modal-card">
-                <div style="font-size:2rem;margin-bottom:0.75rem">📅</div>
-                <h3>Novo agendamento</h3>
-                <div class="form-group full-width" style="text-align:left">
-                    <label for="newag-cliente">Cliente *</label>
-                    <div class="searchable-select">
-                        <input type="text" id="newag-cliente" placeholder="Nome do cliente" autocomplete="off">
-                        <div class="searchable-select-menu" id="newag-cliente-menu"></div>
+            <div class="modal-card newag-modal">
+                <div class="newag-modal-header">
+                    <span class="newag-modal-header-icon" aria-hidden="true">📅</span>
+                    <h3>Novo agendamento</h3>
+                    <button type="button" class="newag-modal-close" id="newag-close" aria-label="Fechar">✕</button>
+                </div>
+                <div class="newag-modal-body">
+                    <div class="form-row-pair">
+                        <div class="form-group">
+                            <label for="newag-cliente">Cliente *</label>
+                            <div class="searchable-select">
+                                <input type="text" id="newag-cliente" placeholder="Nome do cliente" autocomplete="off">
+                                <div class="searchable-select-menu" id="newag-cliente-menu"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="newag-cidade">Cidade</label>
+                            <input type="text" id="newag-cidade" placeholder="Cidade (opcional)">
+                        </div>
                     </div>
-                </div>
-                <div class="form-group full-width" style="text-align:left">
-                    <label for="newag-cidade">Cidade</label>
-                    <input type="text" id="newag-cidade" placeholder="Cidade (opcional)">
-                </div>
-                <div class="form-group full-width" style="text-align:left">
-                    <label for="newag-data">Data do retorno *</label>
-                    <input type="date" id="newag-data" value="${defaultDate.toISOString().slice(0, 10)}">
-                </div>
-                <div class="form-group full-width" style="text-align:left">
-                    <label style="display:flex;align-items:center;gap:0.5rem;font-weight:600;cursor:pointer">
-                        <input type="checkbox" id="newag-repetir" style="width:auto;min-height:0">
-                        🔁 Repetir a cada 30 dias
-                    </label>
-                    <span class="text-link" role="button" tabindex="0" id="newag-repetir-help-toggle" style="font-size:0.8rem">O que é isso?</span>
-                    <p class="helper-text" id="newag-repetir-help" hidden style="text-align:left;margin:0.3rem 0 0">Pra acompanhar algo por mais tempo (ex.: teste de produto) — cria vários agendamentos de uma vez, um a cada 30 dias, cada um independente.</p>
-                </div>
-                <div class="form-group full-width" id="newag-repetir-group" style="text-align:left;display:none">
-                    <label for="newag-repetir-meses">Por quantos meses?</label>
-                    <select id="newag-repetir-meses">
-                        <option value="2">2 meses (2 lembretes)</option>
-                        <option value="3" selected>3 meses (3 lembretes)</option>
-                        <option value="6">6 meses (6 lembretes)</option>
-                        <option value="12">12 meses (12 lembretes)</option>
-                    </select>
-                </div>
-                <div class="form-group full-width" style="text-align:left">
-                    <label for="newag-obs">Observação (opcional)</label>
-                    <textarea id="newag-obs" rows="2" placeholder="Ex: ligar antes de ir..."></textarea>
-                </div>
-                ${temNotifyReal ? `
-                <div class="form-group full-width" style="text-align:left">
-                    <label for="newag-notificar-list">Notificar outros usuários *</label>
-                    <p class="helper-text" style="margin:0 0 0.4rem">Pode marcar mais de um.</p>
-                    <input type="hidden" id="newag-notificar">
-                    <div class="agnotify-list" id="newag-notificar-list" style="max-height:180px">
-                        ${notifyOptions.map((nome) => `
-                            <label class="agnotify-list-item">
-                                <input type="checkbox" class="newag-notify-check" value="${escapeHtml(nome)}">
-                                <span>${escapeHtml(nome)}</span>
-                            </label>`).join('')}
+                    <div class="form-row-pair">
+                        <div class="form-group">
+                            <label for="newag-data">Data do retorno *</label>
+                            <input type="date" id="newag-data" value="${defaultDate.toISOString().slice(0, 10)}">
+                        </div>
+                        <div class="form-group">
+                            <label class="newag-repetir-spacer" aria-hidden="true">&nbsp;</label>
+                            <label class="newag-repetir-row">
+                                <input type="checkbox" id="newag-repetir" style="width:auto;min-height:0">
+                                🔁 Repetir a cada 30 dias
+                                <span class="text-link" role="button" tabindex="0" id="newag-repetir-help-toggle" title="O que é isso?">ⓘ</span>
+                            </label>
+                        </div>
                     </div>
-                </div>` : ''}
-                <button type="button" class="primary-button" id="modal-newag-save">Salvar agendamento</button>
-                <button type="button" class="secondary-button" id="modal-newag-cancel">Cancelar</button>
+                    <p class="helper-text" id="newag-repetir-help" hidden style="text-align:left;margin:-0.3rem 0 0.6rem">Pra acompanhar algo por mais tempo (ex.: teste de produto) — cria vários agendamentos de uma vez, um a cada 30 dias, cada um independente.</p>
+                    <div class="form-group full-width" id="newag-repetir-group" style="text-align:left;display:none">
+                        <label for="newag-repetir-meses">Por quantos meses?</label>
+                        <select id="newag-repetir-meses">
+                            <option value="2">2 meses (2 lembretes)</option>
+                            <option value="3" selected>3 meses (3 lembretes)</option>
+                            <option value="6">6 meses (6 lembretes)</option>
+                            <option value="12">12 meses (12 lembretes)</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width" style="text-align:left">
+                        <label for="newag-obs">Observação <span class="newag-label-optional">(opcional)</span></label>
+                        <textarea id="newag-obs" rows="2" placeholder="Ex: ligar antes de ir..."></textarea>
+                    </div>
+                    ${temNotifyReal ? `
+                    <div class="form-group full-width" style="text-align:left">
+                        <div class="newag-notify-head">
+                            <label for="newag-notify-search">Notificar usuários *</label>
+                            <span class="text-link" role="button" tabindex="0" id="newag-notify-selectall">Selecionar todos</span>
+                        </div>
+                        <div class="newag-notify-search-row">
+                            <input type="text" id="newag-notify-search" class="form-input" placeholder="🔍 Buscar usuário">
+                            <span class="newag-notify-count" id="newag-notify-count"></span>
+                        </div>
+                        <input type="hidden" id="newag-notificar">
+                        <div class="newag-chip-list" id="newag-notificar-list">
+                            ${notifyOptions.map((nome) => `
+                                <button type="button" class="newag-chip" data-value="${escapeHtml(nome)}">
+                                    <span class="newag-chip-check" aria-hidden="true">✓</span><span>${escapeHtml(nome)}</span>
+                                </button>`).join('')}
+                        </div>
+                    </div>` : ''}
+                </div>
+                <div class="newag-modal-footer">
+                    <button type="button" class="secondary-button" id="modal-newag-cancel">Cancelar</button>
+                    <button type="button" class="primary-button" id="modal-newag-save">Salvar agendamento</button>
+                </div>
             </div>
         `;
         document.body.appendChild(overlay);
 
-        // Lista de checkbox sempre visível (não dropdown) — deixa claro que
-        // dá pra marcar mais de um sem precisar reabrir nada, e evita o
-        // menu "position:absolute" que, dentro de um modal já rolável,
-        // criava duas barras de rolagem (mesmo problema já corrigido no
-        // modal "Notificar sobre este retorno"). "Não notificar" continua
-        // exclusivo (marcar ele desmarca o resto e vice-versa).
+        // Chips clicáveis (não checkbox) — mesma ideia de sempre (marcar
+        // mais de um, "Não notificar" exclusivo), só que em formato de
+        // pílula lado a lado em vez de lista vertical, com busca e
+        // "Selecionar todos" — mais compacto quando tem muita gente na
+        // lista, e deixa mais óbvio que é multi-seleção.
         if (temNotifyReal) {
             const notifyListEl = overlay.querySelector('#newag-notificar-list');
             const notifyHidden = overlay.querySelector('#newag-notificar');
-            const notifyChecks = Array.from(notifyListEl.querySelectorAll('.newag-notify-check'));
-            notifyChecks.forEach((cb) => {
-                cb.addEventListener('change', () => {
-                    if (cb.checked && cb.value === NAO_NOTIFICAR) {
-                        notifyChecks.forEach((c) => { if (c !== cb) c.checked = false; });
-                    } else if (cb.checked) {
-                        const naoCb = notifyChecks.find((c) => c.value === NAO_NOTIFICAR);
-                        if (naoCb) naoCb.checked = false;
+            const notifySearch = overlay.querySelector('#newag-notify-search');
+            const notifySelectAll = overlay.querySelector('#newag-notify-selectall');
+            const notifyCount = overlay.querySelector('#newag-notify-count');
+            const chips = Array.from(notifyListEl.querySelectorAll('.newag-chip'));
+            const selected = new Set();
+
+            const sync = () => {
+                notifyHidden.value = Array.from(selected).join(',');
+                chips.forEach((chip) => chip.classList.toggle('is-checked', selected.has(chip.dataset.value)));
+                const n = selected.has(NAO_NOTIFICAR) ? 0 : selected.size;
+                notifyCount.textContent = n ? `${n} selecionado${n > 1 ? 's' : ''}` : '';
+            };
+            chips.forEach((chip) => {
+                chip.addEventListener('click', () => {
+                    const val = chip.dataset.value;
+                    if (val === NAO_NOTIFICAR) {
+                        selected.clear();
+                        if (!chip.classList.contains('is-checked')) selected.add(val);
+                    } else {
+                        selected.delete(NAO_NOTIFICAR);
+                        if (selected.has(val)) selected.delete(val); else selected.add(val);
                     }
-                    notifyHidden.value = notifyChecks.filter((c) => c.checked).map((c) => c.value).join(',');
+                    sync();
                 });
             });
+            notifySearch.addEventListener('input', () => {
+                const q = notifySearch.value.trim().toLowerCase();
+                chips.forEach((chip) => {
+                    chip.style.display = !q || chip.dataset.value.toLowerCase().includes(q) ? '' : 'none';
+                });
+            });
+            notifySelectAll.addEventListener('click', () => {
+                const visiveisReais = chips.filter((c) => c.dataset.value !== NAO_NOTIFICAR && c.style.display !== 'none');
+                const todasMarcadas = visiveisReais.length > 0 && visiveisReais.every((c) => selected.has(c.dataset.value));
+                selected.delete(NAO_NOTIFICAR);
+                visiveisReais.forEach((c) => { if (todasMarcadas) selected.delete(c.dataset.value); else selected.add(c.dataset.value); });
+                sync();
+            });
+            sync();
         }
 
+        overlay.querySelector('#newag-close').addEventListener('click', () => close());
         overlay.querySelector('#newag-repetir').addEventListener('change', (e) => {
             overlay.querySelector('#newag-repetir-group').style.display = e.target.checked ? '' : 'none';
         });
