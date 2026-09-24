@@ -316,6 +316,7 @@ export async function openGerarCampanhaManutencaoModal() {
                 <div class="radio-group">
                     <button type="button" class="radio-pill is-checked" data-tipo="manutencao" data-sub="">🔧 Aferição</button>
                     <button type="button" class="radio-pill" data-tipo="manutencao" data-sub="geral">📄 Geral</button>
+                    <button type="button" class="radio-pill" data-tipo="manutencao" data-sub="biopet">🧪 BIOPET</button>
                     <button type="button" class="radio-pill" data-tipo="relatoriotecnico" data-sub="">📋 SPSP</button>
                     <button type="button" class="radio-pill" data-tipo="relatoriotecnico" data-sub="paulo">✍️ SPSP - Paulo</button>
                 </div>
@@ -413,10 +414,10 @@ export async function openGerarCampanhaManutencaoModal() {
         const prazoAte = prazoInput ? formatDateFromInputValue(prazoInput) : '';
         const rotuloTitulo = tipoRelatorio === 'relatoriotecnico'
             ? (subVariante === 'paulo' ? 'SPSP - Paulo' : 'Relatório SPSP')
-            : (subVariante === 'geral' ? 'Relatório Geral' : 'Aferição');
+            : (subVariante === 'geral' ? 'Relatório Geral' : subVariante === 'biopet' ? 'Relatório BIOPET' : 'Aferição');
         const rotulo = tipoRelatorio === 'relatoriotecnico'
             ? (subVariante === 'paulo' ? 'relatório SPSP - Paulo' : 'relatório SPSP')
-            : (subVariante === 'geral' ? 'relatório geral' : 'relatório de aferição');
+            : (subVariante === 'geral' ? 'relatório geral' : subVariante === 'biopet' ? 'relatório BIOPET' : 'relatório de aferição');
 
         setSaving(true, btn, 'Gerando...');
         const r = await callAPI('criarCampanha', {
