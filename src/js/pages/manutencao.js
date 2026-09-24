@@ -130,9 +130,9 @@ function combinarRelatorios(manut, tecnicos) {
 // SPSP = Rel. Técnico (aba própria, relatorioTecnico.js). Dentro de
 // "Manutencoes" tem dois modelos: Aferição (com a tabela de vazão) e Geral
 // (mesmos campos, sem a tabela) — distinguidos por m.tipoRelatorio.
-const tipoLabel = (m) => (m._tipo === 'tecnico' ? 'SPSP' : (m.tipoRelatorio === 'geral' ? 'Geral' : 'Aferição'));
-const tipoBadgeClass = (m) => (m._tipo === 'tecnico' ? 'tecnico' : (m.tipoRelatorio === 'geral' ? 'geral' : 'manutencao'));
-const tipoIcon = (m) => (m._tipo === 'tecnico' ? '📋' : (m.tipoRelatorio === 'geral' ? '📄' : '🔧'));
+const tipoLabel = (m) => (m._tipo === 'tecnico' ? 'SPSP' : m.tipoRelatorio === 'geral' ? 'Geral' : m.tipoRelatorio === 'biopet' ? 'BIOPET' : 'Aferição');
+const tipoBadgeClass = (m) => (m._tipo === 'tecnico' ? 'tecnico' : m.tipoRelatorio === 'geral' ? 'geral' : m.tipoRelatorio === 'biopet' ? 'biopet' : 'manutencao');
+const tipoIcon = (m) => (m._tipo === 'tecnico' ? '📋' : m.tipoRelatorio === 'geral' ? '📄' : m.tipoRelatorio === 'biopet' ? '🧪' : '🔧');
 
 // Recebe a lista JÁ combinada e normalizada (ver combinarRelatorios).
 export function fillManutencaoContent(mainContent, itens) {
@@ -172,11 +172,17 @@ export function fillManutencaoContent(mainContent, itens) {
                         <span>Sem tabela de aferição — cliente, observação e assinaturas.</span>
                         <button type="button" class="primary-btn" id="btn-new-geral2">+ Relatório Geral</button>
                     </div>
+                    <div class="mnt-tipo-card">
+                        <strong>🧪 Relatório BIOPET</strong>
+                        <span>Inspeção de concentração — tipo de manutenção, tabela de vazão e assinaturas.</span>
+                        <button type="button" class="primary-btn" id="btn-new-biopet2">+ Relatório BIOPET</button>
+                    </div>
                 </div>
             </div>
         `;
         document.getElementById('btn-new-manutencao2')?.addEventListener('click', () => navigateTo('manutencao-new'));
         document.getElementById('btn-new-geral2')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }));
+        document.getElementById('btn-new-biopet2')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'biopet' }));
         document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
         document.getElementById('btn-new-rel-tecnico-paulo2')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }));
         document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
@@ -204,6 +210,7 @@ export function fillManutencaoContent(mainContent, itens) {
                     <button type="button" class="primary-btn" id="btn-new-rel-tecnico-paulo" title="Variante do Relatório SPSP com assinatura por desenho">✍️ SPSP - Paulo</button>
                     <button type="button" class="primary-btn" id="btn-new-manutencao" title="Com tabela de aferição de vazão">🔧 Rel. de Aferição</button>
                     <button type="button" class="primary-btn" id="btn-new-geral" title="Sem tabela de aferição">📄 Rel. Geral</button>
+                    <button type="button" class="primary-btn" id="btn-new-biopet" title="Inspeção de concentração, com tipo de manutenção e tabela de vazão">🧪 Rel. BIOPET</button>
                 </div>
                 <div class="mnt-actions-mobile">
                     <button type="button" class="mnt-header-icon-btn" id="btn-ver-modelos-m" aria-label="Modelos" title="Modelos">📋</button>
@@ -220,6 +227,7 @@ export function fillManutencaoContent(mainContent, itens) {
             <span class="mnt-legenda-item">✍️ <strong>SPSP - Paulo</strong> → variante com assinatura</span>
             <span class="mnt-legenda-item">🔧 <strong>Rel. de Aferição</strong> → com tabela de vazão</span>
             <span class="mnt-legenda-item">📄 <strong>Rel. Geral</strong> → sem tabela de aferição</span>
+            <span class="mnt-legenda-item">🧪 <strong>Rel. BIOPET</strong> → inspeção de concentração</span>
         </p>
         <div class="search-bar-wrapper">
             <div class="search-bar-input-group">
@@ -373,6 +381,7 @@ export function fillManutencaoContent(mainContent, itens) {
 
     document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
     document.getElementById('btn-new-geral')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }));
+    document.getElementById('btn-new-biopet')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'biopet' }));
     document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
     document.getElementById('btn-new-rel-tecnico-paulo')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }));
     document.getElementById('mnt-nova-campanha')?.addEventListener('click', async () => {
@@ -402,7 +411,8 @@ function openNovoRelatorioSheet() {
         { icon: '📋', titulo: 'Rel. SPSP', desc: 'Atendimento ao Grupo SPSP', onClick: () => navigateTo('relatorio-tecnico-new') },
         { icon: '✍️', titulo: 'SPSP - Paulo', desc: 'Variante com assinatura por desenho', onClick: () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }) },
         { icon: '🔧', titulo: 'Rel. de Aferição', desc: 'Com tabela de aferição de vazão', onClick: () => navigateTo('manutencao-new') },
-        { icon: '📄', titulo: 'Rel. Geral', desc: 'Sem tabela de aferição', onClick: () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }) }
+        { icon: '📄', titulo: 'Rel. Geral', desc: 'Sem tabela de aferição', onClick: () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }) },
+        { icon: '🧪', titulo: 'Rel. BIOPET', desc: 'Inspeção de concentração', onClick: () => navigateTo('manutencao-new', { tipoRelatorio: 'biopet' }) }
     ];
     overlay.innerHTML = `
         <div class="modal-card mnt-sheet-card">
@@ -718,7 +728,9 @@ export async function renderManutencaoDetailPage(id) {
     else if (jaAssinado) { statusKey = 'assinado'; statusLabel = 'Assinado'; }
 
     const isGeral = m.tipoRelatorio === 'geral';
-    const reportTitulo = isGeral ? 'Relatório Geral' : 'Relatório de Aferição';
+    const isBiopet = m.tipoRelatorio === 'biopet';
+    const reportTitulo = isBiopet ? 'Relatório de Inspeção de Concentração' : isGeral ? 'Relatório Geral' : 'Relatório de Aferição';
+    const TIPOS_MANUTENCAO = ['Preventiva', 'Corretiva', 'Aferição'];
     const afericaoRowsHtml = itens.length ? itens.map((i) => `
         <tr>
             <td>${escapeHtml(i.equipamento || '-')}</td>
@@ -773,6 +785,13 @@ export async function renderManutencaoDetailPage(id) {
                         <div class="mnt-field"><span class="mnt-field-label">Data</span><span class="mnt-field-value">${escapeHtml(m.data || '-')}</span></div>
                     </div>
                 </div>
+                ${isBiopet ? `
+                <div class="mnt-report-section">
+                    <p class="mnt-section-title">Tipo de Manutenção</p>
+                    <div class="mnt-tipo-mnt-checklist">
+                        ${TIPOS_MANUTENCAO.map((t) => `<span class="mnt-tipo-mnt-item${m.tipoManutencao === t ? ' is-marked' : ''}"><span class="mnt-tipo-mnt-box" aria-hidden="true">${m.tipoManutencao === t ? '✕' : ''}</span>${escapeHtml(t.toUpperCase())}</span>`).join('')}
+                    </div>
+                </div>` : ''}
                 ${isGeral ? '' : `
                 <div class="mnt-report-section">
                     <p class="mnt-section-title">Aferição de Vazão</p>
@@ -801,6 +820,12 @@ export async function renderManutencaoDetailPage(id) {
                     </div>
                 </div>
             </div>
+            ${isBiopet ? `
+            <div class="mnt-report-company-footer">
+                <strong>Hygicare Produtos de Higiene Ltda. EPP. — DISTRIBUIDOR AUTORIZADO DIVERSEY</strong>
+                <span>Rua Dr. Jose Ranieri, 9-41 Jd. Cruzeiro do Sul — CEP: 17030-370 Bauru/SP — e-mail: hygicare@terra.com.br</span>
+                <span>Tel./Fax: 14 3227-9444</span>
+            </div>` : ''}
             <div class="mnt-report-footer">
                 <span>${escapeHtml(window.location.origin)}</span>
                 <span>Gerado em ${new Date().toLocaleString('pt-BR')}</span>
@@ -878,17 +903,23 @@ export async function renderManutencaoDetailPage(id) {
     });
 }
 
-function itemRowHtml(item = {}) {
+function itemRowHtml(item = {}, isBiopet = false) {
+    // BIOPET registra o valor medido de verdade (ex.: "2,5%"), não um
+    // Sim/Não — o resto do app (Aferição/Geral) continua com o select
+    // binário de sempre.
+    const aferidoFieldHtml = isBiopet
+        ? `<input type="text" placeholder="Aferido (%)" class="mnt-item-aferido" value="${escapeHtml(item.aferido || '')}">`
+        : `<select class="mnt-item-aferido">
+            <option value="" ${!item.aferido ? 'selected' : ''}>Aferido?</option>
+            <option value="Sim" ${item.aferido === 'Sim' ? 'selected' : ''}>Sim</option>
+            <option value="Não" ${item.aferido === 'Não' ? 'selected' : ''}>Não</option>
+        </select>`;
     return `
     <div class="mnt-item-row" data-item-row>
         <input type="text" placeholder="Equipamento" class="mnt-item-equipamento" value="${escapeHtml(item.equipamento || '')}">
         <input type="text" placeholder="Produto" class="mnt-item-produto" value="${escapeHtml(item.produto || '')}">
         <input type="text" placeholder="Diluição" class="mnt-item-diluicao" value="${escapeHtml(item.diluicao || '')}">
-        <select class="mnt-item-aferido">
-            <option value="" ${!item.aferido ? 'selected' : ''}>Aferido?</option>
-            <option value="Sim" ${item.aferido === 'Sim' ? 'selected' : ''}>Sim</option>
-            <option value="Não" ${item.aferido === 'Não' ? 'selected' : ''}>Não</option>
-        </select>
+        ${aferidoFieldHtml}
         <button type="button" class="mini-button mini-button-danger mnt-item-remove" aria-label="Remover linha">×</button>
     </div>`;
 }
@@ -987,7 +1018,13 @@ export async function renderManutencaoFormPage(record, options) {
     // Tipo é decidido na criação (options.tipoRelatorio) e não muda depois —
     // uma edição sempre segue o que já está gravado no registro.
     const isGeral = isEdit ? m.tipoRelatorio === 'geral' : !!(options && options.tipoRelatorio === 'geral');
-    const formTitulo = isEdit ? 'Editar Relatório' : (isGeral ? 'Novo Relatório Geral' : 'Novo Relatório de Aferição');
+    const isBiopet = isEdit ? m.tipoRelatorio === 'biopet' : !!(options && options.tipoRelatorio === 'biopet');
+    const formTitulo = isEdit ? 'Editar Relatório' : (isBiopet ? 'Novo Relatório BIOPET' : isGeral ? 'Novo Relatório Geral' : 'Novo Relatório de Aferição');
+    const TIPOS_MANUTENCAO = ['Preventiva', 'Corretiva', 'Aferição'];
+    // Texto padrão que o técnico sempre escreve na Observação desse modelo —
+    // evita digitar de novo em toda visita; continua editável.
+    const BIOPET_OBS_PADRAO = 'VAZÃO E PRESSÃO DA REDE: As variações nas concentrações continuam presentes, tendo em vista as instalações da rede hidráulica e quando se usa vários pontos e mangueiras de enxágue ao mesmo tempo. O sistema de tratamento da ETA também tem interferido nas centrais de diluições, transferindo resíduos que interferem nos chips de diluições.\nApesar deste fato, todas as concentrações medidas deram superiores ao mínimo padronizado de 2%, obedecendo o Boletim Técnico e cumprindo a função do hipoclorito.';
+    if (!isEdit && isBiopet && !m.observacao) m.observacao = BIOPET_OBS_PADRAO;
 
     // Vindo de "Usar" no modal de modelos salvos (ver openModelosSalvosModal)
     // — pré-preenche cliente e a tabela de aferição só na criação, nunca
@@ -1059,6 +1096,15 @@ export async function renderManutencaoFormPage(record, options) {
                 <input type="text" id="mnt-tecnico" value="${escapeHtml(m.tecnico || state.currentUser?.name || '')}" ${isAdmin ? '' : 'readonly'}>
             </div>
 
+            ${isBiopet ? `
+            <div class="form-group full-width">
+                <label>Tipo de manutenção</label>
+                <div class="radio-group">
+                    ${TIPOS_MANUTENCAO.map((t) => `<button type="button" class="radio-pill${(m.tipoManutencao || 'Aferição') === t ? ' is-checked' : ''}" data-tipo-mnt="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}
+                </div>
+                <input type="hidden" id="mnt-tipo-mnt" value="${escapeHtml(m.tipoManutencao || 'Aferição')}">
+            </div>` : ''}
+
             ${isGeral ? '' : `
             <div class="form-group full-width">
                 <label>Tabela de Aferição</label>
@@ -1066,7 +1112,7 @@ export async function renderManutencaoFormPage(record, options) {
                     <button type="button" class="mini-button" id="mnt-load-modelo">📋 Carregar modelo do cliente</button>
                     <button type="button" class="mini-button" id="mnt-save-modelo">💾 Salvar como modelo</button>
                 </div>
-                <div id="mnt-itens-container">${(itensIniciais.length ? itensIniciais : [{}, {}, {}]).map((i) => itemRowHtml(i)).join('')}</div>
+                <div id="mnt-itens-container">${(itensIniciais.length ? itensIniciais : [{}, {}, {}]).map((i) => itemRowHtml(i, isBiopet)).join('')}</div>
                 <button type="button" class="mini-button" id="mnt-add-item" style="margin-top:0.5rem">+ Adicionar linha</button>
             </div>`}
 
@@ -1112,6 +1158,13 @@ export async function renderManutencaoFormPage(record, options) {
             </div>
         </form>
     `;
+
+    if (isBiopet) {
+        document.querySelectorAll('.radio-pill[data-tipo-mnt]').forEach((btn) => btn.addEventListener('click', () => {
+            document.getElementById('mnt-tipo-mnt').value = btn.dataset.tipoMnt;
+            document.querySelectorAll('.radio-pill[data-tipo-mnt]').forEach((b) => b.classList.toggle('is-checked', b === btn));
+        }));
+    }
 
     const sigTecnico = document.getElementById('mnt-signature-tecnico');
     const sigCliente = document.getElementById('mnt-signature-cliente');
@@ -1203,7 +1256,7 @@ export async function renderManutencaoFormPage(record, options) {
     if (!isGeral) {
         bindItemRowRemove(itensContainer);
         document.getElementById('mnt-add-item').addEventListener('click', () => {
-            itensContainer.insertAdjacentHTML('beforeend', itemRowHtml());
+            itensContainer.insertAdjacentHTML('beforeend', itemRowHtml({}, isBiopet));
             bindItemRowRemove(itensContainer);
         });
 
@@ -1223,7 +1276,7 @@ export async function renderManutencaoFormPage(record, options) {
             if (!itensModelo.length) { showToast('O modelo salvo está vazio.', true); return; }
             const hasContent = collectItens(itensContainer).length > 0;
             if (hasContent && !confirm('Isso substitui as linhas já preenchidas na Tabela de Aferição. Continuar?')) return;
-            itensContainer.innerHTML = itensModelo.map((i) => itemRowHtml({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao })).join('');
+            itensContainer.innerHTML = itensModelo.map((i) => itemRowHtml({ equipamento: i.equipamento, produto: i.produto, diluicao: i.diluicao }, isBiopet)).join('');
             bindItemRowRemove(itensContainer);
             currentModeloNome = modelo.nome || null;
             showToast(`Modelo "${modelo.nome || modelo.cliente}" carregado.`);
@@ -1324,7 +1377,8 @@ export async function renderManutencaoFormPage(record, options) {
             cliente: clienteVal, cidade: cidadeVal, tecnico: tecnicoVal,
             observacao: observacaoVal,
             itensTabela: isGeral ? '[]' : JSON.stringify(collectItens(itensContainer)),
-            tipoRelatorio: isGeral ? 'geral' : '',
+            tipoRelatorio: isBiopet ? 'biopet' : isGeral ? 'geral' : '',
+            tipoManutencao: isBiopet ? (document.getElementById('mnt-tipo-mnt')?.value || 'Aferição') : '',
             fotos: fotoIds.slice(),
             // Sempre manda o que está no canvas agora (mesmo vazio) — assim
             // clicar em "Limpar" numa edição realmente apaga a assinatura

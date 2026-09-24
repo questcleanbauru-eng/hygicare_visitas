@@ -390,6 +390,7 @@
 .mnt-tipo-badge-tecnico { background: #e0edff; color: var(--info); }
 .mnt-tipo-badge-manutencao { background: #e6f1fb; color: #185fa5; }
 .mnt-tipo-badge-geral { background: var(--bg-sunken); color: var(--ink-soft); }
+.mnt-tipo-badge-biopet { background: var(--primary-light); color: var(--primary-dark); }
 
 /* Bloco "Fotos" do relatório — fica FORA do cartão .mnt-report. Some
    sozinho quando não há fotos (o HTML nem renderiza). */
@@ -735,6 +736,54 @@
     font-size: 0.68rem;
     color: var(--text-muted);
 }
+
+/* Rodapé fixo com dados da empresa — só na variante BIOPET (ver
+   isBiopet, manutencao.js). Mesmo azul (--mnt-accent) do resto do
+   relatório, não uma cor nova. */
+.mnt-report-company-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.6rem 1.1rem;
+    border-top: 1px solid var(--mnt-accent-soft);
+    background: var(--mnt-accent-soft);
+    font-size: 0.68rem;
+    color: var(--mnt-accent-dark);
+    text-align: center;
+}
+.mnt-report-company-footer strong { font-size: 0.7rem; }
+
+/* Checklist "Tipo de Manutenção" (Preventiva/Corretiva/Aferição) no
+   relatório BIOPET — mesmo espírito da caixinha com X do documento
+   original, só que com a cor azul já usada em todo o resto do app. */
+.mnt-tipo-mnt-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.mnt-tipo-mnt-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted-strong);
+}
+.mnt-tipo-mnt-item.is-marked { color: var(--mnt-accent-dark); }
+.mnt-tipo-mnt-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border: 1.5px solid var(--mnt-accent);
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--mnt-accent-dark);
+}
+.mnt-tipo-mnt-item.is-marked .mnt-tipo-mnt-box { background: var(--mnt-accent-soft); }
 
 /* Folha A4 controlada explicitamente — o auto-ajuste em JS (beforeprint,
    manutencao.js) mede a altura real e aplica mnt-compact-1/2/3 até caber
