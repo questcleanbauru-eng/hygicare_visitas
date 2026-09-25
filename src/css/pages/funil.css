@@ -90,6 +90,17 @@
     align-items: center;
     gap: 0.5rem;
 }
+.qe-v2-obs-toggle {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    line-height: 1;
+    padding: 0.1rem 0.2rem;
+    opacity: 0.7;
+}
+.qe-v2-obs-toggle:hover { opacity: 1; }
 .funil-linked-proposta-obs {
     margin: 0.35rem 0 0;
     font-size: 0.83rem;

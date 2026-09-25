@@ -517,17 +517,9 @@ export function fillFunilContent(mainContent, funil) {
                             ${diasConclusao !== null ? `<span class="qe-v2-days-badge" id="qe-conclusao-days">${diasConclusao >= 0 ? diasConclusao + 'd' : 'atrasado'}</span>` : ''}
                         </div>
                     </div>
-                    <div class="qe-v2-stat">
-                        <span>Ativo</span>
-                        <label class="qe-v2-toggle">
-                            <input type="checkbox" id="qe-ativo" ${f.ativo !== 'Nao' ? 'checked' : ''}>
-                            <span class="qe-v2-toggle-slider"></span>
-                        </label>
-                    </div>
                 </div>
 
                 <div class="qe-v2-section">
-                    <p class="qe-v2-section-title">Cliente</p>
                     <div class="qe-v2-grid-3">
                         ${plainField('Cliente', 'qe-cliente', f.cliente)}
                         ${searchField('Cidade', 'qe-cidade', f.cidade)}
@@ -537,14 +529,17 @@ export function fillFunilContent(mainContent, funil) {
                 </div>
 
                 <div class="qe-v2-section">
-                    <p class="qe-v2-section-title">Oportunidade</p>
                     <div class="qe-v2-grid-3">
                         ${searchField('Foco', 'qe-foco', f.foco)}
                         ${searchField('Atuação', 'qe-atuacao', f.atuacao)}
                         ${searchField('Aplicação', 'qe-aplicacao', f.aplicacao)}
                         ${searchField('Equipamentos', 'qe-equipamentos', f.equipamentos, 'Nenhum informado')}
-                        ${plainField('Inf. Importantes', 'qe-inf', f.infImportantes, 'text', 'Adicionar informação importante')}
                     </div>
+                </div>
+
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Inf. Importantes</p>
+                    <textarea id="qe-inf" rows="2" placeholder="Adicionar informação importante">${escapeHtml(f.infImportantes || '')}</textarea>
                 </div>
 
                 ${linkedPropostasCount > 0 ? `
@@ -554,8 +549,9 @@ export function fillFunilContent(mainContent, funil) {
                         <div class="funil-linked-proposta-row">
                             <div class="funil-linked-proposta-main">
                                 <button type="button" class="section-link-button qe-linked-proposta-open" data-proposta-id="${escapeHtml(p.id)}">${escapeHtml(p.foco || 'Proposta')} · ${escapeHtml(p.status || '-')}</button>
+                                ${p.obs ? `<button type="button" class="qe-v2-obs-toggle" title="Ver comentário" aria-label="Ver comentário">💬</button>` : ''}
                             </div>
-                            ${p.obs ? `<p class="funil-linked-proposta-obs">${escapeHtml(p.obs)}</p>` : ''}
+                            ${p.obs ? `<p class="funil-linked-proposta-obs" hidden>${escapeHtml(p.obs)}</p>` : ''}
                         </div>
                     `).join('')}
                 </div>` : ''}
@@ -642,6 +638,15 @@ export function fillFunilContent(mainContent, funil) {
         panel.querySelectorAll('.qe-linked-proposta-open').forEach((btn) => {
             btn.addEventListener('click', () => navigateTo('proposal-detail', { id: btn.dataset.propostaId }));
         });
+        // "💬" mostra/esconde o comentário da proposta vinculada — some por
+        // padrão pra não empilhar texto de todas de uma vez (só o Foco/Status
+        // de cada uma já ocupa uma linha curta).
+        panel.querySelectorAll('.qe-v2-obs-toggle').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const obsEl = btn.closest('.funil-linked-proposta-row')?.querySelector('.funil-linked-proposta-obs');
+                if (obsEl) obsEl.hidden = !obsEl.hidden;
+            });
+        });
         // Alterna o badge Diversey só localmente (sem perder o resto do que
         // já foi digitado no painel) — vira parte do payload só no Salvar.
         const toggleDiversey = () => { selDiversey = !selDiversey; markDirty(); syncDiverseyBadge(); menu.classList.remove('is-open'); };
@@ -678,7 +683,6 @@ export function fillFunilContent(mainContent, funil) {
             const atuacao = panel.querySelector('#qe-atuacao')?.value.trim();
             const aplicacao = panel.querySelector('#qe-aplicacao')?.value.trim();
             const equipamentos = panel.querySelector('#qe-equipamentos')?.value.trim();
-            const ativo = panel.querySelector('#qe-ativo')?.checked ? 'Sim' : 'Nao';
             const vlMensal = panel.querySelector('#qe-vl-mensal')?.value.trim();
             const conclusaoValue = panel.querySelector('#qe-conclusao')?.value || '';
             const infImportantes = panel.querySelector('#qe-inf')?.value.trim();
@@ -694,7 +698,7 @@ export function fillFunilContent(mainContent, funil) {
             applyFunilQuickPatch(f, {
                 status: selStatus, comentarios: coment, motivoPerda: motivo,
                 cliente, cidade, vendedor, gerencia: gerenciaValue, foco, atuacao, aplicacao, equipamentos,
-                ativo, vlMensal, conclusao: conclusaoValue, infImportantes, funilDiversey
+                vlMensal, conclusao: conclusaoValue, infImportantes, funilDiversey
             }, () => {
                 funilData = state.funil;
                 renderFiltered();

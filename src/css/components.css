@@ -2856,6 +2856,11 @@ input:disabled {
     color: var(--text-muted);
     cursor: default;
 }
+/* Linhas de "Propostas vinculadas" (funil.css) — reduzido aqui dentro pra
+   acompanhar a densidade do resto do painel (o Detalhe do Funil, que usa a
+   mesma classe, mantém o espaçamento original/maior). */
+.qe-panel .qe-panel-inner .funil-linked-proposta-row { padding: 0.4rem 0; }
+.qe-panel .qe-panel-inner .funil-linked-proposta-obs { font-size: 0.76rem; }
 
 /* ── Edição rápida "v2" (Funil/Propostas/Visitas) ─────────────────────────
    Layout com cabeçalho + badges, menu "⋮", faixa de estatísticas, seções
