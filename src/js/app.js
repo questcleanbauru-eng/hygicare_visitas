@@ -170,8 +170,27 @@ export function initBackButton() {
     window.addEventListener('popstate', function(e) {
         const pg = e.state && e.state.page;
         if (!pg || pg === 'login') { return; }
+        _navDepth = Math.max(0, _navDepth - 1);
         navigateTo(pg, e.state.options || {}, true);
     });
+}
+
+// Quantas navegações "reais" (não vindas de popstate) aconteceram desde que
+// a página carregou — dá pra saber se history.back() tem pra onde ir dentro
+// do próprio app, sem arriscar sair pro site/aba anterior. Incrementado em
+// navigateTo, decrementado no popstate acima.
+let _navDepth = 0;
+
+// "Voltar" que aproveita o histórico real do navegador (já mantido por
+// navigateTo/pushState) em vez de sempre pular pra lista genérica — ex.: do
+// Detalhe do Funil você abre uma Proposta vinculada, aperta Voltar e cai de
+// novo no MESMO registro do Funil (com os filtros/posição de scroll que já
+// estavam guardados), em vez de ter que procurar o cliente de novo na lista.
+// Sem histórico próprio pra voltar (ex.: chegou por link direto/notificação)
+// cai pro destino fixo de sempre.
+export function goBackOrTo(fallbackPage) {
+    if (_navDepth > 0) { window.history.back(); }
+    else { navigateTo(fallbackPage); }
 }
 
 
@@ -235,6 +254,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
     state.currentPage = page;
     if (!_fromPop && page !== 'login' && page !== 'forgot-password') {
         window.history.pushState({ page, options }, '');
+        _navDepth++;
     }
     // Reset any login-page style overrides on main content + trigger slide transition
     const _mc = document.getElementById('main-content');

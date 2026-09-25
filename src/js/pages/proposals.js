@@ -1,4 +1,4 @@
-import { state, navigateTo } from '../app.js';
+import { state, navigateTo, goBackOrTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
@@ -1104,7 +1104,7 @@ export async function renderProposalDetailPage(id) {
         </div>` : '')}
     `;
 
-    document.getElementById('back-proposals').addEventListener('click', () => navigateTo('proposals'));
+    document.getElementById('back-proposals').addEventListener('click', () => goBackOrTo('proposals'));
     document.getElementById('proposal-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('proposal-detail', { id: navPrevId }); });
     document.getElementById('proposal-nav-next')?.addEventListener('click', () => { if (navNextId) navigateTo('proposal-detail', { id: navNextId }); });
     document.getElementById('edit-proposal').addEventListener('click', () => navigateTo('proposal-edit', { proposal }));

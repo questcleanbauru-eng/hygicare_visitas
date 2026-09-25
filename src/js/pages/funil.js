@@ -1,4 +1,4 @@
-import { state, navigateTo } from '../app.js';
+import { state, navigateTo, goBackOrTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
@@ -995,7 +995,10 @@ function openLinkPropostaModal(f, onLinked) {
                 tag: p.foco || p.Foco || '',
                 cidade: p.cidade || p.Cidade || '',
                 data: p.data || p.Data || '',
-                hint: p.produtos || p.Produtos || ''
+                // "Itens da proposta" de verdade fica no Resumo (a mesma lista
+                // que aparece expandida no Detalhe) — Produtos é só uma
+                // categoria curta ("F&B"), não ajuda a diferenciar propostas.
+                hint: String(p.resumo || p.Resumo || '').replace(/\s*\/\s*(?=Item\s+\d)/gi, '\n')
             })).filter((it) => it.id);
 
         openLinkPickerModal({
@@ -1679,7 +1682,7 @@ export async function renderFunilDetailPage(id, _revalidated) {
         </div>
     `;
 
-    document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => navigateTo('funil')));
+    document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => goBackOrTo('funil')));
     document.getElementById('funil-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('funil-detail', { id: navPrevId }); });
     document.getElementById('funil-nav-next')?.addEventListener('click', () => { if (navNextId) navigateTo('funil-detail', { id: navNextId }); });
     document.getElementById('edit-funil').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
