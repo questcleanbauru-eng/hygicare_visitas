@@ -535,18 +535,7 @@ export function fillProposalsContent(mainContent, proposals) {
         const STAT_LABELS = { Aguardando: 'Aguardando', Enviada: 'Enviada', 'Em negociacao': 'Em negociação', Ganhamos: 'Ganhamos', Perdido: '✕ Perdido' };
         const funilLinkado = p.funilVinculado ? (state.funil || []).find((fx) => String(fx.id || fx.Id) === String(p.funilVinculado)) : null;
         const diasPrazo = daysUntilDisplayDate(p.dataLimite);
-        let draftObs = p.obs || '';
         let draftProdutos = parseProdutos(p.produtos);
-
-        const entryListHtml = () => {
-            const entries = parseDatedEntries(draftObs);
-            if (!entries.length) return `<p class="qe-v2-entry-empty">Nenhuma atualização ainda.</p>`;
-            return entries.map((e) => `
-                <div class="qe-v2-entry">
-                    <span class="qe-v2-entry-date">${escapeHtml(e.date)}</span>
-                    <span class="qe-v2-entry-text">${escapeHtml(e.text)}</span>
-                </div>`).join('');
-        };
         const chipListHtml = () => draftProdutos.map((prod, i) => `
             <span class="qe-v2-chip" data-i="${i}">${escapeHtml(prod)}<button type="button" class="qe-v2-chip-remove" data-i="${i}" aria-label="Remover">✕</button></span>
         `).join('') + `<button type="button" class="qe-v2-chip-add" id="qe-produto-add">+ Adicionar</button>`;
@@ -620,12 +609,8 @@ export function fillProposalsContent(mainContent, proposals) {
                 </div>
 
                 <div class="qe-v2-section">
-                    <p class="qe-v2-section-title">Atualizações / Obs <span class="qe-v2-section-count" id="qe-obs-count">${parseDatedEntries(draftObs).length}</span></p>
-                    <div class="qe-v2-add-row">
-                        <input type="text" id="qe-obs-input" placeholder="Escreva uma atualização (a data entra sozinha)">
-                        <button type="button" class="mini-button" id="qe-obs-add">Adicionar</button>
-                    </div>
-                    <div class="qe-v2-entry-list" id="qe-obs-list">${entryListHtml()}</div>
+                    <p class="qe-v2-section-title">Atualizações / Obs</p>
+                    <textarea id="qe-obs" rows="8">${escapeHtml(withDatedNoteHeader(p.obs))}</textarea>
                 </div>
             </div>`;
 
@@ -645,21 +630,8 @@ export function fillProposalsContent(mainContent, proposals) {
             markDirty();
         }));
 
-        // Obs: "Adicionar" empilha uma nova linha datada no topo do rascunho
-        // local — só vai pro servidor quando "Salvar" for clicado.
-        const obsInput = panel.querySelector('#qe-obs-input');
-        panel.querySelector('#qe-obs-add')?.addEventListener('click', () => {
-            const texto = (obsInput?.value || '').trim();
-            if (!texto) { showToast('Escreva algo antes de adicionar.', true); return; }
-            draftObs = datedNoteHeader() + texto + (draftObs ? `\n${draftObs}` : '');
-            obsInput.value = '';
-            panel.querySelector('#qe-obs-list').innerHTML = entryListHtml();
-            panel.querySelector('#qe-obs-count').textContent = String(parseDatedEntries(draftObs).length);
-            markDirty();
-        });
-        obsInput?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); panel.querySelector('#qe-obs-add').click(); }
-        });
+        const ta = panel.querySelector('#qe-obs');
+        setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
 
         // Produtos: chips a partir do texto livre existente ("A + B + C").
         // "+ Adicionar" usa prompt() — mais simples que um input inline extra
@@ -725,6 +697,7 @@ export function fillProposalsContent(mainContent, proposals) {
         });
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
+            const obs = stripEmptyDatedLine(ta.value);
             const cliente = panel.querySelector('#qe-cliente')?.value.trim();
             const cidade = panel.querySelector('#qe-cidade')?.value.trim();
             const vendedor = panel.querySelector('#qe-vendedor')?.value.trim();
@@ -744,7 +717,7 @@ export function fillProposalsContent(mainContent, proposals) {
             const idsBefore = Array.from(document.querySelectorAll('#proposal-list-container [data-proposal-id]')).map((el) => el.dataset.proposalId);
             const posBefore = idsBefore.indexOf(String(p.id));
             applyProposalQuickPatch(p, {
-                status: selStatus, obs: draftObs, cliente, cidade, vendedor, gerencia, foco, produtos,
+                status: selStatus, obs, cliente, cidade, vendedor, gerencia, foco, produtos,
                 data: dataValue, dataLimite: dataLimiteValue, email
             }, () => {
                 normalized = state.proposals.map(normalizeProposal);

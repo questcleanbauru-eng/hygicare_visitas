@@ -469,16 +469,6 @@ export function fillVisitsContent(container, visits) {
         const overflowTipos = listaTipos.filter((t) => !visiblePills.includes(t));
         const tipoInOverflow = v.tipoVisita && overflowTipos.includes(v.tipoVisita);
 
-        let draftObs = v.observacao || '';
-        const entryListHtml = () => {
-            const entries = parseDatedEntries(draftObs);
-            if (!entries.length) return `<p class="qe-v2-entry-empty">Nenhuma observação ainda.</p>`;
-            return entries.map((e) => `
-                <div class="qe-v2-entry">
-                    <span class="qe-v2-entry-date">${escapeHtml(e.date)}</span>
-                    <span class="qe-v2-entry-text">${escapeHtml(e.text)}</span>
-                </div>`).join('');
-        };
 
         panel.innerHTML = `
             <div class="qe-panel-inner">
@@ -552,12 +542,8 @@ export function fillVisitsContent(container, visits) {
                 </div>
 
                 <div class="qe-v2-section">
-                    <p class="qe-v2-section-title">Observações <span class="qe-v2-section-count" id="qe-obs-count">${parseDatedEntries(draftObs).length}</span></p>
-                    <div class="qe-v2-add-row">
-                        <input type="text" id="qe-obs-input" placeholder="Escreva uma observação (a data entra sozinha)">
-                        <button type="button" class="mini-button" id="qe-obs-add">Adicionar</button>
-                    </div>
-                    <div class="qe-v2-entry-list" id="qe-obs-list">${entryListHtml()}</div>
+                    <p class="qe-v2-section-title">Observação</p>
+                    <textarea id="qe-obs" rows="8">${escapeHtml(withDatedNoteHeader(v.observacao))}</textarea>
                 </div>
             </div>`;
 
@@ -591,21 +577,8 @@ export function fillVisitsContent(container, visits) {
             if (wrap) wrap.style.display = panel.querySelector('#qe-despesas').checked ? '' : 'none';
         });
 
-        // Observação: "Adicionar" empilha uma nova linha datada no topo do
-        // rascunho local — só vai pro servidor quando "Salvar" for clicado.
-        const obsInput = panel.querySelector('#qe-obs-input');
-        panel.querySelector('#qe-obs-add')?.addEventListener('click', () => {
-            const texto = (obsInput?.value || '').trim();
-            if (!texto) { showToast('Escreva algo antes de adicionar.', true); return; }
-            draftObs = datedNoteHeader() + texto + (draftObs ? `\n${draftObs}` : '');
-            obsInput.value = '';
-            panel.querySelector('#qe-obs-list').innerHTML = entryListHtml();
-            panel.querySelector('#qe-obs-count').textContent = String(parseDatedEntries(draftObs).length);
-            markDirty();
-        });
-        obsInput?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); panel.querySelector('#qe-obs-add').click(); }
-        });
+        const ta = panel.querySelector('#qe-obs');
+        setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
 
         // Menu "⋮" — fecha ao clicar fora (listener em document removido e
         // reatribuído a cada abertura, pra não vazar entre trocas de card).
@@ -630,6 +603,7 @@ export function fillVisitsContent(container, visits) {
 
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('visit-edit', { visit: v }));
         panel.querySelector('#qe-save').addEventListener('click', () => {
+            const obs = stripEmptyDatedLine(ta.value);
             const cliente = panel.querySelector('#qe-cliente')?.value.trim();
             const contato = panel.querySelector('#qe-contato')?.value.trim();
             const cidade = panel.querySelector('#qe-cidade')?.value.trim();
@@ -655,7 +629,7 @@ export function fillVisitsContent(container, visits) {
             showToast('Salvo.');
             if (dirtyBadge) dirtyBadge.hidden = true;
             applyVisitQuickPatch(v, {
-                observacao: draftObs, cliente, contato, cidade, areaAtuacao, potencialCliente, tipoVisita,
+                observacao: obs, cliente, contato, cidade, areaAtuacao, potencialCliente, tipoVisita,
                 vendedorGerente, dataVisita, horario, veiculo, teveDespesas, valorDespesas
             }, () => {
                 normalizedVisits = (state.visits || []).map(normalizeVisit).sort((a, b) => compareVisitsByDateDesc(a, b));

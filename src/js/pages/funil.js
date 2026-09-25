@@ -469,17 +469,6 @@ export function fillFunilContent(mainContent, funil) {
         const STAT_LABELS = { IDENTIFICAR: 'Identificar', PROPOSTA: 'Proposta', NEGOCIAR: 'Negociar', CONCLUIDO: 'Concluído', PERDIDO: '✕ Perdido', RETOMAR: '↻ Retomar' };
         const STAT = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
         const diasConclusao = daysUntilDisplayDate(f.conclusao);
-        let draftComentarios = f.comentarios || '';
-
-        const entryListHtml = () => {
-            const entries = parseDatedEntries(draftComentarios);
-            if (!entries.length) return `<p class="qe-v2-entry-empty">Nenhum comentário ainda.</p>`;
-            return entries.map((e) => `
-                <div class="qe-v2-entry">
-                    <span class="qe-v2-entry-date">${escapeHtml(e.date)}</span>
-                    <span class="qe-v2-entry-text">${escapeHtml(e.text)}</span>
-                </div>`).join('');
-        };
 
         panel.innerHTML = `
             <div class="qe-panel-inner">
@@ -559,12 +548,8 @@ export function fillFunilContent(mainContent, funil) {
                 </div>
 
                 <div class="qe-v2-section">
-                    <p class="qe-v2-section-title">Comentários <span class="qe-v2-section-count" id="qe-coment-count">${parseDatedEntries(draftComentarios).length}</span></p>
-                    <div class="qe-v2-add-row">
-                        <input type="text" id="qe-coment-input" placeholder="Escreva um comentário (a data entra sozinha)">
-                        <button type="button" class="mini-button" id="qe-coment-add">Adicionar</button>
-                    </div>
-                    <div class="qe-v2-entry-list" id="qe-coment-list">${entryListHtml()}</div>
+                    <p class="qe-v2-section-title">Comentários</p>
+                    <textarea id="qe-coment" rows="8">${escapeHtml(withDatedNoteHeader(f.comentarios))}</textarea>
                 </div>
             </div>`;
 
@@ -601,22 +586,8 @@ export function fillFunilContent(mainContent, funil) {
             markDirty();
         }));
 
-        // Comentário: "Adicionar" empilha uma nova linha datada no topo do
-        // rascunho local (draftComentarios) — só vai pro servidor quando
-        // "Salvar" for clicado, igual aos outros campos do painel.
-        const comentInput = panel.querySelector('#qe-coment-input');
-        panel.querySelector('#qe-coment-add')?.addEventListener('click', () => {
-            const texto = (comentInput?.value || '').trim();
-            if (!texto) { showToast('Escreva algo antes de adicionar.', true); return; }
-            draftComentarios = datedNoteHeader() + texto + (draftComentarios ? `\n${draftComentarios}` : '');
-            comentInput.value = '';
-            panel.querySelector('#qe-coment-list').innerHTML = entryListHtml();
-            panel.querySelector('#qe-coment-count').textContent = String(parseDatedEntries(draftComentarios).length);
-            markDirty();
-        });
-        comentInput?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); panel.querySelector('#qe-coment-add').click(); }
-        });
+        const ta = panel.querySelector('#qe-coment');
+        setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
 
         // Menu "⋮" — fecha ao clicar fora (listener em document removido e
         // reatribuído a cada abertura, pra não vazar entre trocas de card).
@@ -670,6 +641,7 @@ export function fillFunilContent(mainContent, funil) {
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const motivo = (panel.querySelector('#qe-motivo')?.value || '').trim();
             if (selStatus === 'PERDIDO' && !motivo) { showToast('Informe o motivo da perda.', true); return; }
+            const coment = stripEmptyDatedLine(ta.value);
             const cliente = panel.querySelector('#qe-cliente')?.value.trim();
             const cidade = panel.querySelector('#qe-cidade')?.value.trim();
             const vendedor = panel.querySelector('#qe-vendedor')?.value.trim();
@@ -693,7 +665,7 @@ export function fillFunilContent(mainContent, funil) {
             const idsBefore = Array.from(document.querySelectorAll('#funil-list-container [data-funil-id]')).map((el) => el.dataset.funilId);
             const posBefore = idsBefore.indexOf(String(f.id));
             applyFunilQuickPatch(f, {
-                status: selStatus, comentarios: draftComentarios, motivoPerda: motivo,
+                status: selStatus, comentarios: coment, motivoPerda: motivo,
                 cliente, cidade, vendedor, gerencia: gerenciaValue, foco, atuacao, aplicacao, equipamentos,
                 ativo, vlMensal, conclusao: conclusaoValue, infImportantes, funilDiversey
             }, () => {
