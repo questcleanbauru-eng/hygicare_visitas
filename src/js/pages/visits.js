@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyn
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
     groupVisitsByMonth, formatMonthKey, normalizeVisit, compareVisitsByDateDesc,
-    formatDateForDisplay, formatDateForInput, formatTimeForInput, formatInputDateFromDisplay,
+    formatDateForDisplay, formatDateForInput, formatTimeForInput, formatInputDateFromDisplay, formatDateFromDisplay,
     formatDateFieldValue, normalizeDisplayDateValue, formatTimeFieldValue, normalizeTimeValue,
     normalizeProposal, visitTypeIcon, visitTypeCategory, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
     calculateDaysFromDisplayDate,
@@ -15,7 +15,7 @@ import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
     showToast, showFieldError, clearFieldError, openExternal, skeletonList, skeletonDetail,
     loadingState, showRefreshIndicator, hideRefreshIndicator, addScrollTop, wireYearSelect, setSaving,
-    openIcsEvent, preventEnterSubmit,
+    openIcsEvent, preventEnterSubmit, renderSimpleOptions,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
@@ -25,25 +25,30 @@ import { getProposals } from './proposals.js';
 import { getFunil } from './funil.js';
 
 // Update otimista + attemptOrQueue + rollback pro painel de edição rápida
-// (split view do admin). Só a Observação é editável aqui; o resto do
-// payload vem do próprio registro (o servidor exige os campos obrigatórios).
+// (split view do admin). Campos não presentes no patch (undefined) caem pro
+// valor já existente no registro (v.X) — o servidor exige os campos
+// obrigatórios mesmo quando o painel só editou a Observação.
 function applyVisitQuickPatch(v, patch, onDone) {
+    const g = (key, fallback) => patch[key] !== undefined ? patch[key] : fallback;
+    const tipoVisitaValue = g('tipoVisita', v.tipoVisita);
     const payload = {
         id: v.id,
         prospeccao: v.prospeccao || 'Nao',
-        vendedorGerente: v.vendedorGerente || state.currentUser.name,
+        vendedorGerente: g('vendedorGerente', v.vendedorGerente || state.currentUser.name),
         gerencia: v.gerencia || state.currentUser.gerencia,
-        dataVisita: v.dataVisita,
-        horario: v.horario,
-        cliente: v.cliente,
-        contato: v.contato || '',
-        cidade: v.cidade,
-        areaAtuacao: v.areaAtuacao,
-        potencialCliente: v.potencialCliente || '',
-        tipoVisita: v.tipoVisita,
-        tiposVisita: [v.tipoVisita].filter(Boolean),
-        veiculo: v.veiculo || 'Particular',
+        dataVisita: g('dataVisita', v.dataVisita),
+        horario: g('horario', v.horario),
+        cliente: g('cliente', v.cliente),
+        contato: g('contato', v.contato || ''),
+        cidade: g('cidade', v.cidade),
+        areaAtuacao: g('areaAtuacao', v.areaAtuacao),
+        potencialCliente: g('potencialCliente', v.potencialCliente || ''),
+        tipoVisita: tipoVisitaValue,
+        tiposVisita: [tipoVisitaValue].filter(Boolean),
+        veiculo: g('veiculo', v.veiculo || 'Particular'),
         observacao: patch.observacao,
+        ...(patch.teveDespesas !== undefined ? { teveDespesas: patch.teveDespesas } : {}),
+        ...(patch.valorDespesas !== undefined ? { valorDespesas: patch.valorDespesas } : {}),
         user: state.currentUser
     };
     const idx = state.visits.findIndex((x) => String(x.ID || x.id) === String(v.id));
@@ -54,10 +59,13 @@ function applyVisitQuickPatch(v, patch, onDone) {
         'Contato': payload.contato, 'Cidade': payload.cidade, 'Área de Atuação': payload.areaAtuacao,
         'Potencial do Cliente': payload.potencialCliente, 'Tipo da Visita': payload.tipoVisita,
         'Gerência': payload.gerencia, 'Qual o Veículo?': payload.veiculo, 'Observação': payload.observacao,
-        'TeveDespesas': v.teveDespesas, 'ValorDespesas': v.valorDespesas
+        'TeveDespesas': payload.teveDespesas !== undefined ? payload.teveDespesas : v.teveDespesas,
+        'ValorDespesas': payload.valorDespesas !== undefined ? payload.valorDespesas : v.valorDespesas
     });
     if (idx >= 0) { state.visits[idx] = updated; saveCache('visits', state.visits); }
-    v.observacao = patch.observacao;
+    // `v` é o objeto normalizado da lista (referência separada da de
+    // state.visits) — mutar aqui também pra o re-render pegar o novo valor.
+    Object.assign(v, updated, { id: v.id });
     if (onDone) onDone();
 
     return attemptOrQueue('updateVisit', payload, { entity: 'visits', tempId: payload.id })
@@ -401,7 +409,7 @@ export function fillVisitsContent(container, visits) {
         if (qeActive() && qeSelectedId) { openVisitQuickPanel(qeSelectedId); }
     };
 
-    function openVisitQuickPanel(id) {
+    async function openVisitQuickPanel(id) {
         const panel = document.getElementById('qe-panel');
         if (!panel) { return; }
         const v = normalizedVisits.find((x) => String(x.id) === String(id));
@@ -410,6 +418,26 @@ export function fillVisitsContent(container, visits) {
         document.querySelectorAll('#visits-list-container .visit-card').forEach((c) => {
             c.classList.toggle('qe-selected', c.dataset.visitId === qeSelectedId);
         });
+        // Best-effort: sem formData ainda carregado, Cidade/Área/Potencial/Tipo
+        // caem pra input de texto simples (sem travar o painel numa espera).
+        const fd = state.formData || (await ensureFormData().then((r) => r.data).catch(() => null));
+        const listaCidades = (fd && fd.cidades) || [];
+        const listaAreas = (fd && fd.areasAtuacao) || [];
+        const listaPotenciais = (fd && fd.potenciaisCliente) || [];
+        const listaTipos = (fd && fd.tiposVisita || []).map((item) => item.tipo);
+        const listaVendedores = (fd && fd.vendedores) || [];
+        if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
+
+        const searchField = (label, fieldId, value, items) => `
+            <div><span>${label}</span>
+                <div class="searchable-select">
+                    <input type="text" id="${fieldId}" value="${escapeHtml(value || '')}" autocomplete="off">
+                    ${items ? `<div class="searchable-select-menu" id="${fieldId}-menu"></div>` : ''}
+                </div>
+            </div>`;
+        const plainField = (label, fieldId, value, type = 'text') => `
+            <div><span>${label}</span><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
+
         panel.innerHTML = `
             <div class="qe-panel-inner">
                 <div class="qe-panel-header">
@@ -422,17 +450,67 @@ export function fillVisitsContent(container, visits) {
                         <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta visita">Editar tudo</button>
                     </div>
                 </div>
+                <div class="qe-info qe-info-edit">
+                    ${plainField('Cliente', 'qe-cliente', v.cliente)}
+                    ${plainField('Contato', 'qe-contato', v.contato)}
+                    ${searchField('Cidade', 'qe-cidade', v.cidade, listaCidades)}
+                    ${searchField('Atuação', 'qe-area', v.areaAtuacao, listaAreas)}
+                    ${searchField('Potencial', 'qe-potencial', v.potencialCliente, listaPotenciais)}
+                    ${searchField('Tipo', 'qe-tipo', v.tipoVisita, listaTipos)}
+                    ${searchField('Vendedor', 'qe-vendedor', v.vendedorGerente, listaVendedores.map((x) => x.nome))}
+                    <div class="qe-info-edit-row2">
+                        <div><span>Data</span><input type="date" id="qe-data" value="${escapeHtml(v.dataVisitaInput || '')}"></div>
+                        <div><span>Horário</span><input type="time" id="qe-horario" value="${escapeHtml(v.horario || '')}"></div>
+                    </div>
+                    <div><span>Veículo</span><select id="qe-veiculo">${renderSimpleOptions(['Particular', 'Empresa'], v.veiculo || 'Particular')}</select></div>
+                    ${state.canLancarDespesas ? `
+                    <div class="qe-info-edit-row2">
+                        <div><span>Despesas?</span><select id="qe-despesas">${renderSimpleOptions(['Nao', 'Sim'], v.teveDespesas || 'Nao')}</select></div>
+                        <div><span>Valor R$</span><input type="text" id="qe-valor-despesas" value="${escapeHtml(v.valorDespesas || '')}" placeholder="0,00" inputmode="decimal"></div>
+                    </div>` : ''}
+                </div>
                 <label>Observação</label>
                 <textarea id="qe-obs" rows="9">${escapeHtml(withDatedNoteHeader(v.observacao))}</textarea>
             </div>`;
+
+        initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
+        initializeSearchableInput({ input: panel.querySelector('#qe-area'), menu: panel.querySelector('#qe-area-menu'), items: listaAreas, allowFreeText: true });
+        initializeSearchableInput({ input: panel.querySelector('#qe-potencial'), menu: panel.querySelector('#qe-potencial-menu'), items: listaPotenciais, allowFreeText: true });
+        initializeSearchableInput({ input: panel.querySelector('#qe-tipo'), menu: panel.querySelector('#qe-tipo-menu'), items: listaTipos, allowFreeText: true });
+        initializeSearchableInput({ input: panel.querySelector('#qe-vendedor'), menu: panel.querySelector('#qe-vendedor-menu'), items: listaVendedores.map((x) => x.nome), allowFreeText: true });
+
         const ta = panel.querySelector('#qe-obs');
         setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('visit-edit', { visit: v }));
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const obs = stripEmptyDatedLine(ta.value);
+            const cliente = panel.querySelector('#qe-cliente')?.value.trim();
+            const contato = panel.querySelector('#qe-contato')?.value.trim();
+            const cidade = panel.querySelector('#qe-cidade')?.value.trim();
+            const areaAtuacao = panel.querySelector('#qe-area')?.value.trim();
+            const potencialCliente = panel.querySelector('#qe-potencial')?.value.trim();
+            const tipoVisita = panel.querySelector('#qe-tipo')?.value.trim();
+            const vendedorGerente = panel.querySelector('#qe-vendedor')?.value.trim();
+            const dataInputValue = panel.querySelector('#qe-data')?.value || '';
+            const dataVisita = dataInputValue ? formatDateFromDisplay(dataInputValue) : v.dataVisita;
+            const horario = panel.querySelector('#qe-horario')?.value || v.horario;
+            const veiculo = panel.querySelector('#qe-veiculo')?.value;
+            const teveDespesas = state.canLancarDespesas ? panel.querySelector('#qe-despesas')?.value : undefined;
+            const valorDespesas = state.canLancarDespesas ? panel.querySelector('#qe-valor-despesas')?.value.trim() : undefined;
+            if (teveDespesas === 'Sim' && !valorDespesas) {
+                showToast('Informe o valor das despesas.', true);
+                return;
+            }
+            if (!cliente || !cidade || !areaAtuacao || !tipoVisita) {
+                showToast('Preencha Cliente, Cidade, Atuação e Tipo.', true);
+                return;
+            }
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
-            applyVisitQuickPatch(v, { observacao: obs }, () => {
+            applyVisitQuickPatch(v, {
+                observacao: obs, cliente, contato, cidade, areaAtuacao, potencialCliente, tipoVisita,
+                vendedorGerente, dataVisita, horario, veiculo, teveDespesas, valorDespesas
+            }, () => {
                 normalizedVisits = (state.visits || []).map(normalizeVisit).sort((a, b) => compareVisitsByDateDesc(a, b));
                 renderFilteredVisits();
             });

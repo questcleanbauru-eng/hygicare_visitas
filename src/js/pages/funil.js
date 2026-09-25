@@ -415,6 +415,7 @@ export function fillFunilContent(mainContent, funil) {
         const listaFoco = (fd && fd.potenciaisCliente) || [];
         const listaAtuacao = (fd && fd.areasAtuacao) || [];
         const listaAplicacao = (fd && fd.aplicacoes) || [];
+        const listaEquipamentos = (fd && fd.equipamentos) || [];
         const listaVendedores = (fd && fd.vendedores) || [];
         if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
 
@@ -425,6 +426,8 @@ export function fillFunilContent(mainContent, funil) {
                     <div class="searchable-select-menu" id="${id}-menu"></div>
                 </div>
             </div>`;
+        const plainField = (label, id, value, type = 'text') => `
+            <div><span>${label}</span><input type="${type}" id="${id}" value="${escapeHtml(value || '')}"></div>`;
 
         const STAT = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
         panel.innerHTML = `
@@ -447,11 +450,23 @@ export function fillFunilContent(mainContent, funil) {
                     </div>
                 </div>
                 <div class="qe-info qe-info-edit">
+                    ${plainField('Cliente', 'qe-cliente', f.cliente)}
                     ${searchField('Cidade', 'qe-cidade', f.cidade)}
                     ${searchField('Vendedor', 'qe-vendedor', f.vendedor)}
+                    ${plainField('Gerência', 'qe-gerencia', f.gerencia)}
                     ${searchField('Foco', 'qe-foco', f.foco)}
                     ${searchField('Atuação', 'qe-atuacao', f.atuacao)}
                     ${searchField('Aplicação', 'qe-aplicacao', f.aplicacao)}
+                    ${searchField('Equipamentos', 'qe-equipamentos', f.equipamentos)}
+                    <div class="qe-info-edit-row2">
+                        <div><span>Data</span><input type="date" id="qe-data" value="${escapeHtml(formatInputDateFromDisplay(f.data) || '')}"></div>
+                        <div><span>Ativo</span><select id="qe-ativo">${renderSimpleOptions(['Sim', 'Nao'], f.ativo || 'Sim')}</select></div>
+                    </div>
+                    <div class="qe-info-edit-row2">
+                        <div><span>Valor R$</span><input type="text" id="qe-vl-mensal" value="${escapeHtml(f.vlMensal || '')}" placeholder="0,00"></div>
+                        <div><span>Conclusão</span><input type="date" id="qe-conclusao" value="${escapeHtml(formatInputDateFromDisplay(f.conclusao) || '')}"></div>
+                    </div>
+                    ${plainField('Inf. Importantes', 'qe-inf', f.infImportantes)}
                 </div>
                 <label>Status</label>
                 <div class="qe-status-row">
@@ -470,22 +485,22 @@ export function fillFunilContent(mainContent, funil) {
             </div>`;
 
         initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
-        // Gerência acompanha o vendedor escolhido (não fica campo visível
-        // aqui, é só pra não desalinhar cidade/vendedor do registro) — só
-        // muda se o admin selecionar alguém da lista; digitar livre mantém
-        // a gerência que já estava.
-        let selGerencia = f.gerencia || '';
+        // Gerência tem campo próprio e editável (abaixo), mas sugere/atualiza
+        // sozinha ao escolher um vendedor da lista — digitar o vendedor livre
+        // (sem selecionar da lista) mantém a gerência como está.
         initializeSearchableInput({
             input: panel.querySelector('#qe-vendedor'), menu: panel.querySelector('#qe-vendedor-menu'),
             items: listaVendedores.map((v) => v.nome), allowFreeText: true,
             onSelect: (value) => {
                 const v = listaVendedores.find((x) => x.nome === value);
-                if (v) selGerencia = v.gerencia || selGerencia;
+                const gerenciaInput = panel.querySelector('#qe-gerencia');
+                if (v && v.gerencia && gerenciaInput) gerenciaInput.value = v.gerencia;
             }
         });
         initializeSearchableInput({ input: panel.querySelector('#qe-foco'), menu: panel.querySelector('#qe-foco-menu'), items: listaFoco, allowFreeText: true });
         initializeSearchableInput({ input: panel.querySelector('#qe-atuacao'), menu: panel.querySelector('#qe-atuacao-menu'), items: listaAtuacao, allowFreeText: true });
         initializeSearchableInput({ input: panel.querySelector('#qe-aplicacao'), menu: panel.querySelector('#qe-aplicacao-menu'), items: listaAplicacao, allowFreeText: true });
+        initializeSearchableInput({ input: panel.querySelector('#qe-equipamentos'), menu: panel.querySelector('#qe-equipamentos-menu'), items: listaEquipamentos, allowFreeText: true });
 
         let selStatus = f.status || 'IDENTIFICAR';
         panel.querySelectorAll('.qe-status-btn').forEach((b) => b.addEventListener('click', () => {
@@ -520,11 +535,19 @@ export function fillFunilContent(mainContent, funil) {
             const motivo = (panel.querySelector('#qe-motivo')?.value || '').trim();
             if (selStatus === 'PERDIDO' && !motivo) { showToast('Informe o motivo da perda.', true); return; }
             const coment = stripEmptyDatedLine(ta.value);
+            const cliente = panel.querySelector('#qe-cliente')?.value.trim();
             const cidade = panel.querySelector('#qe-cidade')?.value.trim();
             const vendedor = panel.querySelector('#qe-vendedor')?.value.trim();
+            const gerenciaValue = panel.querySelector('#qe-gerencia')?.value.trim();
             const foco = panel.querySelector('#qe-foco')?.value.trim();
             const atuacao = panel.querySelector('#qe-atuacao')?.value.trim();
             const aplicacao = panel.querySelector('#qe-aplicacao')?.value.trim();
+            const equipamentos = panel.querySelector('#qe-equipamentos')?.value.trim();
+            const dataValue = panel.querySelector('#qe-data')?.value || '';
+            const ativo = panel.querySelector('#qe-ativo')?.value;
+            const vlMensal = panel.querySelector('#qe-vl-mensal')?.value.trim();
+            const conclusaoValue = panel.querySelector('#qe-conclusao')?.value || '';
+            const infImportantes = panel.querySelector('#qe-inf')?.value.trim();
             const funilDiversey = panel.querySelector('#qe-diversey')?.checked ? 'Sim' : 'Nao';
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
@@ -534,7 +557,11 @@ export function fillFunilContent(mainContent, funil) {
             // pra processar a fila inteira sem reselecionar manualmente.
             const idsBefore = Array.from(document.querySelectorAll('#funil-list-container [data-funil-id]')).map((el) => el.dataset.funilId);
             const posBefore = idsBefore.indexOf(String(f.id));
-            applyFunilQuickPatch(f, { status: selStatus, comentarios: coment, motivoPerda: motivo, cidade, vendedor, gerencia: selGerencia, foco, atuacao, aplicacao, funilDiversey }, () => {
+            applyFunilQuickPatch(f, {
+                status: selStatus, comentarios: coment, motivoPerda: motivo,
+                cliente, cidade, vendedor, gerencia: gerenciaValue, foco, atuacao, aplicacao, equipamentos,
+                data: dataValue, ativo, vlMensal, conclusao: conclusaoValue, infImportantes, funilDiversey
+            }, () => {
                 funilData = state.funil;
                 renderFiltered();
                 const idsAfter = new Set(Array.from(document.querySelectorAll('#funil-list-container [data-funil-id]')).map((el) => el.dataset.funilId));
@@ -915,21 +942,35 @@ function openFunilQuickUpdateModal(f, onUpdated) {
 // Update otimista + attemptOrQueue + rollback compartilhado entre o modal de
 // atualização rápida e o painel de edição rápida (split view do admin).
 function applyFunilQuickPatch(f, patch, onDone) {
-    const { status, comentarios, motivoPerda, cidade, vendedor, gerencia, foco, atuacao, aplicacao, funilDiversey } = patch;
+    const {
+        status, comentarios, motivoPerda, cliente, cidade, vendedor, gerencia, foco, atuacao, aplicacao,
+        equipamentos, data, ativo, vlMensal, conclusao, infImportantes, funilDiversey
+    } = patch;
     const idx = state.funil.findIndex((item) => String(item.id) === String(f.id));
     const original = idx >= 0 ? { ...state.funil[idx] } : null;
     const nowDisplay = formatDateForDisplay(new Date());
-    // Cidade/Vendedor/Foco/Atuação/Aplicação só chegam preenchidos quando o
-    // painel tinha os campos (admin) — undefined não sobrescreve o que já
+    // Cidade/Vendedor/Foco/Atuação/Aplicação/etc só chegam preenchidos quando
+    // o painel tinha os campos (admin) — undefined não sobrescreve o que já
     // tinha.
     const camposLivres = {};
+    if (cliente !== undefined) camposLivres.cliente = cliente;
     if (cidade !== undefined) camposLivres.cidade = cidade;
     if (vendedor !== undefined) camposLivres.vendedor = vendedor;
     if (gerencia !== undefined) camposLivres.gerencia = gerencia;
     if (foco !== undefined) camposLivres.foco = foco;
     if (atuacao !== undefined) camposLivres.atuacao = atuacao;
     if (aplicacao !== undefined) camposLivres.aplicacao = aplicacao;
+    if (equipamentos !== undefined) camposLivres.equipamentos = equipamentos;
+    if (ativo !== undefined) camposLivres.ativo = ativo;
+    if (vlMensal !== undefined) camposLivres.vlMensal = vlMensal;
+    if (infImportantes !== undefined) camposLivres.infImportantes = infImportantes;
     if (funilDiversey !== undefined) camposLivres.funilDiversey = funilDiversey;
+    // "data"/"conclusao" chegam como ISO cru (<input type="date">) — pro
+    // servidor vai cru (mesma convenção do form completo), pro estado
+    // otimista local vira dd/mm/aaaa (formato usado em toda exibição).
+    const serverExtra = {};
+    if (data !== undefined) { serverExtra.data = data; camposLivres.data = data ? formatDateFromDisplay(data) : ''; }
+    if (conclusao !== undefined) { serverExtra.conclusao = conclusao; camposLivres.conclusao = conclusao ? formatDateFromDisplay(conclusao) : ''; }
     if (idx >= 0) {
         const optimistic = { ...state.funil[idx], status, comentarios, motivoPerda, ...camposLivres, atualizacao: nowDisplay };
         if (funilDiversey !== undefined) optimistic.funilDiversey = funilDiversey === 'Sim' ? 'Sim' : '';
@@ -938,7 +979,7 @@ function applyFunilQuickPatch(f, patch, onDone) {
     }
     if (onDone) onDone();
 
-    return attemptOrQueue('updateFunil', { id: f.id, status, comentarios, motivoPerda, ...camposLivres, user: state.currentUser },
+    return attemptOrQueue('updateFunil', { id: f.id, status, comentarios, motivoPerda, ...camposLivres, ...serverExtra, user: state.currentUser },
         { entity: 'funil', tempId: f.id })
         .then((result) => {
             if (result && result.status === 'success') {

@@ -491,6 +491,8 @@ export function fillProposalsContent(mainContent, proposals) {
                     ${items ? `<div class="searchable-select-menu" id="${fieldId}-menu"></div>` : ''}
                 </div>
             </div>`;
+        const plainField = (label, fieldId, value, type = 'text') => `
+            <div><span>${label}</span><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
 
         const STAT = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
         panel.innerHTML = `
@@ -513,9 +515,17 @@ export function fillProposalsContent(mainContent, proposals) {
                     </div>
                 </div>
                 <div class="qe-info qe-info-edit">
+                    ${plainField('Cliente', 'qe-cliente', p.cliente)}
                     ${searchField('Cidade', 'qe-cidade', p.cidade, listaCidades)}
+                    ${plainField('Vendedor', 'qe-vendedor', p.vendedor)}
+                    ${plainField('Gerência', 'qe-gerencia', p.gerencia)}
                     ${searchField('Foco', 'qe-foco', p.foco, listaFoco)}
                     <div><span>Produtos</span><input type="text" id="qe-produtos" value="${escapeHtml(p.produtos || '')}"></div>
+                    <div class="qe-info-edit-row2">
+                        <div><span>Data</span><input type="date" id="qe-data" value="${escapeHtml(formatInputDateFromDisplay(p.data) || '')}"></div>
+                        <div><span>Prazo</span><input type="date" id="qe-data-limite" value="${escapeHtml(formatInputDateFromDisplay(p.dataLimite) || '')}"></div>
+                    </div>
+                    ${plainField('E-mail', 'qe-email', p.email, 'email')}
                 </div>
                 <label>Status</label>
                 <div class="qe-status-row">
@@ -558,9 +568,15 @@ export function fillProposalsContent(mainContent, proposals) {
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const obs = stripEmptyDatedLine(ta.value);
+            const cliente = panel.querySelector('#qe-cliente')?.value.trim();
             const cidade = panel.querySelector('#qe-cidade')?.value.trim();
+            const vendedor = panel.querySelector('#qe-vendedor')?.value.trim();
+            const gerencia = panel.querySelector('#qe-gerencia')?.value.trim();
             const foco = panel.querySelector('#qe-foco')?.value.trim();
             const produtos = panel.querySelector('#qe-produtos')?.value.trim();
+            const dataValue = panel.querySelector('#qe-data')?.value || '';
+            const dataLimiteValue = panel.querySelector('#qe-data-limite')?.value || '';
+            const email = panel.querySelector('#qe-email')?.value.trim();
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
             // Se o novo status tirar esse card do filtro atual (ex.: filtrado
@@ -569,7 +585,10 @@ export function fillProposalsContent(mainContent, proposals) {
             // dá pra processar a fila inteira sem reselecionar manualmente.
             const idsBefore = Array.from(document.querySelectorAll('#proposal-list-container [data-proposal-id]')).map((el) => el.dataset.proposalId);
             const posBefore = idsBefore.indexOf(String(p.id));
-            applyProposalQuickPatch(p, { status: selStatus, obs, cidade, foco, produtos }, () => {
+            applyProposalQuickPatch(p, {
+                status: selStatus, obs, cliente, cidade, vendedor, gerencia, foco, produtos,
+                data: dataValue, dataLimite: dataLimiteValue, email
+            }, () => {
                 normalized = state.proposals.map(normalizeProposal);
                 renderFiltered();
                 const idsAfter = new Set(Array.from(document.querySelectorAll('#proposal-list-container [data-proposal-id]')).map((el) => el.dataset.proposalId));
@@ -1474,13 +1493,23 @@ function openProposalQuickUpdateModal(p, onUpdated) {
 // Update otimista + attemptOrQueue + rollback compartilhado entre o modal de
 // atualização rápida e o painel de edição rápida (split view do admin).
 function applyProposalQuickPatch(p, patch, onDone) {
-    const { status, obs, cidade, foco, produtos } = patch;
-    // Cidade/Foco/Produtos só chegam preenchidos quando o painel tinha os
+    const { status, obs, cliente, cidade, vendedor, gerencia, foco, produtos, data, dataLimite, email } = patch;
+    // Cidade/Foco/Produtos/etc só chegam preenchidos quando o painel tinha os
     // campos (admin) — undefined não sobrescreve o que já tinha.
     const camposLivres = {};
+    if (cliente !== undefined) { camposLivres.cliente = cliente; camposLivres.Cliente = cliente; }
     if (cidade !== undefined) { camposLivres.cidade = cidade; camposLivres.Cidade = cidade; }
+    if (vendedor !== undefined) { camposLivres.vendedor = vendedor; camposLivres.Vendedor = vendedor; }
+    if (gerencia !== undefined) { camposLivres.gerencia = gerencia; camposLivres.Gerencia = gerencia; }
     if (foco !== undefined) { camposLivres.foco = foco; camposLivres.Foco = foco; }
     if (produtos !== undefined) { camposLivres.produtos = produtos; camposLivres.Produtos = produtos; }
+    if (email !== undefined) { camposLivres.email = email; camposLivres['E-mail'] = email; }
+    // "data"/"dataLimite" chegam como ISO cru (<input type="date">) — pro
+    // servidor vai cru (mesma convenção do form completo), pro estado
+    // otimista local vira dd/mm/aaaa (formato usado em toda exibição).
+    const serverExtra = {};
+    if (data !== undefined) { serverExtra.data = data; const dd = data ? formatDateFromDisplay(data) : ''; camposLivres.data = dd; camposLivres.Data = dd; }
+    if (dataLimite !== undefined) { serverExtra.dataLimite = dataLimite; const dd = dataLimite ? formatDateFromDisplay(dataLimite) : ''; camposLivres.dataLimite = dd; camposLivres['Data Limite'] = dd; }
     const idx = state.proposals.findIndex((item) => String(item.Id || item.id) === String(p.id));
     const original = idx >= 0 ? { ...state.proposals[idx] } : null;
     const nowDisplay = formatDateForDisplay(new Date());
@@ -1498,14 +1527,20 @@ function applyProposalQuickPatch(p, patch, onDone) {
     // state.proposals) — mutar aqui também pra o re-render pegar o novo valor.
     p.status = status;
     p.obs = obs;
+    if (cliente !== undefined) p.cliente = cliente;
     if (cidade !== undefined) p.cidade = cidade;
+    if (vendedor !== undefined) p.vendedor = vendedor;
+    if (gerencia !== undefined) p.gerencia = gerencia;
     if (foco !== undefined) p.foco = foco;
     if (produtos !== undefined) p.produtos = produtos;
+    if (email !== undefined) p.email = email;
+    if (camposLivres.data !== undefined) p.data = camposLivres.data;
+    if (camposLivres.dataLimite !== undefined) p.dataLimite = camposLivres.dataLimite;
     p.atualizacao = nowDisplay;
     p.atrasada = false;
     if (onDone) onDone();
 
-    return attemptOrQueue('updateProposal', { id: p.id, status, obs, ...camposLivres, user: state.currentUser },
+    return attemptOrQueue('updateProposal', { id: p.id, status, obs, ...camposLivres, ...serverExtra, user: state.currentUser },
         { entity: 'proposals', tempId: p.id })
         .then((result) => {
             if (result && result.status === 'success') {

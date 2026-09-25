@@ -2254,8 +2254,8 @@ input:disabled {
 
 .qe-info-edit > div { align-items: center; }
 .qe-info-edit .searchable-select { flex: 1; min-width: 0; position: relative; }
-.qe-info-edit > div > input { flex: 1; min-width: 0; }
-.qe-info-edit input {
+.qe-info-edit > div > input, .qe-info-edit > div > select { flex: 1; min-width: 0; }
+.qe-info-edit input, .qe-info-edit select {
     width: 100%;
     min-height: 34px;
     padding: 0.2rem 0.45rem;
@@ -2267,7 +2267,10 @@ input:disabled {
     color: var(--text);
     box-sizing: border-box;
 }
-.qe-info-edit input:focus { border-color: var(--primary); outline: none; }
+.qe-info-edit input:focus, .qe-info-edit select:focus { border-color: var(--primary); outline: none; }
+/* Painel de edição rápida cabe pouca largura — duas colunas evitam que
+   Data/Ativo/Valor/Conclusão empilhem um por linha e estourem o scroll. */
+.qe-info-edit-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
 
 .inline-status-editor {
     background: var(--surface);
