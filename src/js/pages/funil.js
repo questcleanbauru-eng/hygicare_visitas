@@ -994,7 +994,8 @@ function openLinkPropostaModal(f, onLinked) {
                 cliente: p.cliente || p.Cliente || '-',
                 tag: p.foco || p.Foco || '',
                 cidade: p.cidade || p.Cidade || '',
-                data: p.data || p.Data || ''
+                data: p.data || p.Data || '',
+                hint: p.produtos || p.Produtos || ''
             })).filter((it) => it.id);
 
         openLinkPickerModal({

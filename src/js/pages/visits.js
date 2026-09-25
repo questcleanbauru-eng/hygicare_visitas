@@ -476,12 +476,11 @@ export function fillVisitsContent(container, visits) {
                     <div>
                         <div class="qe-v2-title-row">
                             <strong class="qe-panel-title">${escapeHtml(v.cliente || 'Cliente')}</strong>
-                            <span class="qe-v2-badge qe-v2-badge-dirty" id="qe-dirty-badge" hidden>Não salvo</span>
                         </div>
                         <p class="helper-text qe-v2-meta">📍 ${escapeHtml(v.cidade || '-')} &nbsp;·&nbsp; 👤 ${escapeHtml(v.vendedorGerente || '-')}</p>
                     </div>
                     <div class="qe-v2-header-actions">
-                        <button type="button" class="primary-button" id="qe-save">💾 Salvar</button>
+                        <button type="button" class="primary-button qe-v2-save-btn is-clean" id="qe-save" disabled>✓ Salvo</button>
                         <div class="qe-v2-menu-wrap">
                             <button type="button" class="qe-v2-menu-toggle" id="qe-menu-toggle" aria-label="Mais opções">⋮</button>
                             <div class="qe-v2-menu" id="qe-menu">
@@ -528,7 +527,6 @@ export function fillVisitsContent(container, visits) {
                 </div>` : ''}
 
                 <div class="qe-v2-section">
-                    <p class="qe-v2-section-title">Cliente</p>
                     <div class="qe-v2-grid-3">
                         ${plainField('Cliente', 'qe-cliente', v.cliente)}
                         ${plainField('Contato', 'qe-contato', v.contato)}
@@ -551,8 +549,20 @@ export function fillVisitsContent(container, visits) {
 
         let selTipo = v.tipoVisita || '';
         let isDirty = false;
-        const dirtyBadge = panel.querySelector('#qe-dirty-badge');
-        const markDirty = () => { if (!isDirty) { isDirty = true; if (dirtyBadge) dirtyBadge.hidden = false; } };
+        const saveBtn = panel.querySelector('#qe-save');
+        const markDirty = () => {
+            if (isDirty) return;
+            isDirty = true;
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('is-clean');
+            saveBtn.textContent = '💾 Salvar';
+        };
+        const markClean = () => {
+            isDirty = false;
+            saveBtn.disabled = true;
+            saveBtn.classList.add('is-clean');
+            saveBtn.textContent = '✓ Salvo';
+        };
         panel.addEventListener('input', markDirty);
         panel.addEventListener('change', markDirty);
 
@@ -623,9 +633,8 @@ export function fillVisitsContent(container, visits) {
                 showToast('Preencha Cliente, Cidade, Atuação e Tipo.', true);
                 return;
             }
-            setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
-            if (dirtyBadge) dirtyBadge.hidden = true;
+            markClean();
             applyVisitQuickPatch(v, {
                 observacao: obs, cliente, contato, cidade, areaAtuacao, potencialCliente, tipoVisita,
                 vendedorGerente, dataVisita, horario, veiculo, teveDespesas, valorDespesas

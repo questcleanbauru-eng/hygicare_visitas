@@ -546,7 +546,6 @@ export function fillProposalsContent(mainContent, proposals) {
                     <div>
                         <div class="qe-v2-title-row">
                             <strong class="qe-panel-title">${escapeHtml(p.cliente || 'Cliente')}</strong>
-                            <span class="qe-v2-badge qe-v2-badge-dirty" id="qe-dirty-badge" hidden>Não salvo</span>
                         </div>
                         <p class="helper-text qe-v2-meta">📍 ${escapeHtml(p.cidade || '-')} &nbsp;·&nbsp; 👤 ${escapeHtml(p.vendedor || '-')} &nbsp;·&nbsp; 📅 ${escapeHtml(p.data || '-')}</p>
                     </div>
@@ -554,7 +553,7 @@ export function fillProposalsContent(mainContent, proposals) {
                         ${funilLinkado
                             ? `<button type="button" class="mini-button" id="qe-ver-funil" data-funil-id="${escapeHtml(String(funilLinkado.id || funilLinkado.Id || ''))}" title="Abrir oportunidade vinculada">🔗 ${escapeHtml(funilLinkado.cliente || funilLinkado.Cliente || '-')}</button>`
                             : `<button type="button" class="mini-button" id="qe-link-funil" title="Buscar e vincular a uma oportunidade do Funil já cadastrada">🔗 Vincular funil</button>`}
-                        <button type="button" class="primary-button" id="qe-save">💾 Salvar</button>
+                        <button type="button" class="primary-button qe-v2-save-btn is-clean" id="qe-save" disabled>✓ Salvo</button>
                         <div class="qe-v2-menu-wrap">
                             <button type="button" class="qe-v2-menu-toggle" id="qe-menu-toggle" aria-label="Mais opções">⋮</button>
                             <div class="qe-v2-menu" id="qe-menu">
@@ -596,7 +595,6 @@ export function fillProposalsContent(mainContent, proposals) {
                 </div>
 
                 <div class="qe-v2-section">
-                    <p class="qe-v2-section-title">Cliente</p>
                     <div class="qe-v2-grid-3">
                         ${plainField('Cliente', 'qe-cliente', p.cliente)}
                         ${searchField('Cidade', 'qe-cidade', p.cidade, listaCidades)}
@@ -617,8 +615,20 @@ export function fillProposalsContent(mainContent, proposals) {
 
         let selStatus = p.status || 'Aguardando';
         let isDirty = false;
-        const dirtyBadge = panel.querySelector('#qe-dirty-badge');
-        const markDirty = () => { if (!isDirty) { isDirty = true; if (dirtyBadge) dirtyBadge.hidden = false; } };
+        const saveBtn = panel.querySelector('#qe-save');
+        const markDirty = () => {
+            if (isDirty) return;
+            isDirty = true;
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('is-clean');
+            saveBtn.textContent = '💾 Salvar';
+        };
+        const markClean = () => {
+            isDirty = false;
+            saveBtn.disabled = true;
+            saveBtn.classList.add('is-clean');
+            saveBtn.textContent = '✓ Salvo';
+        };
         panel.addEventListener('input', markDirty);
         panel.addEventListener('change', markDirty);
 
@@ -705,9 +715,8 @@ export function fillProposalsContent(mainContent, proposals) {
             const dataValue = panel.querySelector('#qe-data')?.value || '';
             const dataLimiteValue = panel.querySelector('#qe-data-limite')?.value || '';
             const email = panel.querySelector('#qe-email')?.value.trim();
-            setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
-            if (dirtyBadge) dirtyBadge.hidden = true;
+            markClean();
             // Se o novo status tirar esse card do filtro atual (ex.: filtrado
             // por "Aguardando" e o card virou "Ganhamos"), pula pro próximo
             // da lista em vez de continuar mostrando um card que já sumiu —

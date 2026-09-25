@@ -135,7 +135,7 @@ export function openLinkPickerModal(config) {
         const itemHtml = (it) => {
             const rel = relativeLabel(it.data);
             return `
-            <button type="button" class="lkp-item${String(it.id) === String(selectedId) ? ' is-selected' : ''}" data-id="${escapeHtml(String(it.id))}">
+            <button type="button" class="lkp-item${String(it.id) === String(selectedId) ? ' is-selected' : ''}" data-id="${escapeHtml(String(it.id))}" ${it.hint ? `title="${escapeHtml(it.hint)}"` : ''}>
                 <span class="lkp-avatar">${escapeHtml(initials(it.cliente))}</span>
                 <span class="lkp-item-body">
                     <span class="lkp-item-name">${highlight(it.cliente || 'Cliente', searchInput.value.trim())}</span>
