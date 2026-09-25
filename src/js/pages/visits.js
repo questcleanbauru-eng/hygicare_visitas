@@ -133,6 +133,9 @@ export function fillVisitsContent(container, visits) {
 
     const availableTypes   = Array.from(new Set(normalizedVisits.map((v) => v.tipoVisita).filter(Boolean))).sort();
     const availableCities  = Array.from(new Set(normalizedVisits.map((v) => v.cidade).filter(Boolean))).sort();
+    const availableAreas   = Array.from(new Set(normalizedVisits.map((v) => v.areaAtuacao).filter(Boolean))).sort();
+    const availablePotenciais = Array.from(new Set(normalizedVisits.map((v) => v.potencialCliente).filter(Boolean))).sort();
+    const availableVeiculos = Array.from(new Set(normalizedVisits.map((v) => v.veiculo).filter(Boolean))).sort();
     const isAdmGer         = isAdminOrGerenteUser();
     const isAdmin          = (state.currentUser?.profile || '').toLowerCase() === 'admin';
     // Administrativo já enxerga as visitas de todos (hasBroadDataAccess, no
@@ -186,6 +189,17 @@ export function fillVisitsContent(container, visits) {
                         <option value="Nao">Não</option>
                     </select>
                 </div>
+                ${multiCheckFilterFieldHtml('Área de Atuação', 'visit-filter-area', 'Todas')}
+                ${multiCheckFilterFieldHtml('Potencial do Cliente', 'visit-filter-potencial', 'Todos')}
+                ${multiCheckFilterFieldHtml('Veículo', 'visit-filter-veiculo', 'Todos')}
+                <div class="form-group">
+                    <label for="visit-filter-despesas">${filterLabelHtml('Teve Despesas')}</label>
+                    <select id="visit-filter-despesas">
+                        <option value="">Todas</option>
+                        <option value="Sim">Sim</option>
+                        <option value="Nao">Não</option>
+                    </select>
+                </div>
                 ${canVendorTools && availableVendors.length > 0 ? multiCheckFilterFieldHtml('Vendedor', 'visit-filter-vendor') : ''}
                 <div class="form-group">
                     <label for="visit-filter-date-from">${filterLabelHtml('Data inicial')}</label>
@@ -223,6 +237,9 @@ export function fillVisitsContent(container, visits) {
 
     wireMultiCheckFilter({ triggerId: 'visit-filter-type-trigger', inputId: 'visit-filter-type', menuId: 'visit-filter-type-menu', options: availableTypes });
     wireMultiCheckFilter({ triggerId: 'visit-filter-city-trigger', inputId: 'visit-filter-city', menuId: 'visit-filter-city-menu', options: availableCities });
+    wireMultiCheckFilter({ triggerId: 'visit-filter-area-trigger', inputId: 'visit-filter-area', menuId: 'visit-filter-area-menu', options: availableAreas, emptyLabel: 'Todas' });
+    wireMultiCheckFilter({ triggerId: 'visit-filter-potencial-trigger', inputId: 'visit-filter-potencial', menuId: 'visit-filter-potencial-menu', options: availablePotenciais });
+    wireMultiCheckFilter({ triggerId: 'visit-filter-veiculo-trigger', inputId: 'visit-filter-veiculo', menuId: 'visit-filter-veiculo-menu', options: availableVeiculos });
     if (canVendorTools) {
         wireMultiCheckFilter({ triggerId: 'visit-filter-vendor-trigger', inputId: 'visit-filter-vendor', menuId: 'visit-filter-vendor-menu', options: availableVendors });
     }
@@ -254,6 +271,10 @@ export function fillVisitsContent(container, visits) {
         const typeValue       = (document.getElementById('visit-filter-type')?.value || '').split(',').filter(Boolean);
         const cityValue       = (document.getElementById('visit-filter-city')?.value || '').split(',').filter(Boolean);
         const prospectionValue = document.getElementById('visit-filter-prospeccao')?.value || '';
+        const areaValue       = (document.getElementById('visit-filter-area')?.value || '').split(',').filter(Boolean);
+        const potencialValue  = (document.getElementById('visit-filter-potencial')?.value || '').split(',').filter(Boolean);
+        const veiculoValue    = (document.getElementById('visit-filter-veiculo')?.value || '').split(',').filter(Boolean);
+        const despesasValue   = document.getElementById('visit-filter-despesas')?.value || '';
         const periodValue     = document.getElementById('visit-filter-period')?.value || '';
         const vendorValue     = (document.getElementById('visit-filter-vendor')?.value || '').split(',').filter(Boolean);
         const dateFromValue   = document.getElementById('visit-filter-date-from')?.value || '';
@@ -266,6 +287,10 @@ export function fillVisitsContent(container, visits) {
             const matchesType   = !typeValue.length || typeValue.includes(visit.tipoVisita);
             const matchesCity   = !cityValue.length || cityValue.includes(visit.cidade);
             const matchesProspection = !prospectionValue || visit.prospeccao === prospectionValue;
+            const matchesArea = !areaValue.length || areaValue.includes(visit.areaAtuacao);
+            const matchesPotencial = !potencialValue.length || potencialValue.includes(visit.potencialCliente);
+            const matchesVeiculo = !veiculoValue.length || veiculoValue.includes(visit.veiculo);
+            const matchesDespesas = !despesasValue || visit.teveDespesas === despesasValue;
             const matchesVendor = !vendorValue.length || vendorValue.includes(visit.vendedorGerente);
             const visitDate     = parseDisplayDate(visit.dataVisita);
             const matchesPeriod = !periodStart || (visitDate && visitDate >= periodStart && visitDate <= periodEnd);
@@ -273,7 +298,7 @@ export function fillVisitsContent(container, visits) {
             const matchesDateTo   = !dateToValue   || (visitDate && visitDate <= parseInputDate(dateToValue));
             const matchesYear    = !state.visitsYearFilter || (visitDate && visitDate.getFullYear() === state.visitsYearFilter);
 
-            return matchesSearch && matchesType && matchesCity && matchesProspection && matchesVendor && matchesPeriod && matchesDateFrom && matchesDateTo && matchesYear;
+            return matchesSearch && matchesType && matchesCity && matchesProspection && matchesArea && matchesPotencial && matchesVeiculo && matchesDespesas && matchesVendor && matchesPeriod && matchesDateFrom && matchesDateTo && matchesYear;
         });
         lastFilteredVisits = filteredVisits;
 
@@ -415,6 +440,7 @@ export function fillVisitsContent(container, visits) {
     }
 
     const _visitFilterIds = ['visit-filter-search', 'visit-filter-type', 'visit-filter-city', 'visit-filter-prospeccao',
+        'visit-filter-area', 'visit-filter-potencial', 'visit-filter-veiculo', 'visit-filter-despesas',
         'visit-filter-period', 'visit-filter-vendor', 'visit-filter-date-from', 'visit-filter-date-to'];
 
     // Lembra os filtros entre re-renders da tela (recarregar em 2º plano,
@@ -447,6 +473,9 @@ export function fillVisitsContent(container, visits) {
     const syncVisitMultiCheckLabels = () => {
         syncMultiCheckFilterLabel('visit-filter-type-trigger', 'visit-filter-type');
         syncMultiCheckFilterLabel('visit-filter-city-trigger', 'visit-filter-city');
+        syncMultiCheckFilterLabel('visit-filter-area-trigger', 'visit-filter-area', 'Todas');
+        syncMultiCheckFilterLabel('visit-filter-potencial-trigger', 'visit-filter-potencial');
+        syncMultiCheckFilterLabel('visit-filter-veiculo-trigger', 'visit-filter-veiculo');
         syncMultiCheckFilterLabel('visit-filter-vendor-trigger', 'visit-filter-vendor');
     };
     syncVisitMultiCheckLabels();
@@ -496,6 +525,9 @@ export function fillVisitsContent(container, visits) {
                     normalizedVisits = state.visits.map((v) => normalizeVisit(v)).sort((a, b) => compareVisitsByDateDesc(a, b));
                     wireMultiCheckFilter({ triggerId: 'visit-filter-type-trigger', inputId: 'visit-filter-type', menuId: 'visit-filter-type-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.tipoVisita).filter(Boolean))).sort() });
                     wireMultiCheckFilter({ triggerId: 'visit-filter-city-trigger', inputId: 'visit-filter-city', menuId: 'visit-filter-city-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.cidade).filter(Boolean))).sort() });
+                    wireMultiCheckFilter({ triggerId: 'visit-filter-area-trigger', inputId: 'visit-filter-area', menuId: 'visit-filter-area-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.areaAtuacao).filter(Boolean))).sort(), emptyLabel: 'Todas' });
+                    wireMultiCheckFilter({ triggerId: 'visit-filter-potencial-trigger', inputId: 'visit-filter-potencial', menuId: 'visit-filter-potencial-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.potencialCliente).filter(Boolean))).sort() });
+                    wireMultiCheckFilter({ triggerId: 'visit-filter-veiculo-trigger', inputId: 'visit-filter-veiculo', menuId: 'visit-filter-veiculo-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.veiculo).filter(Boolean))).sort() });
                     if (canVendorTools) wireMultiCheckFilter({ triggerId: 'visit-filter-vendor-trigger', inputId: 'visit-filter-vendor', menuId: 'visit-filter-vendor-menu', options: Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort() });
                     renderFilteredVisits();
                     updateYearSelect();

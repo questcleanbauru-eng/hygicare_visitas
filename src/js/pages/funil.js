@@ -100,6 +100,9 @@ export function fillFunilContent(mainContent, funil) {
     const availableStatuses = Array.from(new Set(funilData.map((f) => f.status).filter(Boolean)));
     const availableCidades  = Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort();
     const availableFocos    = Array.from(new Set(funilData.map((f) => f.foco).filter(Boolean))).sort();
+    const availableAtuacoes  = Array.from(new Set(funilData.map((f) => f.atuacao).filter(Boolean))).sort();
+    const availableAplicacoes = Array.from(new Set(funilData.map((f) => f.aplicacao).filter(Boolean))).sort();
+    const availableMotivos  = Array.from(new Set(funilData.map((f) => f.motivoPerda).filter(Boolean))).sort();
     const availableVendors  = isAdmGer
         ? Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort()
         : [];
@@ -142,6 +145,9 @@ export function fillFunilContent(mainContent, funil) {
                 ${multiCheckFilterFieldHtml('Status', 'funil-filter-status')}
                 ${multiCheckFilterFieldHtml('Cidade', 'funil-filter-cidade', 'Todas')}
                 ${multiCheckFilterFieldHtml('Foco', 'funil-filter-foco', 'Todos')}
+                ${multiCheckFilterFieldHtml('Área de Atuação', 'funil-filter-atuacao', 'Todas')}
+                ${multiCheckFilterFieldHtml('Aplicação', 'funil-filter-aplicacao', 'Todas')}
+                ${multiCheckFilterFieldHtml('Motivo da Perda', 'funil-filter-motivo', 'Todos')}
                 <div class="form-group">
                     <label for="funil-filter-ativo">${filterLabelHtml('Ativo')}</label>
                     <select id="funil-filter-ativo">
@@ -232,6 +238,9 @@ export function fillFunilContent(mainContent, funil) {
         const statusFilter = (document.getElementById('funil-filter-status')?.value || '').split(',').filter(Boolean);
         const cidadeFilter = (document.getElementById('funil-filter-cidade')?.value || '').split(',').filter(Boolean);
         const focoFilter   = (document.getElementById('funil-filter-foco')?.value || '').split(',').filter(Boolean);
+        const atuacaoFilter = (document.getElementById('funil-filter-atuacao')?.value || '').split(',').filter(Boolean);
+        const aplicacaoFilter = (document.getElementById('funil-filter-aplicacao')?.value || '').split(',').filter(Boolean);
+        const motivoFilter = (document.getElementById('funil-filter-motivo')?.value || '').split(',').filter(Boolean);
         const ativoFilter  = document.getElementById('funil-filter-ativo')?.value || '';
         const atrasadoFilter = document.getElementById('funil-filter-atrasado')?.value || '';
         const diverseyFilter = document.getElementById('funil-filter-diversey')?.value || '';
@@ -270,6 +279,9 @@ export function fillFunilContent(mainContent, funil) {
             const matchStatus  = !statusFilter.length || statusFilter.includes(f.status);
             const matchCidade  = !cidadeFilter.length || cidadeFilter.includes(f.cidade);
             const matchFoco    = !focoFilter.length || focoFilter.includes(f.foco);
+            const matchAtuacao = !atuacaoFilter.length || atuacaoFilter.includes(f.atuacao);
+            const matchAplicacao = !aplicacaoFilter.length || aplicacaoFilter.includes(f.aplicacao);
+            const matchMotivo = !motivoFilter.length || motivoFilter.includes(f.motivoPerda);
             const matchAtivo   = !ativoFilter || (ativoFilter === 'SIM' ? String(f.ativo).toLowerCase() === 'sim' : String(f.ativo).toLowerCase() !== 'sim');
             const isOverdue    = String(f.ativo || '').toLowerCase() === 'sim'
                 && !['CONCLUIDO', 'PERDIDO'].includes(String(f.status || '').toUpperCase())
@@ -283,7 +295,7 @@ export function fillFunilContent(mainContent, funil) {
             const matchVl      = !vlMin || parseCurrencyBR(f.vlMensal) >= vlMin;
             const matchYear    = !state.funilYearFilter || (atuDate && atuDate.getFullYear() === state.funilYearFilter);
             const matchDup     = !dupFilter || isDup(f);
-            return matchSearch && matchStatus && matchCidade && matchFoco && matchAtivo && matchAtrasado && matchDiversey && matchVendor && matchPeriod && matchVl && matchYear && matchDup;
+            return matchSearch && matchStatus && matchCidade && matchFoco && matchAtuacao && matchAplicacao && matchMotivo && matchAtivo && matchAtrasado && matchDiversey && matchVendor && matchPeriod && matchVl && matchYear && matchDup;
         });
 
         const container = document.getElementById('funil-list-container');
@@ -649,11 +661,15 @@ export function fillFunilContent(mainContent, funil) {
         });
     }
 
-    const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-foco', 'funil-filter-ativo',
+    const _funilFilterIds = ['funil-filter-search', 'funil-filter-status', 'funil-filter-cidade', 'funil-filter-foco', 'funil-filter-atuacao',
+        'funil-filter-aplicacao', 'funil-filter-motivo', 'funil-filter-ativo',
         'funil-filter-atrasado', 'funil-filter-diversey', 'funil-filter-dup', 'funil-filter-period', 'funil-filter-vendor', 'funil-filter-vl'];
     wireMultiCheckFilter({ triggerId: 'funil-filter-status-trigger', inputId: 'funil-filter-status', menuId: 'funil-filter-status-menu', options: availableStatuses });
     wireMultiCheckFilter({ triggerId: 'funil-filter-cidade-trigger', inputId: 'funil-filter-cidade', menuId: 'funil-filter-cidade-menu', options: availableCidades });
     wireMultiCheckFilter({ triggerId: 'funil-filter-foco-trigger', inputId: 'funil-filter-foco', menuId: 'funil-filter-foco-menu', options: availableFocos });
+    wireMultiCheckFilter({ triggerId: 'funil-filter-atuacao-trigger', inputId: 'funil-filter-atuacao', menuId: 'funil-filter-atuacao-menu', options: availableAtuacoes, emptyLabel: 'Todas' });
+    wireMultiCheckFilter({ triggerId: 'funil-filter-aplicacao-trigger', inputId: 'funil-filter-aplicacao', menuId: 'funil-filter-aplicacao-menu', options: availableAplicacoes, emptyLabel: 'Todas' });
+    wireMultiCheckFilter({ triggerId: 'funil-filter-motivo-trigger', inputId: 'funil-filter-motivo', menuId: 'funil-filter-motivo-menu', options: availableMotivos });
     if (isAdmGer) {
         wireMultiCheckFilter({ triggerId: 'funil-filter-vendor-trigger', inputId: 'funil-filter-vendor', menuId: 'funil-filter-vendor-menu', options: availableVendors });
     }
@@ -680,6 +696,9 @@ export function fillFunilContent(mainContent, funil) {
         syncMultiCheckFilterLabel('funil-filter-status-trigger', 'funil-filter-status');
         syncMultiCheckFilterLabel('funil-filter-cidade-trigger', 'funil-filter-cidade');
         syncMultiCheckFilterLabel('funil-filter-foco-trigger', 'funil-filter-foco');
+        syncMultiCheckFilterLabel('funil-filter-atuacao-trigger', 'funil-filter-atuacao', 'Todas');
+        syncMultiCheckFilterLabel('funil-filter-aplicacao-trigger', 'funil-filter-aplicacao', 'Todas');
+        syncMultiCheckFilterLabel('funil-filter-motivo-trigger', 'funil-filter-motivo');
         syncMultiCheckFilterLabel('funil-filter-vendor-trigger', 'funil-filter-vendor');
     };
     syncFunilMultiCheckLabels();
@@ -726,6 +745,9 @@ export function fillFunilContent(mainContent, funil) {
                     wireMultiCheckFilter({ triggerId: 'funil-filter-status-trigger', inputId: 'funil-filter-status', menuId: 'funil-filter-status-menu', options: Array.from(new Set(funilData.map((f) => f.status).filter(Boolean))) });
                     wireMultiCheckFilter({ triggerId: 'funil-filter-cidade-trigger', inputId: 'funil-filter-cidade', menuId: 'funil-filter-cidade-menu', options: Array.from(new Set(funilData.map((f) => f.cidade).filter(Boolean))).sort() });
                     wireMultiCheckFilter({ triggerId: 'funil-filter-foco-trigger', inputId: 'funil-filter-foco', menuId: 'funil-filter-foco-menu', options: Array.from(new Set(funilData.map((f) => f.foco).filter(Boolean))).sort() });
+                    wireMultiCheckFilter({ triggerId: 'funil-filter-atuacao-trigger', inputId: 'funil-filter-atuacao', menuId: 'funil-filter-atuacao-menu', options: Array.from(new Set(funilData.map((f) => f.atuacao).filter(Boolean))).sort(), emptyLabel: 'Todas' });
+                    wireMultiCheckFilter({ triggerId: 'funil-filter-aplicacao-trigger', inputId: 'funil-filter-aplicacao', menuId: 'funil-filter-aplicacao-menu', options: Array.from(new Set(funilData.map((f) => f.aplicacao).filter(Boolean))).sort(), emptyLabel: 'Todas' });
+                    wireMultiCheckFilter({ triggerId: 'funil-filter-motivo-trigger', inputId: 'funil-filter-motivo', menuId: 'funil-filter-motivo-menu', options: Array.from(new Set(funilData.map((f) => f.motivoPerda).filter(Boolean))).sort() });
                     if (isAdmGer) wireMultiCheckFilter({ triggerId: 'funil-filter-vendor-trigger', inputId: 'funil-filter-vendor', menuId: 'funil-filter-vendor-menu', options: Array.from(new Set(funilData.map((f) => f.vendedor).filter(Boolean))).sort() });
                     renderFiltered();
                     updateYearSelect();

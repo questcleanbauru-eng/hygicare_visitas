@@ -149,6 +149,14 @@ export function fillProposalsContent(mainContent, proposals) {
                     <label for="pf-date-to">${filterLabelHtml('Criação até')}</label>
                     <input type="date" id="pf-date-to">
                 </div>
+                <div class="form-group">
+                    <label for="pf-prazo-from">${filterLabelHtml('Prazo de')}</label>
+                    <input type="date" id="pf-prazo-from">
+                </div>
+                <div class="form-group">
+                    <label for="pf-prazo-to">${filterLabelHtml('Prazo até')}</label>
+                    <input type="date" id="pf-prazo-to">
+                </div>
                 ${scopeYearFilterFieldsHtml({ scopeSelectId: 'proposal-scope-select', yearSelectId: 'proposal-year-select', loadDias: state.loadDias, scopeAll: state.proposalsScope === 'all' })}
             </div>
         </div>
@@ -210,6 +218,8 @@ export function fillProposalsContent(mainContent, proposals) {
         const vendor    = (document.getElementById('pf-vendor')?.value || '').split(',').filter(Boolean);
         const dateFrom  = document.getElementById('pf-date-from')?.value || '';
         const dateTo    = document.getElementById('pf-date-to')?.value || '';
+        const prazoFrom = document.getElementById('pf-prazo-from')?.value || '';
+        const prazoTo   = document.getElementById('pf-prazo-to')?.value || '';
         const dupFilter = document.getElementById('pf-dup')?.value || '';
         const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(period);
 
@@ -250,7 +260,10 @@ export function fillProposalsContent(mainContent, proposals) {
             const matchTo   = !dateTo   || (criacaoDate && criacaoDate <= parseInputDate(dateTo));
             const matchYear = !state.proposalsYearFilter || (criacaoDate && criacaoDate.getFullYear() === state.proposalsYearFilter);
             const matchDup  = !dupFilter || isDup(p);
-            return matchSearch && matchStatus && matchCidade && matchFoco && matchAtrasada && matchVendor && matchPeriod && matchFrom && matchTo && matchYear && matchDup;
+            const prazoDate = parseDisplayDate(p.dataLimite);
+            const matchPrazoFrom = !prazoFrom || (prazoDate && prazoDate >= parseInputDate(prazoFrom));
+            const matchPrazoTo   = !prazoTo   || (prazoDate && prazoDate <= parseInputDate(prazoTo));
+            return matchSearch && matchStatus && matchCidade && matchFoco && matchAtrasada && matchVendor && matchPeriod && matchFrom && matchTo && matchYear && matchDup && matchPrazoFrom && matchPrazoTo;
         });
 
         const container = document.getElementById('proposal-list-container');
@@ -575,7 +588,7 @@ export function fillProposalsContent(mainContent, proposals) {
     }
 
     const _proposalFilterIds = ['pf-search', 'pf-status', 'pf-cidade', 'pf-foco', 'pf-atrasada', 'pf-dup', 'pf-period', 'pf-vendor',
-        'pf-date-from', 'pf-date-to'];
+        'pf-date-from', 'pf-date-to', 'pf-prazo-from', 'pf-prazo-to'];
     wireMultiCheckFilter({ triggerId: 'pf-status-trigger', inputId: 'pf-status', menuId: 'pf-status-menu', options: availableStatuses });
     wireMultiCheckFilter({ triggerId: 'pf-cidade-trigger', inputId: 'pf-cidade', menuId: 'pf-cidade-menu', options: availableCities });
     wireMultiCheckFilter({ triggerId: 'pf-foco-trigger', inputId: 'pf-foco', menuId: 'pf-foco-menu', options: availableFocos });

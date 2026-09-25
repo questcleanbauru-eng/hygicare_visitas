@@ -343,12 +343,12 @@ export function wireMultiCheckFilter({ triggerId, inputId, menuId, options, empt
 // filtro salvo, que mexe direto no <input type="hidden"> sem passar pelo
 // wireMultiCheckFilter) — sem isso o botão continuaria mostrando a seleção
 // antiga até o usuário abrir o menu de novo.
-export function syncMultiCheckFilterLabel(triggerId, inputId) {
+export function syncMultiCheckFilterLabel(triggerId, inputId, emptyLabel = 'Todos') {
     const trigger = document.getElementById(triggerId);
     const input = document.getElementById(inputId);
     if (!trigger || !input) return;
     const sel = (input.value || '').split(',').filter(Boolean);
-    trigger.textContent = sel.length === 0 ? 'Todos' : sel.length === 1 ? sel[0] : `${sel.length} selecionados`;
+    trigger.textContent = sel.length === 0 ? emptyLabel : sel.length === 1 ? sel[0] : `${sel.length} selecionados`;
     trigger.classList.toggle('has-value', sel.length > 0);
 }
 
