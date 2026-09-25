@@ -2845,8 +2845,17 @@ input:disabled {
     min-height: 30px;
     padding: 0.3rem 0.65rem;
     font-size: 0.76rem;
+    white-space: nowrap;
 }
 .qe-panel .qe-panel-inner .mini-button-icon { min-width: 30px; }
+/* Botão Salvar vira o próprio indicador de "salvo/não salvo" — sem badge
+   separado. Estado limpo: cinza e desabilitado ("✓ Salvo"); qualquer edição
+   troca pra "💾 Salvar" ativo de novo (ver markDirty/markClean no JS). */
+.qe-panel .qe-panel-inner .qe-v2-save-btn.is-clean {
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: default;
+}
 
 /* ── Edição rápida "v2" (Funil/Propostas/Visitas) ─────────────────────────
    Layout com cabeçalho + badges, menu "⋮", faixa de estatísticas, seções
@@ -2920,11 +2929,15 @@ input:disabled {
 .qe-v2-type-row select { width: auto; min-width: 80px; }
 .qe-v2-type-row select.is-active { border-color: var(--ink); font-weight: 700; color: var(--text); }
 /* .qe-status-btn é global (também usado fora da edição rápida, em
-   campanhas.js) — escopado aqui dentro pra não puxar aquele uso junto. */
+   campanhas.js) — escopado aqui dentro pra não puxar aquele uso junto.
+   flex-basis 0 (em vez do 30% de fábrica) deixa as 6 pílulas de status
+   (Funil) caberem numa linha só em vez de quebrar em duas. */
 .qe-panel .qe-panel-inner .qe-status-btn {
+    flex: 1 1 0;
     min-width: 0;
-    padding: 0.3rem 0.3rem;
-    font-size: 0.7rem;
+    padding: 0.3rem 0.25rem;
+    font-size: 0.66rem;
+    white-space: nowrap;
 }
 
 .qe-v2-stats {

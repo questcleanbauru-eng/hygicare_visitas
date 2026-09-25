@@ -454,17 +454,20 @@ export function fillFunilContent(mainContent, funil) {
         // cliente com proposta de limpeza, outra de sabonete...) — a lista
         // completa (com Desvincular por item) fica no Detalhe, que tem
         // espaço; aqui no painel compacto só um resumo com atalho.
-        const linkedPropostasCount = (state.proposals || []).filter((px) => String(px.funilVinculado || px.FunilVinculado || '') === String(f.id)).length;
+        const linkedPropostas = (state.proposals || [])
+            .filter((px) => String(px.funilVinculado || px.FunilVinculado || '') === String(f.id))
+            .map((px) => normalizeProposal(px));
+        const linkedPropostasCount = linkedPropostas.length;
 
-        const searchField = (label, id, value) => `
+        const searchField = (label, id, value, placeholder = '') => `
             <div class="form-group"><label for="${id}">${label}</label>
                 <div class="searchable-select">
-                    <input type="text" id="${id}" value="${escapeHtml(value || '')}" autocomplete="off">
+                    <input type="text" id="${id}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder)}" autocomplete="off">
                     <div class="searchable-select-menu" id="${id}-menu"></div>
                 </div>
             </div>`;
-        const plainField = (label, id, value, type = 'text') => `
-            <div class="form-group"><label for="${id}">${label}</label><input type="${type}" id="${id}" value="${escapeHtml(value || '')}"></div>`;
+        const plainField = (label, id, value, type = 'text', placeholder = '') => `
+            <div class="form-group"><label for="${id}">${label}</label><input type="${type}" id="${id}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder)}"></div>`;
 
         const STAT_LABELS = { IDENTIFICAR: 'Identificar', PROPOSTA: 'Proposta', NEGOCIAR: 'Negociar', CONCLUIDO: 'Concluído', PERDIDO: '✕ Perdido', RETOMAR: '↻ Retomar' };
         const STAT = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
@@ -477,13 +480,12 @@ export function fillFunilContent(mainContent, funil) {
                         <div class="qe-v2-title-row">
                             <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
                             ${f.funilDiversey === 'Sim' ? '<span class="qe-v2-badge qe-v2-badge-accent" id="qe-diversey-badge" title="Clique para desmarcar">⭐ Funil Diversey</span>' : ''}
-                            <span class="qe-v2-badge qe-v2-badge-dirty" id="qe-dirty-badge" hidden>Não salvo</span>
                         </div>
                         <p class="helper-text qe-v2-meta">📍 ${escapeHtml(f.cidade || '-')} &nbsp;·&nbsp; 👤 ${escapeHtml(f.vendedor || '-')} &nbsp;·&nbsp; 📅 ${escapeHtml(f.data || f.atualizacao || '-')}</p>
                     </div>
                     <div class="qe-v2-header-actions">
                         ${linkedPropostasCount > 0 ? `<button type="button" class="mini-button" id="qe-ver-propostas" title="Ver propostas vinculadas (abre o Detalhe)">🔗 ${linkedPropostasCount} proposta${linkedPropostasCount > 1 ? 's' : ''}</button>` : `<button type="button" class="mini-button" id="qe-link-proposta" title="Buscar e vincular a uma proposta já cadastrada">🔗 Vincular</button>`}
-                        <button type="button" class="primary-button" id="qe-save">💾 Salvar</button>
+                        <button type="button" class="primary-button qe-v2-save-btn is-clean" id="qe-save" disabled>✓ Salvo</button>
                         <div class="qe-v2-menu-wrap">
                             <button type="button" class="qe-v2-menu-toggle" id="qe-menu-toggle" aria-label="Mais opções">⋮</button>
                             <div class="qe-v2-menu" id="qe-menu">
@@ -540,10 +542,23 @@ export function fillFunilContent(mainContent, funil) {
                         ${searchField('Foco', 'qe-foco', f.foco)}
                         ${searchField('Atuação', 'qe-atuacao', f.atuacao)}
                         ${searchField('Aplicação', 'qe-aplicacao', f.aplicacao)}
-                        ${searchField('Equipamentos', 'qe-equipamentos', f.equipamentos)}
-                        ${plainField('Inf. Importantes', 'qe-inf', f.infImportantes)}
+                        ${searchField('Equipamentos', 'qe-equipamentos', f.equipamentos, 'Nenhum informado')}
+                        ${plainField('Inf. Importantes', 'qe-inf', f.infImportantes, 'text', 'Adicionar informação importante')}
                     </div>
                 </div>
+
+                ${linkedPropostasCount > 0 ? `
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Propostas vinculadas <span class="qe-v2-section-count">${linkedPropostasCount}</span></p>
+                    ${linkedPropostas.map((p) => `
+                        <div class="funil-linked-proposta-row">
+                            <div class="funil-linked-proposta-main">
+                                <button type="button" class="section-link-button qe-linked-proposta-open" data-proposta-id="${escapeHtml(p.id)}">${escapeHtml(p.foco || 'Proposta')} · ${escapeHtml(p.status || '-')}</button>
+                            </div>
+                            ${p.obs ? `<p class="funil-linked-proposta-obs">${escapeHtml(p.obs)}</p>` : ''}
+                        </div>
+                    `).join('')}
+                </div>` : ''}
 
                 <div class="qe-v2-section">
                     <p class="qe-v2-section-title">Comentários</p>
@@ -572,8 +587,20 @@ export function fillFunilContent(mainContent, funil) {
         let selStatus = f.status || 'IDENTIFICAR';
         let selDiversey = f.funilDiversey === 'Sim';
         let isDirty = false;
-        const dirtyBadge = panel.querySelector('#qe-dirty-badge');
-        const markDirty = () => { if (!isDirty) { isDirty = true; if (dirtyBadge) dirtyBadge.hidden = false; } };
+        const saveBtn = panel.querySelector('#qe-save');
+        const markDirty = () => {
+            if (isDirty) return;
+            isDirty = true;
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('is-clean');
+            saveBtn.textContent = '💾 Salvar';
+        };
+        const markClean = () => {
+            isDirty = false;
+            saveBtn.disabled = true;
+            saveBtn.classList.add('is-clean');
+            saveBtn.textContent = '✓ Salvo';
+        };
         panel.addEventListener('input', markDirty);
         panel.addEventListener('change', markDirty);
 
@@ -612,6 +639,9 @@ export function fillFunilContent(mainContent, funil) {
         panel.querySelector('#qe-link-proposta')?.addEventListener('click', () => openLinkPropostaModal(f, () => openFunilQuickPanel(f.id)));
         panel.querySelector('#qe-link-proposta-menu')?.addEventListener('click', () => openLinkPropostaModal(f, () => openFunilQuickPanel(f.id)));
         panel.querySelector('#qe-ver-propostas')?.addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
+        panel.querySelectorAll('.qe-linked-proposta-open').forEach((btn) => {
+            btn.addEventListener('click', () => navigateTo('proposal-detail', { id: btn.dataset.propostaId }));
+        });
         // Alterna o badge Diversey só localmente (sem perder o resto do que
         // já foi digitado no painel) — vira parte do payload só no Salvar.
         const toggleDiversey = () => { selDiversey = !selDiversey; markDirty(); syncDiverseyBadge(); menu.classList.remove('is-open'); };
@@ -625,7 +655,7 @@ export function fillFunilContent(mainContent, funil) {
                 span.title = 'Clique para desmarcar';
                 span.textContent = '⭐ Funil Diversey';
                 span.addEventListener('click', toggleDiversey);
-                titleRow.insertBefore(span, titleRow.querySelector('.qe-v2-badge-dirty'));
+                titleRow.appendChild(span);
             } else if (!selDiversey && existing) {
                 existing.remove();
             }
@@ -653,9 +683,8 @@ export function fillFunilContent(mainContent, funil) {
             const conclusaoValue = panel.querySelector('#qe-conclusao')?.value || '';
             const infImportantes = panel.querySelector('#qe-inf')?.value.trim();
             const funilDiversey = selDiversey ? 'Sim' : 'Nao';
-            setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
-            if (dirtyBadge) dirtyBadge.hidden = true;
+            markClean();
             // Se o novo status tirar esse card do filtro atual (ex.: filtrado
             // por "Proposta" e o card virou "Concluído"), pula pro próximo da
             // lista em vez de continuar mostrando um card que já sumiu — dá
