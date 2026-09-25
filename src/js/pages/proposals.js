@@ -599,7 +599,7 @@ export function fillProposalsContent(mainContent, proposals) {
                         ${plainField('Cliente', 'qe-cliente', p.cliente, 'text', 'qe-v2-field-wide')}
                         ${searchField('Cidade', 'qe-cidade', p.cidade, listaCidades)}
                         ${plainField('Gerência', 'qe-gerencia', p.gerencia)}
-                        ${plainField('Vendedor', 'qe-vendedor', p.vendedor)}
+                        ${plainField('Vendedor', 'qe-vendedor', p.vendedor, 'text', 'qe-v2-field-wide')}
                         ${plainField('E-mail', 'qe-email', p.email, 'email', 'qe-v2-field-wide')}
                     </div>
                 </div>

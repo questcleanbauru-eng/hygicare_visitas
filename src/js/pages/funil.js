@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyn
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
-    funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR, normalizeProposal,
+    funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR, wireCurrencyInput, normalizeProposal,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml, resolveNotifyOptions,
     scopeYearFilterFieldsHtml
@@ -524,7 +524,7 @@ export function fillFunilContent(mainContent, funil) {
                         ${plainField('Cliente', 'qe-cliente', f.cliente, 'text', '', 'qe-v2-field-wide')}
                         ${searchField('Cidade', 'qe-cidade', f.cidade)}
                         ${plainField('Gerência', 'qe-gerencia', f.gerencia)}
-                        ${searchField('Vendedor', 'qe-vendedor', f.vendedor)}
+                        ${searchField('Vendedor', 'qe-vendedor', f.vendedor, '', 'qe-v2-field-wide')}
                     </div>
                 </div>
 
@@ -599,6 +599,7 @@ export function fillFunilContent(mainContent, funil) {
         };
         panel.addEventListener('input', markDirty);
         panel.addEventListener('change', markDirty);
+        wireCurrencyInput(panel.querySelector('#qe-vl-mensal'));
 
         panel.querySelectorAll('.qe-status-btn').forEach((b) => b.addEventListener('click', () => {
             selStatus = b.dataset.s;
@@ -1491,6 +1492,7 @@ export async function renderFunilCreatePage() {
     document.getElementById('cancel-funil-create').addEventListener('click', () => navigateTo('funil'));
 
     preventEnterSubmit(document.getElementById('funil-create-form'));
+    wireCurrencyInput(document.getElementById('fc-vl-mensal'));
     document.getElementById('funil-create-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const notificarVal = document.getElementById('fc-notificar')?.value || '';
@@ -2002,6 +2004,7 @@ export async function renderFunilFormPage(funil) {
     document.getElementById('agendar-funil-retorno')?.addEventListener('click', () => showAgendarRetornoFunilModal(f));
 
     preventEnterSubmit(document.getElementById('funil-form'));
+    wireCurrencyInput(document.getElementById('funil-vl-mensal'));
     document.getElementById('funil-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const btn = document.getElementById('save-funil');

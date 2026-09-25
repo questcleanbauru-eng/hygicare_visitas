@@ -257,19 +257,43 @@ export function visitTypeIcon(tipo) {
     return '📋';
 }
 
-// Alguns registros antigos (importados da planilha manual) já guardam o
-// valor com "R$" incluído no texto — remove o prefixo antes de reexibir,
-// senão duplica ("R$ R$ 1,00").
-export function formatCurrency(value) {
-    const clean = String(value || '').replace(/^\s*r\$\s*/i, '').trim();
-    return clean ? `R$ ${clean}` : '';
-}
-
 // Converte texto de moeda BR ("R$ 1.234,56") pro Number equivalente (1234.56)
 // — remove "R$"/espaços, remove "." de milhar, troca "," decimal por ".".
 export function parseCurrencyBR(raw) {
     const cleaned = String(raw || '').replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
     return Number(cleaned) || 0;
+}
+
+// Formata qualquer valor monetário (número ou texto digitado em qualquer
+// formato — "1500", "1500,5", "1.500,00", "R$ 1500"...) pro padrão BR
+// "1.234,56", sem o prefixo "R$".
+export function formatCurrencyNumber(value) {
+    if (value === null || value === undefined || value === '') { return ''; }
+    // Número já pronto (ex.: soma calculada) usa direto — passar pelo
+    // parseCurrencyBR quebraria o "." decimal (1500.5 -> 15005).
+    const num = typeof value === 'number' ? value : parseCurrencyBR(value);
+    if (!num) { return ''; }
+    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Mesma normalização, mas já com o prefixo "R$ " pra exibição ("R$ 1.234,56").
+export function formatCurrency(value) {
+    const formatted = formatCurrencyNumber(value);
+    return formatted ? `R$ ${formatted}` : '';
+}
+
+// Reformata o valor de um <input> de dinheiro pro padrão "1.234,56" ao sair
+// do campo, sem o prefixo "R$" (que já aparece fixo ao lado do input nos
+// formulários) — assim o que fica salvo já sai sempre no formato certo.
+export function wireCurrencyInput(input) {
+    if (!input) { return; }
+    input.addEventListener('blur', () => {
+        const formatted = formatCurrencyNumber(input.value);
+        if (formatted && formatted !== input.value) {
+            input.value = formatted;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    });
 }
 
 export function proposalStatusIcon(status) {

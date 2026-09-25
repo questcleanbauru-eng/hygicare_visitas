@@ -9,7 +9,7 @@ import {
     calculateDaysFromDisplayDate,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, clienteNomeParaGravar, multiCheckFilterFieldHtml,
-    formatCurrency, parseCurrencyBR, resolveNotifyOptions, scopeYearFilterFieldsHtml
+    formatCurrency, parseCurrencyBR, wireCurrencyInput, resolveNotifyOptions, scopeYearFilterFieldsHtml
 } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
@@ -532,8 +532,8 @@ export function fillVisitsContent(container, visits) {
                         ${plainField('Contato', 'qe-contato', v.contato)}
                         ${searchField('Cidade', 'qe-cidade', v.cidade, listaCidades)}
                         ${searchField('Atuação', 'qe-area', v.areaAtuacao, listaAreas)}
-                        <div class="form-group"><label for="qe-potencial">Potencial</label><select id="qe-potencial">${renderSimpleOptions(listaPotenciais, v.potencialCliente)}</select></div>
-                        ${searchField('Vendedor', 'qe-vendedor', v.vendedorGerente, listaVendedores.map((x) => x.nome))}
+                        <div class="form-group qe-v2-field-wide"><label for="qe-potencial">Potencial</label><select id="qe-potencial">${renderSimpleOptions(listaPotenciais, v.potencialCliente)}</select></div>
+                        ${searchField('Vendedor', 'qe-vendedor', v.vendedorGerente, listaVendedores.map((x) => x.nome), 'qe-v2-field-wide')}
                     </div>
                 </div>
 
@@ -565,6 +565,7 @@ export function fillVisitsContent(container, visits) {
         };
         panel.addEventListener('input', markDirty);
         panel.addEventListener('change', markDirty);
+        wireCurrencyInput(panel.querySelector('#qe-valor-despesas'));
 
         const tipoMais = panel.querySelector('#qe-tipo-mais');
         panel.querySelectorAll('.qe-v2-type-row .qe-status-btn').forEach((b) => b.addEventListener('click', () => {
@@ -1981,6 +1982,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
         const valorGroup = document.getElementById('valor-despesas-group');
         if (valorGroup) valorGroup.style.display = e.target.value === 'Sim' ? '' : 'none';
     }));
+    wireCurrencyInput(document.getElementById('valor-despesas'));
     clienteSelect.addEventListener('change', () => fillClientData(clienteSelect.value));
     clienteSelect.addEventListener('input', () => fillClientData(clienteSelect.value));
     clienteInput.addEventListener('blur', () => {
