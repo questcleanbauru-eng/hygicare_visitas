@@ -317,6 +317,9 @@ export function fillFunilContent(mainContent, funil) {
         });
         _funilCampanhaList = sorted.map((f) => ({ id: f.id, cliente: f.cliente, cidade: f.cidade, extra: [f.foco, f.atuacao].filter(Boolean).join(' · '), funilDiversey: f.funilDiversey === 'Sim' }));
         lastFilteredFunil = sorted;
+        // Ordem "atual" pra Anterior/Próxima no Detalhe — ver mesmo comentário
+        // em proposals.js.
+        state.funilNavOrder = sorted.map((f) => f.id);
 
         // Agrupa pelo mês de "Data" (não Atualização) — usar atualização aqui
         // fazia um registro "pular" pro mês corrente assim que era salvo,
@@ -1461,10 +1464,29 @@ export async function renderFunilDetailPage(id, _revalidated) {
         }).catch(() => {});
     }
 
+    // Anterior/Próxima seguem a ordem da última lista renderizada
+    // (state.funilNavOrder) — só aparece quando esta oportunidade faz parte
+    // dela (senão não haveria "vizinhos" coerentes pra mostrar).
+    const navOrder = state.funilNavOrder || [];
+    const navIdx = navOrder.findIndex((navId) => String(navId) === String(f.id));
+    const navPrevId = navIdx > 0 ? navOrder[navIdx - 1] : null;
+    const navNextId = navIdx >= 0 && navIdx < navOrder.length - 1 ? navOrder[navIdx + 1] : null;
+    const showNav = navIdx >= 0 && navOrder.length > 1;
+
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Funil', page: 'funil' }, { label: f.cliente || 'Oportunidade' }])}
         <div class="page-header compact-header">
             <button type="button" class="mini-button" id="back-funil">Voltar</button>
+            ${showNav ? `
+            <div class="detail-nav-group">
+                <button type="button" class="mini-button mini-button-icon" id="funil-nav-prev" title="Oportunidade anterior" aria-label="Oportunidade anterior" ${!navPrevId ? 'disabled' : ''}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+                </button>
+                <span class="detail-nav-count">${navIdx + 1}/${navOrder.length}</span>
+                <button type="button" class="mini-button mini-button-icon" id="funil-nav-next" title="Próxima oportunidade" aria-label="Próxima oportunidade" ${!navNextId ? 'disabled' : ''}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9,18 15,12 9,6"/></svg>
+                </button>
+            </div>` : ''}
             <h2>Funil de Vendas</h2>
             <div class="header-actions-group">
                 ${f.cliente ? `<button type="button" class="mini-button mini-button-icon" id="funil-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
@@ -1515,6 +1537,8 @@ export async function renderFunilDetailPage(id, _revalidated) {
     `;
 
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => navigateTo('funil')));
+    document.getElementById('funil-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('funil-detail', { id: navPrevId }); });
+    document.getElementById('funil-nav-next')?.addEventListener('click', () => { if (navNextId) navigateTo('funil-detail', { id: navNextId }); });
     document.getElementById('edit-funil').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
     // Duplica a oportunidade inteira (cliente, cidade, vendedor, foco,
     // comentários...) — pra quando o mesmo cliente tem mais de uma frente

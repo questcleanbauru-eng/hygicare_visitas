@@ -282,6 +282,10 @@ export function fillProposalsContent(mainContent, proposals) {
         });
         _propsCampanhaList = sorted.map((p) => ({ id: p.id, cliente: p.cliente, cidade: p.cidade, extra: [p.foco, p.produto || p.produtos].filter(Boolean).join(' · ') }));
         lastFilteredProposals = sorted;
+        // Ordem "atual" pra Anterior/Próxima no Detalhe — captura sempre que a
+        // lista (re)renderiza, então navegar dentro do Detalhe segue a mesma
+        // ordem/filtro de quando o usuário saiu da lista, sem recalcular.
+        state.proposalsNavOrder = sorted.map((p) => p.id);
 
         const byMonth = sorted.reduce((groups, p) => {
             const d = parseDisplayDate(p.data) || parseDisplayDate(p.atualizacao);
@@ -887,6 +891,15 @@ export async function renderProposalDetailPage(id) {
         ? (state.funil || []).find((fx) => String(fx.id || fx.Id) === String(proposal.funilVinculado))
         : null;
 
+    // Anterior/Próxima seguem a ordem da última lista renderizada
+    // (state.proposalsNavOrder) — só aparece quando esta proposta faz parte
+    // dela (senão não haveria "vizinhos" coerentes pra mostrar).
+    const navOrder = state.proposalsNavOrder || [];
+    const navIdx = navOrder.findIndex((navId) => String(navId) === String(proposal.id));
+    const navPrevId = navIdx > 0 ? navOrder[navIdx - 1] : null;
+    const navNextId = navIdx >= 0 && navIdx < navOrder.length - 1 ? navOrder[navIdx + 1] : null;
+    const showNav = navIdx >= 0 && navOrder.length > 1;
+
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Propostas', page: 'proposals' }, { label: proposal.cliente || 'Proposta' }])}
         <div class="page-header compact-header">
@@ -894,6 +907,16 @@ export async function renderProposalDetailPage(id) {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
                 Voltar
             </button>
+            ${showNav ? `
+            <div class="detail-nav-group">
+                <button type="button" class="mini-button mini-button-icon" id="proposal-nav-prev" title="Proposta anterior" aria-label="Proposta anterior" ${!navPrevId ? 'disabled' : ''}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+                </button>
+                <span class="detail-nav-count">${navIdx + 1}/${navOrder.length}</span>
+                <button type="button" class="mini-button mini-button-icon" id="proposal-nav-next" title="Próxima proposta" aria-label="Próxima proposta" ${!navNextId ? 'disabled' : ''}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9,18 15,12 9,6"/></svg>
+                </button>
+            </div>` : ''}
             <h2>Detalhes da Proposta</h2>
             <div class="header-actions-group">
                 ${proposal.cliente ? `<button type="button" class="mini-button mini-button-icon" id="proposal-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
@@ -948,6 +971,8 @@ export async function renderProposalDetailPage(id) {
     `;
 
     document.getElementById('back-proposals').addEventListener('click', () => navigateTo('proposals'));
+    document.getElementById('proposal-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('proposal-detail', { id: navPrevId }); });
+    document.getElementById('proposal-nav-next')?.addEventListener('click', () => { if (navNextId) navigateTo('proposal-detail', { id: navNextId }); });
     document.getElementById('edit-proposal').addEventListener('click', () => navigateTo('proposal-edit', { proposal }));
     document.getElementById('proposal-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: proposal.cliente }));
     document.getElementById('proposal-to-funil')?.addEventListener('click', () => {

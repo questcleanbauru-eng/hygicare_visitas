@@ -309,6 +309,9 @@ export function fillVisitsContent(container, visits) {
             return matchesSearch && matchesType && matchesCity && matchesProspection && matchesArea && matchesPotencial && matchesVeiculo && matchesDespesas && matchesVendor && matchesPeriod && matchesDateFrom && matchesDateTo && matchesYear;
         });
         lastFilteredVisits = filteredVisits;
+        // Ordem "atual" pra Anterior/Próxima no Detalhe — ver mesmo comentário
+        // em proposals.js.
+        state.visitsNavOrder = filteredVisits.map((v) => v.id);
 
         const visitsListContainer = document.getElementById('visits-list-container');
         if (!visitsListContainer) {
@@ -2286,10 +2289,29 @@ export async function renderVisitDetailPage(id) {
     state.currentVisit = visit;
     const whatsappInfo = getWhatsappConfigForVisit(visit.tipoVisita);
 
+    // Anterior/Próxima seguem a ordem da última lista renderizada
+    // (state.visitsNavOrder) — só aparece quando esta visita faz parte dela
+    // (senão não haveria "vizinhos" coerentes pra mostrar).
+    const navOrder = state.visitsNavOrder || [];
+    const navIdx = navOrder.findIndex((navId) => String(navId) === String(visit.id));
+    const navPrevId = navIdx > 0 ? navOrder[navIdx - 1] : null;
+    const navNextId = navIdx >= 0 && navIdx < navOrder.length - 1 ? navOrder[navIdx + 1] : null;
+    const showNav = navIdx >= 0 && navOrder.length > 1;
+
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Visitas', page: 'visits' }, { label: visit.cliente || 'Visita' }])}
         <div class="page-header compact-header">
             <button type="button" class="mini-button" id="back-visits">Voltar</button>
+            ${showNav ? `
+            <div class="detail-nav-group">
+                <button type="button" class="mini-button mini-button-icon" id="visit-nav-prev" title="Visita anterior" aria-label="Visita anterior" ${!navPrevId ? 'disabled' : ''}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+                </button>
+                <span class="detail-nav-count">${navIdx + 1}/${navOrder.length}</span>
+                <button type="button" class="mini-button mini-button-icon" id="visit-nav-next" title="Próxima visita" aria-label="Próxima visita" ${!navNextId ? 'disabled' : ''}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9,18 15,12 9,6"/></svg>
+                </button>
+            </div>` : ''}
             <h2>Detalhes da Visita</h2>
             <div class="header-actions-group">
                 ${visit.cliente ? `<button type="button" class="mini-button mini-button-icon" id="visit-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
@@ -2326,6 +2348,8 @@ export async function renderVisitDetailPage(id) {
     `;
 
     document.getElementById('back-visits').addEventListener('click', () => navigateTo('visits'));
+    document.getElementById('visit-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('visit-detail', { id: navPrevId }); });
+    document.getElementById('visit-nav-next')?.addEventListener('click', () => { if (navNextId) navigateTo('visit-detail', { id: navNextId }); });
     document.getElementById('edit-visit').addEventListener('click', () => {
         // Edita no lugar, sem navegar pra outra "tela" — sem isso o usuário
         // sente que saiu do detalhe da visita pra um formulário separado.

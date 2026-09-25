@@ -612,6 +612,20 @@ main {
 
 .compact-header { gap: 0.4rem; }
 
+/* Anterior/Próximo no cabeçalho de Detalhe (Visita/Proposta/Funil) — fica
+   colado no "Voltar", grupo compacto pra não brigar por espaço com o título
+   (que é flex:1 centralizado) nem com os ícones de ação à direita. */
+.detail-nav-group { display: flex; align-items: center; gap: 0.15rem; flex-shrink: 0; }
+.detail-nav-group .mini-button-icon { min-width: 40px; padding-left: 0.2rem; padding-right: 0.2rem; }
+.detail-nav-group .mini-button-icon:disabled { opacity: 0.35; cursor: default; }
+.detail-nav-count {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    min-width: 2.4em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
 /* ── Buttons ── */
 
 .mini-button {
