@@ -2810,42 +2810,58 @@ input:disabled {
    caber mais na coluna sem tanta rolagem. Por especificidade (2 classes)
    essa regra vale pra qualquer .qe-panel, não só Contrato — mantém tudo
    num lugar só em vez de repetir por página. */
-.qe-panel .qe-panel-inner { padding: 0.6rem 0.8rem 0.8rem; }
-.qe-panel .qe-panel-inner .form-layout { gap: 0.45rem; }
+.qe-panel .qe-panel-inner { padding: 0.55rem 0.7rem 0.7rem; }
+.qe-panel .qe-panel-inner .form-layout { gap: 0.4rem; }
 .qe-panel .qe-panel-inner .form-group { margin-bottom: 0; }
-.qe-panel .qe-panel-inner .form-row-pair { gap: 0.45rem; }
+.qe-panel .qe-panel-inner .form-row-pair { gap: 0.4rem; }
 .qe-panel .qe-panel-inner label {
-    margin-bottom: 0.15rem;
-    font-size: 0.74rem;
+    margin-bottom: 0.1rem;
+    font-size: 0.68rem;
 }
+/* Este painel só existe em telas ≥1024px (ver .qe-panel{display:none} no
+   breakpoint mobile mais abaixo) — nunca abre no celular, então não precisa
+   do mínimo de 16px que evita o zoom automático do iOS em campo focado (essa
+   regra é pra formulários "normais", que abrem em qualquer tamanho de tela).
+   Mais compacto = mais "painel admin de desktop", menos "formulário de
+   celular esticado". */
 .qe-panel .qe-panel-inner input,
 .qe-panel .qe-panel-inner textarea,
 .qe-panel .qe-panel-inner .searchable-select input {
-    min-height: 36px;
-    padding: 0.28rem 0.5rem;
-    /* 16px fixo — abaixo disso o iOS dá zoom automático ao focar o campo. */
-    font-size: 16px;
+    min-height: 28px;
+    padding: 0.2rem 0.4rem;
+    font-size: 12.5px;
 }
-.qe-panel .qe-panel-inner textarea { min-height: 48px; }
-.qe-panel .qe-panel-inner .radio-group { flex-wrap: wrap; gap: 0.35rem; }
-.qe-panel .qe-panel-inner .radio-pill { padding: 0.28rem 0.7rem; font-size: var(--text-sm); }
-.qe-panel .qe-panel-inner .form-actions { margin-top: 0.35rem; }
+.qe-panel .qe-panel-inner textarea { min-height: 44px; }
+.qe-panel .qe-panel-inner .radio-group { flex-wrap: wrap; gap: 0.3rem; }
+.qe-panel .qe-panel-inner .radio-pill { padding: 0.22rem 0.6rem; font-size: 0.74rem; }
+.qe-panel .qe-panel-inner .form-actions { margin-top: 0.3rem; }
 .qe-panel .qe-panel-inner .helper-text { margin: 0; }
+/* Botões de fábrica (.mini-button/.primary-button/.secondary-button) têm
+   min-height:44px — alvo de toque pensado pra celular. Aqui dentro é sempre
+   mouse, então o painel fica mais denso sem esse mínimo. */
+.qe-panel .qe-panel-inner .mini-button,
+.qe-panel .qe-panel-inner .primary-button,
+.qe-panel .qe-panel-inner .secondary-button {
+    min-height: 30px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.76rem;
+}
+.qe-panel .qe-panel-inner .mini-button-icon { min-width: 30px; }
 
 /* ── Edição rápida "v2" (Funil/Propostas/Visitas) ─────────────────────────
    Layout com cabeçalho + badges, menu "⋮", faixa de estatísticas, seções
    agrupadas em grade e um padrão de "adicionar item datado" (comentário,
    obs, atualização) — compartilhado entre as 3 páginas; cada uma monta seu
    próprio HTML/JS (sem import entre páginas), só a aparência vem daqui. */
-.qe-v2-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.6rem; }
-.qe-v2-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
-.qe-v2-title-row .qe-panel-title { margin: 0; }
+.qe-v2-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.qe-v2-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.qe-v2-title-row .qe-panel-title { margin: 0; font-size: 0.92rem; }
 .qe-v2-badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.1rem 0.5rem;
+    padding: 0.05rem 0.4rem;
     border-radius: 999px;
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     font-weight: 700;
     white-space: nowrap;
 }
@@ -2856,18 +2872,18 @@ input:disabled {
    nativo do atributo `hidden` e vence, deixando o badge visível mesmo
    escondido via `el.hidden = true`. */
 .qe-v2-badge[hidden] { display: none; }
-.qe-v2-meta { margin: 0.15rem 0 0; text-align: left; }
+.qe-v2-meta { margin: 0.1rem 0 0; text-align: left; font-size: 0.72rem; }
 
-.qe-v2-header-actions { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.qe-v2-header-actions { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
 .qe-v2-menu-wrap { position: relative; }
 .qe-v2-menu-toggle {
-    width: 36px;
-    min-height: 36px;
+    width: 26px;
+    min-height: 26px;
     border: none;
     background: transparent;
     border-radius: 999px;
     color: var(--text-muted-strong);
-    font-size: 1.15rem;
+    font-size: 1rem;
     line-height: 1;
     cursor: pointer;
 }
@@ -2890,26 +2906,33 @@ input:disabled {
     display: block;
     width: 100%;
     text-align: left;
-    padding: 0.55rem 0.8rem;
+    padding: 0.45rem 0.7rem;
     border: none;
     background: none;
-    font-size: 0.83rem;
+    font-size: 0.76rem;
     font-family: inherit;
     cursor: pointer;
     color: var(--text);
 }
 .qe-v2-menu button:hover { background: var(--bg); }
 
-.qe-v2-type-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
-.qe-v2-type-row select { width: auto; min-width: 88px; }
+.qe-v2-type-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.qe-v2-type-row select { width: auto; min-width: 80px; }
 .qe-v2-type-row select.is-active { border-color: var(--ink); font-weight: 700; color: var(--text); }
+/* .qe-status-btn é global (também usado fora da edição rápida, em
+   campanhas.js) — escopado aqui dentro pra não puxar aquele uso junto. */
+.qe-panel .qe-panel-inner .qe-status-btn {
+    min-width: 0;
+    padding: 0.3rem 0.3rem;
+    font-size: 0.7rem;
+}
 
 .qe-v2-stats {
     display: flex;
     align-items: stretch;
     gap: 0;
-    margin: 0.6rem 0;
-    padding: 0.5rem 0;
+    margin: 0.45rem 0;
+    padding: 0.35rem 0;
     background: var(--bg);
     border-radius: var(--radius-sm);
 }
@@ -2918,13 +2941,13 @@ input:disabled {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    padding: 0 0.7rem;
+    gap: 0.1rem;
+    padding: 0 0.55rem;
     border-left: 1px solid var(--border);
 }
 .qe-v2-stat:first-child { border-left: none; }
-.qe-v2-stat > span:first-child { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
-.qe-v2-stat-value { display: flex; align-items: baseline; gap: 0.3rem; min-width: 0; }
+.qe-v2-stat > span:first-child { font-size: 0.64rem; color: var(--text-muted); font-weight: 600; }
+.qe-v2-stat-value { display: flex; align-items: baseline; gap: 0.25rem; min-width: 0; }
 .qe-v2-stat input, .qe-v2-stat select {
     border: none;
     background: transparent;
@@ -2932,14 +2955,14 @@ input:disabled {
     min-height: 0;
     font: inherit;
     font-weight: 700;
-    font-size: 0.88rem;
+    font-size: 0.78rem;
     color: var(--text);
     width: 100%;
 }
 .qe-v2-stat input:focus, .qe-v2-stat select:focus { outline: none; }
-.qe-v2-days-badge { font-size: 0.68rem; font-weight: 700; color: #d97706; white-space: nowrap; }
+.qe-v2-days-badge { font-size: 0.62rem; font-weight: 700; color: #d97706; white-space: nowrap; }
 
-.qe-v2-toggle { position: relative; display: inline-block; width: 36px; height: 21px; flex-shrink: 0; }
+.qe-v2-toggle { position: relative; display: inline-block; width: 32px; height: 18px; flex-shrink: 0; }
 .qe-v2-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
 .qe-v2-toggle-slider {
     position: absolute;
@@ -2952,8 +2975,8 @@ input:disabled {
 .qe-v2-toggle-slider::before {
     content: '';
     position: absolute;
-    width: 15px;
-    height: 15px;
+    width: 12px;
+    height: 12px;
     left: 3px;
     top: 3px;
     background: #fff;
@@ -2961,15 +2984,15 @@ input:disabled {
     transition: transform 0.15s;
 }
 .qe-v2-toggle input:checked + .qe-v2-toggle-slider { background: var(--primary); }
-.qe-v2-toggle input:checked + .qe-v2-toggle-slider::before { transform: translateX(15px); }
+.qe-v2-toggle input:checked + .qe-v2-toggle-slider::before { transform: translateX(14px); }
 
-.qe-v2-section { margin-top: 0.8rem; }
+.qe-v2-section { margin-top: 0.55rem; }
 .qe-v2-section-title {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
-    margin: 0 0 0.4rem;
-    font-size: 0.7rem;
+    gap: 0.3rem;
+    margin: 0 0 0.3rem;
+    font-size: 0.64rem;
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -2980,26 +3003,29 @@ input:disabled {
     color: var(--text-muted-strong);
     border-radius: 999px;
     padding: 0 0.4rem;
-    font-size: 0.68rem;
+    font-size: 0.64rem;
 }
+/* auto-fit (não um número fixo de colunas): o painel é a coluna inteira
+   restante ao lado da lista (.qe-layout, ver mais abaixo), então a largura
+   real varia bastante conforme o monitor — isso aproveita o espaço lateral
+   sem precisar de breakpoint por página. Só existe em telas ≥1024px. */
 .qe-v2-grid-2, .qe-v2-grid-3 {
     display: grid;
-    gap: 0.45rem;
-    margin-bottom: 0.45rem;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.35rem;
+    margin-bottom: 0.35rem;
 }
-.qe-v2-grid-2 { grid-template-columns: repeat(2, 1fr); }
-.qe-v2-grid-3 { grid-template-columns: repeat(3, 1fr); }
 
-.qe-v2-chip-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.qe-v2-chip-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
 .qe-v2-chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
-    padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+    gap: 0.25rem;
+    padding: 0.15rem 0.25rem 0.15rem 0.55rem;
     border-radius: 999px;
     background: var(--primary-light);
     color: var(--primary);
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 600;
 }
 .qe-v2-chip-remove {
@@ -3022,22 +3048,6 @@ input:disabled {
     cursor: pointer;
     padding: 0.2rem 0.3rem;
 }
-
-.qe-v2-add-row { display: flex; gap: 0.4rem; align-items: center; }
-.qe-v2-add-row input { flex: 1; min-width: 0; }
-.qe-v2-add-row button { flex-shrink: 0; }
-
-.qe-v2-entry-list { margin-top: 0.3rem; }
-.qe-v2-entry {
-    display: flex;
-    gap: 0.6rem;
-    padding: 0.45rem 0;
-    border-top: 1px solid var(--border);
-    font-size: 0.83rem;
-}
-.qe-v2-entry-date { flex-shrink: 0; width: 4.6em; color: var(--text-muted); font-size: 0.78rem; }
-.qe-v2-entry-text { color: var(--text); white-space: pre-line; }
-.qe-v2-entry-empty { padding: 0.5rem 0; color: var(--text-muted); font-size: 0.8rem; }
 
 @media (max-width: 1023px) {
     .qe-toggle { display: none; }
