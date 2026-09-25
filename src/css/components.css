@@ -2832,6 +2832,213 @@ input:disabled {
 .qe-panel .qe-panel-inner .form-actions { margin-top: 0.35rem; }
 .qe-panel .qe-panel-inner .helper-text { margin: 0; }
 
+/* ── Edição rápida "v2" (Funil/Propostas/Visitas) ─────────────────────────
+   Layout com cabeçalho + badges, menu "⋮", faixa de estatísticas, seções
+   agrupadas em grade e um padrão de "adicionar item datado" (comentário,
+   obs, atualização) — compartilhado entre as 3 páginas; cada uma monta seu
+   próprio HTML/JS (sem import entre páginas), só a aparência vem daqui. */
+.qe-v2-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.6rem; }
+.qe-v2-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.qe-v2-title-row .qe-panel-title { margin: 0; }
+.qe-v2-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.qe-v2-badge-accent { background: var(--warning-bg); color: #92400e; }
+.qe-v2-badge-dirty { background: #fee2e2; color: #b91c1c; }
+/* [hidden] tem a mesma especificidade de uma classe — sem isso o
+   `display: inline-flex` acima empata "por ordem" com o `display: none`
+   nativo do atributo `hidden` e vence, deixando o badge visível mesmo
+   escondido via `el.hidden = true`. */
+.qe-v2-badge[hidden] { display: none; }
+.qe-v2-meta { margin: 0.15rem 0 0; text-align: left; }
+
+.qe-v2-header-actions { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.qe-v2-menu-wrap { position: relative; }
+.qe-v2-menu-toggle {
+    width: 36px;
+    min-height: 36px;
+    border: none;
+    background: transparent;
+    border-radius: 999px;
+    color: var(--text-muted-strong);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.qe-v2-menu-toggle:hover { background: var(--bg); }
+.qe-v2-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    z-index: 5;
+    min-width: 160px;
+    overflow: hidden;
+}
+.qe-v2-menu.is-open { display: block; }
+.qe-v2-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.55rem 0.8rem;
+    border: none;
+    background: none;
+    font-size: 0.83rem;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--text);
+}
+.qe-v2-menu button:hover { background: var(--bg); }
+
+.qe-v2-type-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+.qe-v2-type-row select { width: auto; min-width: 88px; }
+.qe-v2-type-row select.is-active { border-color: var(--ink); font-weight: 700; color: var(--text); }
+
+.qe-v2-stats {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 0.6rem 0;
+    padding: 0.5rem 0;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+}
+.qe-v2-stat {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0 0.7rem;
+    border-left: 1px solid var(--border);
+}
+.qe-v2-stat:first-child { border-left: none; }
+.qe-v2-stat > span:first-child { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
+.qe-v2-stat-value { display: flex; align-items: baseline; gap: 0.3rem; min-width: 0; }
+.qe-v2-stat input, .qe-v2-stat select {
+    border: none;
+    background: transparent;
+    padding: 0;
+    min-height: 0;
+    font: inherit;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--text);
+    width: 100%;
+}
+.qe-v2-stat input:focus, .qe-v2-stat select:focus { outline: none; }
+.qe-v2-days-badge { font-size: 0.68rem; font-weight: 700; color: #d97706; white-space: nowrap; }
+
+.qe-v2-toggle { position: relative; display: inline-block; width: 36px; height: 21px; flex-shrink: 0; }
+.qe-v2-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.qe-v2-toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: #cbd5e1;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.qe-v2-toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.15s;
+}
+.qe-v2-toggle input:checked + .qe-v2-toggle-slider { background: var(--primary); }
+.qe-v2-toggle input:checked + .qe-v2-toggle-slider::before { transform: translateX(15px); }
+
+.qe-v2-section { margin-top: 0.8rem; }
+.qe-v2-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.qe-v2-section-count {
+    background: var(--bg);
+    color: var(--text-muted-strong);
+    border-radius: 999px;
+    padding: 0 0.4rem;
+    font-size: 0.68rem;
+}
+.qe-v2-grid-2, .qe-v2-grid-3 {
+    display: grid;
+    gap: 0.45rem;
+    margin-bottom: 0.45rem;
+}
+.qe-v2-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.qe-v2-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+.qe-v2-chip-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.qe-v2-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+.qe-v2-chip-remove {
+    border: none;
+    background: none;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+    font-size: 0.85rem;
+    line-height: 1;
+    padding: 0.15rem;
+}
+.qe-v2-chip-remove:hover { opacity: 1; }
+.qe-v2-chip-add {
+    border: none;
+    background: none;
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 0.2rem 0.3rem;
+}
+
+.qe-v2-add-row { display: flex; gap: 0.4rem; align-items: center; }
+.qe-v2-add-row input { flex: 1; min-width: 0; }
+.qe-v2-add-row button { flex-shrink: 0; }
+
+.qe-v2-entry-list { margin-top: 0.3rem; }
+.qe-v2-entry {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.45rem 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.83rem;
+}
+.qe-v2-entry-date { flex-shrink: 0; width: 4.6em; color: var(--text-muted); font-size: 0.78rem; }
+.qe-v2-entry-text { color: var(--text); white-space: pre-line; }
+.qe-v2-entry-empty { padding: 0.5rem 0; color: var(--text-muted); font-size: 0.8rem; }
+
 @media (max-width: 1023px) {
     .qe-toggle { display: none; }
     .qe-layout { display: block; }

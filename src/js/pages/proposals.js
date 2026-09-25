@@ -19,6 +19,33 @@ import { ensureFunilForDedup, funilItemFor as funilItemForProposta, funilEmAlert
 import { openLinkPickerModal } from '../utils/linkPicker.js';
 import { downloadXLSX } from '../utils/xlsxWriter.js';
 
+// Quebra o texto acumulado de Obs (uma linha "DD/MM/AAAA - texto" por
+// entrada, mais recente no topo — ver withDatedNoteHeader) em entradas pra
+// exibir como lista na edição rápida "v2", em vez de textarea crua.
+function parseDatedEntries(text) {
+    return String(text || '').split('\n').map((line) => {
+        const m = line.match(/^(\d{2}\/\d{2}\/\d{4})\s*-\s*(.*)$/);
+        if (m) return { date: m[1], text: m[2] };
+        return line.trim() ? { date: '', text: line.trim() } : null;
+    }).filter(Boolean);
+}
+
+// Dias entre hoje e uma data futura (positivo = faltam N dias, negativo =
+// já passou).
+function daysUntilDisplayDate(value) {
+    const d = parseDisplayDate(value);
+    if (!d) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const target = new Date(d); target.setHours(0, 0, 0, 0);
+    return Math.round((target - today) / 86400000);
+}
+
+// "ALPHA + J-FLEX DS FLORAL + DIVOSAN S1" (texto livre existente) <-> lista
+// de chips na edição rápida "v2".
+function parseProdutos(text) {
+    return String(text || '').split('+').map((s) => s.trim()).filter(Boolean);
+}
+
 export function fillProposalsContent(mainContent, proposals) {
     let normalized = (proposals || []).map(normalizeProposal);
     const isAdmGer = isAdminOrGerenteUser();
@@ -27,6 +54,11 @@ export function fillProposalsContent(mainContent, proposals) {
     // tela — atualiza uma proposta atrás da outra sem abrir/voltar.
     let quickEdit = isAdmin && (() => { try { return localStorage.getItem('proposals_quick_edit') === '1'; } catch (e) { return false; } })();
     let qeSelectedId = null;
+    // Listener de "clique fora" do menu "⋮" do painel — guardado aqui (não
+    // dentro de openProposalQuickPanel) pra remover o anterior sempre que o
+    // painel reabre com outro card, sem vazar um listener em document por
+    // card visitado na sessão.
+    let _qeMenuOutsideClick = null;
     const qeActive = () => quickEdit && isAdmin && window.innerWidth >= 1024;
     let _propsCampanhaList = [];
     // "Duplicado" = mesmo cliente + mesmo foco (mesmo critério do Funil).
@@ -477,6 +509,7 @@ export function fillProposalsContent(mainContent, proposals) {
         if (!panel) { return; }
         const p = normalized.find((x) => String(x.id) === String(id));
         if (!p) { return; }
+        if (_qeMenuOutsideClick) { document.removeEventListener('click', _qeMenuOutsideClick); _qeMenuOutsideClick = null; }
         qeSelectedId = String(id);
         document.querySelectorAll('#proposal-list-container .proposal-card').forEach((c) => {
             c.classList.toggle('qe-selected', c.dataset.proposalId === qeSelectedId);
@@ -489,66 +522,189 @@ export function fillProposalsContent(mainContent, proposals) {
         if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
 
         const searchField = (label, fieldId, value, items) => `
-            <div><span>${label}</span>
+            <div class="form-group"><label for="${fieldId}">${label}</label>
                 <div class="searchable-select">
                     <input type="text" id="${fieldId}" value="${escapeHtml(value || '')}" autocomplete="off">
                     ${items ? `<div class="searchable-select-menu" id="${fieldId}-menu"></div>` : ''}
                 </div>
             </div>`;
         const plainField = (label, fieldId, value, type = 'text') => `
-            <div><span>${label}</span><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
+            <div class="form-group"><label for="${fieldId}">${label}</label><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
 
-        const STAT = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
+        const STAT = ['Aguardando', 'Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
+        const STAT_LABELS = { Aguardando: 'Aguardando', Enviada: 'Enviada', 'Em negociacao': 'Em negociação', Ganhamos: 'Ganhamos', Perdido: '✕ Perdido' };
+        const funilLinkado = p.funilVinculado ? (state.funil || []).find((fx) => String(fx.id || fx.Id) === String(p.funilVinculado)) : null;
+        const diasPrazo = daysUntilDisplayDate(p.dataLimite);
+        let draftObs = p.obs || '';
+        let draftProdutos = parseProdutos(p.produtos);
+
+        const entryListHtml = () => {
+            const entries = parseDatedEntries(draftObs);
+            if (!entries.length) return `<p class="qe-v2-entry-empty">Nenhuma atualização ainda.</p>`;
+            return entries.map((e) => `
+                <div class="qe-v2-entry">
+                    <span class="qe-v2-entry-date">${escapeHtml(e.date)}</span>
+                    <span class="qe-v2-entry-text">${escapeHtml(e.text)}</span>
+                </div>`).join('');
+        };
+        const chipListHtml = () => draftProdutos.map((prod, i) => `
+            <span class="qe-v2-chip" data-i="${i}">${escapeHtml(prod)}<button type="button" class="qe-v2-chip-remove" data-i="${i}" aria-label="Remover">✕</button></span>
+        `).join('') + `<button type="button" class="qe-v2-chip-add" id="qe-produto-add">+ Adicionar</button>`;
+
         panel.innerHTML = `
             <div class="qe-panel-inner">
-                <div class="qe-panel-header">
+                <div class="qe-v2-header">
                     <div>
-                        <strong class="qe-panel-title">${escapeHtml(p.cliente || 'Cliente')}</strong>
-                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([p.cidade, p.vendedor, p.data].filter(Boolean).join(' · '))}</p>
+                        <div class="qe-v2-title-row">
+                            <strong class="qe-panel-title">${escapeHtml(p.cliente || 'Cliente')}</strong>
+                            <span class="qe-v2-badge qe-v2-badge-dirty" id="qe-dirty-badge" hidden>Não salvo</span>
+                        </div>
+                        <p class="helper-text qe-v2-meta">📍 ${escapeHtml(p.cidade || '-')} &nbsp;·&nbsp; 👤 ${escapeHtml(p.vendedor || '-')} &nbsp;·&nbsp; 📅 ${escapeHtml(p.data || '-')}</p>
                     </div>
-                    <div class="qe-panel-header-actions">
-                        ${(() => {
-                            const _fl = p.funilVinculado ? (state.funil || []).find((fx) => String(fx.id || fx.Id) === String(p.funilVinculado)) : null;
-                            if (_fl) return `
-                                <button type="button" class="mini-button" id="qe-ver-funil" data-funil-id="${escapeHtml(String(_fl.id || _fl.Id || ''))}" title="Abrir oportunidade vinculada">🔗 ${escapeHtml(_fl.cliente || _fl.Cliente || '-')}</button>
-                                <button type="button" class="mini-button mini-button-danger" id="qe-desvincular-funil" title="Remover vínculo">Desvincular</button>`;
-                            return `<button type="button" class="mini-button" id="qe-link-funil" title="Buscar e vincular a uma oportunidade do Funil já cadastrada">🔗 Vincular Funil</button>`;
-                        })()}
-                        <button type="button" class="primary-button" id="qe-save">Salvar</button>
-                        <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta proposta">Editar tudo</button>
+                    <div class="qe-v2-header-actions">
+                        ${funilLinkado
+                            ? `<button type="button" class="mini-button" id="qe-ver-funil" data-funil-id="${escapeHtml(String(funilLinkado.id || funilLinkado.Id || ''))}" title="Abrir oportunidade vinculada">🔗 ${escapeHtml(funilLinkado.cliente || funilLinkado.Cliente || '-')}</button>`
+                            : `<button type="button" class="mini-button" id="qe-link-funil" title="Buscar e vincular a uma oportunidade do Funil já cadastrada">🔗 Vincular funil</button>`}
+                        <button type="button" class="primary-button" id="qe-save">💾 Salvar</button>
+                        <div class="qe-v2-menu-wrap">
+                            <button type="button" class="qe-v2-menu-toggle" id="qe-menu-toggle" aria-label="Mais opções">⋮</button>
+                            <div class="qe-v2-menu" id="qe-menu">
+                                <button type="button" id="qe-full">✏️ Editar tudo</button>
+                                ${funilLinkado ? `<button type="button" id="qe-desvincular-funil">🔗 Desvincular funil</button>` : ''}
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="qe-info qe-info-edit">
-                    ${plainField('Cliente', 'qe-cliente', p.cliente)}
-                    ${searchField('Cidade', 'qe-cidade', p.cidade, listaCidades)}
-                    ${plainField('Vendedor', 'qe-vendedor', p.vendedor)}
-                    ${plainField('Gerência', 'qe-gerencia', p.gerencia)}
-                    ${searchField('Foco', 'qe-foco', p.foco, listaFoco)}
-                    <div><span>Produtos</span><input type="text" id="qe-produtos" value="${escapeHtml(p.produtos || '')}"></div>
-                    <div class="qe-info-edit-row2">
-                        <div><span>Data</span><input type="date" id="qe-data" value="${escapeHtml(formatInputDateFromDisplay(p.data) || '')}"></div>
-                        <div><span>Prazo</span><input type="date" id="qe-data-limite" value="${escapeHtml(formatInputDateFromDisplay(p.dataLimite) || '')}"></div>
-                    </div>
-                    ${plainField('E-mail', 'qe-email', p.email, 'email')}
-                </div>
-                <label>Status</label>
+
                 <div class="qe-status-row">
-                    ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (p.status || '') ? ' is-active' : ''}" data-s="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
+                    ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (p.status || '') ? ' is-active' : ''}" data-s="${escapeHtml(s)}">${STAT_LABELS[s]}</button>`).join('')}
                 </div>
-                <label style="margin-top:0.5rem">Atualizar / OBS</label>
-                <textarea id="qe-obs" rows="8">${escapeHtml(withDatedNoteHeader(p.obs))}</textarea>
+
+                <div class="qe-v2-stats">
+                    <div class="qe-v2-stat">
+                        <span>Data</span>
+                        <div class="qe-v2-stat-value"><input type="date" id="qe-data" value="${escapeHtml(formatInputDateFromDisplay(p.data) || '')}"></div>
+                    </div>
+                    <div class="qe-v2-stat">
+                        <span>Prazo</span>
+                        <div class="qe-v2-stat-value">
+                            <input type="date" id="qe-data-limite" value="${escapeHtml(formatInputDateFromDisplay(p.dataLimite) || '')}">
+                            ${diasPrazo !== null ? `<span class="qe-v2-days-badge">${diasPrazo >= 0 ? diasPrazo + 'd' : 'atrasado'}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="qe-v2-stat">
+                        <span>Foco</span>
+                        <div class="qe-v2-stat-value searchable-select">
+                            <input type="text" id="qe-foco" value="${escapeHtml(p.foco || '')}" autocomplete="off">
+                            <div class="searchable-select-menu" id="qe-foco-menu"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Produtos</p>
+                    <div class="qe-v2-chip-list" id="qe-produtos-chips">${chipListHtml()}</div>
+                </div>
+
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Cliente</p>
+                    <div class="qe-v2-grid-3">
+                        ${plainField('Cliente', 'qe-cliente', p.cliente)}
+                        ${searchField('Cidade', 'qe-cidade', p.cidade, listaCidades)}
+                        ${plainField('Gerência', 'qe-gerencia', p.gerencia)}
+                    </div>
+                    <div class="qe-v2-grid-2">
+                        ${plainField('Vendedor', 'qe-vendedor', p.vendedor)}
+                        ${plainField('E-mail', 'qe-email', p.email, 'email')}
+                    </div>
+                </div>
+
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Atualizações / Obs <span class="qe-v2-section-count" id="qe-obs-count">${parseDatedEntries(draftObs).length}</span></p>
+                    <div class="qe-v2-add-row">
+                        <input type="text" id="qe-obs-input" placeholder="Escreva uma atualização (a data entra sozinha)">
+                        <button type="button" class="mini-button" id="qe-obs-add">Adicionar</button>
+                    </div>
+                    <div class="qe-v2-entry-list" id="qe-obs-list">${entryListHtml()}</div>
+                </div>
             </div>`;
 
         initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
         initializeSearchableInput({ input: panel.querySelector('#qe-foco'), menu: panel.querySelector('#qe-foco-menu'), items: listaFoco, allowFreeText: true });
 
-        let selStatus = p.status || 'Enviada';
+        let selStatus = p.status || 'Aguardando';
+        let isDirty = false;
+        const dirtyBadge = panel.querySelector('#qe-dirty-badge');
+        const markDirty = () => { if (!isDirty) { isDirty = true; if (dirtyBadge) dirtyBadge.hidden = false; } };
+        panel.addEventListener('input', markDirty);
+        panel.addEventListener('change', markDirty);
+
         panel.querySelectorAll('.qe-status-btn').forEach((b) => b.addEventListener('click', () => {
             selStatus = b.dataset.s;
             panel.querySelectorAll('.qe-status-btn').forEach((x) => x.classList.toggle('is-active', x === b));
+            markDirty();
         }));
-        const ta = panel.querySelector('#qe-obs');
-        setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
+
+        // Obs: "Adicionar" empilha uma nova linha datada no topo do rascunho
+        // local — só vai pro servidor quando "Salvar" for clicado.
+        const obsInput = panel.querySelector('#qe-obs-input');
+        panel.querySelector('#qe-obs-add')?.addEventListener('click', () => {
+            const texto = (obsInput?.value || '').trim();
+            if (!texto) { showToast('Escreva algo antes de adicionar.', true); return; }
+            draftObs = datedNoteHeader() + texto + (draftObs ? `\n${draftObs}` : '');
+            obsInput.value = '';
+            panel.querySelector('#qe-obs-list').innerHTML = entryListHtml();
+            panel.querySelector('#qe-obs-count').textContent = String(parseDatedEntries(draftObs).length);
+            markDirty();
+        });
+        obsInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); panel.querySelector('#qe-obs-add').click(); }
+        });
+
+        // Produtos: chips a partir do texto livre existente ("A + B + C").
+        // "+ Adicionar" usa prompt() — mais simples que um input inline extra
+        // num painel já compacto, e é o mesmo padrão usado em outros lugares
+        // do app pra "um valor rápido" (ex.: Motivo da perda no Funil).
+        const rewireChips = () => {
+            const wrap = panel.querySelector('#qe-produtos-chips');
+            wrap.innerHTML = chipListHtml();
+            wrap.querySelectorAll('.qe-v2-chip-remove').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    draftProdutos.splice(Number(btn.dataset.i), 1);
+                    rewireChips();
+                    markDirty();
+                });
+            });
+            wrap.querySelector('#qe-produto-add')?.addEventListener('click', () => {
+                const novo = (prompt('Novo produto:') || '').trim();
+                if (!novo) return;
+                draftProdutos.push(novo);
+                rewireChips();
+                markDirty();
+            });
+        };
+        rewireChips();
+
+        // Menu "⋮" — fecha ao clicar fora (listener em document removido e
+        // reatribuído a cada abertura, pra não vazar entre trocas de card).
+        const menuToggle = panel.querySelector('#qe-menu-toggle');
+        const menu = panel.querySelector('#qe-menu');
+        menuToggle?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const opening = !menu.classList.contains('is-open');
+            menu.classList.toggle('is-open', opening);
+            if (_qeMenuOutsideClick) { document.removeEventListener('click', _qeMenuOutsideClick); _qeMenuOutsideClick = null; }
+            if (opening) {
+                _qeMenuOutsideClick = (ev) => {
+                    if (!menu.contains(ev.target) && ev.target !== menuToggle) {
+                        menu.classList.remove('is-open');
+                        document.removeEventListener('click', _qeMenuOutsideClick);
+                        _qeMenuOutsideClick = null;
+                    }
+                };
+                document.addEventListener('click', _qeMenuOutsideClick);
+            }
+        });
 
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('proposal-edit', { proposal: p }));
         panel.querySelector('#qe-link-funil')?.addEventListener('click', () => openLinkFunilModal(p, () => openProposalQuickPanel(p.id)));
@@ -556,12 +712,10 @@ export function fillProposalsContent(mainContent, proposals) {
             const id = e.currentTarget.dataset.funilId;
             if (id) navigateTo('funil-detail', { id });
         });
-        panel.querySelector('#qe-desvincular-funil')?.addEventListener('click', async (e) => {
-            const btn = e.currentTarget;
-            btn.disabled = true;
+        panel.querySelector('#qe-desvincular-funil')?.addEventListener('click', async () => {
             const funilId = p.funilVinculado;
             const r = await callAPI('updateProposal', { id: p.id, funilVinculado: '', user: state.currentUser }).catch((err) => ({ status: 'error', message: err.message }));
-            if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível desvincular.', true); btn.disabled = false; return; }
+            if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível desvincular.', true); return; }
             if (funilId) callAPI('updateFunil', { id: funilId, propostaVinculada: '', user: state.currentUser }).catch(() => {});
             p.funilVinculado = '';
             const i = (state.proposals || []).findIndex((x) => String(x.Id || x.id) === String(p.id));
@@ -571,18 +725,18 @@ export function fillProposalsContent(mainContent, proposals) {
         });
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
-            const obs = stripEmptyDatedLine(ta.value);
             const cliente = panel.querySelector('#qe-cliente')?.value.trim();
             const cidade = panel.querySelector('#qe-cidade')?.value.trim();
             const vendedor = panel.querySelector('#qe-vendedor')?.value.trim();
             const gerencia = panel.querySelector('#qe-gerencia')?.value.trim();
             const foco = panel.querySelector('#qe-foco')?.value.trim();
-            const produtos = panel.querySelector('#qe-produtos')?.value.trim();
+            const produtos = draftProdutos.join(' + ');
             const dataValue = panel.querySelector('#qe-data')?.value || '';
             const dataLimiteValue = panel.querySelector('#qe-data-limite')?.value || '';
             const email = panel.querySelector('#qe-email')?.value.trim();
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
+            if (dirtyBadge) dirtyBadge.hidden = true;
             // Se o novo status tirar esse card do filtro atual (ex.: filtrado
             // por "Aguardando" e o card virou "Ganhamos"), pula pro próximo
             // da lista em vez de continuar mostrando um card que já sumiu —
@@ -590,7 +744,7 @@ export function fillProposalsContent(mainContent, proposals) {
             const idsBefore = Array.from(document.querySelectorAll('#proposal-list-container [data-proposal-id]')).map((el) => el.dataset.proposalId);
             const posBefore = idsBefore.indexOf(String(p.id));
             applyProposalQuickPatch(p, {
-                status: selStatus, obs, cliente, cidade, vendedor, gerencia, foco, produtos,
+                status: selStatus, obs: draftObs, cliente, cidade, vendedor, gerencia, foco, produtos,
                 data: dataValue, dataLimite: dataLimiteValue, email
             }, () => {
                 normalized = state.proposals.map(normalizeProposal);

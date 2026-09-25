@@ -27,6 +27,28 @@ import { downloadXLSX } from '../utils/xlsxWriter.js';
 // localStorage): dura a sessão, não precisa sobreviver a um F5.
 let _funilFilterMemory = {};
 
+// Quebra o texto acumulado de Comentários (uma linha "DD/MM/AAAA - texto"
+// por entrada, mais recente no topo — ver withDatedNoteHeader) em entradas
+// pra exibir como lista na edição rápida "v2", em vez de textarea crua.
+function parseDatedEntries(text) {
+    return String(text || '').split('\n').map((line) => {
+        const m = line.match(/^(\d{2}\/\d{2}\/\d{4})\s*-\s*(.*)$/);
+        if (m) return { date: m[1], text: m[2] };
+        return line.trim() ? { date: '', text: line.trim() } : null;
+    }).filter(Boolean);
+}
+
+// Dias entre hoje e uma data futura (positivo = faltam N dias, negativo =
+// já passou) — calculateDaysFromDisplayDate (utils/format.js) calcula o
+// inverso (dias decorridos desde uma data passada), não serve aqui.
+function daysUntilDisplayDate(value) {
+    const d = parseDisplayDate(value);
+    if (!d) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const target = new Date(d); target.setHours(0, 0, 0, 0);
+    return Math.round((target - today) / 86400000);
+}
+
 export function fillFunilContent(mainContent, funil) {
     let funilData = funil || [];
     const isAdmGer = isAdminOrGerenteUser();
@@ -36,6 +58,11 @@ export function fillFunilContent(mainContent, funil) {
     // sem abrir/voltar. Estado persistido pra não resetar a cada navegação.
     let quickEdit = isAdminUser && (() => { try { return localStorage.getItem('funil_quick_edit') === '1'; } catch (e) { return false; } })();
     let qeSelectedId = null;
+    // Listener de "clique fora" do menu "⋮" do painel de edição rápida —
+    // guardado aqui (não dentro de openFunilQuickPanel) pra dar pra remover
+    // o anterior sempre que o painel reabre com outro card, sem vazar um
+    // listener em document por card visitado na sessão.
+    let _qeMenuOutsideClick = null;
     const qeActive = () => quickEdit && isAdminUser && window.innerWidth >= 1024;
     let _funilCampanhaList = [];
     // Modo seleção: marcar vários cards e apagar de uma vez (limpar
@@ -406,6 +433,7 @@ export function fillFunilContent(mainContent, funil) {
         if (!panel) { return; }
         const f = funilData.find((x) => String(x.id) === String(id));
         if (!f) { return; }
+        if (_qeMenuOutsideClick) { document.removeEventListener('click', _qeMenuOutsideClick); _qeMenuOutsideClick = null; }
         qeSelectedId = String(id);
         document.querySelectorAll('#funil-list-container .funil-card').forEach((c) => {
             c.classList.toggle('qe-selected', c.dataset.funilId === qeSelectedId);
@@ -429,63 +457,115 @@ export function fillFunilContent(mainContent, funil) {
         const linkedPropostasCount = (state.proposals || []).filter((px) => String(px.funilVinculado || px.FunilVinculado || '') === String(f.id)).length;
 
         const searchField = (label, id, value) => `
-            <div><span>${label}</span>
+            <div class="form-group"><label for="${id}">${label}</label>
                 <div class="searchable-select">
                     <input type="text" id="${id}" value="${escapeHtml(value || '')}" autocomplete="off">
                     <div class="searchable-select-menu" id="${id}-menu"></div>
                 </div>
             </div>`;
         const plainField = (label, id, value, type = 'text') => `
-            <div><span>${label}</span><input type="${type}" id="${id}" value="${escapeHtml(value || '')}"></div>`;
+            <div class="form-group"><label for="${id}">${label}</label><input type="${type}" id="${id}" value="${escapeHtml(value || '')}"></div>`;
 
+        const STAT_LABELS = { IDENTIFICAR: 'Identificar', PROPOSTA: 'Proposta', NEGOCIAR: 'Negociar', CONCLUIDO: 'Concluído', PERDIDO: '✕ Perdido', RETOMAR: '↻ Retomar' };
         const STAT = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
+        const diasConclusao = daysUntilDisplayDate(f.conclusao);
+        let draftComentarios = f.comentarios || '';
+
+        const entryListHtml = () => {
+            const entries = parseDatedEntries(draftComentarios);
+            if (!entries.length) return `<p class="qe-v2-entry-empty">Nenhum comentário ainda.</p>`;
+            return entries.map((e) => `
+                <div class="qe-v2-entry">
+                    <span class="qe-v2-entry-date">${escapeHtml(e.date)}</span>
+                    <span class="qe-v2-entry-text">${escapeHtml(e.text)}</span>
+                </div>`).join('');
+        };
+
         panel.innerHTML = `
             <div class="qe-panel-inner">
-                <div class="qe-panel-header">
+                <div class="qe-v2-header">
                     <div>
-                        <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
-                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([f.cidade, f.vendedor, f.data || f.atualizacao].filter(Boolean).join(' · '))}</p>
+                        <div class="qe-v2-title-row">
+                            <strong class="qe-panel-title">${escapeHtml(f.cliente || 'Cliente')}</strong>
+                            ${f.funilDiversey === 'Sim' ? '<span class="qe-v2-badge qe-v2-badge-accent" id="qe-diversey-badge" title="Clique para desmarcar">⭐ Funil Diversey</span>' : ''}
+                            <span class="qe-v2-badge qe-v2-badge-dirty" id="qe-dirty-badge" hidden>Não salvo</span>
+                        </div>
+                        <p class="helper-text qe-v2-meta">📍 ${escapeHtml(f.cidade || '-')} &nbsp;·&nbsp; 👤 ${escapeHtml(f.vendedor || '-')} &nbsp;·&nbsp; 📅 ${escapeHtml(f.data || f.atualizacao || '-')}</p>
                     </div>
-                    <div class="qe-panel-header-actions">
-                        ${linkedPropostasCount > 0 ? `<button type="button" class="mini-button" id="qe-ver-propostas" title="Ver propostas vinculadas (abre o Detalhe)">🔗 ${linkedPropostasCount} proposta${linkedPropostasCount > 1 ? 's' : ''}</button>` : ''}
-                        <button type="button" class="mini-button" id="qe-link-proposta" title="Buscar e vincular a uma proposta já cadastrada">🔗 Vincular Proposta</button>
-                        <button type="button" class="primary-button" id="qe-save">Salvar</button>
-                        <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta oportunidade">Editar tudo</button>
+                    <div class="qe-v2-header-actions">
+                        ${linkedPropostasCount > 0 ? `<button type="button" class="mini-button" id="qe-ver-propostas" title="Ver propostas vinculadas (abre o Detalhe)">🔗 ${linkedPropostasCount} proposta${linkedPropostasCount > 1 ? 's' : ''}</button>` : `<button type="button" class="mini-button" id="qe-link-proposta" title="Buscar e vincular a uma proposta já cadastrada">🔗 Vincular</button>`}
+                        <button type="button" class="primary-button" id="qe-save">💾 Salvar</button>
+                        <div class="qe-v2-menu-wrap">
+                            <button type="button" class="qe-v2-menu-toggle" id="qe-menu-toggle" aria-label="Mais opções">⋮</button>
+                            <div class="qe-v2-menu" id="qe-menu">
+                                <button type="button" id="qe-full">✏️ Editar tudo</button>
+                                ${f.funilDiversey === 'Sim' ? `<button type="button" id="qe-diversey-toggle">☆ Desmarcar Diversey</button>` : `<button type="button" id="qe-diversey-toggle">⭐ Marcar Diversey</button>`}
+                                ${linkedPropostasCount > 0 ? `<button type="button" id="qe-link-proposta-menu">🔗 Vincular outra proposta</button>` : ''}
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="qe-info qe-info-edit">
-                    ${plainField('Cliente', 'qe-cliente', f.cliente)}
-                    ${searchField('Cidade', 'qe-cidade', f.cidade)}
-                    ${searchField('Vendedor', 'qe-vendedor', f.vendedor)}
-                    ${plainField('Gerência', 'qe-gerencia', f.gerencia)}
-                    ${searchField('Foco', 'qe-foco', f.foco)}
-                    ${searchField('Atuação', 'qe-atuacao', f.atuacao)}
-                    ${searchField('Aplicação', 'qe-aplicacao', f.aplicacao)}
-                    ${searchField('Equipamentos', 'qe-equipamentos', f.equipamentos)}
-                    <div class="qe-info-edit-row2">
-                        <div><span>Data</span><input type="date" id="qe-data" value="${escapeHtml(formatInputDateFromDisplay(f.data) || '')}"></div>
-                        <div><span>Ativo</span><select id="qe-ativo">${renderSimpleOptions(['Sim', 'Nao'], f.ativo || 'Sim')}</select></div>
-                    </div>
-                    <div class="qe-info-edit-row2">
-                        <div><span>Valor R$</span><input type="text" id="qe-vl-mensal" value="${escapeHtml(f.vlMensal || '')}" placeholder="0,00"></div>
-                        <div><span>Conclusão</span><input type="date" id="qe-conclusao" value="${escapeHtml(formatInputDateFromDisplay(f.conclusao) || '')}"></div>
-                    </div>
-                    ${plainField('Inf. Importantes', 'qe-inf', f.infImportantes)}
-                </div>
-                <label>Status</label>
+
                 <div class="qe-status-row">
-                    ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (f.status || '') ? ' is-active' : ''}" data-s="${s}">${s}${s === 'CONCLUIDO' ? '<span class="qe-status-caption">(Ganhamos)</span>' : ''}</button>`).join('')}
+                    ${STAT.map((s) => `<button type="button" class="qe-status-btn${s === (f.status || '') ? ' is-active' : ''}" data-s="${s}">${STAT_LABELS[s]}${s === 'CONCLUIDO' ? '<span class="qe-status-caption">(Ganhamos)</span>' : ''}</button>`).join('')}
                 </div>
                 <div id="qe-motivo-wrap" style="margin-top:0.5rem;display:${f.status === 'PERDIDO' ? '' : 'none'}">
                     <label>Motivo da perda</label>
                     <input type="text" id="qe-motivo" value="${escapeHtml(f.motivoPerda || '')}" placeholder="Ex.: preço, concorrência...">
                 </div>
-                <label class="qe-diversey-check" style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;font-weight:600;cursor:pointer">
-                    <input type="checkbox" id="qe-diversey" ${f.funilDiversey === 'Sim' ? 'checked' : ''} style="width:auto;accent-color:var(--primary)">
-                    ⭐ Funil Diversey <span class="helper-text" style="font-weight:400">(acompanhar de perto)</span>
-                </label>
-                <label style="margin-top:0.5rem">Comentários</label>
-                <textarea id="qe-coment" rows="8">${escapeHtml(withDatedNoteHeader(f.comentarios))}</textarea>
+
+                <div class="qe-v2-stats">
+                    <div class="qe-v2-stat">
+                        <span>Valor</span>
+                        <div class="qe-v2-stat-value">R$ <input type="text" id="qe-vl-mensal" value="${escapeHtml(f.vlMensal || '')}" placeholder="0,00"></div>
+                    </div>
+                    <div class="qe-v2-stat">
+                        <span>Conclusão</span>
+                        <div class="qe-v2-stat-value">
+                            <input type="date" id="qe-conclusao" value="${escapeHtml(formatInputDateFromDisplay(f.conclusao) || '')}">
+                            ${diasConclusao !== null ? `<span class="qe-v2-days-badge" id="qe-conclusao-days">${diasConclusao >= 0 ? diasConclusao + 'd' : 'atrasado'}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="qe-v2-stat">
+                        <span>Ativo</span>
+                        <label class="qe-v2-toggle">
+                            <input type="checkbox" id="qe-ativo" ${f.ativo !== 'Nao' ? 'checked' : ''}>
+                            <span class="qe-v2-toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Cliente</p>
+                    <div class="qe-v2-grid-3">
+                        ${plainField('Cliente', 'qe-cliente', f.cliente)}
+                        ${searchField('Cidade', 'qe-cidade', f.cidade)}
+                        ${plainField('Gerência', 'qe-gerencia', f.gerencia)}
+                    </div>
+                    ${searchField('Vendedor', 'qe-vendedor', f.vendedor)}
+                </div>
+
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Oportunidade</p>
+                    <div class="qe-v2-grid-3">
+                        ${searchField('Foco', 'qe-foco', f.foco)}
+                        ${searchField('Atuação', 'qe-atuacao', f.atuacao)}
+                        ${searchField('Aplicação', 'qe-aplicacao', f.aplicacao)}
+                    </div>
+                    <div class="qe-v2-grid-2">
+                        ${searchField('Equipamentos', 'qe-equipamentos', f.equipamentos)}
+                        ${plainField('Inf. Importantes', 'qe-inf', f.infImportantes)}
+                    </div>
+                </div>
+
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Comentários <span class="qe-v2-section-count" id="qe-coment-count">${parseDatedEntries(draftComentarios).length}</span></p>
+                    <div class="qe-v2-add-row">
+                        <input type="text" id="qe-coment-input" placeholder="Escreva um comentário (a data entra sozinha)">
+                        <button type="button" class="mini-button" id="qe-coment-add">Adicionar</button>
+                    </div>
+                    <div class="qe-v2-entry-list" id="qe-coment-list">${entryListHtml()}</div>
+                </div>
             </div>`;
 
         initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
@@ -507,22 +587,89 @@ export function fillFunilContent(mainContent, funil) {
         initializeSearchableInput({ input: panel.querySelector('#qe-equipamentos'), menu: panel.querySelector('#qe-equipamentos-menu'), items: listaEquipamentos, allowFreeText: true });
 
         let selStatus = f.status || 'IDENTIFICAR';
+        let selDiversey = f.funilDiversey === 'Sim';
+        let isDirty = false;
+        const dirtyBadge = panel.querySelector('#qe-dirty-badge');
+        const markDirty = () => { if (!isDirty) { isDirty = true; if (dirtyBadge) dirtyBadge.hidden = false; } };
+        panel.addEventListener('input', markDirty);
+        panel.addEventListener('change', markDirty);
+
         panel.querySelectorAll('.qe-status-btn').forEach((b) => b.addEventListener('click', () => {
             selStatus = b.dataset.s;
             panel.querySelectorAll('.qe-status-btn').forEach((x) => x.classList.toggle('is-active', x === b));
             panel.querySelector('#qe-motivo-wrap').style.display = selStatus === 'PERDIDO' ? '' : 'none';
+            markDirty();
         }));
-        const ta = panel.querySelector('#qe-coment');
-        setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
+
+        // Comentário: "Adicionar" empilha uma nova linha datada no topo do
+        // rascunho local (draftComentarios) — só vai pro servidor quando
+        // "Salvar" for clicado, igual aos outros campos do painel.
+        const comentInput = panel.querySelector('#qe-coment-input');
+        panel.querySelector('#qe-coment-add')?.addEventListener('click', () => {
+            const texto = (comentInput?.value || '').trim();
+            if (!texto) { showToast('Escreva algo antes de adicionar.', true); return; }
+            draftComentarios = datedNoteHeader() + texto + (draftComentarios ? `\n${draftComentarios}` : '');
+            comentInput.value = '';
+            panel.querySelector('#qe-coment-list').innerHTML = entryListHtml();
+            panel.querySelector('#qe-coment-count').textContent = String(parseDatedEntries(draftComentarios).length);
+            markDirty();
+        });
+        comentInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); panel.querySelector('#qe-coment-add').click(); }
+        });
+
+        // Menu "⋮" — fecha ao clicar fora (listener em document removido e
+        // reatribuído a cada abertura, pra não vazar entre trocas de card).
+        const menuToggle = panel.querySelector('#qe-menu-toggle');
+        const menu = panel.querySelector('#qe-menu');
+        menuToggle?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const opening = !menu.classList.contains('is-open');
+            menu.classList.toggle('is-open', opening);
+            if (_qeMenuOutsideClick) { document.removeEventListener('click', _qeMenuOutsideClick); _qeMenuOutsideClick = null; }
+            if (opening) {
+                _qeMenuOutsideClick = (ev) => {
+                    if (!menu.contains(ev.target) && ev.target !== menuToggle) {
+                        menu.classList.remove('is-open');
+                        document.removeEventListener('click', _qeMenuOutsideClick);
+                        _qeMenuOutsideClick = null;
+                    }
+                };
+                document.addEventListener('click', _qeMenuOutsideClick);
+            }
+        });
 
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));
         panel.querySelector('#qe-link-proposta')?.addEventListener('click', () => openLinkPropostaModal(f, () => openFunilQuickPanel(f.id)));
+        panel.querySelector('#qe-link-proposta-menu')?.addEventListener('click', () => openLinkPropostaModal(f, () => openFunilQuickPanel(f.id)));
         panel.querySelector('#qe-ver-propostas')?.addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
+        // Alterna o badge Diversey só localmente (sem perder o resto do que
+        // já foi digitado no painel) — vira parte do payload só no Salvar.
+        const toggleDiversey = () => { selDiversey = !selDiversey; markDirty(); syncDiverseyBadge(); menu.classList.remove('is-open'); };
+        function syncDiverseyBadge() {
+            const titleRow = panel.querySelector('.qe-v2-title-row');
+            const existing = titleRow.querySelector('.qe-v2-badge-accent');
+            if (selDiversey && !existing) {
+                const span = document.createElement('span');
+                span.className = 'qe-v2-badge qe-v2-badge-accent';
+                span.id = 'qe-diversey-badge';
+                span.title = 'Clique para desmarcar';
+                span.textContent = '⭐ Funil Diversey';
+                span.addEventListener('click', toggleDiversey);
+                titleRow.insertBefore(span, titleRow.querySelector('.qe-v2-badge-dirty'));
+            } else if (!selDiversey && existing) {
+                existing.remove();
+            }
+            const menuBtn = panel.querySelector('#qe-diversey-toggle');
+            if (menuBtn) menuBtn.textContent = selDiversey ? '☆ Desmarcar Diversey' : '⭐ Marcar Diversey';
+            menu.classList.remove('is-open');
+        }
+        panel.querySelector('#qe-diversey-toggle')?.addEventListener('click', toggleDiversey);
+        panel.querySelector('#qe-diversey-badge')?.addEventListener('click', toggleDiversey);
 
         panel.querySelector('#qe-save').addEventListener('click', () => {
             const motivo = (panel.querySelector('#qe-motivo')?.value || '').trim();
             if (selStatus === 'PERDIDO' && !motivo) { showToast('Informe o motivo da perda.', true); return; }
-            const coment = stripEmptyDatedLine(ta.value);
             const cliente = panel.querySelector('#qe-cliente')?.value.trim();
             const cidade = panel.querySelector('#qe-cidade')?.value.trim();
             const vendedor = panel.querySelector('#qe-vendedor')?.value.trim();
@@ -531,14 +678,14 @@ export function fillFunilContent(mainContent, funil) {
             const atuacao = panel.querySelector('#qe-atuacao')?.value.trim();
             const aplicacao = panel.querySelector('#qe-aplicacao')?.value.trim();
             const equipamentos = panel.querySelector('#qe-equipamentos')?.value.trim();
-            const dataValue = panel.querySelector('#qe-data')?.value || '';
-            const ativo = panel.querySelector('#qe-ativo')?.value;
+            const ativo = panel.querySelector('#qe-ativo')?.checked ? 'Sim' : 'Nao';
             const vlMensal = panel.querySelector('#qe-vl-mensal')?.value.trim();
             const conclusaoValue = panel.querySelector('#qe-conclusao')?.value || '';
             const infImportantes = panel.querySelector('#qe-inf')?.value.trim();
-            const funilDiversey = panel.querySelector('#qe-diversey')?.checked ? 'Sim' : 'Nao';
+            const funilDiversey = selDiversey ? 'Sim' : 'Nao';
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
+            if (dirtyBadge) dirtyBadge.hidden = true;
             // Se o novo status tirar esse card do filtro atual (ex.: filtrado
             // por "Proposta" e o card virou "Concluído"), pula pro próximo da
             // lista em vez de continuar mostrando um card que já sumiu — dá
@@ -546,9 +693,9 @@ export function fillFunilContent(mainContent, funil) {
             const idsBefore = Array.from(document.querySelectorAll('#funil-list-container [data-funil-id]')).map((el) => el.dataset.funilId);
             const posBefore = idsBefore.indexOf(String(f.id));
             applyFunilQuickPatch(f, {
-                status: selStatus, comentarios: coment, motivoPerda: motivo,
+                status: selStatus, comentarios: draftComentarios, motivoPerda: motivo,
                 cliente, cidade, vendedor, gerencia: gerenciaValue, foco, atuacao, aplicacao, equipamentos,
-                data: dataValue, ativo, vlMensal, conclusao: conclusaoValue, infImportantes, funilDiversey
+                ativo, vlMensal, conclusao: conclusaoValue, infImportantes, funilDiversey
             }, () => {
                 funilData = state.funil;
                 renderFiltered();

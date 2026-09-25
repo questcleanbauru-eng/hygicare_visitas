@@ -91,6 +91,17 @@ function applyVisitQuickPatch(v, patch, onDone) {
         });
 }
 
+// Quebra o texto acumulado de Observação (uma linha "DD/MM/AAAA - texto"
+// por entrada, mais recente no topo — ver withDatedNoteHeader) em entradas
+// pra exibir como lista na edição rápida "v2", em vez de textarea crua.
+function parseDatedEntries(text) {
+    return String(text || '').split('\n').map((line) => {
+        const m = line.match(/^(\d{2}\/\d{2}\/\d{4})\s*-\s*(.*)$/);
+        if (m) return { date: m[1], text: m[2] };
+        return line.trim() ? { date: '', text: line.trim() } : null;
+    }).filter(Boolean);
+}
+
 // Referência pro render da lista de Visitas já filtrada — setada por
 // fillVisitsContent, chamada pelo toggle "Edição rápida" no cabeçalho.
 let _visitsRenderFiltered = null;
@@ -158,6 +169,11 @@ export function fillVisitsContent(container, visits) {
     const quickEdit = isAdmin && qeStored();
     const qeActive = () => isAdmin && window.innerWidth >= 1024 && qeStored();
     let qeSelectedId = null;
+    // Listener de "clique fora" do menu "⋮" do painel de edição rápida —
+    // guardado aqui (não dentro de openVisitQuickPanel) pra dar pra remover
+    // o anterior sempre que o painel reabre com outra visita, sem vazar um
+    // listener em document por card visitado na sessão.
+    let _qeMenuOutsideClick = null;
     const availableVendors = canVendorTools
         ? Array.from(new Set(normalizedVisits.map((v) => v.vendedorGerente).filter(Boolean))).sort()
         : [];
@@ -417,6 +433,7 @@ export function fillVisitsContent(container, visits) {
         if (!panel) { return; }
         const v = normalizedVisits.find((x) => String(x.id) === String(id));
         if (!v) { return; }
+        if (_qeMenuOutsideClick) { document.removeEventListener('click', _qeMenuOutsideClick); _qeMenuOutsideClick = null; }
         qeSelectedId = String(id);
         document.querySelectorAll('#visits-list-container .visit-card').forEach((c) => {
             c.classList.toggle('qe-selected', c.dataset.visitId === qeSelectedId);
@@ -432,73 +449,199 @@ export function fillVisitsContent(container, visits) {
         if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
 
         const searchField = (label, fieldId, value, items) => `
-            <div><span>${label}</span>
+            <div class="form-group"><label for="${fieldId}">${label}</label>
                 <div class="searchable-select">
                     <input type="text" id="${fieldId}" value="${escapeHtml(value || '')}" autocomplete="off">
                     ${items ? `<div class="searchable-select-menu" id="${fieldId}-menu"></div>` : ''}
                 </div>
             </div>`;
         const plainField = (label, fieldId, value, type = 'text') => `
-            <div><span>${label}</span><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
+            <div class="form-group"><label for="${fieldId}">${label}</label><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
+
+        // Tipo: até 3 pílulas visíveis (a atual sempre entra, mesmo que não
+        // esteja entre as 3 primeiras da lista) + um <select> "Mais..." com o
+        // resto — Visitas tem tipos configuráveis (não um enum fixo pequeno
+        // como Status do Funil/Proposta), então não cabe tudo em pílula.
+        let visiblePills = listaTipos.slice(0, 3);
+        if (v.tipoVisita && !visiblePills.includes(v.tipoVisita)) {
+            visiblePills = [v.tipoVisita, ...visiblePills.slice(0, 2)];
+        }
+        const overflowTipos = listaTipos.filter((t) => !visiblePills.includes(t));
+        const tipoInOverflow = v.tipoVisita && overflowTipos.includes(v.tipoVisita);
+
+        let draftObs = v.observacao || '';
+        const entryListHtml = () => {
+            const entries = parseDatedEntries(draftObs);
+            if (!entries.length) return `<p class="qe-v2-entry-empty">Nenhuma observação ainda.</p>`;
+            return entries.map((e) => `
+                <div class="qe-v2-entry">
+                    <span class="qe-v2-entry-date">${escapeHtml(e.date)}</span>
+                    <span class="qe-v2-entry-text">${escapeHtml(e.text)}</span>
+                </div>`).join('');
+        };
 
         panel.innerHTML = `
             <div class="qe-panel-inner">
-                <div class="qe-panel-header">
+                <div class="qe-v2-header">
                     <div>
-                        <strong class="qe-panel-title">${escapeHtml(v.cliente || 'Cliente')}</strong>
-                        <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([v.tipoVisita, v.cidade, v.dataVisita].filter(Boolean).join(' · '))}</p>
+                        <div class="qe-v2-title-row">
+                            <strong class="qe-panel-title">${escapeHtml(v.cliente || 'Cliente')}</strong>
+                            <span class="qe-v2-badge qe-v2-badge-dirty" id="qe-dirty-badge" hidden>Não salvo</span>
+                        </div>
+                        <p class="helper-text qe-v2-meta">📍 ${escapeHtml(v.cidade || '-')} &nbsp;·&nbsp; 👤 ${escapeHtml(v.vendedorGerente || '-')}</p>
                     </div>
-                    <div class="qe-panel-header-actions">
-                        <button type="button" class="primary-button" id="qe-save">Salvar</button>
-                        <button type="button" class="secondary-button" id="qe-full" title="Abrir a edição completa desta visita">Editar tudo</button>
+                    <div class="qe-v2-header-actions">
+                        <button type="button" class="primary-button" id="qe-save">💾 Salvar</button>
+                        <div class="qe-v2-menu-wrap">
+                            <button type="button" class="qe-v2-menu-toggle" id="qe-menu-toggle" aria-label="Mais opções">⋮</button>
+                            <div class="qe-v2-menu" id="qe-menu">
+                                <button type="button" id="qe-full">✏️ Editar tudo</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="qe-info qe-info-edit">
-                    ${plainField('Cliente', 'qe-cliente', v.cliente)}
-                    ${plainField('Contato', 'qe-contato', v.contato)}
-                    ${searchField('Cidade', 'qe-cidade', v.cidade, listaCidades)}
-                    ${searchField('Atuação', 'qe-area', v.areaAtuacao, listaAreas)}
-                    ${searchField('Potencial', 'qe-potencial', v.potencialCliente, listaPotenciais)}
-                    ${searchField('Tipo', 'qe-tipo', v.tipoVisita, listaTipos)}
-                    ${searchField('Vendedor', 'qe-vendedor', v.vendedorGerente, listaVendedores.map((x) => x.nome))}
-                    <div class="qe-info-edit-row2">
-                        <div><span>Data</span><input type="date" id="qe-data" value="${escapeHtml(v.dataVisitaInput || '')}"></div>
-                        <div><span>Horário</span><input type="time" id="qe-horario" value="${escapeHtml(v.horario || '')}"></div>
+
+                <p class="qe-v2-section-title">Tipo</p>
+                <div class="qe-v2-type-row">
+                    ${visiblePills.map((t) => `<button type="button" class="qe-status-btn${t === v.tipoVisita ? ' is-active' : ''}" data-t="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}
+                    ${overflowTipos.length ? `<select id="qe-tipo-mais" class="${tipoInOverflow ? 'is-active' : ''}">
+                        <option value="">Mais...</option>
+                        ${overflowTipos.map((t) => `<option value="${escapeHtml(t)}" ${t === v.tipoVisita ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+                    </select>` : ''}
+                </div>
+
+                <div class="qe-v2-stats">
+                    <div class="qe-v2-stat">
+                        <span>Data</span>
+                        <div class="qe-v2-stat-value">
+                            <input type="date" id="qe-data" value="${escapeHtml(v.dataVisitaInput || '')}" style="flex:1 1 auto">
+                            <input type="time" id="qe-horario" value="${escapeHtml(v.horario || '')}" style="flex:0 0 auto;max-width:6.5em">
+                        </div>
                     </div>
-                    <div><span>Veículo</span><select id="qe-veiculo">${renderSimpleOptions(['Particular', 'Empresa'], v.veiculo || 'Particular')}</select></div>
+                    <div class="qe-v2-stat">
+                        <span>Veículo</span>
+                        <select id="qe-veiculo">${renderSimpleOptions(['Particular', 'Empresa'], v.veiculo || 'Particular')}</select>
+                    </div>
                     ${state.canLancarDespesas ? `
-                    <div class="qe-info-edit-row2">
-                        <div><span>Despesas?</span><select id="qe-despesas">${renderSimpleOptions(['Nao', 'Sim'], v.teveDespesas || 'Nao')}</select></div>
-                        <div><span>Valor R$</span><input type="text" id="qe-valor-despesas" value="${escapeHtml(v.valorDespesas || '')}" placeholder="0,00" inputmode="decimal"></div>
+                    <div class="qe-v2-stat">
+                        <span>Despesas</span>
+                        <label class="qe-v2-toggle">
+                            <input type="checkbox" id="qe-despesas" ${v.teveDespesas === 'Sim' ? 'checked' : ''}>
+                            <span class="qe-v2-toggle-slider"></span>
+                        </label>
                     </div>` : ''}
                 </div>
-                <label>Observação</label>
-                <textarea id="qe-obs" rows="9">${escapeHtml(withDatedNoteHeader(v.observacao))}</textarea>
+                ${state.canLancarDespesas ? `
+                <div class="form-group" id="qe-valor-despesas-wrap" style="display:${v.teveDespesas === 'Sim' ? '' : 'none'};margin:-0.3rem 0 0.6rem">
+                    <label for="qe-valor-despesas">Valor das despesas R$</label>
+                    <input type="text" id="qe-valor-despesas" value="${escapeHtml(v.valorDespesas || '')}" placeholder="0,00" inputmode="decimal">
+                </div>` : ''}
+
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Cliente</p>
+                    <div class="qe-v2-grid-2">
+                        ${plainField('Cliente', 'qe-cliente', v.cliente)}
+                        ${plainField('Contato', 'qe-contato', v.contato)}
+                    </div>
+                    <div class="qe-v2-grid-3">
+                        ${searchField('Cidade', 'qe-cidade', v.cidade, listaCidades)}
+                        ${searchField('Atuação', 'qe-area', v.areaAtuacao, listaAreas)}
+                        <div class="form-group"><label for="qe-potencial">Potencial</label><select id="qe-potencial">${renderSimpleOptions(listaPotenciais, v.potencialCliente)}</select></div>
+                    </div>
+                    ${searchField('Vendedor', 'qe-vendedor', v.vendedorGerente, listaVendedores.map((x) => x.nome))}
+                </div>
+
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Observações <span class="qe-v2-section-count" id="qe-obs-count">${parseDatedEntries(draftObs).length}</span></p>
+                    <div class="qe-v2-add-row">
+                        <input type="text" id="qe-obs-input" placeholder="Escreva uma observação (a data entra sozinha)">
+                        <button type="button" class="mini-button" id="qe-obs-add">Adicionar</button>
+                    </div>
+                    <div class="qe-v2-entry-list" id="qe-obs-list">${entryListHtml()}</div>
+                </div>
             </div>`;
 
         initializeSearchableInput({ input: panel.querySelector('#qe-cidade'), menu: panel.querySelector('#qe-cidade-menu'), items: listaCidades, allowFreeText: true });
         initializeSearchableInput({ input: panel.querySelector('#qe-area'), menu: panel.querySelector('#qe-area-menu'), items: listaAreas, allowFreeText: true });
-        initializeSearchableInput({ input: panel.querySelector('#qe-potencial'), menu: panel.querySelector('#qe-potencial-menu'), items: listaPotenciais, allowFreeText: true });
-        initializeSearchableInput({ input: panel.querySelector('#qe-tipo'), menu: panel.querySelector('#qe-tipo-menu'), items: listaTipos, allowFreeText: true });
         initializeSearchableInput({ input: panel.querySelector('#qe-vendedor'), menu: panel.querySelector('#qe-vendedor-menu'), items: listaVendedores.map((x) => x.nome), allowFreeText: true });
 
-        const ta = panel.querySelector('#qe-obs');
-        setTimeout(() => { ta.focus(); selectNoteHint(ta); }, 20);
+        let selTipo = v.tipoVisita || '';
+        let isDirty = false;
+        const dirtyBadge = panel.querySelector('#qe-dirty-badge');
+        const markDirty = () => { if (!isDirty) { isDirty = true; if (dirtyBadge) dirtyBadge.hidden = false; } };
+        panel.addEventListener('input', markDirty);
+        panel.addEventListener('change', markDirty);
+
+        const tipoMais = panel.querySelector('#qe-tipo-mais');
+        panel.querySelectorAll('.qe-v2-type-row .qe-status-btn').forEach((b) => b.addEventListener('click', () => {
+            selTipo = b.dataset.t;
+            panel.querySelectorAll('.qe-v2-type-row .qe-status-btn').forEach((x) => x.classList.toggle('is-active', x === b));
+            if (tipoMais) { tipoMais.value = ''; tipoMais.classList.remove('is-active'); }
+            markDirty();
+        }));
+        tipoMais?.addEventListener('change', () => {
+            selTipo = tipoMais.value;
+            tipoMais.classList.toggle('is-active', !!selTipo);
+            if (selTipo) panel.querySelectorAll('.qe-v2-type-row .qe-status-btn').forEach((x) => x.classList.remove('is-active'));
+            markDirty();
+        });
+
+        panel.querySelector('#qe-despesas')?.addEventListener('change', () => {
+            const wrap = panel.querySelector('#qe-valor-despesas-wrap');
+            if (wrap) wrap.style.display = panel.querySelector('#qe-despesas').checked ? '' : 'none';
+        });
+
+        // Observação: "Adicionar" empilha uma nova linha datada no topo do
+        // rascunho local — só vai pro servidor quando "Salvar" for clicado.
+        const obsInput = panel.querySelector('#qe-obs-input');
+        panel.querySelector('#qe-obs-add')?.addEventListener('click', () => {
+            const texto = (obsInput?.value || '').trim();
+            if (!texto) { showToast('Escreva algo antes de adicionar.', true); return; }
+            draftObs = datedNoteHeader() + texto + (draftObs ? `\n${draftObs}` : '');
+            obsInput.value = '';
+            panel.querySelector('#qe-obs-list').innerHTML = entryListHtml();
+            panel.querySelector('#qe-obs-count').textContent = String(parseDatedEntries(draftObs).length);
+            markDirty();
+        });
+        obsInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); panel.querySelector('#qe-obs-add').click(); }
+        });
+
+        // Menu "⋮" — fecha ao clicar fora (listener em document removido e
+        // reatribuído a cada abertura, pra não vazar entre trocas de card).
+        const menuToggle = panel.querySelector('#qe-menu-toggle');
+        const menu = panel.querySelector('#qe-menu');
+        menuToggle?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const opening = !menu.classList.contains('is-open');
+            menu.classList.toggle('is-open', opening);
+            if (_qeMenuOutsideClick) { document.removeEventListener('click', _qeMenuOutsideClick); _qeMenuOutsideClick = null; }
+            if (opening) {
+                _qeMenuOutsideClick = (ev) => {
+                    if (!menu.contains(ev.target) && ev.target !== menuToggle) {
+                        menu.classList.remove('is-open');
+                        document.removeEventListener('click', _qeMenuOutsideClick);
+                        _qeMenuOutsideClick = null;
+                    }
+                };
+                document.addEventListener('click', _qeMenuOutsideClick);
+            }
+        });
+
         panel.querySelector('#qe-full').addEventListener('click', () => navigateTo('visit-edit', { visit: v }));
         panel.querySelector('#qe-save').addEventListener('click', () => {
-            const obs = stripEmptyDatedLine(ta.value);
             const cliente = panel.querySelector('#qe-cliente')?.value.trim();
             const contato = panel.querySelector('#qe-contato')?.value.trim();
             const cidade = panel.querySelector('#qe-cidade')?.value.trim();
             const areaAtuacao = panel.querySelector('#qe-area')?.value.trim();
-            const potencialCliente = panel.querySelector('#qe-potencial')?.value.trim();
-            const tipoVisita = panel.querySelector('#qe-tipo')?.value.trim();
+            const potencialCliente = panel.querySelector('#qe-potencial')?.value || '';
+            const tipoVisita = selTipo;
             const vendedorGerente = panel.querySelector('#qe-vendedor')?.value.trim();
             const dataInputValue = panel.querySelector('#qe-data')?.value || '';
             const dataVisita = dataInputValue ? formatDateFromDisplay(dataInputValue) : v.dataVisita;
             const horario = panel.querySelector('#qe-horario')?.value || v.horario;
             const veiculo = panel.querySelector('#qe-veiculo')?.value;
-            const teveDespesas = state.canLancarDespesas ? panel.querySelector('#qe-despesas')?.value : undefined;
+            const teveDespesas = state.canLancarDespesas ? (panel.querySelector('#qe-despesas')?.checked ? 'Sim' : 'Nao') : undefined;
             const valorDespesas = state.canLancarDespesas ? panel.querySelector('#qe-valor-despesas')?.value.trim() : undefined;
             if (teveDespesas === 'Sim' && !valorDespesas) {
                 showToast('Informe o valor das despesas.', true);
@@ -510,8 +653,9 @@ export function fillVisitsContent(container, visits) {
             }
             setSaving(true, panel.querySelector('#qe-save'), 'Salvando...');
             showToast('Salvo.');
+            if (dirtyBadge) dirtyBadge.hidden = true;
             applyVisitQuickPatch(v, {
-                observacao: obs, cliente, contato, cidade, areaAtuacao, potencialCliente, tipoVisita,
+                observacao: draftObs, cliente, contato, cidade, areaAtuacao, potencialCliente, tipoVisita,
                 vendedorGerente, dataVisita, horario, veiculo, teveDespesas, valorDespesas
             }, () => {
                 normalizedVisits = (state.visits || []).map(normalizeVisit).sort((a, b) => compareVisitsByDateDesc(a, b));
