@@ -76,6 +76,27 @@
 
 .funil-readonly-row strong { color: var(--text); }
 
+/* Lista de Propostas vinculadas ao Funil (pode ter mais de uma — mesmo
+   cliente, focos diferentes: limpeza, sabonete, papel...) — cada linha
+   junto com o comentário/obs da proposta, pra ver o histórico sem abrir
+   cada uma. */
+.funil-linked-proposta-row {
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--border);
+}
+.funil-linked-proposta-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+.funil-linked-proposta-obs {
+    margin: 0.35rem 0 0;
+    font-size: 0.83rem;
+    color: var(--text-muted);
+    white-space: pre-line;
+}
+
 /* Funil Diversey — etiqueta de "acompanhar de perto" */
 .funil-diversey-tag {
     display: inline-block;

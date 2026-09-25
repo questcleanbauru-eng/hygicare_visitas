@@ -2530,11 +2530,16 @@ input:disabled {
    no desktop por enquanto; no celular quem precisar ainda vincula pelo
    admin/computador. */
 #vincular-funil, #ver-funil-vinculado, #desvincular-funil,
-#vincular-proposta, #ver-proposta-vinculada, #desvincular-proposta,
+#vincular-proposta,
 #qe-link-funil, #qe-ver-funil, #qe-desvincular-funil,
-#qe-link-proposta, #qe-ver-proposta, #qe-desvincular-proposta {
+#qe-link-proposta, #qe-ver-propostas {
     display: none;
 }
+/* .funil-link-card já esconde tudo por dentro (inclusive a lista de
+   Propostas vinculadas, que não tem ids fixos — são várias linhas), então
+   os botões individuais acima só precisam existir na lista pro estado
+   inicial "escondido"; o `display: block` do card no desktop libera o
+   `display: inline-flex` que cada botão já tem por padrão. */
 .funil-link-card { display: none; }
 /* Campanhas > "Ver clientes" (botão) — mesmo motivo. O container da lista
    em si (.camp-admin-itens) é escondido em proposals.css, não aqui: ele já
@@ -2543,11 +2548,11 @@ input:disabled {
 [data-camp-details] { display: none; }
 @media (min-width: 1024px) {
     #vincular-funil, #ver-funil-vinculado, #desvincular-funil,
-    #vincular-proposta, #ver-proposta-vinculada, #desvincular-proposta {
+    #vincular-proposta {
         display: inline-flex;
     }
     #qe-link-funil, #qe-ver-funil, #qe-desvincular-funil,
-    #qe-link-proposta, #qe-ver-proposta, #qe-desvincular-proposta {
+    #qe-link-proposta, #qe-ver-propostas {
         display: inline-flex;
     }
     .funil-link-card { display: block; }
