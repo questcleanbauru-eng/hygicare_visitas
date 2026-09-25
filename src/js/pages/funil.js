@@ -459,15 +459,15 @@ export function fillFunilContent(mainContent, funil) {
             .map((px) => normalizeProposal(px));
         const linkedPropostasCount = linkedPropostas.length;
 
-        const searchField = (label, id, value, placeholder = '') => `
-            <div class="form-group"><label for="${id}">${label}</label>
+        const searchField = (label, id, value, placeholder = '', extraClass = '') => `
+            <div class="form-group ${extraClass}"><label for="${id}">${label}</label>
                 <div class="searchable-select">
                     <input type="text" id="${id}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder)}" autocomplete="off">
                     <div class="searchable-select-menu" id="${id}-menu"></div>
                 </div>
             </div>`;
-        const plainField = (label, id, value, type = 'text', placeholder = '') => `
-            <div class="form-group"><label for="${id}">${label}</label><input type="${type}" id="${id}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder)}"></div>`;
+        const plainField = (label, id, value, type = 'text', placeholder = '', extraClass = '') => `
+            <div class="form-group ${extraClass}"><label for="${id}">${label}</label><input type="${type}" id="${id}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder)}"></div>`;
 
         const STAT_LABELS = { IDENTIFICAR: 'Identificar', PROPOSTA: 'Proposta', NEGOCIAR: 'Negociar', CONCLUIDO: 'Concluído', PERDIDO: '✕ Perdido', RETOMAR: '↻ Retomar' };
         const STAT = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
@@ -521,7 +521,7 @@ export function fillFunilContent(mainContent, funil) {
 
                 <div class="qe-v2-section">
                     <div class="qe-v2-grid-3">
-                        ${plainField('Cliente', 'qe-cliente', f.cliente)}
+                        ${plainField('Cliente', 'qe-cliente', f.cliente, 'text', '', 'qe-v2-field-wide')}
                         ${searchField('Cidade', 'qe-cidade', f.cidade)}
                         ${plainField('Gerência', 'qe-gerencia', f.gerencia)}
                         ${searchField('Vendedor', 'qe-vendedor', f.vendedor)}

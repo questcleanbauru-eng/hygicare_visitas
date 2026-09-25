@@ -285,11 +285,15 @@
        aqui (o placeholder de cada campo já identifica ele dentro do card). */
     .mnt-item-row-header { display: none; }
 
+    /* Equipamento numa linha só pra si (nomes tipo "TOTAL MIX-Tron/LAV.
+       CARRINHOS *" não cabem dividindo a largura com Produto — cortava o
+       texto). Produto/Diluição/Aferido são bem mais curtos, cabem 3 por
+       linha embaixo. */
     .mnt-item-row {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr 1fr;
         grid-template-areas:
-            "equip prod"
-            "dil aferido";
+            "equip equip equip"
+            "prod dil aferido";
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         padding: 2.1rem 0.6rem 0.6rem;

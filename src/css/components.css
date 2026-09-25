@@ -3033,6 +3033,11 @@ input:disabled {
     gap: 0.35rem;
     margin-bottom: 0.35rem;
 }
+/* Campos que costumam ter texto longo (nome de cliente, e-mail) — ocupam 2
+   colunas da grade em vez de 1, senão cortam visualmente num painel mais
+   estreito (a grade em si já é auto-fit/responsiva, isso só evita que ESSES
+   campos específicos fiquem apertados demais quando sobra pouca largura). */
+.qe-v2-field-wide { grid-column: span 2; }
 
 .qe-v2-chip-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
 .qe-v2-chip {

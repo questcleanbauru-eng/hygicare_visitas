@@ -448,15 +448,15 @@ export function fillVisitsContent(container, visits) {
         const listaVendedores = (fd && fd.vendedores) || [];
         if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
 
-        const searchField = (label, fieldId, value, items) => `
-            <div class="form-group"><label for="${fieldId}">${label}</label>
+        const searchField = (label, fieldId, value, items, extraClass = '') => `
+            <div class="form-group ${extraClass}"><label for="${fieldId}">${label}</label>
                 <div class="searchable-select">
                     <input type="text" id="${fieldId}" value="${escapeHtml(value || '')}" autocomplete="off">
                     ${items ? `<div class="searchable-select-menu" id="${fieldId}-menu"></div>` : ''}
                 </div>
             </div>`;
-        const plainField = (label, fieldId, value, type = 'text') => `
-            <div class="form-group"><label for="${fieldId}">${label}</label><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
+        const plainField = (label, fieldId, value, type = 'text', extraClass = '') => `
+            <div class="form-group ${extraClass}"><label for="${fieldId}">${label}</label><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
 
         // Tipo: até 3 pílulas visíveis (a atual sempre entra, mesmo que não
         // esteja entre as 3 primeiras da lista) + um <select> "Mais..." com o
@@ -528,7 +528,7 @@ export function fillVisitsContent(container, visits) {
 
                 <div class="qe-v2-section">
                     <div class="qe-v2-grid-3">
-                        ${plainField('Cliente', 'qe-cliente', v.cliente)}
+                        ${plainField('Cliente', 'qe-cliente', v.cliente, 'text', 'qe-v2-field-wide')}
                         ${plainField('Contato', 'qe-contato', v.contato)}
                         ${searchField('Cidade', 'qe-cidade', v.cidade, listaCidades)}
                         ${searchField('Atuação', 'qe-area', v.areaAtuacao, listaAreas)}

@@ -521,15 +521,15 @@ export function fillProposalsContent(mainContent, proposals) {
         const listaFoco = (fd && fd.potenciaisCliente) || [];
         if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
 
-        const searchField = (label, fieldId, value, items) => `
-            <div class="form-group"><label for="${fieldId}">${label}</label>
+        const searchField = (label, fieldId, value, items, extraClass = '') => `
+            <div class="form-group ${extraClass}"><label for="${fieldId}">${label}</label>
                 <div class="searchable-select">
                     <input type="text" id="${fieldId}" value="${escapeHtml(value || '')}" autocomplete="off">
                     ${items ? `<div class="searchable-select-menu" id="${fieldId}-menu"></div>` : ''}
                 </div>
             </div>`;
-        const plainField = (label, fieldId, value, type = 'text') => `
-            <div class="form-group"><label for="${fieldId}">${label}</label><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
+        const plainField = (label, fieldId, value, type = 'text', extraClass = '') => `
+            <div class="form-group ${extraClass}"><label for="${fieldId}">${label}</label><input type="${type}" id="${fieldId}" value="${escapeHtml(value || '')}"></div>`;
 
         const STAT = ['Aguardando', 'Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
         const STAT_LABELS = { Aguardando: 'Aguardando', Enviada: 'Enviada', 'Em negociacao': 'Em negociação', Ganhamos: 'Ganhamos', Perdido: '✕ Perdido' };
@@ -596,11 +596,11 @@ export function fillProposalsContent(mainContent, proposals) {
 
                 <div class="qe-v2-section">
                     <div class="qe-v2-grid-3">
-                        ${plainField('Cliente', 'qe-cliente', p.cliente)}
+                        ${plainField('Cliente', 'qe-cliente', p.cliente, 'text', 'qe-v2-field-wide')}
                         ${searchField('Cidade', 'qe-cidade', p.cidade, listaCidades)}
                         ${plainField('Gerência', 'qe-gerencia', p.gerencia)}
                         ${plainField('Vendedor', 'qe-vendedor', p.vendedor)}
-                        ${plainField('E-mail', 'qe-email', p.email, 'email')}
+                        ${plainField('E-mail', 'qe-email', p.email, 'email', 'qe-v2-field-wide')}
                     </div>
                 </div>
 
