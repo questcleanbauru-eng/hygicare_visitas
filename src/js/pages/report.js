@@ -716,7 +716,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             }));
         if (!rows.length) { showToast('Nenhuma visita no período.', true); return; }
         downloadXLSX(rows, `visitas-${_stamp}.xlsx`, [
-            { key: 'data', label: 'Data' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
+            { key: 'data', label: 'Data', type: 'date' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
             { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'tipoVisita', label: 'Tipo da Visita' },
             { key: 'areaAtuacao', label: 'Área de Atuação' }, { key: 'contato', label: 'Contato' }, { key: 'prospeccao', label: 'Prospecção' }
         ], 'Visitas');
@@ -734,11 +734,11 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             }));
         if (!rows.length) { showToast('Nenhuma proposta no período.', true); return; }
         downloadXLSX(rows, `propostas-${_stamp}.xlsx`, [
-            { key: 'data', label: 'Data' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
+            { key: 'data', label: 'Data', type: 'date' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
             { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'foco', label: 'Foco' },
             { key: 'produtos', label: 'Produtos' }, { key: 'status', label: 'Status' }, { key: 'situacao', label: 'Situação' },
-            { key: 'atualizacao', label: 'Última atualização' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
-            { key: 'atrasada', label: 'Atrasada' }, { key: 'dataLimite', label: 'Data limite' }, { key: 'email', label: 'E-mail' }
+            { key: 'atualizacao', label: 'Última atualização', type: 'date' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
+            { key: 'atrasada', label: 'Atrasada' }, { key: 'dataLimite', label: 'Data limite', type: 'date' }, { key: 'email', label: 'E-mail' }
         ], 'Propostas');
     });
     document.getElementById('csv-funil')?.addEventListener('click', () => {
@@ -756,13 +756,13 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             }));
         if (!rows.length) { showToast('Nenhuma oportunidade no período.', true); return; }
         downloadXLSX(rows, `funil-${_stamp}.xlsx`, [
-            { key: 'data', label: 'Data' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
+            { key: 'data', label: 'Data', type: 'date' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
             { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'status', label: 'Status' },
             { key: 'ativo', label: 'Ativo' }, { key: 'foco', label: 'Foco' }, { key: 'atuacao', label: 'Atuação' },
             { key: 'aplicacao', label: 'Aplicação' }, { key: 'equipamentos', label: 'Equipamentos' },
             { key: 'vlMensal', label: 'Vl Mensal (R$)' }, { key: 'forecast', label: 'Forecast ponderado (R$)' },
-            { key: 'atualizacao', label: 'Última atualização' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
-            { key: 'conclusao', label: 'Conclusão prevista' }, { key: 'motivoPerda', label: 'Motivo da perda' }
+            { key: 'atualizacao', label: 'Última atualização', type: 'date' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
+            { key: 'conclusao', label: 'Conclusão prevista', type: 'date' }, { key: 'motivoPerda', label: 'Motivo da perda' }
         ], 'Funil');
     });
     document.getElementById('report-date-from')?.addEventListener('change', (e) => {

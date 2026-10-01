@@ -84,6 +84,21 @@ function xmlEscape(value) {
         .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
+// Excel conta dias a partir de 30/12/1899 (não 01/01/1900 — bug histórico
+// do Lotus 1-2-3 que a Microsoft manteve de propósito, por compatibilidade).
+const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30);
+
+// "dd/mm/aaaa" (formato usado em todo o app) -> nº de série do Excel, pra
+// gravar como data de verdade (numérica, alinhada à direita, editável com
+// +1 dia etc.) em vez de texto cru — senão o Excel nunca reconhece como
+// data, não importa a formatação que o usuário tente aplicar depois.
+function parseDisplayDateToSerial(value) {
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(value || '').trim());
+    if (!m) { return null; }
+    const ms = Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    return isNaN(ms) ? null : Math.round((ms - EXCEL_EPOCH_UTC) / 86400000);
+}
+
 // Índice de coluna (0-based) → letra da coluna do Excel (0→A, 25→Z, 26→AA…).
 function colLetter(n) {
     let s = '';
@@ -98,7 +113,15 @@ function colLetter(n) {
 
 function buildSheetXml(headers, rows) {
     const cols = `<cols>${headers.map((_, i) => `<col min="${i + 1}" max="${i + 1}" width="24" customWidth="1"/>`).join('')}</cols>`;
-    const cell = (col, r, value) => `<c r="${colLetter(col)}${r}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+    // Célula de data: valor é { date: <nº de série> } (ver downloadXLSX) —
+    // vira número de verdade com o estilo 1 (formato dd/mm/aaaa, registrado
+    // em xl/styles.xml), não texto. Tudo o mais continua string crua/inline.
+    const cell = (col, r, value) => {
+        if (value && typeof value === 'object' && typeof value.date === 'number') {
+            return `<c r="${colLetter(col)}${r}" s="1"><v>${value.date}</v></c>`;
+        }
+        return `<c r="${colLetter(col)}${r}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+    };
     const headerRow = `<row r="1">${headers.map((h, i) => cell(i, 1, h)).join('')}</row>`;
     const dataRows = rows.map((row, ri) => {
         const r = ri + 2;
@@ -117,7 +140,18 @@ function sanitizeSheetName(name) {
 
 export function downloadXLSX(data, filename, columns, sheetName) {
     const headers = columns.map((c) => c.label);
-    const rows = (data || []).map((row) => columns.map((c) => row[c.key] ?? ''));
+    // Coluna marcada type:'date' (valor "dd/mm/aaaa") vira nº de série do
+    // Excel ({date: n}, lido por buildSheetXml/cell) — célula numérica de
+    // verdade com formato de data, em vez de texto cru. Se não bater o
+    // formato esperado (vazio, etc.), cai pra texto normal igual antes.
+    const rows = (data || []).map((row) => columns.map((c) => {
+        const raw = row[c.key] ?? '';
+        if (c.type === 'date') {
+            const serial = parseDisplayDateToSerial(raw);
+            if (serial !== null) { return { date: serial }; }
+        }
+        return raw;
+    }));
     const sheet = sanitizeSheetName(sheetName);
 
     const files = [
@@ -128,6 +162,7 @@ export function downloadXLSX(data, filename, columns, sheetName) {
                 `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
                 `<Default Extension="xml" ContentType="application/xml"/>` +
                 `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+                `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
                 `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
                 `</Types>`
         },
@@ -150,7 +185,26 @@ export function downloadXLSX(data, filename, columns, sheetName) {
             content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
                 `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
                 `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
+                `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
                 `</Relationships>`
+        },
+        {
+            // numFmtId 164 = primeiro slot "custom" livre (0-163 são
+            // reservados/built-in do Excel). cellXfs índice 1 (s="1" na
+            // célula) é o único estilo não-default usado — data dd/mm/aaaa.
+            name: 'xl/styles.xml',
+            content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+                `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+                `<numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts>` +
+                `<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>` +
+                `<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>` +
+                `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
+                `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
+                `<cellXfs count="2">` +
+                `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
+                `<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
+                `</cellXfs>` +
+                `</styleSheet>`
         },
         { name: 'xl/worksheets/sheet1.xml', content: buildSheetXml(headers, rows) }
     ];

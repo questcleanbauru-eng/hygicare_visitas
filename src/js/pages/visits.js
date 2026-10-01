@@ -706,7 +706,7 @@ export function fillVisitsContent(container, visits) {
         if (!lastFilteredVisits.length) { showToast('Nenhuma visita para os filtros selecionados.', true); return; }
         const stamp = new Date().toISOString().slice(0, 10);
         downloadXLSX(lastFilteredVisits, `visitas-${stamp}.xlsx`, [
-            { key: 'dataVisita', label: 'Data da Visita' },
+            { key: 'dataVisita', label: 'Data da Visita', type: 'date' },
             { key: 'vendedorGerente', label: 'Vendedor' },
             { key: 'cliente', label: 'Nome do Cliente' },
             { key: 'tipoVisita', label: 'Tipo da Visita' },

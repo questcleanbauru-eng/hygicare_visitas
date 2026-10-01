@@ -884,7 +884,7 @@ export function fillFunilContent(mainContent, funil) {
         if (!lastFilteredFunil.length) { showToast('Nenhuma oportunidade para os filtros selecionados.', true); return; }
         const stamp = new Date().toISOString().slice(0, 10);
         downloadXLSX(lastFilteredFunil, `funil-${stamp}.xlsx`, [
-            { key: 'data', label: 'Data' },
+            { key: 'data', label: 'Data', type: 'date' },
             { key: 'vendedor', label: 'Nome do Vendedor' },
             { key: 'cliente', label: 'Nome do Cliente' },
             { key: 'foco', label: 'Foco' },
