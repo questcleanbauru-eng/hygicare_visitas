@@ -1126,7 +1126,7 @@ export async function renderProposalDetailPage(id) {
     `;
 
     document.getElementById('back-proposals').addEventListener('click', () => {
-        if (agendaReturn) { navigateTo('calendar', { openDay: agendaReturn.day, openMonth: agendaReturn.month, openYear: agendaReturn.year }); }
+        if (agendaReturn) { navigateTo('calendar', { openDay: agendaReturn.day, openMonth: agendaReturn.month, openYear: agendaReturn.year, filter: agendaReturn.filter }); }
         else { goBackOrTo('proposals'); }
     });
     document.getElementById('proposal-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('proposal-detail', { id: navPrevId }); });

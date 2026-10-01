@@ -1709,7 +1709,7 @@ export async function renderFunilDetailPage(id, _revalidated) {
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => {
         if (_funilDetailAgendaReturn) {
             const r = _funilDetailAgendaReturn;
-            navigateTo('calendar', { openDay: r.day, openMonth: r.month, openYear: r.year });
+            navigateTo('calendar', { openDay: r.day, openMonth: r.month, openYear: r.year, filter: r.filter });
         } else {
             goBackOrTo('funil');
         }

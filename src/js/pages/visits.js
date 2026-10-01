@@ -1554,7 +1554,7 @@ export async function renderCalendarPage(options) {
                 // proposta/funil) reabrir a Agenda aqui de novo, em vez de
                 // cair sempre na lista/mês atual (ver renderVisitDetailPage,
                 // proposals.js e funil.js).
-                const setAgendaReturn = () => { state.agendaReturnTo = { day, month: viewMonth, year: viewYear }; };
+                const setAgendaReturn = () => { state.agendaReturnTo = { day, month: viewMonth, year: viewYear, filter: activeFilter }; };
                 panel.querySelectorAll('[data-visit-id]').forEach((b) => {
                     b.addEventListener('click', () => { setAgendaReturn(); navigateTo('visit-detail', { id: b.dataset.visitId }); });
                 });
@@ -1568,7 +1568,7 @@ export async function renderCalendarPage(options) {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         state.funilPrefill = { cliente: btn.dataset.cliente || '', cidade: btn.dataset.cidade || '', foco: btn.dataset.foco || '', atuacao: btn.dataset.atuacao || '' };
-                        state.funilCreateReturnTo = { page: 'calendar', options: { openDay: day, openMonth: viewMonth, openYear: viewYear } };
+                        state.funilCreateReturnTo = { page: 'calendar', options: { openDay: day, openMonth: viewMonth, openYear: viewYear, filter: activeFilter } };
                         navigateTo('funil-new');
                     });
                 });
@@ -2535,7 +2535,7 @@ export async function renderVisitDetailPage(id) {
     `;
 
     document.getElementById('back-visits').addEventListener('click', () => {
-        if (agendaReturn) { navigateTo('calendar', { openDay: agendaReturn.day, openMonth: agendaReturn.month, openYear: agendaReturn.year }); }
+        if (agendaReturn) { navigateTo('calendar', { openDay: agendaReturn.day, openMonth: agendaReturn.month, openYear: agendaReturn.year, filter: agendaReturn.filter }); }
         else { navigateTo('visits'); }
     });
     document.getElementById('visit-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('visit-detail', { id: navPrevId }); });
