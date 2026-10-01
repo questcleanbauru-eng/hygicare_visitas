@@ -28,9 +28,11 @@ import { downloadXLSX } from '../utils/xlsxWriter.js';
 let _funilFilterMemory = {};
 
 // Dia da Agenda de onde essa oportunidade foi aberta (ver agendaReturnTo em
-// visits.js) — capturado só na 1ª renderização (não na revalidação em 2º
-// plano, que reusa o mesmo id com _revalidated=true), senão a 2ª chamada
-// pisaria nisso com state.agendaReturnTo já limpo pela 1ª.
+// visits.js) — guardado por Id, não só capturado uma vez: reabrir a MESMA
+// oportunidade (revalidação em 2º plano com _revalidated=true, editar e
+// voltar, ou abrir Cliente 360° e apertar "Voltar", que usa history.back()
+// e recai aqui sem _revalidated) tem que continuar sabendo o dia, mas abrir
+// OUTRA oportunidade sem ter vindo da Agenda não pode herdar esse valor.
 let _funilDetailAgendaReturn = null;
 
 // Quebra o texto acumulado de Comentários (uma linha "DD/MM/AAAA - texto"
@@ -1583,9 +1585,11 @@ export async function renderFunilCreatePage() {
 
 export async function renderFunilDetailPage(id, _revalidated) {
     ensureStyles('funil');
-    if (!_revalidated) {
-        _funilDetailAgendaReturn = state.agendaReturnTo || null;
+    if (state.agendaReturnTo) {
+        _funilDetailAgendaReturn = { id: String(id), ...state.agendaReturnTo };
         state.agendaReturnTo = null;
+    } else if (_funilDetailAgendaReturn && String(_funilDetailAgendaReturn.id) !== String(id)) {
+        _funilDetailAgendaReturn = null;
     }
     const mainContent = document.getElementById('main-content');
     // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio

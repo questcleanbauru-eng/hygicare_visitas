@@ -106,6 +106,13 @@ function parseDatedEntries(text) {
 // fillVisitsContent, chamada pelo toggle "Edição rápida" no cabeçalho.
 let _visitsRenderFiltered = null;
 
+// Dia da Agenda de onde esta visita foi aberta (ver agendaReturnTo) —
+// guardado por Id, não só capturado uma vez: reabrir a MESMA visita (editar
+// e voltar pro detalhe, ou abrir Cliente 360° e apertar "Voltar", que usa
+// history.back() e recai aqui de novo) tem que continuar sabendo o dia, mas
+// abrir OUTRA visita sem ter vindo da Agenda não pode herdar esse valor.
+let _visitDetailAgendaReturn = null;
+
 export function fillVisitsContent(container, visits) {
     let normalizedVisits = (visits || [])
         .map((visit) => normalizeVisit(visit))
@@ -1466,6 +1473,8 @@ export async function renderCalendarPage(options) {
 
         mainContent.querySelectorAll('[data-day]').forEach((btn) => {
             btn.addEventListener('click', () => {
+                mainContent.querySelectorAll('[data-day].is-selected-day').forEach((c) => c.classList.remove('is-selected-day'));
+                btn.classList.add('is-selected-day');
                 const day = Number(btn.dataset.day);
                 const dayVisits       = visitsByDay[day]       || [];
                 const dayProposals    = proposalsByDay[day]    || [];
@@ -2437,11 +2446,18 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
 
 export async function renderVisitDetailPage(id) {
     ensureStyles('visits');
-    // Capturado (e limpo) já na entrada — se o usuário sair daqui por outro
-    // caminho que não o botão Voltar, isso não fica "pendurado" afetando a
-    // próxima visita que ele abrir fora da Agenda.
-    const agendaReturn = state.agendaReturnTo || null;
-    state.agendaReturnTo = null;
+    // Contexto novo da Agenda (clicou um card de lá agora) sempre vence e
+    // fica guardado por Id; sem contexto novo, só mantém o que já tinha se
+    // for a MESMA visita (reabertura por edição/Cliente 360°/back do
+    // navegador) — outra visita sem vir da Agenda descarta o valor antigo,
+    // senão ficaria "pendurado" afetando uma visita não relacionada.
+    if (state.agendaReturnTo) {
+        _visitDetailAgendaReturn = { id: String(id), ...state.agendaReturnTo };
+        state.agendaReturnTo = null;
+    } else if (_visitDetailAgendaReturn && String(_visitDetailAgendaReturn.id) !== String(id)) {
+        _visitDetailAgendaReturn = null;
+    }
+    const agendaReturn = (_visitDetailAgendaReturn && String(_visitDetailAgendaReturn.id) === String(id)) ? _visitDetailAgendaReturn : null;
     const mainContent = document.getElementById('main-content');
     // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
     // addScrollTop remove o anterior, e essa página não chama de novo).

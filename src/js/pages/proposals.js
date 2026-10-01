@@ -19,6 +19,14 @@ import { ensureFunilForDedup, funilItemFor as funilItemForProposta, funilEmAlert
 import { openLinkPickerModal } from '../utils/linkPicker.js';
 import { downloadXLSX } from '../utils/xlsxWriter.js';
 
+// Dia da Agenda de onde esta proposta foi aberta (ver agendaReturnTo) —
+// guardado por Id, não só capturado uma vez: reabrir a MESMA proposta
+// (editar e voltar pro detalhe, ou abrir Cliente 360° e apertar "Voltar",
+// que usa history.back() e recai aqui de novo) tem que continuar sabendo o
+// dia, mas abrir OUTRA proposta sem ter vindo da Agenda não pode herdar
+// esse valor.
+let _proposalDetailAgendaReturn = null;
+
 // Quebra o texto acumulado de Obs (uma linha "DD/MM/AAAA - texto" por
 // entrada, mais recente no topo — ver withDatedNoteHeader) em entradas pra
 // exibir como lista na edição rápida "v2", em vez de textarea crua.
@@ -994,11 +1002,19 @@ function openLinkFunilModal(proposal, onLinked) {
 
 export async function renderProposalDetailPage(id) {
     ensureStyles('proposals');
-    // Capturado (e limpo) já na entrada — se o usuário sair daqui por outro
-    // caminho que não o botão Voltar, isso não fica "pendurado" afetando a
-    // próxima proposta que ele abrir fora da Agenda.
-    const agendaReturn = state.agendaReturnTo || null;
-    state.agendaReturnTo = null;
+    // Contexto novo da Agenda (clicou um card de lá agora) sempre vence e
+    // fica guardado por Id; sem contexto novo, só mantém o que já tinha se
+    // for a MESMA proposta (reabertura por edição/Cliente 360°/back do
+    // navegador) — outra proposta sem vir da Agenda descarta o valor
+    // antigo, senão ficaria "pendurado" afetando uma proposta não
+    // relacionada.
+    if (state.agendaReturnTo) {
+        _proposalDetailAgendaReturn = { id: String(id), ...state.agendaReturnTo };
+        state.agendaReturnTo = null;
+    } else if (_proposalDetailAgendaReturn && String(_proposalDetailAgendaReturn.id) !== String(id)) {
+        _proposalDetailAgendaReturn = null;
+    }
+    const agendaReturn = (_proposalDetailAgendaReturn && String(_proposalDetailAgendaReturn.id) === String(id)) ? _proposalDetailAgendaReturn : null;
     const mainContent = document.getElementById('main-content');
     // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
     // addScrollTop remove o anterior, e essa página não chama de novo).
