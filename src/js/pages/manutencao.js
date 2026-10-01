@@ -170,9 +170,9 @@ function combinarRelatorios(manut, tecnicos) {
 // SPSP = Rel. Técnico (aba própria, relatorioTecnico.js). Dentro de
 // "Manutencoes" tem dois modelos: Aferição (com a tabela de vazão) e Geral
 // (mesmos campos, sem a tabela) — distinguidos por m.tipoRelatorio.
-const tipoLabel = (m) => (m._tipo === 'tecnico' ? 'SPSP' : m.tipoRelatorio === 'geral' ? 'Geral' : m.tipoRelatorio === 'biopet' ? 'BIOPET' : 'Aferição');
-const tipoBadgeClass = (m) => (m._tipo === 'tecnico' ? 'tecnico' : m.tipoRelatorio === 'geral' ? 'geral' : m.tipoRelatorio === 'biopet' ? 'biopet' : 'manutencao');
-const tipoIcon = (m) => (m._tipo === 'tecnico' ? '📋' : m.tipoRelatorio === 'geral' ? '📄' : m.tipoRelatorio === 'biopet' ? '🧪' : '🔧');
+const tipoLabel = (m) => (m._tipo === 'tecnico' ? 'SPSP' : m.tipoRelatorio === 'geral' ? 'Geral' : m.tipoRelatorio === 'biopet' ? 'BIOPET' : m.tipoRelatorio === 'carta' ? 'Carta de Visita' : 'Aferição');
+const tipoBadgeClass = (m) => (m._tipo === 'tecnico' ? 'tecnico' : m.tipoRelatorio === 'geral' ? 'geral' : m.tipoRelatorio === 'biopet' ? 'biopet' : m.tipoRelatorio === 'carta' ? 'carta' : 'manutencao');
+const tipoIcon = (m) => (m._tipo === 'tecnico' ? '📋' : m.tipoRelatorio === 'geral' ? '📄' : m.tipoRelatorio === 'biopet' ? '🧪' : m.tipoRelatorio === 'carta' ? '✉️' : '🔧');
 
 // Recebe a lista JÁ combinada e normalizada (ver combinarRelatorios).
 export function fillManutencaoContent(mainContent, itens) {
@@ -217,12 +217,19 @@ export function fillManutencaoContent(mainContent, itens) {
                         <span>Inspeção de concentração — tipo de manutenção, tabela de vazão e assinaturas.</span>
                         <button type="button" class="primary-btn" id="btn-new-biopet2">+ Relatório BIOPET</button>
                     </div>
+                    ${state.canRelatorioEspecial ? `
+                    <div class="mnt-tipo-card">
+                        <strong>✉️ Carta de Visita</strong>
+                        <span>Carta formal de visita e aferição, com cabeçalho e assinatura — acesso restrito.</span>
+                        <button type="button" class="primary-btn" id="btn-new-carta2">+ Carta de Visita</button>
+                    </div>` : ''}
                 </div>
             </div>
         `;
         document.getElementById('btn-new-manutencao2')?.addEventListener('click', () => navigateTo('manutencao-new'));
         document.getElementById('btn-new-geral2')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }));
         document.getElementById('btn-new-biopet2')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'biopet' }));
+        document.getElementById('btn-new-carta2')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'carta' }));
         document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
         document.getElementById('btn-new-rel-tecnico-paulo2')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }));
         document.getElementById('btn-ver-modelos')?.addEventListener('click', openModelosSalvosModal);
@@ -251,6 +258,7 @@ export function fillManutencaoContent(mainContent, itens) {
                     <button type="button" class="primary-btn" id="btn-new-manutencao" title="Com tabela de aferição de vazão">🔧 Rel. de Aferição</button>
                     <button type="button" class="primary-btn" id="btn-new-geral" title="Sem tabela de aferição">📄 Rel. Geral</button>
                     <button type="button" class="primary-btn" id="btn-new-biopet" title="Inspeção de concentração, com tipo de manutenção e tabela de vazão">🧪 Rel. BIOPET</button>
+                    ${state.canRelatorioEspecial ? `<button type="button" class="primary-btn" id="btn-new-carta" title="Carta formal de visita e aferição — acesso restrito">✉️ Carta de Visita</button>` : ''}
                 </div>
                 <div class="mnt-actions-mobile">
                     <button type="button" class="mnt-header-icon-btn" id="btn-ver-modelos-m" aria-label="Modelos" title="Modelos">📋</button>
@@ -422,6 +430,7 @@ export function fillManutencaoContent(mainContent, itens) {
     document.getElementById('btn-new-manutencao')?.addEventListener('click', () => navigateTo('manutencao-new'));
     document.getElementById('btn-new-geral')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }));
     document.getElementById('btn-new-biopet')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'biopet' }));
+    document.getElementById('btn-new-carta')?.addEventListener('click', () => navigateTo('manutencao-new', { tipoRelatorio: 'carta' }));
     document.getElementById('btn-new-rel-tecnico')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new'));
     document.getElementById('btn-new-rel-tecnico-paulo')?.addEventListener('click', () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }));
     document.getElementById('mnt-nova-campanha')?.addEventListener('click', async () => {
@@ -452,7 +461,8 @@ function openNovoRelatorioSheet() {
         { icon: '✍️', titulo: 'SPSP - Paulo', desc: 'Variante com assinatura por desenho', onClick: () => navigateTo('relatorio-tecnico-new', { tipoRelatorio: 'paulo' }) },
         { icon: '🔧', titulo: 'Rel. de Aferição', desc: 'Com tabela de aferição de vazão', onClick: () => navigateTo('manutencao-new') },
         { icon: '📄', titulo: 'Rel. Geral', desc: 'Sem tabela de aferição', onClick: () => navigateTo('manutencao-new', { tipoRelatorio: 'geral' }) },
-        { icon: '🧪', titulo: 'Rel. BIOPET', desc: 'Inspeção de concentração', onClick: () => navigateTo('manutencao-new', { tipoRelatorio: 'biopet' }) }
+        { icon: '🧪', titulo: 'Rel. BIOPET', desc: 'Inspeção de concentração', onClick: () => navigateTo('manutencao-new', { tipoRelatorio: 'biopet' }) },
+        ...(state.canRelatorioEspecial ? [{ icon: '✉️', titulo: 'Carta de Visita', desc: 'Carta formal — acesso restrito', onClick: () => navigateTo('manutencao-new', { tipoRelatorio: 'carta' }) }] : [])
     ];
     overlay.innerHTML = `
         <div class="modal-card mnt-sheet-card">
@@ -797,6 +807,119 @@ export async function renderManutencaoPage() {
     initPullToRefresh(refreshBoth);
 }
 
+const MESES_POR_EXTENSO = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+// "28/09/2026" -> "28 de Setembro de 2026" (texto da carta); valor fora do
+// formato esperado volta cru, pra nunca sumir um dado digitado torto.
+function formatDataPorExtenso(value) {
+    const mt = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(value || '').trim());
+    if (!mt) return escapeHtml(value || '');
+    const mes = MESES_POR_EXTENSO[Number(mt[2]) - 1];
+    if (!mes) return escapeHtml(value || '');
+    return `${Number(mt[1])} de ${mes} de ${mt[3]}`;
+}
+
+// "Carta de Visita" — carta formal (cabeçalho Hygicare, destinatário,
+// unidade, datas e produtos aferidos, assinatura), bem diferente do
+// grid+tabela+assinatura-em-canvas dos outros tipos — função própria,
+// mesmo padrão do renderCartaFormPage acima.
+function renderCartaDetailPage(mainContent, m) {
+    const d = parseDadosCarta(m.dadosCarta);
+    const datasHtml = d.datasVisitas.length
+        ? `<ul class="mnt-carta-list">${d.datasVisitas.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>`
+        : '<p class="helper-text">Nenhuma data informada.</p>';
+    const produtosHtml = d.produtosAferidos.length
+        ? `<ul class="mnt-carta-list">${d.produtosAferidos.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>`
+        : '<p class="helper-text">Nenhum produto informado.</p>';
+
+    mainContent.innerHTML = `
+        ${renderBreadcrumb([{ label: 'Manutenção', page: 'manutencao' }, { label: m.cliente || 'Carta de Visita' }])}
+        <div class="page-header compact-header no-print mnt-page-header">
+            <button type="button" class="mini-button" id="back-manutencao">Voltar</button>
+            <h2>Carta de Visita</h2>
+            <div class="header-actions-group">
+                ${m.cliente ? `<button type="button" class="mini-button mini-button-icon" id="manutencao-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
+                <button type="button" class="mini-button" id="edit-manutencao">Editar</button>
+                <button type="button" class="mini-button" id="duplicate-manutencao" title="Nova carta com os mesmos dados">Duplicar</button>
+                <button type="button" class="mini-button" id="print-manutencao" aria-label="Imprimir ou salvar em PDF" title="Imprimir ou salvar em PDF">${actionIcon('file', 15)} PDF</button>
+                <button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="share-manutencao-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                </button>
+                ${state.canDelete ? `<button type="button" class="mini-button mini-button-icon mini-button-danger" id="delete-manutencao" aria-label="Apagar" title="Apagar">${actionIcon('trash')}</button>` : ''}
+            </div>
+        </div>
+        <div class="mnt-carta">
+            <div class="mnt-carta-header">
+                <strong>Hygicare Produtos de Higiene Ltda EPP. - DISTRIBUIDOR AUTORIZADO DIVERSEY</strong>
+                <span>Rua Dr. Jose Ranieri, 9-41 Jd- Cruzeiro do Sul - CEP: 17030-370 Bauru/SP e-mail: comercial@hygicare.com.br - Tel/Fax: 14 3879 7040</span>
+                <span>CNPJ: 08.159.080/0001-34 - Inscrição Estadual: 209.376.609.111</span>
+            </div>
+            <p class="mnt-carta-data-doc">Bauru, ${formatDataPorExtenso(d.documentoData)}.</p>
+            <div class="mnt-carta-destinatario">
+                ${d.destinatario ? `<p><strong>Ao ${escapeHtml(d.destinatario)}</strong></p>` : ''}
+                ${d.contato ? `<p><strong>A/c:</strong> ${escapeHtml(d.contato)}.</p>` : ''}
+                <p><strong>E-mail:</strong> ${escapeHtml(d.contatoEmail)}</p>
+                <p><strong>Telefone:</strong> ${escapeHtml(d.contatoTelefone)}</p>
+            </div>
+            <h3 class="mnt-carta-titulo">RELATÓRIO DE VISITAS E AFERIÇÕES</h3>
+            <p>Informamos que foi realizada a visita preventiva e a aferição dos produtos na seguinte unidade:</p>
+            <p class="mnt-carta-unidade">
+                <strong>UNIDADE:</strong> ${escapeHtml(d.unidadeNome)}<br>
+                <strong>Endereço:</strong> ${escapeHtml(d.endereco)}<br>
+                <strong>CNPJ:</strong> ${escapeHtml(d.cnpj)}
+            </p>
+            <p class="mnt-carta-section-label"><strong>Datas da Visitas:</strong></p>
+            ${datasHtml}
+            <p class="mnt-carta-section-label"><strong>Produtos aferidos:</strong></p>
+            <p>Durante a visita, realizamos as aferições das diluições conforme abaixo:</p>
+            ${produtosHtml}
+            <p>Estamos à disposição para quaisquer dúvidas ou esclarecimentos adicionais.</p>
+            <p>Estamos à disposição para qualquer esclarecimento adicional.</p>
+            <p class="mnt-carta-assinatura">
+                <strong>${escapeHtml(d.assinanteNome)}</strong><br>
+                ${escapeHtml(d.assinanteCargo)}
+            </p>
+            <div class="mnt-report-footer">
+                <span>${escapeHtml(window.location.origin)}</span>
+                <span>Gerado em ${new Date().toLocaleString('pt-BR')}</span>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('back-manutencao').addEventListener('click', () => navigateTo('manutencao'));
+    document.getElementById('manutencao-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: m.cliente }));
+    document.getElementById('edit-manutencao').addEventListener('click', () => navigateTo('manutencao-edit', { manutencao: m }));
+    document.getElementById('duplicate-manutencao')?.addEventListener('click', () => {
+        navigateTo('manutencao-new', { tipoRelatorio: 'carta', prefillCliente: m.cliente, prefillCidade: m.cidade });
+    });
+    document.getElementById('print-manutencao').addEventListener('click', () => {
+        const sanitize = (s) => String(s || '').replace(/[\\/:*?"<>|]/g, '-').trim();
+        const originalTitle = document.title;
+        document.title = `Carta de Visita - ${sanitize(m.cliente)} - ${sanitize(d.documentoData)}`;
+        const restoreTitle = () => { document.title = originalTitle; window.removeEventListener('afterprint', restoreTitle); };
+        window.addEventListener('afterprint', restoreTitle);
+        window.print();
+        setTimeout(restoreTitle, 3000);
+    });
+    document.getElementById('share-manutencao-whatsapp').addEventListener('click', () => {
+        const text = `*Carta de Visita - ${m.cliente}*\nUnidade: ${d.unidadeNome || '-'}\nData: ${d.documentoData || '-'}\nDatas da visita: ${d.datasVisitas.join(', ') || '-'}`;
+        openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
+    });
+    document.getElementById('delete-manutencao')?.addEventListener('click', async () => {
+        if (!confirm('Apagar esta carta de visita? Essa ação não pode ser desfeita.')) return;
+        const r = await apagarComVerificacaoCampanha('deleteManutencao', m.id);
+        if (r.status === 'cancelled') return;
+        if (r.status === 'success') {
+            state.manutencoes = state.manutencoes.filter((item) => String(item.id) !== String(m.id));
+            saveCache('manutencoes', state.manutencoes);
+            showToast('Carta apagada.');
+            navigateTo('manutencao');
+        } else {
+            showToast((r && r.message) || 'Erro ao apagar.', true);
+        }
+    });
+}
+
 export async function renderManutencaoDetailPage(id) {
     ensureManutencaoStyles();
     const mainContent = document.getElementById('main-content');
@@ -816,6 +939,7 @@ export async function renderManutencaoDetailPage(id) {
     const logoEmpresa = (fdResult.data && fdResult.data.logoEmpresa) || '';
     const m = normalizeManutencao(result.manutencao);
     state.currentManutencao = m;
+    if (m.tipoRelatorio === 'carta') { renderCartaDetailPage(mainContent, m); return; }
     const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
     const jaAssinado = !!(m.assinaturaTecnico && m.assinaturaCliente);
     const itens = safeParseJson(m.itensTabela, []);
@@ -1108,11 +1232,201 @@ function signaturePadToDataUrl(canvas) {
     return canvas.dataset.signed ? canvas.toDataURL('image/png') : '';
 }
 
+const DADOS_CARTA_PADRAO = () => ({
+    destinatario: '', contato: '', contatoEmail: '', contatoTelefone: '',
+    unidadeNome: '', endereco: '', cnpj: '', documentoData: '',
+    datasVisitas: [], produtosAferidos: [], assinanteNome: '', assinanteCargo: 'Auxiliar Técnico'
+});
+
+function parseDadosCarta(value) {
+    try {
+        const parsed = JSON.parse(value || '{}');
+        return { ...DADOS_CARTA_PADRAO(), ...(parsed && typeof parsed === 'object' ? parsed : {}) };
+    } catch (e) {
+        return DADOS_CARTA_PADRAO();
+    }
+}
+
+// "Carta de Visita" é estruturalmente bem diferente dos outros tipos (carta
+// formal, sem tabela de aferição/assinatura em canvas) — função própria em
+// vez de espremer mais um branch no formulário genérico abaixo, que já tem
+// Aferição/Geral/BIOPET entrelaçados.
+async function renderCartaFormPage(record, options) {
+    ensureManutencaoStyles();
+    const mainContent = document.getElementById('main-content');
+    const isEdit = Boolean(record && (record.Id || record.id));
+    const m = isEdit ? normalizeManutencao(record) : normalizeManutencao({});
+    const d = parseDadosCarta(m.dadosCarta);
+    if (!isEdit && !d.assinanteNome) d.assinanteNome = state.currentUser?.name || '';
+    if (!isEdit && !d.documentoData) {
+        const now = new Date();
+        d.documentoData = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+    }
+
+    const [fdResult] = await Promise.all([ensureFormData()]);
+    const clientes = (fdResult.data && fdResult.data.clientes) || [];
+
+    mainContent.innerHTML = `
+        <div class="page-header compact-header">
+            <button type="button" class="mini-button" id="back-carta-form">Voltar</button>
+            <h2>${isEdit ? 'Editar Carta de Visita' : 'Nova Carta de Visita'}</h2>
+        </div>
+        <form id="carta-form" class="card form-card form-layout">
+            <div class="form-group full-width">
+                <label for="carta-cliente">Cliente</label>
+                <div class="searchable-select">
+                    <input type="text" id="carta-cliente" value="${escapeHtml(m.cliente)}" placeholder="Busque ou digite o cliente" autocomplete="off" required>
+                    <div class="searchable-select-menu" id="carta-cliente-menu"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="carta-cidade">Cidade</label>
+                <input type="text" id="carta-cidade" value="${escapeHtml(m.cidade)}">
+            </div>
+            <div class="form-group">
+                <label for="carta-data-doc">Data do documento</label>
+                <input type="text" id="carta-data-doc" value="${escapeHtml(d.documentoData)}" placeholder="dd/mm/aaaa">
+            </div>
+
+            <div class="form-group full-width"><hr></div>
+            <div class="form-group full-width">
+                <label for="carta-destinatario">Destinatário (Ao...)</label>
+                <input type="text" id="carta-destinatario" value="${escapeHtml(d.destinatario)}" placeholder="Ex.: TOMOSON CENTRO DE DIAGNÓSTICOS POR IMAGEM">
+            </div>
+            <div class="form-group">
+                <label for="carta-contato">A/c (contato)</label>
+                <input type="text" id="carta-contato" value="${escapeHtml(d.contato)}">
+            </div>
+            <div class="form-group">
+                <label for="carta-contato-email">E-mail do contato</label>
+                <input type="email" id="carta-contato-email" value="${escapeHtml(d.contatoEmail)}">
+            </div>
+            <div class="form-group">
+                <label for="carta-contato-telefone">Telefone do contato</label>
+                <input type="text" id="carta-contato-telefone" value="${escapeHtml(d.contatoTelefone)}">
+            </div>
+
+            <div class="form-group full-width"><hr></div>
+            <div class="form-group full-width">
+                <label for="carta-unidade">Unidade</label>
+                <input type="text" id="carta-unidade" value="${escapeHtml(d.unidadeNome)}" placeholder="Ex.: TOMOSON - Centro de Diagnósticos por Imagem">
+            </div>
+            <div class="form-group full-width">
+                <label for="carta-endereco">Endereço</label>
+                <input type="text" id="carta-endereco" value="${escapeHtml(d.endereco)}">
+            </div>
+            <div class="form-group">
+                <label for="carta-cnpj">CNPJ</label>
+                <input type="text" id="carta-cnpj" value="${escapeHtml(d.cnpj)}">
+            </div>
+
+            <div class="form-group full-width"><hr></div>
+            <div class="form-group full-width">
+                <label for="carta-datas-visitas">Datas da Visitas (uma por linha)</label>
+                <textarea id="carta-datas-visitas" rows="3" placeholder="28/09/2026">${escapeHtml(d.datasVisitas.join('\n'))}</textarea>
+            </div>
+            <div class="form-group full-width">
+                <label for="carta-produtos">Produtos aferidos (uma linha por produto)</label>
+                <textarea id="carta-produtos" rows="4" placeholder="TASKI PROFI: aferido na diluição 1/50">${escapeHtml(d.produtosAferidos.join('\n'))}</textarea>
+            </div>
+
+            <div class="form-group full-width"><hr></div>
+            <div class="form-group">
+                <label for="carta-assinante-nome">Assinante</label>
+                <input type="text" id="carta-assinante-nome" value="${escapeHtml(d.assinanteNome)}">
+            </div>
+            <div class="form-group">
+                <label for="carta-assinante-cargo">Cargo</label>
+                <input type="text" id="carta-assinante-cargo" value="${escapeHtml(d.assinanteCargo)}">
+            </div>
+
+            <div class="form-actions full-width">
+                <button type="button" class="secondary-button" id="cancel-carta-form">Cancelar</button>
+                <button type="submit" id="save-carta" class="primary-button">Salvar</button>
+            </div>
+        </form>
+    `;
+
+    initializeSearchableInput({
+        input: document.getElementById('carta-cliente'), menu: document.getElementById('carta-cliente-menu'),
+        items: clientes.map(clienteSearchItem), allowFreeText: true,
+        onSelect: (nome) => {
+            const c = findClienteByNome(clientes, nome);
+            if (c && c.cidade) document.getElementById('carta-cidade').value = c.cidade;
+        }
+    });
+
+    const goBack = () => navigateTo(isEdit ? 'manutencao-detail' : 'manutencao', isEdit ? { id: m.id } : {});
+    document.getElementById('back-carta-form').addEventListener('click', goBack);
+    document.getElementById('cancel-carta-form').addEventListener('click', goBack);
+
+    document.getElementById('carta-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const button = document.getElementById('save-carta');
+        const clienteVal = document.getElementById('carta-cliente').value.trim();
+        if (!clienteVal) { showToast('Informe o cliente.', true); return; }
+        setSaving(true, button, 'Salvando...');
+
+        const linhas = (id) => document.getElementById(id).value.split('\n').map((s) => s.trim()).filter(Boolean);
+        const dadosCarta = {
+            destinatario: document.getElementById('carta-destinatario').value.trim(),
+            contato: document.getElementById('carta-contato').value.trim(),
+            contatoEmail: document.getElementById('carta-contato-email').value.trim(),
+            contatoTelefone: document.getElementById('carta-contato-telefone').value.trim(),
+            unidadeNome: document.getElementById('carta-unidade').value.trim(),
+            endereco: document.getElementById('carta-endereco').value.trim(),
+            cnpj: document.getElementById('carta-cnpj').value.trim(),
+            documentoData: document.getElementById('carta-data-doc').value.trim(),
+            datasVisitas: linhas('carta-datas-visitas'),
+            produtosAferidos: linhas('carta-produtos'),
+            assinanteNome: document.getElementById('carta-assinante-nome').value.trim(),
+            assinanteCargo: document.getElementById('carta-assinante-cargo').value.trim()
+        };
+        const payload = {
+            cliente: clienteVal, cidade: document.getElementById('carta-cidade').value.trim(),
+            tipoRelatorio: 'carta', dadosCarta, user: state.currentUser
+        };
+
+        if (isEdit) {
+            const result = await attemptOrQueue('updateManutencao', { id: m.id, ...payload }, { entity: 'manutencao', tempId: m.id });
+            if (result && result.status === 'success') {
+                const idx = state.manutencoes.findIndex((item) => String(item.id) === String(m.id));
+                if (idx >= 0) { state.manutencoes[idx] = normalizeManutencao(result.manutencao); saveCache('manutencoes', state.manutencoes); }
+                showToast('Carta atualizada.');
+                navigateTo('manutencao-detail', { id: m.id });
+            } else if (result && result.status === 'queued') {
+                showToast('Sem conexão — a atualização será enviada quando a conexão voltar.');
+                navigateTo('manutencao-detail', { id: m.id });
+            } else {
+                showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
+                setSaving(false, button);
+            }
+        } else {
+            const tempId = 'temp_' + Date.now();
+            const result = await attemptOrQueue('createManutencao', payload, { entity: 'manutencao', tempId });
+            if (result && result.status === 'success') {
+                saveCache('manutencoes', null);
+                state.manutencoes = [];
+                showToast('Carta criada com sucesso.');
+                navigateTo('manutencao');
+            } else if (result && result.status === 'queued') {
+                showToast('Sem conexão — a carta foi salva no aparelho e será enviada quando a conexão voltar.');
+                navigateTo('manutencao');
+            } else {
+                showToast((result && result.message) || 'Erro ao salvar. Tente novamente.', true);
+                setSaving(false, button);
+            }
+        }
+    });
+}
+
 export async function renderManutencaoFormPage(record, options) {
     ensureManutencaoStyles();
     const mainContent = document.getElementById('main-content');
     const isEdit = Boolean(record && (record.Id || record.id));
     const m = isEdit ? normalizeManutencao(record) : normalizeManutencao({});
+    const isCarta = isEdit ? m.tipoRelatorio === 'carta' : !!(options && options.tipoRelatorio === 'carta');
+    if (isCarta) { return renderCartaFormPage(record, options); }
     const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
     // Tipo é decidido na criação (options.tipoRelatorio) e não muda depois —
     // uma edição sempre segue o que já está gravado no registro.

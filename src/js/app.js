@@ -54,6 +54,7 @@ export const state = {
     canDelete: false,
     canCreateProposalFunil: false,
     canLancarDespesas: false,
+    canRelatorioEspecial: false,
     canAccessRadar: false
 };
 
