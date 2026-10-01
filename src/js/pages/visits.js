@@ -1507,6 +1507,7 @@ export async function renderCalendarPage(options) {
                                 <div class="visit-card-body">
                                     <span class="tag" style="background:${typeColorMap[v.tipoVisita] || '#3b82f6'}20;color:${typeColorMap[v.tipoVisita] || '#2563eb'}">${escapeHtml(v.tipoVisita || 'Visita')}</span>
                                     <span>${escapeHtml(v.cidade || '-')}</span>
+                                    ${isAdminOrGerenteUser() && v.vendedorGerente ? `<span>· ${escapeHtml(v.vendedorGerente)}</span>` : ''}
                                 </div>
                             </button>
                             ${funilBtnHtml ? `<div class="visit-card-actions">${funilBtnHtml}</div>` : ''}
@@ -1522,6 +1523,7 @@ export async function renderCalendarPage(options) {
                                 <span class="tag" style="background:${PROPOSAL_COLOR}20;color:${PROPOSAL_COLOR}">Proposta</span>
                                 ${p.foco ? `<span>${escapeHtml(p.foco)}</span>` : ''}
                                 <span class="status-pill">${escapeHtml(p.status || '-')}</span>
+                                ${isAdminOrGerenteUser() && p.vendedor ? `<span>· ${escapeHtml(p.vendedor)}</span>` : ''}
                             </div>
                         </button>`).join('')}
                         ${dayFunil.map((f) => `
@@ -1534,6 +1536,7 @@ export async function renderCalendarPage(options) {
                                 <span class="tag" style="background:${FUNIL_COLOR}20;color:#16a34a">Funil</span>
                                 ${f.foco ? `<span>${escapeHtml(f.foco)}</span>` : ''}
                                 <span class="status-pill">${escapeHtml(f.status || '-')}</span>
+                                ${isAdminOrGerenteUser() && f.vendedor ? `<span>· ${escapeHtml(f.vendedor)}</span>` : ''}
                             </div>
                         </button>`).join('')}
                     </div>
