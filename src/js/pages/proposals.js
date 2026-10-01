@@ -994,6 +994,11 @@ function openLinkFunilModal(proposal, onLinked) {
 
 export async function renderProposalDetailPage(id) {
     ensureStyles('proposals');
+    // Capturado (e limpo) já na entrada — se o usuário sair daqui por outro
+    // caminho que não o botão Voltar, isso não fica "pendurado" afetando a
+    // próxima proposta que ele abrir fora da Agenda.
+    const agendaReturn = state.agendaReturnTo || null;
+    state.agendaReturnTo = null;
     const mainContent = document.getElementById('main-content');
     // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
     // addScrollTop remove o anterior, e essa página não chama de novo).
@@ -1104,7 +1109,10 @@ export async function renderProposalDetailPage(id) {
         </div>` : '')}
     `;
 
-    document.getElementById('back-proposals').addEventListener('click', () => goBackOrTo('proposals'));
+    document.getElementById('back-proposals').addEventListener('click', () => {
+        if (agendaReturn) { navigateTo('calendar', { openDay: agendaReturn.day, openMonth: agendaReturn.month, openYear: agendaReturn.year }); }
+        else { goBackOrTo('proposals'); }
+    });
     document.getElementById('proposal-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('proposal-detail', { id: navPrevId }); });
     document.getElementById('proposal-nav-next')?.addEventListener('click', () => { if (navNextId) navigateTo('proposal-detail', { id: navNextId }); });
     document.getElementById('edit-proposal').addEventListener('click', () => navigateTo('proposal-edit', { proposal }));

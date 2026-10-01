@@ -27,6 +27,12 @@ import { downloadXLSX } from '../utils/xlsxWriter.js';
 // localStorage): dura a sessão, não precisa sobreviver a um F5.
 let _funilFilterMemory = {};
 
+// Dia da Agenda de onde essa oportunidade foi aberta (ver agendaReturnTo em
+// visits.js) — capturado só na 1ª renderização (não na revalidação em 2º
+// plano, que reusa o mesmo id com _revalidated=true), senão a 2ª chamada
+// pisaria nisso com state.agendaReturnTo já limpo pela 1ª.
+let _funilDetailAgendaReturn = null;
+
 // Quebra o texto acumulado de Comentários (uma linha "DD/MM/AAAA - texto"
 // por entrada, mais recente no topo — ver withDatedNoteHeader) em entradas
 // pra exibir como lista na edição rápida "v2", em vez de textarea crua.
@@ -1488,8 +1494,16 @@ export async function renderFunilCreatePage() {
         if (pf.atuacao) document.getElementById('fc-atuacao').value = pf.atuacao;
     }
 
-    document.getElementById('back-funil-create').addEventListener('click', () => navigateTo('funil'));
-    document.getElementById('cancel-funil-create').addEventListener('click', () => navigateTo('funil'));
+    // "Adicionar ao Funil" clicado num card (Agenda, Visitas, Propostas) fica
+    // de onde veio, pra Voltar/Cancelar/Salvar reabrirem o mesmo lugar em vez
+    // de sempre cair na lista do Funil.
+    const goBackFromFunilCreate = () => {
+        const returnTo = state.funilCreateReturnTo;
+        state.funilCreateReturnTo = null;
+        if (returnTo) { navigateTo(returnTo.page, returnTo.options); } else { navigateTo('funil'); }
+    };
+    document.getElementById('back-funil-create').addEventListener('click', goBackFromFunilCreate);
+    document.getElementById('cancel-funil-create').addEventListener('click', goBackFromFunilCreate);
 
     preventEnterSubmit(document.getElementById('funil-create-form'));
     wireCurrencyInput(document.getElementById('fc-vl-mensal'));
@@ -1529,7 +1543,7 @@ export async function renderFunilCreatePage() {
         saveCache('funil', state.funil);
 
         showToast('Funil criado com sucesso.');
-        navigateTo('funil');
+        goBackFromFunilCreate();
 
         // conclusao vai como ISO cru (igual todo outro campo de data com
         // <input type="date">) — o servidor que converte pro formato de
@@ -1569,6 +1583,10 @@ export async function renderFunilCreatePage() {
 
 export async function renderFunilDetailPage(id, _revalidated) {
     ensureStyles('funil');
+    if (!_revalidated) {
+        _funilDetailAgendaReturn = state.agendaReturnTo || null;
+        state.agendaReturnTo = null;
+    }
     const mainContent = document.getElementById('main-content');
     // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
     // addScrollTop remove o anterior, e essa página não chama de novo).
@@ -1684,7 +1702,14 @@ export async function renderFunilDetailPage(id, _revalidated) {
         </div>
     `;
 
-    document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => goBackOrTo('funil')));
+    document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => {
+        if (_funilDetailAgendaReturn) {
+            const r = _funilDetailAgendaReturn;
+            navigateTo('calendar', { openDay: r.day, openMonth: r.month, openYear: r.year });
+        } else {
+            goBackOrTo('funil');
+        }
+    }));
     document.getElementById('funil-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('funil-detail', { id: navPrevId }); });
     document.getElementById('funil-nav-next')?.addEventListener('click', () => { if (navNextId) navigateTo('funil-detail', { id: navNextId }); });
     document.getElementById('edit-funil').addEventListener('click', () => navigateTo('funil-edit', { funil: f }));

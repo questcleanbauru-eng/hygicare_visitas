@@ -1287,8 +1287,12 @@ export async function renderCalendarPage(options) {
         bindAgendamentoRowActions(sectionEl, pending, { onMutated: renderAgendamentosSection });
     };
 
-    let viewYear  = new Date().getFullYear();
-    let viewMonth = new Date().getMonth();
+    // Agenda reaberta vindo de "Voltar" num card de visita/proposta/funil
+    // clicado por aqui (ver agendaReturnTo) — reabre no mesmo dia em vez de
+    // sempre cair no mês atual e precisar procurar o dia nos olhos de novo.
+    const openDay = options && options.openDay ? Number(options.openDay) : null;
+    let viewYear  = options && options.openYear != null ? Number(options.openYear) : new Date().getFullYear();
+    let viewMonth = options && options.openMonth != null ? Number(options.openMonth) : new Date().getMonth();
     // 'todos' | 'visitas' | 'propostas' | 'funil' | 'retornos' — "Próximos
     // retornos" na Home já abre aqui filtrado, em vez de cair sempre em
     // "Todos" e o usuário precisar clicar no chip de novo.
@@ -1482,17 +1486,32 @@ export async function renderCalendarPage(options) {
                     </div>
                     <div class="visits-list">
                         ${dayAgendamentos.map((a) => agendamentoCardHtml(a)).join('')}
-                        ${dayVisits.map((v) => `
-                        <button type="button" class="visit-card" data-visit-id="${escapeHtml(v.id)}" style="border-left:4px solid ${typeColorMap[v.tipoVisita] || '#3b82f6'}">
-                            <div class="visit-card-header">
-                                <strong><span aria-hidden="true">${visitTypeIcon(v.tipoVisita)}</span> ${escapeHtml(v.cliente || '-')}</strong>
-                                <span class="visit-date">${escapeHtml(v.horario || '')}</span>
-                            </div>
-                            <div class="visit-card-body">
-                                <span class="tag" style="background:${typeColorMap[v.tipoVisita] || '#3b82f6'}20;color:${typeColorMap[v.tipoVisita] || '#2563eb'}">${escapeHtml(v.tipoVisita || 'Visita')}</span>
-                                <span>${escapeHtml(v.cidade || '-')}</span>
-                            </div>
-                        </button>`).join('')}
+                        ${dayVisits.map((v) => {
+                            const funilBtnHtml = (() => {
+                                if (!state.canCreateProposalFunil || !v.cliente) return '';
+                                const _fi = funilItemFor(v.cliente, v.potencialCliente);
+                                if (!_fi) {
+                                    return `<button class="visit-funil-btn" type="button" data-visit-funil="${escapeHtml(v.id)}" data-cliente="${escapeHtml(v.cliente || '')}" data-cidade="${escapeHtml(v.cidade || '')}" data-foco="${escapeHtml(v.potencialCliente || '')}" data-atuacao="${escapeHtml(v.areaAtuacao || '')}" title="Adicionar ao Funil de Vendas" aria-label="Adicionar ao Funil de Vendas">📊</button>`;
+                                }
+                                const _alerta = funilEmAlerta(_fi);
+                                const _st = _fi.status || _fi.Status || '';
+                                return `<button class="visit-funil-btn is-in-funil${_alerta ? ' is-alert' : ''}" type="button" data-funil-id="${escapeHtml(String(_fi.id || _fi.Id || ''))}" title="No Funil${_st ? ' (' + _st + ')' : ''} — abrir" aria-label="Cliente já está no Funil de Vendas">${_alerta ? '⚠️' : '✅'}</button>`;
+                            })();
+                            return `
+                        <div class="visit-card-wrap">
+                            <button type="button" class="visit-card" data-visit-id="${escapeHtml(v.id)}" style="border-left:4px solid ${typeColorMap[v.tipoVisita] || '#3b82f6'}">
+                                <div class="visit-card-header">
+                                    <strong><span aria-hidden="true">${visitTypeIcon(v.tipoVisita)}</span> ${escapeHtml(v.cliente || '-')}</strong>
+                                    <span class="visit-date">${escapeHtml(v.horario || '')}</span>
+                                </div>
+                                <div class="visit-card-body">
+                                    <span class="tag" style="background:${typeColorMap[v.tipoVisita] || '#3b82f6'}20;color:${typeColorMap[v.tipoVisita] || '#2563eb'}">${escapeHtml(v.tipoVisita || 'Visita')}</span>
+                                    <span>${escapeHtml(v.cidade || '-')}</span>
+                                </div>
+                            </button>
+                            ${funilBtnHtml ? `<div class="visit-card-actions">${funilBtnHtml}</div>` : ''}
+                        </div>`;
+                        }).join('')}
                         ${dayProposals.map((p) => `
                         <button type="button" class="visit-card" data-proposal-id="${escapeHtml(p.id)}" style="border-left:4px solid ${PROPOSAL_COLOR}">
                             <div class="visit-card-header">
@@ -1519,22 +1538,39 @@ export async function renderCalendarPage(options) {
                         </button>`).join('')}
                     </div>
                 `;
+                // Guarda o dia selecionado pra "Voltar" no detalhe (visita/
+                // proposta/funil) reabrir a Agenda aqui de novo, em vez de
+                // cair sempre na lista/mês atual (ver renderVisitDetailPage,
+                // proposals.js e funil.js).
+                const setAgendaReturn = () => { state.agendaReturnTo = { day, month: viewMonth, year: viewYear }; };
                 panel.querySelectorAll('[data-visit-id]').forEach((b) => {
-                    b.addEventListener('click', () => navigateTo('visit-detail', { id: b.dataset.visitId }));
+                    b.addEventListener('click', () => { setAgendaReturn(); navigateTo('visit-detail', { id: b.dataset.visitId }); });
                 });
                 panel.querySelectorAll('[data-proposal-id]').forEach((b) => {
-                    b.addEventListener('click', () => navigateTo('proposal-detail', { id: b.dataset.proposalId }));
+                    b.addEventListener('click', () => { setAgendaReturn(); navigateTo('proposal-detail', { id: b.dataset.proposalId }); });
                 });
                 panel.querySelectorAll('[data-funil-id]').forEach((b) => {
-                    b.addEventListener('click', () => navigateTo('funil-detail', { id: b.dataset.funilId }));
+                    b.addEventListener('click', () => { setAgendaReturn(); navigateTo('funil-detail', { id: b.dataset.funilId }); });
+                });
+                panel.querySelectorAll('[data-visit-funil]').forEach((btn) => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        state.funilPrefill = { cliente: btn.dataset.cliente || '', cidade: btn.dataset.cidade || '', foco: btn.dataset.foco || '', atuacao: btn.dataset.atuacao || '' };
+                        state.funilCreateReturnTo = { page: 'calendar', options: { openDay: day, openMonth: viewMonth, openYear: viewYear } };
+                        navigateTo('funil-new');
+                    });
                 });
                 bindAgendamentoRowActions(panel, dayAgendamentos, { onMutated: renderAgendamentosSection });
             });
         });
 
-        const todayNum = new Date().getDate();
-        if ((visitsByDay[todayNum] || agendamentosByDay[todayNum]) && viewYear === new Date().getFullYear() && viewMonth === new Date().getMonth()) {
-            mainContent.querySelector(`[data-day="${todayNum}"]`)?.click();
+        if (openDay) {
+            mainContent.querySelector(`[data-day="${openDay}"]`)?.click();
+        } else {
+            const todayNum = new Date().getDate();
+            if ((visitsByDay[todayNum] || agendamentosByDay[todayNum]) && viewYear === new Date().getFullYear() && viewMonth === new Date().getMonth()) {
+                mainContent.querySelector(`[data-day="${todayNum}"]`)?.click();
+            }
         }
     };
 
@@ -2398,6 +2434,11 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
 
 export async function renderVisitDetailPage(id) {
     ensureStyles('visits');
+    // Capturado (e limpo) já na entrada — se o usuário sair daqui por outro
+    // caminho que não o botão Voltar, isso não fica "pendurado" afetando a
+    // próxima visita que ele abrir fora da Agenda.
+    const agendaReturn = state.agendaReturnTo || null;
+    state.agendaReturnTo = null;
     const mainContent = document.getElementById('main-content');
     // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
     // addScrollTop remove o anterior, e essa página não chama de novo).
@@ -2474,7 +2515,10 @@ export async function renderVisitDetailPage(id) {
         </div>
     `;
 
-    document.getElementById('back-visits').addEventListener('click', () => navigateTo('visits'));
+    document.getElementById('back-visits').addEventListener('click', () => {
+        if (agendaReturn) { navigateTo('calendar', { openDay: agendaReturn.day, openMonth: agendaReturn.month, openYear: agendaReturn.year }); }
+        else { navigateTo('visits'); }
+    });
     document.getElementById('visit-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('visit-detail', { id: navPrevId }); });
     document.getElementById('visit-nav-next')?.addEventListener('click', () => { if (navNextId) navigateTo('visit-detail', { id: navNextId }); });
     document.getElementById('edit-visit').addEventListener('click', () => {
