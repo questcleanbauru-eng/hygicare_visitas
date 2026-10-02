@@ -246,9 +246,13 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         }
     }
     const _prevPage = state.currentPage;
-    const _LIST_PAGES = new Set(['visits', 'proposals', 'funil']);
+    // Quem rola de verdade é #main-content (um <main> interno com
+    // overflow próprio), não window/body — window.scrollY fica sempre 0
+    // nesse layout, então salvar/restaurar por ali nunca fazia nada.
+    const _LIST_PAGES = new Set(['visits', 'proposals', 'funil', 'contratos', 'manutencao', 'relatorio-tecnico']);
     if (_LIST_PAGES.has(_prevPage)) {
-        state.scrollPositions[_prevPage] = window.scrollY;
+        const mainEl = document.getElementById('main-content');
+        if (mainEl) state.scrollPositions[_prevPage] = mainEl.scrollTop;
     }
     state.formDirty = false;
     clearDocumentClickListeners();
@@ -423,7 +427,10 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
     if (_scrollParentMap[page] && _scrollParentMap[page].includes(_prevPage) && state.scrollPositions[page] > 0) {
         const savedY = state.scrollPositions[page];
         delete state.scrollPositions[page];
-        requestAnimationFrame(() => window.scrollTo(0, savedY));
+        requestAnimationFrame(() => {
+            const mainEl = document.getElementById('main-content');
+            if (mainEl) mainEl.scrollTop = savedY;
+        });
     }
 }
 
