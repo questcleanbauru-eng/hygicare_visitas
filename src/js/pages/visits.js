@@ -1078,9 +1078,17 @@ export async function renderCalendarPage(options) {
                     if (found) found.status = 'Concluido';
                     const agData = sourceList.find((item) => String(item.id) === id);
                     b.closest('[data-agendamento-id]')?.remove();
-                    showToast('Retorno concluído. Registre a visita.');
                     onMutated();
-                    navigateTo('visit-new', { prefill: { Cliente: agData?.cliente || '', Cidade: agData?.cidade || '' } });
+                    // Antes ia direto pra Nova Visita, sempre — quem só queria
+                    // marcar como feito (visita já registrada por outro meio,
+                    // ou retorno que não virou visita) ficava preso nesse
+                    // fluxo. Agora é opcional: conclui na hora, e só abre Nova
+                    // Visita se a pessoa confirmar que quer registrar.
+                    if (confirm('Retorno concluído! Deseja registrar a visita agora?')) {
+                        navigateTo('visit-new', { prefill: { Cliente: agData?.cliente || '', Cidade: agData?.cidade || '' } });
+                    } else {
+                        showToast('Retorno concluído.');
+                    }
                 } else {
                     showToast((r && r.message) || 'Erro ao atualizar agendamento.', true);
                     setSaving(false, b);
