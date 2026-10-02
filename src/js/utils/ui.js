@@ -595,9 +595,6 @@ export function isNavActive(navId) {
         return ['manutencao', 'manutencao-new', 'manutencao-detail', 'manutencao-edit',
             'relatorio-tecnico', 'relatorio-tecnico-new', 'relatorio-tecnico-detail', 'relatorio-tecnico-edit'].includes(state.currentPage);
     }
-    if (navId === 'report') {
-        return ['report', 'report-visitas', 'report-propostas', 'report-funil'].includes(state.currentPage);
-    }
     return state.currentPage === navId;
 }
 
@@ -944,4 +941,4 @@ export async function refreshNotificacoesBadge() {
         if (r && r.status === 'success') updateNotificacoesBadge(r.naoLidas || 0);
     } catch (e) { /* badge é só um extra visual */ }
 }
-
+

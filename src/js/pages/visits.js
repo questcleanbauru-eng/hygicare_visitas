@@ -106,6 +106,13 @@ function parseDatedEntries(text) {
 // fillVisitsContent, chamada pelo toggle "Edição rápida" no cabeçalho.
 let _visitsRenderFiltered = null;
 
+// Dia da Agenda de onde esta visita foi aberta (ver agendaReturnTo) —
+// guardado por Id, não só capturado uma vez: reabrir a MESMA visita (editar
+// e voltar pro detalhe, ou abrir Cliente 360° e apertar "Voltar", que usa
+// history.back() e recai aqui de novo) tem que continuar sabendo o dia, mas
+// abrir OUTRA visita sem ter vindo da Agenda não pode herdar esse valor.
+let _visitDetailAgendaReturn = null;
+
 export function fillVisitsContent(container, visits) {
     let normalizedVisits = (visits || [])
         .map((visit) => normalizeVisit(visit))
@@ -1071,9 +1078,17 @@ export async function renderCalendarPage(options) {
                     if (found) found.status = 'Concluido';
                     const agData = sourceList.find((item) => String(item.id) === id);
                     b.closest('[data-agendamento-id]')?.remove();
-                    showToast('Retorno concluído. Registre a visita.');
                     onMutated();
-                    navigateTo('visit-new', { prefill: { Cliente: agData?.cliente || '', Cidade: agData?.cidade || '' } });
+                    // Antes ia direto pra Nova Visita, sempre — quem só queria
+                    // marcar como feito (visita já registrada por outro meio,
+                    // ou retorno que não virou visita) ficava preso nesse
+                    // fluxo. Agora é opcional: conclui na hora, e só abre Nova
+                    // Visita se a pessoa confirmar que quer registrar.
+                    if (confirm('Retorno concluído! Deseja registrar a visita agora?')) {
+                        navigateTo('visit-new', { prefill: { Cliente: agData?.cliente || '', Cidade: agData?.cidade || '' } });
+                    } else {
+                        showToast('Retorno concluído.');
+                    }
                 } else {
                     showToast((r && r.message) || 'Erro ao atualizar agendamento.', true);
                     setSaving(false, b);
@@ -1466,6 +1481,8 @@ export async function renderCalendarPage(options) {
 
         mainContent.querySelectorAll('[data-day]').forEach((btn) => {
             btn.addEventListener('click', () => {
+                mainContent.querySelectorAll('[data-day].is-selected-day').forEach((c) => c.classList.remove('is-selected-day'));
+                btn.classList.add('is-selected-day');
                 const day = Number(btn.dataset.day);
                 const dayVisits       = visitsByDay[day]       || [];
                 const dayProposals    = proposalsByDay[day]    || [];
@@ -1507,6 +1524,7 @@ export async function renderCalendarPage(options) {
                                 <div class="visit-card-body">
                                     <span class="tag" style="background:${typeColorMap[v.tipoVisita] || '#3b82f6'}20;color:${typeColorMap[v.tipoVisita] || '#2563eb'}">${escapeHtml(v.tipoVisita || 'Visita')}</span>
                                     <span>${escapeHtml(v.cidade || '-')}</span>
+                                    ${isAdminOrGerenteUser() && v.vendedorGerente ? `<span>· ${escapeHtml(v.vendedorGerente)}</span>` : ''}
                                 </div>
                             </button>
                             ${funilBtnHtml ? `<div class="visit-card-actions">${funilBtnHtml}</div>` : ''}
@@ -1522,6 +1540,7 @@ export async function renderCalendarPage(options) {
                                 <span class="tag" style="background:${PROPOSAL_COLOR}20;color:${PROPOSAL_COLOR}">Proposta</span>
                                 ${p.foco ? `<span>${escapeHtml(p.foco)}</span>` : ''}
                                 <span class="status-pill">${escapeHtml(p.status || '-')}</span>
+                                ${isAdminOrGerenteUser() && p.vendedor ? `<span>· ${escapeHtml(p.vendedor)}</span>` : ''}
                             </div>
                         </button>`).join('')}
                         ${dayFunil.map((f) => `
@@ -1534,6 +1553,7 @@ export async function renderCalendarPage(options) {
                                 <span class="tag" style="background:${FUNIL_COLOR}20;color:#16a34a">Funil</span>
                                 ${f.foco ? `<span>${escapeHtml(f.foco)}</span>` : ''}
                                 <span class="status-pill">${escapeHtml(f.status || '-')}</span>
+                                ${isAdminOrGerenteUser() && f.vendedor ? `<span>· ${escapeHtml(f.vendedor)}</span>` : ''}
                             </div>
                         </button>`).join('')}
                     </div>
@@ -1542,7 +1562,7 @@ export async function renderCalendarPage(options) {
                 // proposta/funil) reabrir a Agenda aqui de novo, em vez de
                 // cair sempre na lista/mês atual (ver renderVisitDetailPage,
                 // proposals.js e funil.js).
-                const setAgendaReturn = () => { state.agendaReturnTo = { day, month: viewMonth, year: viewYear }; };
+                const setAgendaReturn = () => { state.agendaReturnTo = { day, month: viewMonth, year: viewYear, filter: activeFilter }; };
                 panel.querySelectorAll('[data-visit-id]').forEach((b) => {
                     b.addEventListener('click', () => { setAgendaReturn(); navigateTo('visit-detail', { id: b.dataset.visitId }); });
                 });
@@ -1556,7 +1576,7 @@ export async function renderCalendarPage(options) {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         state.funilPrefill = { cliente: btn.dataset.cliente || '', cidade: btn.dataset.cidade || '', foco: btn.dataset.foco || '', atuacao: btn.dataset.atuacao || '' };
-                        state.funilCreateReturnTo = { page: 'calendar', options: { openDay: day, openMonth: viewMonth, openYear: viewYear } };
+                        state.funilCreateReturnTo = { page: 'calendar', options: { openDay: day, openMonth: viewMonth, openYear: viewYear, filter: activeFilter } };
                         navigateTo('funil-new');
                     });
                 });
@@ -1780,11 +1800,12 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
             </div>
             ${!isEdit ? `
             <div class="form-group full-width">
-                <label for="visit-notificar-usuario">Notificar um usuário sobre esta visita <span class="field-helper-text" style="display:inline">(opcional)</span></label>
-                <div class="searchable-select">
-                    <input type="text" id="visit-notificar-usuario" placeholder="Busque o vendedor/gerente" autocomplete="off">
+                <label for="visit-notificar-usuario">Notificar usuário(s) sobre esta visita <span class="field-helper-text" style="display:inline">(opcional)</span></label>
+                <div class="searchable-select multi-select">
+                    <input type="text" id="visit-notificar-usuario" placeholder="Busque e selecione um ou mais" autocomplete="off">
                     <div class="searchable-select-menu" id="visit-notificar-usuario-menu"></div>
                 </div>
+                <div class="selected-types" id="visit-notificar-usuario-selected"></div>
             </div>` : ''}
             ${state.canLancarDespesas ? `
             <div class="form-group full-width">
@@ -1856,6 +1877,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
     // rascunho restaurado — descartando o que não exista mais na lista.
     // Fica seedado ANTES do initializeSearchableInput abaixo, que já
     // renderiza os chips a partir deste array na inicialização.
+    let selectedNotifyUsuarios = [];
     let selectedVisitTypes = [];
     if (isEdit && normalizedVisit && normalizedVisit.tipoVisita) {
         selectedVisitTypes = [normalizedVisit.tipoVisita];
@@ -1896,23 +1918,25 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
         });
     }
     if (document.getElementById('visit-notificar-usuario-menu')) {
-        // Lista restrita (não é "notifique qualquer um da empresa"): só o(s)
-        // gerente(s) da própria gerência de quem tá registrando + os admins
-        // — as pessoas que realmente fazem sentido avisar sobre uma visita.
-        // Pro Admin (que não tem uma "própria gerência" fixa pra comparar),
-        // a restrição de gerência não faz sentido — vê todos os gerentes.
-        const meuGerencia = String(state.currentUser?.gerencia || '').trim().toLowerCase();
-        const notificarOptions = (formData.vendedores || []).filter((v) => {
-            if (!v.nome || v.nome === state.currentUser?.name) return false;
-            const perfil = String(v.perfil || '').trim().toLowerCase();
-            if (perfil === 'admin') return true;
-            if (perfil !== 'gerente') return false;
-            return isAdminUser || String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
-        }).map((v) => v.nome);
+        // Mesma regra de "quem pode ser notificado" usada em Agenda/Funil
+        // (resolveNotifyOptions): admin notifica qualquer um; gerente só
+        // admins + a própria equipe; vendedor comum só admins/gerentes da
+        // própria gerência. Agora também seleciona mais de um de uma vez.
+        const notificarOptions = resolveNotifyOptions(formData.vendedores || [], state.currentUser);
+        const notifyInput = document.getElementById('visit-notificar-usuario');
         initializeSearchableInput({
-            input: document.getElementById('visit-notificar-usuario'),
+            input: notifyInput,
             menu: document.getElementById('visit-notificar-usuario-menu'),
-            items: notificarOptions
+            items: notificarOptions,
+            multiSelect: true,
+            maxSelections: 10,
+            selectedItems: selectedNotifyUsuarios,
+            selectedContainer: document.getElementById('visit-notificar-usuario-selected'),
+            selectionLabel: 'usuário',
+            onSelectionChange: (items) => {
+                selectedNotifyUsuarios = items;
+                notifyInput.value = '';
+            }
         });
     }
     initializeSearchableInput({
@@ -2251,7 +2275,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
             longitude: isEdit ? undefined : '',
             teveDespesas: state.canLancarDespesas ? (document.querySelector('input[name="teveDespesas"]:checked')?.value || 'Nao') : undefined,
             valorDespesas: state.canLancarDespesas ? document.getElementById('valor-despesas')?.value.trim() : undefined,
-            notificarUsuario: isEdit ? undefined : (document.getElementById('visit-notificar-usuario')?.value.trim() || ''),
+            notificarUsuarios: isEdit ? undefined : selectedNotifyUsuarios,
             user: state.currentUser
         };
 
@@ -2434,11 +2458,18 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
 
 export async function renderVisitDetailPage(id) {
     ensureStyles('visits');
-    // Capturado (e limpo) já na entrada — se o usuário sair daqui por outro
-    // caminho que não o botão Voltar, isso não fica "pendurado" afetando a
-    // próxima visita que ele abrir fora da Agenda.
-    const agendaReturn = state.agendaReturnTo || null;
-    state.agendaReturnTo = null;
+    // Contexto novo da Agenda (clicou um card de lá agora) sempre vence e
+    // fica guardado por Id; sem contexto novo, só mantém o que já tinha se
+    // for a MESMA visita (reabertura por edição/Cliente 360°/back do
+    // navegador) — outra visita sem vir da Agenda descarta o valor antigo,
+    // senão ficaria "pendurado" afetando uma visita não relacionada.
+    if (state.agendaReturnTo) {
+        _visitDetailAgendaReturn = { id: String(id), ...state.agendaReturnTo };
+        state.agendaReturnTo = null;
+    } else if (_visitDetailAgendaReturn && String(_visitDetailAgendaReturn.id) !== String(id)) {
+        _visitDetailAgendaReturn = null;
+    }
+    const agendaReturn = (_visitDetailAgendaReturn && String(_visitDetailAgendaReturn.id) === String(id)) ? _visitDetailAgendaReturn : null;
     const mainContent = document.getElementById('main-content');
     // A lista deixa um botão de "voltar ao topo" pra trás (só o próprio
     // addScrollTop remove o anterior, e essa página não chama de novo).
@@ -2516,7 +2547,7 @@ export async function renderVisitDetailPage(id) {
     `;
 
     document.getElementById('back-visits').addEventListener('click', () => {
-        if (agendaReturn) { navigateTo('calendar', { openDay: agendaReturn.day, openMonth: agendaReturn.month, openYear: agendaReturn.year }); }
+        if (agendaReturn) { navigateTo('calendar', { openDay: agendaReturn.day, openMonth: agendaReturn.month, openYear: agendaReturn.year, filter: agendaReturn.filter }); }
         else { navigateTo('visits'); }
     });
     document.getElementById('visit-nav-prev')?.addEventListener('click', () => { if (navPrevId) navigateTo('visit-detail', { id: navPrevId }); });

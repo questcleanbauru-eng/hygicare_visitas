@@ -19,7 +19,7 @@ const PAGE_TO_NAV_ID = {
     contratos: 'contratos', 'contrato-detail': 'contratos', 'contrato-new': 'contratos', 'contrato-edit': 'contratos',
     manutencao: 'manutencao', 'manutencao-detail': 'manutencao', 'manutencao-new': 'manutencao', 'manutencao-edit': 'manutencao',
     'relatorio-tecnico': 'manutencao', 'relatorio-tecnico-detail': 'manutencao', 'relatorio-tecnico-new': 'manutencao', 'relatorio-tecnico-edit': 'manutencao',
-    report: 'report', 'report-visitas': 'report', 'report-propostas': 'report', 'report-funil': 'report'
+    report: 'report'
 };
 
 export const state = {
@@ -54,6 +54,7 @@ export const state = {
     canDelete: false,
     canCreateProposalFunil: false,
     canLancarDespesas: false,
+    canRelatorioEspecial: false,
     canAccessRadar: false
 };
 
@@ -245,9 +246,13 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         }
     }
     const _prevPage = state.currentPage;
-    const _LIST_PAGES = new Set(['visits', 'proposals', 'funil']);
+    // Quem rola de verdade é #main-content (um <main> interno com
+    // overflow próprio), não window/body — window.scrollY fica sempre 0
+    // nesse layout, então salvar/restaurar por ali nunca fazia nada.
+    const _LIST_PAGES = new Set(['visits', 'proposals', 'funil', 'contratos', 'manutencao', 'relatorio-tecnico']);
     if (_LIST_PAGES.has(_prevPage)) {
-        state.scrollPositions[_prevPage] = window.scrollY;
+        const mainEl = document.getElementById('main-content');
+        if (mainEl) state.scrollPositions[_prevPage] = mainEl.scrollTop;
     }
     state.formDirty = false;
     clearDocumentClickListeners();
@@ -398,13 +403,13 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
             await (await import('./pages/report.js')).renderReportPage();
             break;
         case 'report-visitas':
-            await (await import('./pages/report.js')).renderReportSectionPage('visitas');
+            await (await import('./pages/report.js')).renderReportVisitasPage();
             break;
         case 'report-propostas':
-            await (await import('./pages/report.js')).renderReportSectionPage('propostas');
+            await (await import('./pages/report.js')).renderReportPropostasPage();
             break;
         case 'report-funil':
-            await (await import('./pages/report.js')).renderReportSectionPage('funil');
+            await (await import('./pages/report.js')).renderReportFunilPage();
             break;
         case 'campanhas':
             await (await import('./pages/campanhas.js')).renderCampanhasPage();
@@ -431,7 +436,10 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
     if (_scrollParentMap[page] && _scrollParentMap[page].includes(_prevPage) && state.scrollPositions[page] > 0) {
         const savedY = state.scrollPositions[page];
         delete state.scrollPositions[page];
-        requestAnimationFrame(() => window.scrollTo(0, savedY));
+        requestAnimationFrame(() => {
+            const mainEl = document.getElementById('main-content');
+            if (mainEl) mainEl.scrollTop = savedY;
+        });
     }
 }
-
+

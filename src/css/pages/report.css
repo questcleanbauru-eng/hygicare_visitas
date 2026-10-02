@@ -5,39 +5,7 @@
     margin-bottom: 1rem;
 }
 
-/* Tela de entrada do Relatório: um botão por relatório */
-.report-hub {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 0.75rem;
-}
-
-.report-hub-card {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    width: 100%;
-    padding: 1rem 1.1rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-xs);
-    text-align: left;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-.report-hub-card:hover { background: var(--primary-light); border-color: var(--border-focus); }
-.report-hub-card:active { transform: scale(0.98); }
-.report-hub-icon { font-size: 1.6rem; line-height: 1; }
-.report-hub-text { display: flex; flex-direction: column; gap: 0.2rem; flex: 1; min-width: 0; }
-.report-hub-text strong { font-size: 1rem; }
-.report-hub-text span { font-size: 0.8rem; color: var(--text-muted); }
-.report-hub-arrow { font-size: 1.4rem; color: var(--text-muted); }
-
-/* Atalhos pros outros relatórios */
+/* Atalhos pro topo de cada seção */
 .report-jump-nav {
     display: flex;
     align-items: center;
@@ -65,7 +33,7 @@
 
 .report-custom-range .form-group { flex: 1; min-width: 140px; }
 
-.report-status-filter { margin-top: 0.75rem; }
+.report-status-filter { margin-top: 0; }
 .report-status-hint { font-weight: 400; color: var(--text-muted); font-size: 0.78rem; }
 
 .report-status-chips {
@@ -332,5 +300,40 @@
         print-color-adjust: exact;
     }
 }
+
+.report-header-actions { display: flex; gap: 1rem; align-items: center; }
+
+/* Hub de relatórios — 3 cards de navegação pras telas separadas */
+.report-hub-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+    margin-top: 0.5rem;
+}
+
+@media (min-width: 640px) {
+    .report-hub-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.report-hub-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    text-align: left;
+    padding: 1.1rem 1.2rem;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.report-hub-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md, 0 6px 16px rgba(0,0,0,0.08));
+}
+
+.report-hub-card strong { font-size: 1rem; }
+.report-hub-card span { font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; }
 
 @page { margin: 10mm; }

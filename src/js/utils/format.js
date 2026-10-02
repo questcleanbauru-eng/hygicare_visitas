@@ -114,6 +114,7 @@ export function normalizeManutencao(item) {
         fotos: Array.isArray(m.fotos)
             ? m.fotos
             : String(m.Fotos || m.fotos || '').split(',').map((s) => s.trim()).filter(Boolean),
+        dadosCarta: m.DadosCarta || m.dadosCarta || '',
         _pending: !!m._pending
     };
 }

@@ -367,6 +367,7 @@ export async function getDashboardData() {
                 state.canDelete = !!r.data.canDelete;
                 state.canCreateProposalFunil = !!r.data.canCreateProposalFunil;
                 state.canLancarDespesas = !!r.data.canLancarDespesas;
+                state.canRelatorioEspecial = !!r.data.canRelatorioEspecial;
                 setCanAccessRadar(!!r.data.canAccessRadar);
                 setTelasBloqueadas(r.data.telasBloqueadas);
             }
@@ -378,6 +379,7 @@ export async function getDashboardData() {
         state.canDelete = !!cached.canDelete;
         state.canCreateProposalFunil = !!cached.canCreateProposalFunil;
         state.canLancarDespesas = !!cached.canLancarDespesas;
+        state.canRelatorioEspecial = !!cached.canRelatorioEspecial;
         setCanAccessRadar(!!cached.canAccessRadar);
         setTelasBloqueadas(cached.telasBloqueadas);
         showRefreshIndicator();

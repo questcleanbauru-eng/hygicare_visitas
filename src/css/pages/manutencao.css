@@ -544,6 +544,7 @@
 .mnt-tipo-badge-manutencao { background: #e6f1fb; color: #185fa5; }
 .mnt-tipo-badge-geral { background: var(--bg-sunken); color: var(--ink-soft); }
 .mnt-tipo-badge-biopet { background: var(--primary-light); color: var(--primary-dark); }
+.mnt-tipo-badge-carta { background: #fce7f3; color: #be185d; }
 
 /* Bloco "Fotos" do relatório — fica FORA do cartão .mnt-report. Some
    sozinho quando não há fotos (o HTML nem renderiza). */
@@ -1085,4 +1086,46 @@
     .mnt-compact-3 .mnt-signature-box { height: 46px; }
     .mnt-compact-3 .mnt-signature-name { font-size: 0.78rem; margin-top: 0.3rem; }
     .mnt-compact-3 .mnt-report-footer { padding: 0.6rem 1.2rem; font-size: 0.7rem; }
+}
+
+/* ── Carta de Visita — carta formal, flui em várias páginas se precisar
+   (ao contrário do .mnt-report, que se comprime pra caber numa só) ──── */
+.mnt-carta {
+    background-color: var(--surface);
+    border-radius: var(--radius-card);
+    border: 1px solid var(--line);
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 2rem 2.2rem;
+    line-height: 1.55;
+    color: var(--text);
+}
+.mnt-carta p { margin: 0 0 0.9rem; }
+.mnt-carta-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-bottom: 1.4rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--primary);
+}
+.mnt-carta-header strong { font-size: var(--text-sm); }
+.mnt-carta-header span { font-size: 0.72rem; color: var(--text-muted); }
+.mnt-carta-data-doc { font-weight: 600; }
+.mnt-carta-destinatario p { margin: 0 0 0.2rem; font-size: 0.92rem; }
+.mnt-carta-titulo {
+    text-align: center;
+    font-size: var(--text-lg);
+    letter-spacing: 0.02em;
+    margin: 1.6rem 0 1.1rem;
+}
+.mnt-carta-unidade { background: var(--surface-muted, #f8fafc); border-radius: var(--radius-sm); padding: 0.8rem 1rem; }
+.mnt-carta-section-label { margin-bottom: 0.3rem; }
+.mnt-carta-list { margin: 0 0 1rem; padding-left: 1.3rem; }
+.mnt-carta-list li { margin-bottom: 0.25rem; }
+.mnt-carta-assinatura { margin-top: 2rem; }
+.mnt-carta-assinatura strong { display: block; }
+
+@media print {
+    .mnt-carta { border: none; max-width: 100%; padding: 0; }
 }
