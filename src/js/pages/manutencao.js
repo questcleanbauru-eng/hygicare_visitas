@@ -542,23 +542,26 @@ async function openModelosSalvosModal() {
     tecnicos.sort(byNome);
 
     const searchEl = () => overlay.querySelector('#mnt-modelos-search');
-    let activeFilter = 'todos'; // todos | spsp | afericao | biopet
+    let activeFilter = 'todos'; // todos | spsp | afericao | biopet | carta
+    const isAfericao = (mo) => mo.tipoRelatorio !== 'biopet' && mo.tipoRelatorio !== 'carta';
 
     // Chips com contagem por tipo (Todos/SPSP/Aferição/BIOPET) — só mostra a
     // chip de um tipo que não tem nenhum modelo se for "Todos" (sempre
     // visível); os outros somem em vez de ficar uma pílula morta "X 0".
     const renderChips = () => {
         const nSpsp = tecnicos.length;
-        const nAfericao = modelos.filter((mo) => mo.tipoRelatorio !== 'biopet').length;
+        const nAfericao = modelos.filter(isAfericao).length;
         const nBiopet = modelos.filter((mo) => mo.tipoRelatorio === 'biopet').length;
+        const nCarta = modelos.filter((mo) => mo.tipoRelatorio === 'carta').length;
         const chip = (key, label, count) => (count > 0 || key === 'todos')
             ? `<button type="button" class="mnt-modelos-chip${activeFilter === key ? ' is-active' : ''}" data-filter="${key}">${label} <span class="mnt-modelos-chip-count">${count}</span></button>`
             : '';
         chipsEl.innerHTML = [
-            chip('todos', 'Todos', nSpsp + nAfericao + nBiopet),
+            chip('todos', 'Todos', nSpsp + nAfericao + nBiopet + nCarta),
             chip('spsp', 'SPSP', nSpsp),
             chip('afericao', 'Aferição', nAfericao),
-            chip('biopet', 'BIOPET', nBiopet)
+            chip('biopet', 'BIOPET', nBiopet),
+            chip('carta', 'Carta', nCarta)
         ].join('');
         chipsEl.querySelectorAll('[data-filter]').forEach((btn) => {
             btn.addEventListener('click', () => {
@@ -572,19 +575,24 @@ async function openModelosSalvosModal() {
     const renderList = (filterText) => {
         const q = (filterText || '').toLowerCase();
         const match = (mo) => !q || String(mo.cliente || '').toLowerCase().includes(q) || String(mo.nome || '').toLowerCase().includes(q);
-        const fT = (activeFilter === 'afericao' || activeFilter === 'biopet') ? [] : tecnicos.filter(match);
-        const fMAfericao = (activeFilter === 'spsp' || activeFilter === 'biopet') ? [] : modelos.filter((mo) => mo.tipoRelatorio !== 'biopet').filter(match);
-        const fMBiopet = (activeFilter === 'spsp' || activeFilter === 'afericao') ? [] : modelos.filter((mo) => mo.tipoRelatorio === 'biopet').filter(match);
+        const mostra = (key) => activeFilter === 'todos' || activeFilter === key;
+        const fT = mostra('spsp') ? tecnicos.filter(match) : [];
+        const fMAfericao = mostra('afericao') ? modelos.filter(isAfericao).filter(match) : [];
+        const fMBiopet = mostra('biopet') ? modelos.filter((mo) => mo.tipoRelatorio === 'biopet').filter(match) : [];
+        const fMCarta = mostra('carta') ? modelos.filter((mo) => mo.tipoRelatorio === 'carta').filter(match) : [];
 
-        if (fT.length === 0 && fMAfericao.length === 0 && fMBiopet.length === 0) {
+        if (fT.length === 0 && fMAfericao.length === 0 && fMBiopet.length === 0 && fMCarta.length === 0) {
             listEl.innerHTML = `<p class="helper-text">${(tecnicos.length + modelos.length) === 0 ? 'Nenhum modelo salvo ainda. Salve um na tela de um relatório novo/edição.' : 'Nenhum modelo encontrado.'}</p>`;
             return;
         }
 
         const rowHtml = (mo, { icon, iconClass, tipoLabel, kind }) => {
             const nomeDifere = mo.nome && mo.nome.trim().toLowerCase() !== String(mo.cliente || '').trim().toLowerCase();
+            const dadosCarta = mo.tipoRelatorio === 'carta' ? parseModeloCartaJson(mo.itensTabela) : null;
             const infoLine = kind === 'tecnico'
                 ? (nomeDifere ? `Cliente: ${escapeHtml(mo.cliente || '-')}` : tipoLabel)
+                : dadosCarta
+                ? `${nomeDifere ? `Cliente: ${escapeHtml(mo.cliente || '-')} · ` : ''}${escapeHtml(dadosCarta.cnpj || dadosCarta.unidadeNome || 'Carta de Visita')}${mo.atualizadoEm ? ` · ${escapeHtml(mo.atualizadoEm)}` : ''}`
                 : `${nomeDifere ? `Cliente: ${escapeHtml(mo.cliente || '-')} · ` : ''}${safeParseJson(mo.itensTabela, []).length} item(ns)${mo.atualizadoEm ? ` · ${escapeHtml(mo.atualizadoEm)}` : ''}`;
             return `
                 <div class="mnt-modelo-list-row">
@@ -609,7 +617,8 @@ async function openModelosSalvosModal() {
         listEl.innerHTML =
             (fT.length ? `<p class="mnt-modelo-group-label">RELATÓRIO SPSP</p>${fT.map((mo) => rowHtml(mo, { icon: '📋', iconClass: 'mnt-modelo-icon-spsp', tipoLabel: 'Relatório SPSP', kind: 'tecnico' })).join('')}` : '')
             + (fMAfericao.length ? `<p class="mnt-modelo-group-label">RELATÓRIO DE AFERIÇÃO</p>${fMAfericao.map((mo) => rowHtml(mo, { icon: '🔧', iconClass: 'mnt-modelo-icon-afericao', kind: 'manutencao' })).join('')}` : '')
-            + (fMBiopet.length ? `<p class="mnt-modelo-group-label">RELATÓRIO BIOPET</p>${fMBiopet.map((mo) => rowHtml(mo, { icon: '🧪', iconClass: 'mnt-modelo-icon-biopet', kind: 'manutencao' })).join('')}` : '');
+            + (fMBiopet.length ? `<p class="mnt-modelo-group-label">RELATÓRIO BIOPET</p>${fMBiopet.map((mo) => rowHtml(mo, { icon: '🧪', iconClass: 'mnt-modelo-icon-biopet', kind: 'manutencao' })).join('')}` : '')
+            + (fMCarta.length ? `<p class="mnt-modelo-group-label">CARTA DE VISITA</p>${fMCarta.map((mo) => rowHtml(mo, { icon: '✉️', iconClass: 'mnt-modelo-icon-carta', kind: 'manutencao' })).join('')}` : '');
 
         const findModelo = (kind, id) => (kind === 'tecnico' ? tecnicos : modelos).find((x) => String(x.id) === id);
 
@@ -623,6 +632,8 @@ async function openModelosSalvosModal() {
                     try { dados = JSON.parse(mo.dados || '{}'); } catch (e) { dados = {}; }
                     dados.cliente = mo.cliente;
                     navigateTo('relatorio-tecnico-new', { prefillModelo: JSON.stringify(dados) });
+                } else if (mo.tipoRelatorio === 'carta') {
+                    navigateTo('manutencao-new', { tipoRelatorio: 'carta', prefillCartaModeloId: mo.id });
                 } else {
                     navigateTo('manutencao-new', {
                         prefillCliente: mo.cliente, prefillItens: mo.itensTabela, prefillModeloNome: mo.nome,
@@ -819,18 +830,130 @@ function formatDataPorExtenso(value) {
     return `${Number(mt[1])} de ${mes} de ${mt[3]}`;
 }
 
-// "Carta de Visita" — carta formal (cabeçalho Hygicare, destinatário,
-// unidade, datas e produtos aferidos, assinatura), bem diferente do
-// grid+tabela+assinatura-em-canvas dos outros tipos — função própria,
-// mesmo padrão do renderCartaFormPage acima.
+// Imagens fixas da carta (recortadas do modelo em PDF da Hygicare): logo do
+// topo e carimbo com a assinatura, que sai igual em toda carta.
+const CARTA_LOGO_URL = '/img/carta-logo.png';
+const CARTA_CARIMBO_URL = '/img/carta-carimbo.jpg';
+
+// O modelo original é em Calibri — Carlito tem as mesmas medidas e cobre
+// aparelho que não tem Calibri instalado (Android, Linux). Só carrega quando
+// uma carta aparece na tela.
+function ensureCartaFont() {
+    if (document.getElementById('carta-font')) return;
+    const link = document.createElement('link');
+    link.id = 'carta-font';
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Carlito:wght@400;700&display=swap';
+    document.head.appendChild(link);
+}
+
+// A folha já tem as margens do modelo em PDF; a página impressa precisa de
+// margem zero. O @page de manutencao.css (12mm/14mm, dos outros relatórios)
+// é global, e @page nomeado (page: carta) não pegou no Chrome — então,
+// só enquanto imprime uma carta, entra uma regra @page por cima. Vale pro
+// botão PDF e pro Ctrl+P.
+let _cartaPrintBound = false;
+function bindCartaPrintPage() {
+    if (_cartaPrintBound) return;
+    _cartaPrintBound = true;
+    window.addEventListener('beforeprint', () => {
+        if (!document.querySelector('.mnt-carta-folha') || document.getElementById('carta-print-page')) return;
+        const style = document.createElement('style');
+        style.id = 'carta-print-page';
+        style.textContent = '@page { size: A4; margin: 0; }';
+        document.head.appendChild(style);
+    });
+    window.addEventListener('afterprint', () => document.getElementById('carta-print-page')?.remove());
+}
+
+// A folha tem largura fixa de A4 (pra tela e PDF baterem); no celular ela
+// é reduzida (zoom) pra caber na largura sem rolar de lado. Na impressão o
+// CSS volta o zoom pra 1.
+let _cartaResizeBound = false;
+function fitCartaFolha() {
+    const wrap = document.querySelector('.mnt-carta-wrap');
+    const folha = wrap && wrap.querySelector('.mnt-carta-folha');
+    if (!wrap || !folha) return;
+    const larguraFolha = folha.offsetWidth || 794;
+    const escala = Math.min(1, wrap.clientWidth / larguraFolha);
+    wrap.style.setProperty('--carta-zoom', String(Math.max(0.3, escala)));
+}
+
+// "TASKI PROFI: aferido na diluição 1/50" -> nome do produto (antes do
+// primeiro ":") e diluição (1/50, 1:20…) em negrito, como no modelo.
+function cartaProdutoHtml(linha) {
+    const { nome, descricao } = splitProdutoCarta(linha);
+    const descHtml = escapeHtml(descricao).replace(/(\d+\s*[/:]\s*\d+)/g, '<strong>$1</strong>');
+    if (!nome) return descHtml;
+    return `<strong>${escapeHtml(nome)}:</strong>${descHtml ? ' ' + descHtml : ''}`;
+}
+
+function splitProdutoCarta(linha) {
+    const s = String(linha || '').trim();
+    const i = s.indexOf(':');
+    // ":" na posição 0 ou dentro de uma diluição ("1:20") não é separador
+    // de nome — só conta quando tem texto que não é número antes.
+    if (i > 0 && !/^\d+\s*$/.test(s.slice(0, i))) {
+        return { nome: s.slice(0, i).trim(), descricao: s.slice(i + 1).trim() };
+    }
+    return { nome: '', descricao: s };
+}
+
+function joinProdutoCarta(nome, descricao) {
+    const n = String(nome || '').trim();
+    const d = String(descricao || '').trim();
+    if (n && d) return `${n}: ${d}`;
+    return n || d;
+}
+
+// Corpo da carta — mesmo layout do modelo em PDF (logo, destinatário,
+// unidade, datas, produtos, assinatura com carimbo e rodapé da empresa).
+function cartaFolhaHtml(d) {
+    const contato = String(d.contato || '').trim().replace(/\.+$/, '');
+    return `
+        <div class="mnt-carta-wrap">
+            <div class="mnt-carta-folha">
+                <div class="mnt-carta-corpo">
+                    <img class="mnt-carta-logo" src="${CARTA_LOGO_URL}" alt="Hygicare">
+                    <p class="mnt-carta-b">Bauru, ${formatDataPorExtenso(d.documentoData)}.</p>
+                    <div class="mnt-carta-mt">
+                        <p class="mnt-carta-b">Ao ${escapeHtml(d.destinatario)}</p>
+                        <p class="mnt-carta-b">A/c: ${escapeHtml(contato)}${contato ? '.' : ''}</p>
+                        <p>E-mail: ${escapeHtml(d.contatoEmail)}</p>
+                        <p>Telefone: ${escapeHtml(d.contatoTelefone)}</p>
+                    </div>
+                    <p class="mnt-carta-titulo">RELATÓRIO DE VISITAS E AFERIÇÕES</p>
+                    <p class="mnt-carta-just">Informamos que foi realizada a visita preventiva e a aferição dos produtos na seguinte unidade:</p>
+                    <div class="mnt-carta-mt">
+                        <p class="mnt-carta-b">UNIDADE: ${escapeHtml(d.unidadeNome)}</p>
+                        <p><strong>Endereço:</strong> ${escapeHtml(d.endereco)}</p>
+                        <p><strong>CNPJ:</strong> ${escapeHtml(d.cnpj)}</p>
+                    </div>
+                    <p class="mnt-carta-b mnt-carta-mt">Datas da Visitas:</p>
+                    <ul class="mnt-carta-list">${d.datasVisitas.map((x) => `<li class="mnt-carta-b">${escapeHtml(x)}</li>`).join('')}</ul>
+                    <p class="mnt-carta-b mnt-carta-mt">Produtos aferidos:</p>
+                    <p class="mnt-carta-mt">Durante a visita, realizamos as aferições das diluições conforme abaixo:</p>
+                    <ul class="mnt-carta-list">${d.produtosAferidos.map((x) => `<li>${cartaProdutoHtml(x)}</li>`).join('')}</ul>
+                    <p class="mnt-carta-mt">Estamos à disposição para quaisquer dúvidas ou esclarecimentos adicionais.</p>
+                    <p class="mnt-carta-gap">Estamos à disposição para qualquer esclarecimento adicional.</p>
+                    <p class="mnt-carta-b mnt-carta-gap">${escapeHtml(d.assinanteNome)}</p>
+                    <p>${escapeHtml(d.assinanteCargo)}</p>
+                    ${d.incluirCarimbo !== false ? `<img class="mnt-carta-carimbo" src="${CARTA_CARIMBO_URL}" alt="Carimbo e assinatura Hygicare">` : ''}
+                </div>
+                <div class="mnt-carta-rodape">
+                    <strong>Hygicare Produtos de Higiene Ltda EPP. - DISTRIBUIDOR AUTORIZADO DIVERSEY</strong>
+                    <span>Rua Dr. Jose Ranieri, 9-41 Jd- Cruzeiro do Sul - CEP: 17030-370 Bauru/SP e-mail: comercial@hygicare.com.br - Tel/Fax: 14 3879 7040<br>CNPJ: 08.159.080/0001-34 - Inscrição Estadual: 209.376.609.111</span>
+                </div>
+            </div>
+        </div>`;
+}
+
+// "Carta de Visita" — carta formal no mesmo layout do modelo em PDF da
+// Hygicare, bem diferente do grid+tabela+assinatura-em-canvas dos outros
+// tipos — função própria, mesmo padrão do renderCartaFormPage abaixo.
 function renderCartaDetailPage(mainContent, m) {
     const d = parseDadosCarta(m.dadosCarta);
-    const datasHtml = d.datasVisitas.length
-        ? `<ul class="mnt-carta-list">${d.datasVisitas.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>`
-        : '<p class="helper-text">Nenhuma data informada.</p>';
-    const produtosHtml = d.produtosAferidos.length
-        ? `<ul class="mnt-carta-list">${d.produtosAferidos.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>`
-        : '<p class="helper-text">Nenhum produto informado.</p>';
+    ensureCartaFont();
 
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Manutenção', page: 'manutencao' }, { label: m.cliente || 'Carta de Visita' }])}
@@ -848,49 +971,26 @@ function renderCartaDetailPage(mainContent, m) {
                 ${state.canDelete ? `<button type="button" class="mini-button mini-button-icon mini-button-danger" id="delete-manutencao" aria-label="Apagar" title="Apagar">${actionIcon('trash')}</button>` : ''}
             </div>
         </div>
-        <div class="mnt-carta">
-            <div class="mnt-carta-header">
-                <strong>Hygicare Produtos de Higiene Ltda EPP. - DISTRIBUIDOR AUTORIZADO DIVERSEY</strong>
-                <span>Rua Dr. Jose Ranieri, 9-41 Jd- Cruzeiro do Sul - CEP: 17030-370 Bauru/SP e-mail: comercial@hygicare.com.br - Tel/Fax: 14 3879 7040</span>
-                <span>CNPJ: 08.159.080/0001-34 - Inscrição Estadual: 209.376.609.111</span>
-            </div>
-            <p class="mnt-carta-data-doc">Bauru, ${formatDataPorExtenso(d.documentoData)}.</p>
-            <div class="mnt-carta-destinatario">
-                ${d.destinatario ? `<p><strong>Ao ${escapeHtml(d.destinatario)}</strong></p>` : ''}
-                ${d.contato ? `<p><strong>A/c:</strong> ${escapeHtml(d.contato)}.</p>` : ''}
-                <p><strong>E-mail:</strong> ${escapeHtml(d.contatoEmail)}</p>
-                <p><strong>Telefone:</strong> ${escapeHtml(d.contatoTelefone)}</p>
-            </div>
-            <h3 class="mnt-carta-titulo">RELATÓRIO DE VISITAS E AFERIÇÕES</h3>
-            <p>Informamos que foi realizada a visita preventiva e a aferição dos produtos na seguinte unidade:</p>
-            <p class="mnt-carta-unidade">
-                <strong>UNIDADE:</strong> ${escapeHtml(d.unidadeNome)}<br>
-                <strong>Endereço:</strong> ${escapeHtml(d.endereco)}<br>
-                <strong>CNPJ:</strong> ${escapeHtml(d.cnpj)}
-            </p>
-            <p class="mnt-carta-section-label"><strong>Datas da Visitas:</strong></p>
-            ${datasHtml}
-            <p class="mnt-carta-section-label"><strong>Produtos aferidos:</strong></p>
-            <p>Durante a visita, realizamos as aferições das diluições conforme abaixo:</p>
-            ${produtosHtml}
-            <p>Estamos à disposição para quaisquer dúvidas ou esclarecimentos adicionais.</p>
-            <p>Estamos à disposição para qualquer esclarecimento adicional.</p>
-            <p class="mnt-carta-assinatura">
-                <strong>${escapeHtml(d.assinanteNome)}</strong><br>
-                ${escapeHtml(d.assinanteCargo)}
-            </p>
-            <div class="mnt-report-footer">
-                <span>${escapeHtml(window.location.origin)}</span>
-                <span>Gerado em ${new Date().toLocaleString('pt-BR')}</span>
-            </div>
-        </div>
+        ${cartaFolhaHtml(d)}
     `;
+
+    fitCartaFolha();
+    bindCartaPrintPage();
+    if (!_cartaResizeBound) {
+        _cartaResizeBound = true;
+        window.addEventListener('resize', fitCartaFolha);
+    }
 
     document.getElementById('back-manutencao').addEventListener('click', () => navigateTo('manutencao'));
     document.getElementById('manutencao-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: m.cliente }));
     document.getElementById('edit-manutencao').addEventListener('click', () => navigateTo('manutencao-edit', { manutencao: m }));
+    // Duplicar leva tudo menos as datas (que mudam a cada visita).
     document.getElementById('duplicate-manutencao')?.addEventListener('click', () => {
-        navigateTo('manutencao-new', { tipoRelatorio: 'carta', prefillCliente: m.cliente, prefillCidade: m.cidade });
+        const { documentoData, datasVisitas, ...resto } = d;
+        navigateTo('manutencao-new', {
+            tipoRelatorio: 'carta', prefillCliente: m.cliente, prefillCidade: m.cidade,
+            prefillDadosCarta: JSON.stringify(resto)
+        });
     });
     document.getElementById('print-manutencao').addEventListener('click', () => {
         const sanitize = (s) => String(s || '').replace(/[\\/:*?"<>|]/g, '-').trim();
@@ -1235,7 +1335,8 @@ function signaturePadToDataUrl(canvas) {
 const DADOS_CARTA_PADRAO = () => ({
     destinatario: '', contato: '', contatoEmail: '', contatoTelefone: '',
     unidadeNome: '', endereco: '', cnpj: '', documentoData: '',
-    datasVisitas: [], produtosAferidos: [], assinanteNome: '', assinanteCargo: 'Auxiliar Técnico'
+    datasVisitas: [], produtosAferidos: [], assinanteNome: '', assinanteCargo: 'Auxiliar Técnico',
+    incluirCarimbo: true
 });
 
 function parseDadosCarta(value) {
@@ -1247,6 +1348,71 @@ function parseDadosCarta(value) {
     }
 }
 
+// Modelos de Carta que já vêm no app (as duas unidades da TOMOSON, tirados
+// dos PDFs que a Hygicare usa hoje). Aparecem junto dos modelos salvos na
+// planilha; um modelo salvo com o mesmo nome toma o lugar do padrão.
+const PRODUTOS_TOMOSON = [
+    'TASKI PROFI: aferido na diluição 1/50',
+    'VIREX Detergente Health: aferido na diluição 1/20',
+    'J-FLEX Oxivir Five: diluição automática verificada diretamente na embalagem'
+];
+const MODELOS_CARTA_PADRAO = [
+    {
+        id: 'padrao-tomoson-0001', nome: 'TOMOSON · Rua Tiradentes (0001-92)', cliente: 'TOMOSON', cidade: 'Araçatuba',
+        dados: {
+            destinatario: 'TOMOSON CENTRO DE DIAGNÓSTICOS POR IMAGEM', contato: 'Regiane', contatoEmail: '', contatoTelefone: '',
+            unidadeNome: 'TOMOSON - Centro de Diagnósticos por Imagem', endereco: 'Rua Tiradentes, 879 - Vila Mendonca - Araçatuba',
+            cnpj: '55.755.995/0001-92', produtosAferidos: PRODUTOS_TOMOSON,
+            assinanteNome: 'Bruno Rodrigues', assinanteCargo: 'Auxiliar Técnico', incluirCarimbo: true
+        }
+    },
+    {
+        id: 'padrao-tomoson-0002', nome: 'TOMOSON · Rua Floriano Peixoto (0002-73)', cliente: 'TOMOSON', cidade: 'Araçatuba',
+        dados: {
+            destinatario: 'TOMOSON CENTRO DE DIAGNÓSTICOS POR IMAGEM', contato: 'Regiane', contatoEmail: '', contatoTelefone: '',
+            unidadeNome: 'TOMOSON - Centro de Diagnósticos por Imagem', endereco: 'Rua Floriano Peixoto, 497 - Vila Mendonca - Araçatuba',
+            cnpj: '55.755.995/0002-73', produtosAferidos: PRODUTOS_TOMOSON,
+            assinanteNome: 'Bruno Rodrigues', assinanteCargo: 'Auxiliar Técnico', incluirCarimbo: true
+        }
+    }
+];
+
+// ItensTabela de um modelo de Carta guarda um objeto (dadosCarta sem as
+// datas), não a lista de itens dos outros tipos — safeParseJson só aceita
+// lista, por isso o leitor próprio.
+function parseModeloCartaJson(value) {
+    try {
+        const o = JSON.parse(value || '{}');
+        return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+// dd/mm/aaaa <-> aaaa-mm-dd (input type=date). Valor torto volta vazio no
+// input em vez de quebrar a tela.
+function cartaDataParaInput(display) {
+    const mt = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(display || '').trim());
+    return mt ? `${mt[3]}-${mt[2].padStart(2, '0')}-${mt[1].padStart(2, '0')}` : '';
+}
+function cartaDataDoInput(value) {
+    const mt = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+    return mt ? `${mt[3]}/${mt[2]}/${mt[1]}` : '';
+}
+function cartaHoje() {
+    const now = new Date();
+    return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+}
+
+function cartaProdutoRowHtml(linha) {
+    const { nome, descricao } = splitProdutoCarta(linha);
+    return `<div class="mnt-carta-prod-row">
+        <input type="text" class="carta-prod-nome" value="${escapeHtml(nome)}" placeholder="Produto (ex.: TASKI PROFI)">
+        <input type="text" class="carta-prod-desc" value="${escapeHtml(descricao)}" placeholder="ex.: aferido na diluição 1/50">
+        <button type="button" class="mnt-carta-x carta-prod-remove" aria-label="Remover produto">×</button>
+    </div>`;
+}
+
 // "Carta de Visita" é estruturalmente bem diferente dos outros tipos (carta
 // formal, sem tabela de aferição/assinatura em canvas) — função própria em
 // vez de espremer mais um branch no formulário genérico abaixo, que já tem
@@ -1256,22 +1422,54 @@ async function renderCartaFormPage(record, options) {
     const mainContent = document.getElementById('main-content');
     const isEdit = Boolean(record && (record.Id || record.id));
     const m = isEdit ? normalizeManutencao(record) : normalizeManutencao({});
-    const d = parseDadosCarta(m.dadosCarta);
-    if (!isEdit && !d.assinanteNome) d.assinanteNome = state.currentUser?.name || '';
-    if (!isEdit && !d.documentoData) {
-        const now = new Date();
-        d.documentoData = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+    let d = parseDadosCarta(m.dadosCarta);
+    if (!isEdit) {
+        // Vindo de "Duplicar" (detalhe) — tudo menos as datas.
+        if (options && options.prefillDadosCarta) {
+            d = { ...d, ...parseDadosCarta(options.prefillDadosCarta), documentoData: '', datasVisitas: [] };
+        }
+        if (options && options.prefillCliente) m.cliente = options.prefillCliente;
+        if (options && options.prefillCidade) m.cidade = options.prefillCidade;
+        if (!d.assinanteNome) d.assinanteNome = state.currentUser?.name || '';
+        if (!d.documentoData) d.documentoData = cartaHoje();
+        if (!d.datasVisitas.length) d.datasVisitas = [cartaHoje()];
     }
 
-    const [fdResult] = await Promise.all([ensureFormData()]);
+    const [fdResult, modelosResult] = await Promise.all([
+        ensureFormData(),
+        callAPI('getManutencaoModelos', { user: state.currentUser }).catch(() => null)
+    ]);
     const clientes = (fdResult.data && fdResult.data.clientes) || [];
+    const salvos = ((modelosResult && modelosResult.status === 'success' ? modelosResult.modelos : []) || [])
+        .filter((mo) => mo.tipoRelatorio === 'carta')
+        .map((mo) => ({ id: String(mo.id), nome: mo.nome || mo.cliente, cliente: mo.cliente, dados: parseModeloCartaJson(mo.itensTabela), salvo: true }));
+    const nomesSalvos = new Set(salvos.map((mo) => String(mo.nome).trim().toLowerCase()));
+    const modelos = [...salvos, ...MODELOS_CARTA_PADRAO.filter((mo) => !nomesSalvos.has(mo.nome.toLowerCase()))]
+        .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+    // Modelo carregado na tela — "Salvar como modelo" sugere o mesmo nome
+    // (atualiza esse modelo) e manda o id quando o nome não muda.
+    let modeloAtual = null;
+    if (!isEdit && options && options.prefillCartaModeloId) {
+        modeloAtual = modelos.find((mo) => mo.id === String(options.prefillCartaModeloId)) || null;
+    }
+
+    let datas = d.datasVisitas.slice();
 
     mainContent.innerHTML = `
         <div class="page-header compact-header">
             <button type="button" class="mini-button" id="back-carta-form">Voltar</button>
             <h2>${isEdit ? 'Editar Carta de Visita' : 'Nova Carta de Visita'}</h2>
         </div>
-        <form id="carta-form" class="card form-card form-layout">
+        <form id="carta-form" class="card form-card form-layout mnt-carta-form">
+            ${!isEdit ? `
+            <div class="form-group full-width mnt-carta-modelo-bar">
+                <label for="carta-modelo">Modelo</label>
+                <select id="carta-modelo">
+                    <option value="">— Sem modelo —</option>
+                    ${modelos.map((mo) => `<option value="${escapeHtml(mo.id)}">${escapeHtml(mo.nome)}</option>`).join('')}
+                </select>
+                <p class="helper-text">Escolha um modelo e tudo é preenchido; normalmente só muda a data.</p>
+            </div>` : ''}
             <div class="form-group full-width">
                 <label for="carta-cliente">Cliente</label>
                 <div class="searchable-select">
@@ -1285,28 +1483,28 @@ async function renderCartaFormPage(record, options) {
             </div>
             <div class="form-group">
                 <label for="carta-data-doc">Data do documento</label>
-                <input type="text" id="carta-data-doc" value="${escapeHtml(d.documentoData)}" placeholder="dd/mm/aaaa">
+                <input type="date" id="carta-data-doc" value="${escapeHtml(cartaDataParaInput(d.documentoData))}">
             </div>
 
-            <div class="form-group full-width"><hr></div>
+            <p class="mnt-carta-form-sec full-width">Destinatário</p>
             <div class="form-group full-width">
-                <label for="carta-destinatario">Destinatário (Ao...)</label>
+                <label for="carta-destinatario">Ao</label>
                 <input type="text" id="carta-destinatario" value="${escapeHtml(d.destinatario)}" placeholder="Ex.: TOMOSON CENTRO DE DIAGNÓSTICOS POR IMAGEM">
             </div>
-            <div class="form-group">
-                <label for="carta-contato">A/c (contato)</label>
+            <div class="form-group full-width">
+                <label for="carta-contato">A/c</label>
                 <input type="text" id="carta-contato" value="${escapeHtml(d.contato)}">
             </div>
             <div class="form-group">
-                <label for="carta-contato-email">E-mail do contato</label>
-                <input type="email" id="carta-contato-email" value="${escapeHtml(d.contatoEmail)}">
+                <label for="carta-contato-email">E-mail</label>
+                <input type="email" id="carta-contato-email" value="${escapeHtml(d.contatoEmail)}" placeholder="(opcional)">
             </div>
             <div class="form-group">
-                <label for="carta-contato-telefone">Telefone do contato</label>
-                <input type="text" id="carta-contato-telefone" value="${escapeHtml(d.contatoTelefone)}">
+                <label for="carta-contato-telefone">Telefone</label>
+                <input type="text" id="carta-contato-telefone" value="${escapeHtml(d.contatoTelefone)}" placeholder="(opcional)">
             </div>
 
-            <div class="form-group full-width"><hr></div>
+            <p class="mnt-carta-form-sec full-width">Unidade</p>
             <div class="form-group full-width">
                 <label for="carta-unidade">Unidade</label>
                 <input type="text" id="carta-unidade" value="${escapeHtml(d.unidadeNome)}" placeholder="Ex.: TOMOSON - Centro de Diagnósticos por Imagem">
@@ -1320,70 +1518,174 @@ async function renderCartaFormPage(record, options) {
                 <input type="text" id="carta-cnpj" value="${escapeHtml(d.cnpj)}">
             </div>
 
-            <div class="form-group full-width"><hr></div>
+            <p class="mnt-carta-form-sec full-width">Datas da visita</p>
             <div class="form-group full-width">
-                <label for="carta-datas-visitas">Datas da Visitas (uma por linha)</label>
-                <textarea id="carta-datas-visitas" rows="3" placeholder="28/09/2026">${escapeHtml(d.datasVisitas.join('\n'))}</textarea>
-            </div>
-            <div class="form-group full-width">
-                <label for="carta-produtos">Produtos aferidos (uma linha por produto)</label>
-                <textarea id="carta-produtos" rows="4" placeholder="TASKI PROFI: aferido na diluição 1/50">${escapeHtml(d.produtosAferidos.join('\n'))}</textarea>
+                <div class="mnt-carta-chips" id="carta-datas-chips"></div>
+                <div class="mnt-carta-add-data">
+                    <input type="date" id="carta-nova-data" aria-label="Nova data da visita">
+                    <button type="button" class="mnt-carta-add" id="carta-add-data">+ Adicionar data</button>
+                </div>
             </div>
 
-            <div class="form-group full-width"><hr></div>
+            <p class="mnt-carta-form-sec full-width">Produtos aferidos</p>
+            <div class="form-group full-width">
+                <p class="helper-text" style="margin:0 0 0.4rem;text-align:left">O produto sai em negrito; a diluição (ex.: 1/50) também.</p>
+                <div id="carta-produtos">${(d.produtosAferidos.length ? d.produtosAferidos : ['']).map(cartaProdutoRowHtml).join('')}</div>
+                <button type="button" class="mnt-carta-add" id="carta-add-produto">+ Adicionar produto</button>
+            </div>
+
+            <p class="mnt-carta-form-sec full-width">Assinatura</p>
             <div class="form-group">
-                <label for="carta-assinante-nome">Assinante</label>
+                <label for="carta-assinante-nome">Nome</label>
                 <input type="text" id="carta-assinante-nome" value="${escapeHtml(d.assinanteNome)}">
             </div>
             <div class="form-group">
                 <label for="carta-assinante-cargo">Cargo</label>
                 <input type="text" id="carta-assinante-cargo" value="${escapeHtml(d.assinanteCargo)}">
             </div>
+            <div class="form-group full-width">
+                <label class="mnt-carta-check"><input type="checkbox" id="carta-carimbo" ${d.incluirCarimbo !== false ? 'checked' : ''}> Incluir carimbo e assinatura da Hygicare</label>
+            </div>
 
-            <div class="form-actions full-width">
+            <div class="form-actions full-width mnt-carta-actions">
                 <button type="button" class="secondary-button" id="cancel-carta-form">Cancelar</button>
+                <button type="button" class="secondary-button" id="save-carta-modelo">💾 Salvar como modelo</button>
                 <button type="submit" id="save-carta" class="primary-button">Salvar</button>
             </div>
         </form>
     `;
 
+    const $ = (id) => document.getElementById(id);
+
+    const renderDatas = () => {
+        $('carta-datas-chips').innerHTML = datas.length
+            ? datas.map((x, i) => `<span class="mnt-carta-chip">${escapeHtml(x)}<button type="button" class="mnt-carta-x" data-idx="${i}" aria-label="Remover data">×</button></span>`).join('')
+            : '<span class="helper-text">Nenhuma data adicionada.</span>';
+        $('carta-datas-chips').querySelectorAll('[data-idx]').forEach((btn) => {
+            btn.addEventListener('click', () => { datas.splice(Number(btn.dataset.idx), 1); renderDatas(); });
+        });
+    };
+    renderDatas();
+    $('carta-add-data').addEventListener('click', () => {
+        const v = cartaDataDoInput($('carta-nova-data').value);
+        if (!v) { showToast('Escolha a data no campo ao lado.', true); return; }
+        if (!datas.includes(v)) datas.push(v);
+        datas.sort((a, b) => cartaDataParaInput(a).localeCompare(cartaDataParaInput(b)));
+        $('carta-nova-data').value = '';
+        renderDatas();
+    });
+
+    const produtosEl = $('carta-produtos');
+    const bindProdutoRemove = () => {
+        produtosEl.querySelectorAll('.carta-prod-remove').forEach((btn) => {
+            btn.onclick = () => {
+                btn.closest('.mnt-carta-prod-row').remove();
+                if (!produtosEl.children.length) { produtosEl.insertAdjacentHTML('beforeend', cartaProdutoRowHtml('')); bindProdutoRemove(); }
+            };
+        });
+    };
+    bindProdutoRemove();
+    $('carta-add-produto').addEventListener('click', () => {
+        produtosEl.insertAdjacentHTML('beforeend', cartaProdutoRowHtml(''));
+        bindProdutoRemove();
+        produtosEl.lastElementChild.querySelector('input').focus();
+    });
+
+    const setVal = (id, v) => { $(id).value = v || ''; };
+    const aplicarModelo = (mo) => {
+        const md = { ...DADOS_CARTA_PADRAO(), ...(mo.dados || {}) };
+        if (mo.cliente) setVal('carta-cliente', mo.cliente);
+        if (mo.cidade && !$('carta-cidade').value.trim()) setVal('carta-cidade', mo.cidade);
+        setVal('carta-destinatario', md.destinatario);
+        setVal('carta-contato', md.contato);
+        setVal('carta-contato-email', md.contatoEmail);
+        setVal('carta-contato-telefone', md.contatoTelefone);
+        setVal('carta-unidade', md.unidadeNome);
+        setVal('carta-endereco', md.endereco);
+        setVal('carta-cnpj', md.cnpj);
+        setVal('carta-assinante-nome', md.assinanteNome);
+        setVal('carta-assinante-cargo', md.assinanteCargo);
+        $('carta-carimbo').checked = md.incluirCarimbo !== false;
+        produtosEl.innerHTML = (md.produtosAferidos.length ? md.produtosAferidos : ['']).map(cartaProdutoRowHtml).join('');
+        bindProdutoRemove();
+    };
+    if (modeloAtual) {
+        aplicarModelo(modeloAtual);
+        if ($('carta-modelo')) $('carta-modelo').value = modeloAtual.id;
+    }
+    $('carta-modelo')?.addEventListener('change', (e) => {
+        const mo = modelos.find((x) => x.id === e.target.value);
+        modeloAtual = mo || null;
+        if (mo) aplicarModelo(mo);
+    });
+
     initializeSearchableInput({
-        input: document.getElementById('carta-cliente'), menu: document.getElementById('carta-cliente-menu'),
+        input: $('carta-cliente'), menu: $('carta-cliente-menu'),
         items: clientes.map(clienteSearchItem), allowFreeText: true,
         onSelect: (nome) => {
             const c = findClienteByNome(clientes, nome);
-            if (c && c.cidade) document.getElementById('carta-cidade').value = c.cidade;
+            if (c && c.cidade) $('carta-cidade').value = c.cidade;
+        }
+    });
+
+    const coletarDados = () => ({
+        destinatario: $('carta-destinatario').value.trim(),
+        contato: $('carta-contato').value.trim(),
+        contatoEmail: $('carta-contato-email').value.trim(),
+        contatoTelefone: $('carta-contato-telefone').value.trim(),
+        unidadeNome: $('carta-unidade').value.trim(),
+        endereco: $('carta-endereco').value.trim(),
+        cnpj: $('carta-cnpj').value.trim(),
+        documentoData: cartaDataDoInput($('carta-data-doc').value),
+        datasVisitas: datas.slice(),
+        produtosAferidos: Array.from(produtosEl.querySelectorAll('.mnt-carta-prod-row'))
+            .map((row) => joinProdutoCarta(row.querySelector('.carta-prod-nome').value, row.querySelector('.carta-prod-desc').value))
+            .filter(Boolean),
+        assinanteNome: $('carta-assinante-nome').value.trim(),
+        assinanteCargo: $('carta-assinante-cargo').value.trim(),
+        incluirCarimbo: $('carta-carimbo').checked
+    });
+
+    $('save-carta-modelo').addEventListener('click', async () => {
+        const clienteVal = $('carta-cliente').value.trim();
+        if (!clienteVal) { showToast('Informe o cliente antes de salvar o modelo.', true); return; }
+        const sugestao = (modeloAtual && modeloAtual.nome) || clienteVal;
+        const nome = await promptModeloNome(sugestao);
+        if (nome === null) return;
+        const btn = $('save-carta-modelo');
+        setSaving(true, btn, 'Salvando...');
+        const mesmoModelo = modeloAtual && modeloAtual.salvo && modeloAtual.nome === nome;
+        const r = await callAPI('saveManutencaoModelo', {
+            ...(mesmoModelo ? { id: modeloAtual.id } : {}),
+            cliente: clienteVal, nome, tipoRelatorio: 'carta',
+            itensTabela: JSON.stringify(coletarDados()), user: state.currentUser
+        }).catch(() => null);
+        setSaving(false, btn);
+        if (r && r.status === 'success') {
+            const novo = { id: String(r.modelo.id), nome: r.modelo.nome, cliente: r.modelo.cliente, dados: parseModeloCartaJson(r.modelo.itensTabela), salvo: true };
+            const idx = modelos.findIndex((x) => x.id === novo.id || (x.nome.toLowerCase() === novo.nome.toLowerCase()));
+            if (idx >= 0) modelos[idx] = novo; else modelos.push(novo);
+            modeloAtual = novo;
+            showToast('Modelo salvo.');
+        } else {
+            showToast((r && r.message) || 'Não foi possível salvar o modelo.', true);
         }
     });
 
     const goBack = () => navigateTo(isEdit ? 'manutencao-detail' : 'manutencao', isEdit ? { id: m.id } : {});
-    document.getElementById('back-carta-form').addEventListener('click', goBack);
-    document.getElementById('cancel-carta-form').addEventListener('click', goBack);
+    $('back-carta-form').addEventListener('click', goBack);
+    $('cancel-carta-form').addEventListener('click', goBack);
 
-    document.getElementById('carta-form').addEventListener('submit', async (event) => {
+    $('carta-form').addEventListener('submit', async (event) => {
         event.preventDefault();
-        const button = document.getElementById('save-carta');
-        const clienteVal = document.getElementById('carta-cliente').value.trim();
+        const button = $('save-carta');
+        const clienteVal = $('carta-cliente').value.trim();
         if (!clienteVal) { showToast('Informe o cliente.', true); return; }
+        const dadosCarta = coletarDados();
+        if (!dadosCarta.documentoData) { showToast('Informe a data do documento.', true); return; }
         setSaving(true, button, 'Salvando...');
-
-        const linhas = (id) => document.getElementById(id).value.split('\n').map((s) => s.trim()).filter(Boolean);
-        const dadosCarta = {
-            destinatario: document.getElementById('carta-destinatario').value.trim(),
-            contato: document.getElementById('carta-contato').value.trim(),
-            contatoEmail: document.getElementById('carta-contato-email').value.trim(),
-            contatoTelefone: document.getElementById('carta-contato-telefone').value.trim(),
-            unidadeNome: document.getElementById('carta-unidade').value.trim(),
-            endereco: document.getElementById('carta-endereco').value.trim(),
-            cnpj: document.getElementById('carta-cnpj').value.trim(),
-            documentoData: document.getElementById('carta-data-doc').value.trim(),
-            datasVisitas: linhas('carta-datas-visitas'),
-            produtosAferidos: linhas('carta-produtos'),
-            assinanteNome: document.getElementById('carta-assinante-nome').value.trim(),
-            assinanteCargo: document.getElementById('carta-assinante-cargo').value.trim()
-        };
         const payload = {
-            cliente: clienteVal, cidade: document.getElementById('carta-cidade').value.trim(),
+            cliente: clienteVal, cidade: $('carta-cidade').value.trim(),
             tipoRelatorio: 'carta', dadosCarta, user: state.currentUser
         };
 
@@ -1482,7 +1784,10 @@ export async function renderManutencaoFormPage(record, options) {
     ]);
     const cidades = (fdResult.data && fdResult.data.cidades) || [];
     const clientes = (fdResult.data && fdResult.data.clientes) || [];
-    const modelos = (modelosResult.status === 'success' ? modelosResult.modelos : []) || [];
+    // Modelos de Carta de Visita moram na mesma planilha, mas não têm tabela
+    // de itens — não fazem sentido no "Carregar modelo" daqui.
+    const modelos = ((modelosResult.status === 'success' ? modelosResult.modelos : []) || [])
+        .filter((mo) => mo.tipoRelatorio !== 'carta');
 
     const itensIniciais = isEdit
         ? safeParseJson(m.itensTabela, [])
