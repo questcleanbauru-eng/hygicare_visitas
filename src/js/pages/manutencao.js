@@ -1406,10 +1406,18 @@ function cartaHoje() {
 
 function cartaProdutoRowHtml(linha) {
     const { nome, descricao } = splitProdutoCarta(linha);
+    // Um cartão por produto (título "Produto N" via contador de CSS) — no
+    // celular os dois campos empilhados soltos não deixavam claro qual
+    // descrição era de qual produto.
     return `<div class="mnt-carta-prod-row">
-        <input type="text" class="carta-prod-nome" value="${escapeHtml(nome)}" placeholder="Produto (ex.: TASKI PROFI)">
-        <input type="text" class="carta-prod-desc" value="${escapeHtml(descricao)}" placeholder="ex.: aferido na diluição 1/50">
-        <button type="button" class="mnt-carta-x carta-prod-remove" aria-label="Remover produto">×</button>
+        <div class="mnt-carta-prod-head">
+            <span class="mnt-carta-prod-num"></span>
+            <button type="button" class="mnt-carta-x carta-prod-remove" aria-label="Remover produto">×</button>
+        </div>
+        <div class="mnt-carta-prod-fields">
+            <label><span>Produto</span><input type="text" class="carta-prod-nome" value="${escapeHtml(nome)}" placeholder="ex.: TASKI PROFI"></label>
+            <label><span>Como foi aferido</span><input type="text" class="carta-prod-desc" value="${escapeHtml(descricao)}" placeholder="ex.: aferido na diluição 1/50"></label>
+        </div>
     </div>`;
 }
 
@@ -1523,10 +1531,10 @@ async function renderCartaFormPage(record, options) {
             <p class="mnt-carta-form-sec full-width">Datas da visita</p>
             <div class="form-group full-width">
                 <div class="mnt-carta-chips" id="carta-datas-chips"></div>
-                <div class="mnt-carta-add-data">
-                    <input type="date" id="carta-nova-data" aria-label="Nova data da visita">
-                    <button type="button" class="mnt-carta-add" id="carta-add-data">+ Adicionar data</button>
-                </div>
+                <label class="mnt-carta-add mnt-carta-add-data">
+                    📅 Adicionar data
+                    <input type="date" id="carta-nova-data" aria-label="Adicionar data da visita">
+                </label>
             </div>
 
             <p class="mnt-carta-form-sec full-width">Produtos aferidos</p>
@@ -1568,12 +1576,15 @@ async function renderCartaFormPage(record, options) {
         });
     };
     renderDatas();
-    $('carta-add-data').addEventListener('click', () => {
-        const v = cartaDataDoInput($('carta-nova-data').value);
-        if (!v) { showToast('Escolha a data no campo ao lado.', true); return; }
+    // O botão "Adicionar data" é o próprio input de data (invisível por
+    // cima do botão): tocar abre o calendário do aparelho e escolher o dia
+    // já adiciona — sem campo vazio solto na tela.
+    $('carta-nova-data').addEventListener('change', (e) => {
+        const v = cartaDataDoInput(e.target.value);
+        if (!v) return;
         if (!datas.includes(v)) datas.push(v);
         datas.sort((a, b) => cartaDataParaInput(a).localeCompare(cartaDataParaInput(b)));
-        $('carta-nova-data').value = '';
+        setTimeout(() => { e.target.value = ''; }, 0);
         renderDatas();
     });
 
