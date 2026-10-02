@@ -250,15 +250,18 @@ export function fillManutencaoContent(mainContent, itens) {
             <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
             <div class="header-actions-group mnt-header-actions-row">
                 <div class="mnt-actions-desktop">
-                    <button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="btn-ver-modelos">📋 Modelos</button>
-                    ${isAdmGer ? `<button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
-                    <span class="mnt-header-divider" aria-hidden="true"></span>
-                    <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. SPSP</button>
-                    <button type="button" class="primary-btn" id="btn-new-rel-tecnico-paulo" title="Variante do Relatório SPSP com assinatura por desenho">✍️ SPSP - Paulo</button>
-                    <button type="button" class="primary-btn" id="btn-new-manutencao" title="Com tabela de aferição de vazão">🔧 Rel. de Aferição</button>
-                    <button type="button" class="primary-btn" id="btn-new-geral" title="Sem tabela de aferição">📄 Rel. Geral</button>
-                    <button type="button" class="primary-btn" id="btn-new-biopet" title="Inspeção de concentração, com tipo de manutenção e tabela de vazão">🧪 Rel. BIOPET</button>
-                    ${state.canRelatorioEspecial ? `<button type="button" class="primary-btn" id="btn-new-carta" title="Carta formal de visita e aferição — acesso restrito">✉️ Carta de Visita</button>` : ''}
+                    <div class="mnt-actions-row mnt-actions-row-tools">
+                        <button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="btn-ver-modelos">📋 Modelos</button>
+                        ${isAdmGer ? `<button type="button" class="mnt-header-btn mnt-header-btn-secondary" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
+                    </div>
+                    <div class="mnt-actions-row mnt-actions-row-reports">
+                        <button type="button" class="primary-btn" id="btn-new-rel-tecnico" title="Atendimento ao Grupo SPSP">📋 Rel. SPSP</button>
+                        <button type="button" class="primary-btn" id="btn-new-rel-tecnico-paulo" title="Variante do Relatório SPSP com assinatura por desenho">✍️ SPSP - Paulo</button>
+                        <button type="button" class="primary-btn" id="btn-new-manutencao" title="Com tabela de aferição de vazão">🔧 Rel. de Aferição</button>
+                        <button type="button" class="primary-btn" id="btn-new-geral" title="Sem tabela de aferição">📄 Rel. Geral</button>
+                        <button type="button" class="primary-btn" id="btn-new-biopet" title="Inspeção de concentração, com tipo de manutenção e tabela de vazão">🧪 Rel. BIOPET</button>
+                        ${state.canRelatorioEspecial ? `<button type="button" class="primary-btn" id="btn-new-carta" title="Carta formal de visita e aferição — acesso restrito">✉️ Carta de Visita</button>` : ''}
+                    </div>
                 </div>
                 <div class="mnt-actions-mobile">
                     <button type="button" class="mnt-header-icon-btn" id="btn-ver-modelos-m" aria-label="Modelos" title="Modelos">📋</button>

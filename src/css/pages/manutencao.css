@@ -398,13 +398,6 @@
 }
 .mnt-header-btn-secondary:hover { background: var(--bg); border-color: var(--text-muted); }
 
-.mnt-header-divider {
-    width: 1px;
-    align-self: stretch;
-    min-height: 38px;
-    background: var(--border);
-}
-
 /* .primary-btn (Rel. SPSP/SPSP - Paulo/Rel. de Aferição/Rel. Geral) já vem
    com pill + peso de fonte do padrão do app — só ajusta altura/padding
    pra bater com os botões secundários ao lado (~38px, gap de 8px) e
@@ -429,7 +422,15 @@
    "+ Novo" que abre a folha (.mnt-sheet-*) com as 4 opções. No desktop a
    tela é larga o bastante, então fica a linha completa de sempre — as
    duas variantes ficam no HTML o tempo todo, só uma é exibida por vez. */
-.mnt-actions-desktop { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+/* Dois grupos de botão (ferramentas vs criar relatório) em linhas
+   separadas — antes ficavam todos no mesmo flex-wrap junto com um
+   divisor, então quando "Carta de Visita" não cabia, ele quebrava
+   sozinho pra uma 2ª linha alinhado à esquerda embaixo de "Modelos",
+   meio solto/desalinhado do resto dos botões escuros. Com linhas
+   próprias, cada grupo quebra dentro de si mesmo (botões do mesmo
+   estilo), sem misturar com o grupo vizinho. */
+.mnt-actions-desktop { display: flex; flex-direction: column; gap: 0.5rem; }
+.mnt-actions-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .mnt-actions-mobile { display: none; align-items: center; gap: 0.5rem; }
 
 @media (max-width: 640px) {
