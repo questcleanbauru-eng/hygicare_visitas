@@ -119,17 +119,6 @@ function propStatusKind(status) {
     return 'aberta';
 }
 
-// Soma um número por chave (vendedor, status, etc.) e devolve linhas
-// ordenadas por valor desc.
-function sumBy(items, keyFn, valFn) {
-    const acc = {};
-    items.forEach((it) => {
-        const k = keyFn(it) || '-';
-        acc[k] = (acc[k] || 0) + (valFn(it) || 0);
-    });
-    return Object.entries(acc).sort((a, b) => b[1] - a[1]);
-}
-
 // Pega as N maiores entradas de um countBy e agrupa o resto numa linha
 // "Outras (X)" — pra listas por cidade/tipo não ficarem gigantes.
 function topN(entries, n = 8, restLabel = 'Outras') {
@@ -225,150 +214,410 @@ function inRange(date, start, end) {
     return date >= start && date <= end;
 }
 
+function reportTopRow(index, label, value) {
+    return `
+        <div class="report-top-row">
+            <span class="report-top-rank">${index + 1}</span>
+            <span class="report-top-label">${escapeHtml(label)}</span>
+            <span class="report-top-value">${value}</span>
+        </div>
+    `;
+}
+
+function reportBar(label, value, total) {
+    const pct = total ? Math.round((value / total) * 100) : 0;
+    return `
+        <div class="report-bar-row">
+            <span class="report-bar-label">${escapeHtml(titleCase(label))}</span>
+            <div class="report-bar-track"><div class="report-bar-fill" style="width:${pct}%"></div></div>
+            <span class="report-bar-value">${value}</span>
+        </div>
+    `;
+}
+
+// ── Hub — 3 telas separadas (Visitas/Propostas/Funil), cada uma com seus
+// próprios filtros, em vez de uma página só com tudo junto e "Ir para"
+// rolando a mesma tela. ──────────────────────────────────────────────────
 export async function renderReportPage() {
     ensureStyles('report');
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatório' }])}
-        <div class="page-header no-print">
-            <div><h2>Relatório de KPIs</h2><p class="page-subtitle">Resumo de visitas, propostas e funil</p></div>
-            <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+        <div class="page-header">
+            <div><h2>Relatórios</h2><p class="page-subtitle">Escolha o que quer ver</p></div>
         </div>
-        <div id="report-body">${loadingState('📊', 'Carregando relatório...')}</div>
+        <div class="report-hub-grid">
+            <button type="button" class="card report-hub-card" id="hub-visitas">
+                <strong>📋 Visitas</strong>
+                <span>Total, por tipo, por vendedor, por cidade, clientes mais visitados.</span>
+            </button>
+            <button type="button" class="card report-hub-card" id="hub-propostas">
+                <strong>📄 Propostas</strong>
+                <span>Conversão, por vendedor, por status, por foco, atrasadas e vencendo.</span>
+            </button>
+            <button type="button" class="card report-hub-card" id="hub-funil">
+                <strong>📊 Funil</strong>
+                <span>Pipeline, forecast, por vendedor, por status, previsão de fechamento.</span>
+            </button>
+        </div>
     `;
-    document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
-
-    const isAdmGer = isAdminOrGerenteUser();
-    const [visitsMod, proposalsMod, funilMod] = await Promise.all([
-        import('./visits.js'), import('./proposals.js'), import('./funil.js')
-    ]);
-
-    // As 3 buscas do relatório pedem o histórico inteiro (dias:0) — pesadas.
-    // Em paralelo, numa função serverless fria, elas competem pelo tempo/cota
-    // do Sheets e alguma estoura o limite (erro "não foi possível carregar").
-    // Sequencial + 1 retry: cada uma pega o orçamento inteiro e ainda aquece
-    // o cache do servidor pra próxima.
-    const fetchWithRetry = async (fn, tries = 2) => {
-        let last = { status: 'error', message: 'Sem resposta do servidor.' };
-        for (let i = 0; i < tries; i++) {
-            try { last = await fn(); } catch (e) { last = { status: 'error', message: e && e.message }; }
-            if (last && last.status === 'success') return last;
-            if (i < tries - 1) await new Promise((r) => setTimeout(r, 1500));
-        }
-        return last;
-    };
-    const visitsRes = await fetchWithRetry(() => visitsMod.getVisits(0));
-    const proposalsRes = await fetchWithRetry(() => proposalsMod.getProposals(0));
-    const funilRes = await fetchWithRetry(() => funilMod.getFunil(0));
-
-    state.reportPeriod = state.reportPeriod || 'mes-atual';
-    state.reportCustomFrom = state.reportCustomFrom || '';
-    state.reportCustomTo = state.reportCustomTo || '';
-    if (!Array.isArray(state.reportPropStatus)) { state.reportPropStatus = []; }
-    if (!Array.isArray(state.reportFunilStatus)) { state.reportFunilStatus = []; }
-    state.reportCollapsedSections = state.reportCollapsedSections || [];
-    if (state.reportFilterCollapsed === undefined) { state.reportFilterCollapsed = null; }
-
-    if (visitsRes.status !== 'success' || proposalsRes.status !== 'success' || funilRes.status !== 'success') {
-        // Não renderiza um relatório "zerado" quando a busca falhou de
-        // verdade — daria a entender que não houve nenhuma atividade.
-        const falhas = [
-            visitsRes.status !== 'success' ? 'Visitas' : null,
-            proposalsRes.status !== 'success' ? 'Propostas' : null,
-            funilRes.status !== 'success' ? 'Funil' : null
-        ].filter(Boolean);
-        const motivo = String(visitsRes.message || proposalsRes.message || funilRes.message || '').trim();
-        const body = document.getElementById('report-body');
-        if (body) {
-            body.innerHTML = `<div class="empty-state">
-                <span class="empty-state-icon">⚠️</span>
-                <p>Não foi possível carregar: ${falhas.join(', ')}.${motivo ? `<br><span class="helper-text">${escapeHtml(motivo)}</span>` : ''}</p>
-                <button type="button" class="secondary-button" id="report-retry-btn">Tentar novamente</button>
-            </div>`;
-            document.getElementById('report-retry-btn')?.addEventListener('click', () => navigateTo('report'));
-        }
-        return;
-    }
-
-    const allVisits = visitsRes.visits.map(normalizeVisit);
-    const allProposals = proposalsRes.proposals.map(normalizeProposal);
-    const allFunil = funilRes.funil || [];
-
-    renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+    document.getElementById('hub-visitas').addEventListener('click', () => navigateTo('report-visitas'));
+    document.getElementById('hub-propostas').addEventListener('click', () => navigateTo('report-propostas'));
+    document.getElementById('hub-funil').addEventListener('click', () => navigateTo('report-funil'));
 }
 
-function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer) {
+// Sequencial + 1 retry: as buscas pedem o histórico inteiro (dias:0) —
+// pesadas, e numa função serverless fria disputam tempo/cota do Sheets.
+async function fetchWithRetry(fn, tries = 2) {
+    let last = { status: 'error', message: 'Sem resposta do servidor.' };
+    for (let i = 0; i < tries; i++) {
+        try { last = await fn(); } catch (e) { last = { status: 'error', message: e && e.message }; }
+        if (last && last.status === 'success') return last;
+        if (i < tries - 1) await new Promise((r) => setTimeout(r, 1500));
+    }
+    return last;
+}
+
+function reportErrorState(body, label, message, retryPage) {
+    body.innerHTML = `<div class="empty-state">
+        <span class="empty-state-icon">⚠️</span>
+        <p>Não foi possível carregar: ${escapeHtml(label)}.${message ? `<br><span class="helper-text">${escapeHtml(message)}</span>` : ''}</p>
+        <button type="button" class="secondary-button" id="report-retry-btn">Tentar novamente</button>
+    </div>`;
+    document.getElementById('report-retry-btn')?.addEventListener('click', () => navigateTo(retryPage));
+}
+
+const PERIOD_LABELS = {
+    'semana-atual': 'Semana atual', 'mes-atual': 'Mês atual', 'ultimos-3m': 'Últimos 3 meses',
+    'tudo': 'Tudo', 'personalizado': 'Período personalizado'
+};
+
+// Monta o HTML do bloco de filtros comum às 3 telas (Período/Gerência/
+// Vendedor/Cidade) + um slot (extraHtml) pro que for específico de cada
+// uma (Tipo da Visita / Status+Foco / Status+Aplicação).
+function filterPanelHtml({ period, isAdmin, gerencia, gerenciasDisponiveis, vendedor, vendedoresDisponiveis, cidade, cidadesDisponiveis, customFrom, customTo, extraHtml }) {
+    return `
+        <div class="pill-row">
+            ${Object.keys(PERIOD_LABELS).map((k) => `<button type="button" class="pill${period === k ? ' active' : ''}" data-period="${k}">${PERIOD_LABELS[k]}</button>`).join('')}
+        </div>
+        <div class="visits-filter-grid" id="report-filter-panel">
+            ${period === 'personalizado' ? `
+            <div class="report-custom-range">
+                <div class="form-group"><label for="report-date-from">De</label><input type="date" id="report-date-from" value="${escapeHtml(customFrom)}"></div>
+                <div class="form-group"><label for="report-date-to">Até</label><input type="date" id="report-date-to" value="${escapeHtml(customTo)}"></div>
+            </div>` : ''}
+            <div class="report-custom-range">
+                ${isAdmin ? `
+                <div class="form-group">
+                    <label for="report-gerencia">Gerência</label>
+                    <select id="report-gerencia">
+                        <option value="">Todas</option>
+                        ${gerenciasDisponiveis.map((g) => `<option value="${escapeHtml(g)}" ${gerencia === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                    </select>
+                </div>` : ''}
+                <div class="form-group">
+                    <label for="report-vendedor">Vendedor</label>
+                    <select id="report-vendedor">
+                        <option value="">Todos</option>
+                        ${vendedoresDisponiveis.map((v) => `<option value="${escapeHtml(v)}" ${vendedor === v ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="report-cidade">Cidade</label>
+                    <select id="report-cidade">
+                        <option value="">Todas</option>
+                        ${cidadesDisponiveis.map((c) => `<option value="${escapeHtml(c)}" ${cidade === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            ${extraHtml || ''}
+        </div>
+    `;
+}
+
+// Liga os eventos do bloco de filtros comum (período/gerência/vendedor/
+// cidade/limpar/ocultar) — cada tela passa suas próprias chaves de state e
+// sua função de re-render.
+function wireFilterPanel({ mainContent, rerender, keys, extraClear }) {
+    mainContent.querySelectorAll('[data-period]').forEach((btn) => {
+        btn.addEventListener('click', () => { state[keys.period] = btn.dataset.period; rerender(); });
+    });
+    document.getElementById('report-date-from')?.addEventListener('change', (e) => { state[keys.customFrom] = e.target.value; rerender(); });
+    document.getElementById('report-date-to')?.addEventListener('change', (e) => { state[keys.customTo] = e.target.value; rerender(); });
+    document.getElementById('report-gerencia')?.addEventListener('change', (e) => { state[keys.gerencia] = e.target.value; rerender(); });
+    document.getElementById('report-vendedor')?.addEventListener('change', (e) => { state[keys.vendedor] = e.target.value; rerender(); });
+    document.getElementById('report-cidade')?.addEventListener('change', (e) => { state[keys.cidade] = e.target.value; rerender(); });
+    document.getElementById('report-filter-clear')?.addEventListener('click', () => {
+        state[keys.customFrom] = ''; state[keys.customTo] = ''; state[keys.gerencia] = '';
+        state[keys.vendedor] = ''; state[keys.cidade] = '';
+        if (extraClear) extraClear();
+        rerender();
+    });
+    const filterToggle = document.getElementById('report-filter-toggle');
+    const filterPanel = document.getElementById('report-filter-panel');
+    if (filterToggle && filterPanel) {
+        const isMobile = window.matchMedia('(max-width: 640px)').matches;
+        if (state[keys.filterCollapsed] === undefined || state[keys.filterCollapsed] === null) { state[keys.filterCollapsed] = isMobile; }
+        let collapsed = state[keys.filterCollapsed];
+        filterPanel.classList.toggle('collapsed', collapsed);
+        filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
+        filterToggle.addEventListener('click', () => {
+            collapsed = !collapsed;
+            state[keys.filterCollapsed] = collapsed;
+            filterPanel.classList.toggle('collapsed', collapsed);
+            filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
+        });
+    }
+}
+
+// Resolve o range de datas (início/fim) a partir do período selecionado —
+// igual nas 3 telas.
+function resolvePeriodRange(period, customFrom, customTo) {
+    if (period === 'personalizado') {
+        return {
+            start: customFrom ? new Date(customFrom + 'T00:00:00') : null,
+            end: customTo ? new Date(customTo + 'T23:59:59') : null
+        };
+    }
+    return getDateRangeForPeriod(period);
+}
+
+function initMultiSelectFilter(id, items, selectedArr, onChange) {
+    if (!document.getElementById(id)) return;
+    initializeSearchableInput({
+        input: document.getElementById(id),
+        menu: document.getElementById(id + '-menu'),
+        items,
+        multiSelect: true,
+        maxSelections: 99,
+        selectedItems: selectedArr,
+        selectedContainer: document.getElementById(id + '-selected'),
+        selectionLabel: 'item',
+        onSelectionChange: onChange
+    });
+}
+
+// ── Visitas ───────────────────────────────────────────────────────────
+export async function renderReportVisitasPage() {
+    ensureStyles('report');
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
+        ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatórios', page: 'report' }, { label: 'Visitas' }])}
+        <div class="page-header no-print">
+            <div><h2>📋 Relatório de Visitas</h2></div>
+            <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+        </div>
+        <div id="report-body">${loadingState('📋', 'Carregando relatório...')}</div>
+    `;
+    document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
+    const isAdmGer = isAdminOrGerenteUser();
+
+    const visitsMod = await import('./visits.js');
+    const res = await fetchWithRetry(() => visitsMod.getVisits(0));
+    const body = document.getElementById('report-body');
+    if (res.status !== 'success') { reportErrorState(body, 'Visitas', res.message, 'report-visitas'); return; }
+    const allVisits = res.visits.map(normalizeVisit);
+
+    state.rptVisPeriod = state.rptVisPeriod || 'mes-atual';
+    state.rptVisCustomFrom = state.rptVisCustomFrom || '';
+    state.rptVisCustomTo = state.rptVisCustomTo || '';
+    if (!Array.isArray(state.rptVisTipo)) state.rptVisTipo = [];
+
+    renderReportVisitasBody(mainContent, allVisits, isAdmGer);
+}
+
+function renderReportVisitasBody(mainContent, allVisits, isAdmGer) {
     const body = document.getElementById('report-body');
     if (!body) return;
-
     const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
-    const gerencia = state.reportGerencia || '';
-    const area = state.reportArea || '';
-    const propStatus = Array.isArray(state.reportPropStatus) ? state.reportPropStatus : [];
-    const funilStatus = Array.isArray(state.reportFunilStatus) ? state.reportFunilStatus : [];
+    const gerencia = state.rptVisGerencia || '';
+    const vendedor = state.rptVisVendedor || '';
+    const cidade = state.rptVisCidade || '';
+    const tipoFiltro = Array.isArray(state.rptVisTipo) ? state.rptVisTipo : [];
 
-    // Opções vêm do conjunto INTEIRO (sem filtro de período), pra não ficar
-    // reordenando/sumindo do dropdown conforme o usuário troca o período.
-    const gerenciasDisponiveis = Array.from(new Set([
-        ...allVisits.map((v) => v.gerencia), ...allProposals.map((p) => p.gerencia), ...allFunil.map((f) => f.gerencia)
-    ].map((g) => titleCase(g)).filter(Boolean))).sort();
-    // "Área de Atuação" só existe em Visitas (areaAtuacao) e Funil (atuacao)
-    // — Propostas nunca teve esse campo, então o filtro não afeta a seção
-    // de Propostas do relatório.
-    const areasDisponiveis = Array.from(new Set([
-        ...allVisits.map((v) => v.areaAtuacao), ...allFunil.map((f) => f.atuacao)
-    ].map((a) => titleCase(a)).filter(Boolean))).sort();
-    const propStatusDisponiveis = Array.from(new Set(allProposals.map((p) => p.status).filter(Boolean))).sort();
-    const funilStatusDisponiveis = Array.from(new Set(allFunil.map((f) => f.status).filter(Boolean))).sort();
+    const gerenciasDisponiveis = Array.from(new Set(allVisits.map((v) => titleCase(v.gerencia)).filter(Boolean))).sort();
+    const vendedoresDisponiveis = Array.from(new Set(allVisits.map((v) => titleCase(v.vendedorGerente)).filter(Boolean))).sort();
+    const cidadesDisponiveis = Array.from(new Set(allVisits.map((v) => titleCase(v.cidade)).filter(Boolean))).sort();
+    const tiposDisponiveis = Array.from(new Set(allVisits.map((v) => v.tipoVisita).filter(Boolean))).sort();
 
-    const period = state.reportPeriod;
-    let start = null, end = null;
-    if (period === 'personalizado') {
-        start = state.reportCustomFrom ? new Date(state.reportCustomFrom + 'T00:00:00') : null;
-        end = state.reportCustomTo ? new Date(state.reportCustomTo + 'T23:59:59') : null;
-    } else {
-        const range = getDateRangeForPeriod(period);
-        start = range.start; end = range.end;
-    }
+    const period = state.rptVisPeriod;
+    const { start, end } = resolvePeriodRange(period, state.rptVisCustomFrom, state.rptVisCustomTo);
 
     const visits = allVisits.filter((v) => inRange(parseDisplayDate(v.dataVisita), start, end)
-        && (!gerencia || titleCase(v.gerencia) === gerencia) && (!area || titleCase(v.areaAtuacao) === area));
-    const proposals = allProposals.filter((p) => inRange(parseDisplayDate(p.data), start, end)
-        && (!gerencia || titleCase(p.gerencia) === gerencia) && (!propStatus.length || propStatus.includes(p.status)));
-    const funil = allFunil.filter((f) => inRange(parseDisplayDate(f.data), start, end)
-        && (!gerencia || titleCase(f.gerencia) === gerencia) && (!area || titleCase(f.atuacao) === area)
-        && (!funilStatus.length || funilStatus.includes(f.status)));
+        && (!gerencia || titleCase(v.gerencia) === gerencia)
+        && (!vendedor || titleCase(v.vendedorGerente) === vendedor)
+        && (!cidade || titleCase(v.cidade) === cidade)
+        && (!tipoFiltro.length || tipoFiltro.includes(v.tipoVisita)));
 
     const visitsByType = countBy(visits, (v) => v.tipoVisita);
     const visitsByVendor = countBy(visits, (v) => titleCase(v.vendedorGerente));
     const visitsByCidade = countBy(visits, (v) => titleCase(v.cidade));
-
     const topClientesVisitas = countBy(visits, (v) => titleCase(v.cliente)).slice(0, 5);
     const topTiposComCliente = visitsByType.slice(0, 5).map(([tipo]) => {
         const clientesDoTipo = countBy(visits.filter((v) => (v.tipoVisita || '-') === tipo), (v) => titleCase(v.cliente));
-        // clienteCount é quantas visitas DESSE tipo foram pra esse cliente
-        // específico — não o total do tipo somando todos os clientes, que
-        // dava a entender (errado) que o cliente sozinho tinha aquele total.
         return { tipo, cliente: clientesDoTipo[0] ? clientesDoTipo[0][0] : null, clienteCount: clientesDoTipo[0] ? clientesDoTipo[0][1] : 0 };
     });
+    const periodLabel = PERIOD_LABELS[period] || 'Mês atual';
+
+    body.innerHTML = `
+        <div class="report-print-header">
+            <h2>Relatório de Visitas — ${escapeHtml(periodLabel)}</h2>
+            <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
+        <div class="card report-period-card no-print">
+            <div class="visits-filter-header">
+                <strong>Filtros</strong>
+                <div class="visits-filter-header-actions">
+                    <button type="button" class="text-link" id="report-filter-clear">Limpar</button>
+                    <button type="button" class="text-link" id="report-filter-toggle">Ocultar</button>
+                </div>
+            </div>
+            ${filterPanelHtml({
+                period, isAdmin, gerencia, gerenciasDisponiveis, vendedor, vendedoresDisponiveis, cidade, cidadesDisponiveis,
+                customFrom: state.rptVisCustomFrom, customTo: state.rptVisCustomTo,
+                extraHtml: tiposDisponiveis.length ? `
+                <div class="form-group report-status-filter">
+                    <label for="report-vis-tipo">Tipo da Visita <span class="report-status-hint">(marque um ou mais)</span></label>
+                    <div class="searchable-select">
+                        <input type="text" id="report-vis-tipo" placeholder="Todos" autocomplete="off">
+                        <div class="searchable-select-menu" id="report-vis-tipo-menu"></div>
+                    </div>
+                    <div class="selected-types" id="report-vis-tipo-selected" style="margin-top:0.3rem"></div>
+                </div>` : ''
+            })}
+        </div>
+
+        <div class="report-section">
+        <div class="report-section-head no-print">
+            <h3>📋 Visitas</h3>
+            <div class="report-section-actions">
+                <button type="button" class="text-link" id="pdf-visitas">📄 Resumo</button>
+                ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-visitas">📄 Por gerência/vendedor</button>' : ''}
+                <button type="button" class="text-link" id="csv-visitas">📥 Excel</button>
+            </div>
+        </div>
+        <div class="report-kpi-row">
+            <div class="report-kpi"><strong>${visits.length}</strong><span>Total no período</span></div>
+        </div>
+        ${visitsByType.length ? `<p class="report-subtitle">Por tipo (principais)</p><div class="report-bar-list">${topN(visitsByType, 10).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
+        ${isAdmGer && visitsByVendor.length ? `<p class="report-subtitle">Por vendedor</p><div class="report-bar-list">${topN(visitsByVendor, 15).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
+        ${visitsByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(visitsByCidade, 8).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
+        ${topClientesVisitas.length ? `<p class="report-subtitle">Top 5 clientes com mais visitas</p><div class="report-top-list">${topClientesVisitas.map(([cliente, total], i) => reportTopRow(i, cliente, total)).join('')}</div>` : ''}
+        ${topTiposComCliente.length ? `<p class="report-subtitle">Top 5 tipos de visita — cliente mais frequente</p><div class="report-top-list">${topTiposComCliente.map((t, i) => reportTopRow(i, titleCase(t.tipo) + (t.cliente ? ` — ${t.cliente}` : ''), t.clienteCount)).join('')}</div>` : ''}
+        </div>
+    `;
+
+    wireFilterPanel({
+        mainContent, rerender: () => renderReportVisitasBody(mainContent, allVisits, isAdmGer),
+        keys: { period: 'rptVisPeriod', customFrom: 'rptVisCustomFrom', customTo: 'rptVisCustomTo', gerencia: 'rptVisGerencia', vendedor: 'rptVisVendedor', cidade: 'rptVisCidade', filterCollapsed: 'rptVisFilterCollapsed' },
+        extraClear: () => { state.rptVisTipo = []; }
+    });
+    initMultiSelectFilter('report-vis-tipo', tiposDisponiveis, tipoFiltro, () => {
+        state.rptVisTipo = tipoFiltro.slice();
+        renderReportVisitasBody(mainContent, allVisits, isAdmGer);
+    });
+
+    document.getElementById('pdf-visitas')?.addEventListener('click', () => printReport(''));
+    document.getElementById('pdf-det-visitas')?.addEventListener('click', async () => {
+        if (!visits.length) { showToast('Nenhuma visita no período.', true); return; }
+        let visitsParaPdf = visits;
+        let gerenciaEscolhida = gerencia;
+        if (isAdmin && !gerencia && gerenciasDisponiveis.length > 1) {
+            const escolha = await pickGerenciaParaPdf(gerenciasDisponiveis);
+            if (escolha === null) return;
+            if (escolha) {
+                gerenciaEscolhida = escolha;
+                visitsParaPdf = visits.filter((v) => titleCase(v.gerencia) === escolha);
+                if (!visitsParaPdf.length) { showToast(`Nenhuma visita de "${escolha}" no período.`, true); return; }
+            }
+        }
+        printDetalhe('Visitas — detalhado por gerência e vendedor', `${escapeHtml(periodLabel)}${gerenciaEscolhida ? ' · ' + gerenciaEscolhida : ''} — ${visitsParaPdf.length} visita(s)`, groupedGerenciaVendorTables(
+            visitsParaPdf, (v) => v.gerencia, (v) => v.vendedorGerente, (v) => v.dataVisita,
+            ['Data', 'Cliente', 'Tipo da Visita', 'Cidade', 'Contato'],
+            (v) => [
+                escapeHtml(v.dataVisita || '-'), escapeHtml(titleCase(v.cliente) || '-'), escapeHtml(v.tipoVisita || '-'),
+                escapeHtml(titleCase(v.cidade) || '-'), escapeHtml(v.contato || '-')
+            ]
+        ));
+    });
+    document.getElementById('csv-visitas')?.addEventListener('click', () => {
+        const _stamp = new Date().toISOString().slice(0, 10);
+        const rows = visits.slice().sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0))
+            .map((v) => ({
+                data: v.dataVisita || '', vendedor: titleCase(v.vendedorGerente), gerencia: titleCase(v.gerencia),
+                cliente: titleCase(v.cliente), cidade: titleCase(v.cidade), tipoVisita: v.tipoVisita || '',
+                areaAtuacao: v.areaAtuacao || '', contato: v.contato || '', prospeccao: v.prospeccao || ''
+            }));
+        if (!rows.length) { showToast('Nenhuma visita no período.', true); return; }
+        downloadXLSX(rows, `visitas-${_stamp}.xlsx`, [
+            { key: 'data', label: 'Data', type: 'date' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
+            { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'tipoVisita', label: 'Tipo da Visita' },
+            { key: 'areaAtuacao', label: 'Área de Atuação' }, { key: 'contato', label: 'Contato' }, { key: 'prospeccao', label: 'Prospecção' }
+        ], 'Visitas');
+    });
+}
+
+// ── Propostas ─────────────────────────────────────────────────────────
+export async function renderReportPropostasPage() {
+    ensureStyles('report');
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
+        ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatórios', page: 'report' }, { label: 'Propostas' }])}
+        <div class="page-header no-print">
+            <div><h2>📄 Relatório de Propostas</h2></div>
+            <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+        </div>
+        <div id="report-body">${loadingState('📄', 'Carregando relatório...')}</div>
+    `;
+    document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
+    const isAdmGer = isAdminOrGerenteUser();
+
+    const proposalsMod = await import('./proposals.js');
+    const res = await fetchWithRetry(() => proposalsMod.getProposals(0));
+    const body = document.getElementById('report-body');
+    if (res.status !== 'success') { reportErrorState(body, 'Propostas', res.message, 'report-propostas'); return; }
+    const allProposals = res.proposals.map(normalizeProposal);
+
+    state.rptPropPeriod = state.rptPropPeriod || 'mes-atual';
+    state.rptPropCustomFrom = state.rptPropCustomFrom || '';
+    state.rptPropCustomTo = state.rptPropCustomTo || '';
+    if (!Array.isArray(state.rptPropStatus)) state.rptPropStatus = [];
+    if (!Array.isArray(state.rptPropFoco)) state.rptPropFoco = [];
+
+    renderReportPropostasBody(mainContent, allProposals, isAdmGer);
+}
+
+function renderReportPropostasBody(mainContent, allProposals, isAdmGer) {
+    const body = document.getElementById('report-body');
+    if (!body) return;
+    const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+    const gerencia = state.rptPropGerencia || '';
+    const vendedor = state.rptPropVendedor || '';
+    const cidade = state.rptPropCidade || '';
+    const statusFiltro = Array.isArray(state.rptPropStatus) ? state.rptPropStatus : [];
+    const focoFiltro = Array.isArray(state.rptPropFoco) ? state.rptPropFoco : [];
+
+    const gerenciasDisponiveis = Array.from(new Set(allProposals.map((p) => titleCase(p.gerencia)).filter(Boolean))).sort();
+    const vendedoresDisponiveis = Array.from(new Set(allProposals.map((p) => titleCase(p.vendedor)).filter(Boolean))).sort();
+    const cidadesDisponiveis = Array.from(new Set(allProposals.map((p) => titleCase(p.cidade)).filter(Boolean))).sort();
+    const statusDisponiveis = Array.from(new Set(allProposals.map((p) => p.status).filter(Boolean))).sort();
+    const focosDisponiveis = Array.from(new Set(allProposals.map((p) => p.foco).filter(Boolean))).sort();
+
+    const period = state.rptPropPeriod;
+    const { start, end } = resolvePeriodRange(period, state.rptPropCustomFrom, state.rptPropCustomTo);
+
+    const proposals = allProposals.filter((p) => inRange(parseDisplayDate(p.data), start, end)
+        && (!gerencia || titleCase(p.gerencia) === gerencia)
+        && (!vendedor || titleCase(p.vendedor) === vendedor)
+        && (!cidade || titleCase(p.cidade) === cidade)
+        && (!statusFiltro.length || statusFiltro.includes(p.status))
+        && (!focoFiltro.length || focoFiltro.includes(p.foco)));
 
     const proposalsByStatus = countBy(proposals, (p) => p.status);
     const proposalsByCidade = countBy(proposals, (p) => titleCase(p.cidade));
     const proposalsGanhas = proposals.filter((p) => (p.status || '').toLowerCase() === 'ganhamos').length;
     const conversao = proposals.length ? Math.round((proposalsGanhas / proposals.length) * 100) : 0;
     const proposalsAtrasadas = proposals.filter((p) => p.atrasada).length;
-
-    const funilByStatus = countBy(funil, (f) => f.status);
-    const funilByCidade = countBy(funil, (f) => titleCase(f.cidade));
-    const funilAtivo = funil.filter((f) => String(f.ativo || '').toLowerCase() === 'sim');
-    const funilValorTotal = funilAtivo.reduce((sum, f) => sum + parseCurrencyBR(f.vlMensal), 0);
-    const funilAtrasado = funil.filter((f) => {
-        const dias = parseDisplayDate(f.atualizacao || f.data);
-        return String(f.ativo || '').toLowerCase() === 'sim' && dias && (new Date() - dias) / 86400000 > 30;
-    }).length;
-
-    // ── Agregados por vendedor / extras (Propostas) ──────────────────────
-    const propForecastN = (p) => propStatusKind(p.status) === 'aberta' ? 1 : 0;
     const propVendors = Array.from(new Set(proposals.map((p) => titleCase(p.vendedor) || '-')));
     const propByVendor = propVendors.map((vend) => {
         const list = proposals.filter((p) => (titleCase(p.vendedor) || '-') === vend);
@@ -381,8 +630,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         return { vend, total: list.length, abertas, atrasadas, ganhas, perdidas, conv };
     }).sort((a, b) => b.abertas - a.abertas);
     const propByFoco = countBy(proposals, (p) => titleCase(p.foco));
-    const propAging = proposals.filter((p) => p.atrasada)
-        .sort((a, b) => (b.diasAtraso || 0) - (a.diasAtraso || 0)).slice(0, 15);
+    const propAging = proposals.filter((p) => p.atrasada).sort((a, b) => (b.diasAtraso || 0) - (a.diasAtraso || 0)).slice(0, 15);
     const propVencendo = proposals.filter((p) => {
         if (propStatusKind(p.status) !== 'aberta') return false;
         const dl = parseDisplayDate(p.dataLimite);
@@ -390,8 +638,200 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         const dias = (dl - new Date()) / 86400000;
         return dias >= -3 && dias <= 15;
     }).sort((a, b) => (parseDisplayDate(a.dataLimite) || 0) - (parseDisplayDate(b.dataLimite) || 0));
+    const periodLabel = PERIOD_LABELS[period] || 'Mês atual';
 
-    // ── Agregados por vendedor / extras (Funil) ──────────────────────────
+    body.innerHTML = `
+        <div class="report-print-header">
+            <h2>Relatório de Propostas — ${escapeHtml(periodLabel)}</h2>
+            <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
+        <div class="card report-period-card no-print">
+            <div class="visits-filter-header">
+                <strong>Filtros</strong>
+                <div class="visits-filter-header-actions">
+                    <button type="button" class="text-link" id="report-filter-clear">Limpar</button>
+                    <button type="button" class="text-link" id="report-filter-toggle">Ocultar</button>
+                </div>
+            </div>
+            ${filterPanelHtml({
+                period, isAdmin, gerencia, gerenciasDisponiveis, vendedor, vendedoresDisponiveis, cidade, cidadesDisponiveis,
+                customFrom: state.rptPropCustomFrom, customTo: state.rptPropCustomTo,
+                extraHtml: `
+                ${statusDisponiveis.length ? `
+                <div class="form-group report-status-filter">
+                    <label for="report-prop-status">Status <span class="report-status-hint">(marque um ou mais)</span></label>
+                    <div class="searchable-select">
+                        <input type="text" id="report-prop-status" placeholder="Todos" autocomplete="off">
+                        <div class="searchable-select-menu" id="report-prop-status-menu"></div>
+                    </div>
+                    <div class="selected-types" id="report-prop-status-selected" style="margin-top:0.3rem"></div>
+                </div>` : ''}
+                ${focosDisponiveis.length ? `
+                <div class="form-group report-status-filter">
+                    <label for="report-prop-foco">Foco <span class="report-status-hint">(marque um ou mais)</span></label>
+                    <div class="searchable-select">
+                        <input type="text" id="report-prop-foco" placeholder="Todos" autocomplete="off">
+                        <div class="searchable-select-menu" id="report-prop-foco-menu"></div>
+                    </div>
+                    <div class="selected-types" id="report-prop-foco-selected" style="margin-top:0.3rem"></div>
+                </div>` : ''}
+                `
+            })}
+        </div>
+
+        <div class="report-section">
+        <div class="report-section-head no-print">
+            <h3>📄 Propostas</h3>
+            <div class="report-section-actions">
+                <button type="button" class="text-link" id="pdf-propostas">📄 Resumo</button>
+                ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-propostas">📄 Por vendedor</button>' : ''}
+                <button type="button" class="text-link" id="csv-propostas">📥 Excel</button>
+            </div>
+        </div>
+        <div class="report-kpi-row">
+            <div class="report-kpi"><strong>${proposals.length}</strong><span>Total no período</span></div>
+            <div class="report-kpi"><strong>${conversao}%</strong><span>Taxa de conversão</span></div>
+            <div class="report-kpi report-kpi-alert"><strong>${proposalsAtrasadas}</strong><span>Atrasadas &gt;30d</span></div>
+        </div>
+        ${isAdmGer && propByVendor.length ? `<p class="report-subtitle">Por vendedor</p>${reportTable(
+            ['Vendedor', 'Total', 'Abertas', 'Atrasadas', 'Ganhas', 'Perdidas', 'Conv. %'],
+            propByVendor.map((r) => [escapeHtml(r.vend), r.total, r.abertas, r.atrasadas, r.ganhas, r.perdidas, r.conv + '%'])
+        )}` : ''}
+        ${proposalsByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${proposalsByStatus.map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
+        ${propByFoco.length ? `<p class="report-subtitle">Por linha de produto (foco)</p><div class="report-bar-list">${topN(propByFoco, 10).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
+        ${proposalsByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(proposalsByCidade, 8).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
+        ${propAging.length ? `<p class="report-subtitle">Propostas paradas (sem atualização &gt;30d)</p>${reportTable(
+            ['Cliente', 'Vendedor', 'Status', 'Dias parado', 'Data limite'],
+            propAging.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), p.diasAtraso || 0, escapeHtml(p.dataLimite || '-')])
+        )}` : ''}
+        ${propVencendo.length ? `<p class="report-subtitle">Vencendo (data limite nos próximos 15 dias)</p>${reportTable(
+            ['Cliente', 'Vendedor', 'Status', 'Data limite'],
+            propVencendo.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), escapeHtml(p.dataLimite || '-')])
+        )}` : ''}
+        </div>
+    `;
+
+    wireFilterPanel({
+        mainContent, rerender: () => renderReportPropostasBody(mainContent, allProposals, isAdmGer),
+        keys: { period: 'rptPropPeriod', customFrom: 'rptPropCustomFrom', customTo: 'rptPropCustomTo', gerencia: 'rptPropGerencia', vendedor: 'rptPropVendedor', cidade: 'rptPropCidade', filterCollapsed: 'rptPropFilterCollapsed' },
+        extraClear: () => { state.rptPropStatus = []; state.rptPropFoco = []; }
+    });
+    initMultiSelectFilter('report-prop-status', statusDisponiveis, statusFiltro, () => {
+        state.rptPropStatus = statusFiltro.slice();
+        renderReportPropostasBody(mainContent, allProposals, isAdmGer);
+    });
+    initMultiSelectFilter('report-prop-foco', focosDisponiveis, focoFiltro, () => {
+        state.rptPropFoco = focoFiltro.slice();
+        renderReportPropostasBody(mainContent, allProposals, isAdmGer);
+    });
+
+    document.getElementById('pdf-propostas')?.addEventListener('click', () => printReport(''));
+    document.getElementById('pdf-det-propostas')?.addEventListener('click', async () => {
+        if (!proposals.length) { showToast('Nenhuma proposta no período.', true); return; }
+        let proposalsParaPdf = proposals;
+        if (!statusFiltro.length && statusDisponiveis.length > 1) {
+            const escolha = await pickStatusParaPdf(statusDisponiveis, 'Status no PDF');
+            if (escolha === null) return;
+            if (escolha.length) {
+                proposalsParaPdf = proposals.filter((p) => escolha.includes(p.status));
+                if (!proposalsParaPdf.length) { showToast('Nenhuma proposta com esses status no período.', true); return; }
+            }
+        }
+        printDetalhe('Propostas — detalhado por vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${proposalsParaPdf.length} proposta(s)`, groupedVendorTables(
+            proposalsParaPdf, (p) => p.vendedor, (p) => p.data,
+            ['Data', 'Cliente', 'Foco', 'Produtos', 'Cidade', 'Status', 'Atualização', 'Tempo proposta'],
+            (p) => [
+                escapeHtml(p.data || '-'), escapeHtml(titleCase(p.cliente) || '-'), escapeHtml(p.foco || '-'),
+                escapeHtml(p.produtos || '-'), escapeHtml(titleCase(p.cidade) || '-'), escapeHtml(p.status || '-'),
+                escapeHtml(p.atualizacao || '-'), escapeHtml(formatAge(p.data))
+            ]
+        ));
+    });
+    document.getElementById('csv-propostas')?.addEventListener('click', () => {
+        const _stamp = new Date().toISOString().slice(0, 10);
+        const rows = proposals.slice().sort((a, b) => (parseDisplayDate(b.data) || 0) - (parseDisplayDate(a.data) || 0))
+            .map((p) => ({
+                data: p.data || '', vendedor: titleCase(p.vendedor), gerencia: titleCase(p.gerencia),
+                cliente: titleCase(p.cliente), cidade: titleCase(p.cidade), foco: p.foco || '', produtos: p.produtos || '',
+                status: p.status || '', situacao: propStatusKind(p.status),
+                atualizacao: p.atualizacao || '', diasSemAtualizacao: calculateDaysFromDisplayDate(p.atualizacao || p.data || ''),
+                atrasada: p.atrasada ? 'Sim' : 'Não', dataLimite: p.dataLimite || '', email: p.email || ''
+            }));
+        if (!rows.length) { showToast('Nenhuma proposta no período.', true); return; }
+        downloadXLSX(rows, `propostas-${_stamp}.xlsx`, [
+            { key: 'data', label: 'Data', type: 'date' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
+            { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'foco', label: 'Foco' },
+            { key: 'produtos', label: 'Produtos' }, { key: 'status', label: 'Status' }, { key: 'situacao', label: 'Situação' },
+            { key: 'atualizacao', label: 'Última atualização', type: 'date' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
+            { key: 'atrasada', label: 'Atrasada' }, { key: 'dataLimite', label: 'Data limite', type: 'date' }, { key: 'email', label: 'E-mail' }
+        ], 'Propostas');
+    });
+}
+
+// ── Funil ─────────────────────────────────────────────────────────────
+export async function renderReportFunilPage() {
+    ensureStyles('report');
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
+        ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatórios', page: 'report' }, { label: 'Funil' }])}
+        <div class="page-header no-print">
+            <div><h2>📊 Relatório de Funil</h2></div>
+            <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+        </div>
+        <div id="report-body">${loadingState('📊', 'Carregando relatório...')}</div>
+    `;
+    document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
+    const isAdmGer = isAdminOrGerenteUser();
+
+    const funilMod = await import('./funil.js');
+    const res = await fetchWithRetry(() => funilMod.getFunil(0));
+    const body = document.getElementById('report-body');
+    if (res.status !== 'success') { reportErrorState(body, 'Funil', res.message, 'report-funil'); return; }
+    const allFunil = res.funil || [];
+
+    state.rptFunPeriod = state.rptFunPeriod || 'mes-atual';
+    state.rptFunCustomFrom = state.rptFunCustomFrom || '';
+    state.rptFunCustomTo = state.rptFunCustomTo || '';
+    if (!Array.isArray(state.rptFunStatus)) state.rptFunStatus = [];
+    if (!Array.isArray(state.rptFunAplicacao)) state.rptFunAplicacao = [];
+
+    renderReportFunilBody(mainContent, allFunil, isAdmGer);
+}
+
+function renderReportFunilBody(mainContent, allFunil, isAdmGer) {
+    const body = document.getElementById('report-body');
+    if (!body) return;
+    const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+    const gerencia = state.rptFunGerencia || '';
+    const vendedor = state.rptFunVendedor || '';
+    const cidade = state.rptFunCidade || '';
+    const statusFiltro = Array.isArray(state.rptFunStatus) ? state.rptFunStatus : [];
+    const aplicacaoFiltro = Array.isArray(state.rptFunAplicacao) ? state.rptFunAplicacao : [];
+
+    const gerenciasDisponiveis = Array.from(new Set(allFunil.map((f) => titleCase(f.gerencia)).filter(Boolean))).sort();
+    const vendedoresDisponiveis = Array.from(new Set(allFunil.map((f) => titleCase(f.vendedor)).filter(Boolean))).sort();
+    const cidadesDisponiveis = Array.from(new Set(allFunil.map((f) => titleCase(f.cidade)).filter(Boolean))).sort();
+    const statusDisponiveis = Array.from(new Set(allFunil.map((f) => f.status).filter(Boolean))).sort();
+    const aplicacoesDisponiveis = Array.from(new Set(allFunil.map((f) => f.aplicacao).filter(Boolean))).sort();
+
+    const period = state.rptFunPeriod;
+    const { start, end } = resolvePeriodRange(period, state.rptFunCustomFrom, state.rptFunCustomTo);
+
+    const funil = allFunil.filter((f) => inRange(parseDisplayDate(f.data), start, end)
+        && (!gerencia || titleCase(f.gerencia) === gerencia)
+        && (!vendedor || titleCase(f.vendedor) === vendedor)
+        && (!cidade || titleCase(f.cidade) === cidade)
+        && (!statusFiltro.length || statusFiltro.includes(f.status))
+        && (!aplicacaoFiltro.length || aplicacaoFiltro.includes(f.aplicacao)));
+
+    const funilByStatus = countBy(funil, (f) => f.status);
+    const funilByCidade = countBy(funil, (f) => titleCase(f.cidade));
+    const funilAtivo = funil.filter((f) => String(f.ativo || '').toLowerCase() === 'sim');
+    const funilValorTotal = funilAtivo.reduce((sum, f) => sum + parseCurrencyBR(f.vlMensal), 0);
+    const funilAtrasado = funil.filter((f) => {
+        const dias = parseDisplayDate(f.atualizacao || f.data);
+        return String(f.ativo || '').toLowerCase() === 'sim' && dias && (new Date() - dias) / 86400000 > 30;
+    }).length;
     const funForecast = (f) => parseCurrencyBR(f.vlMensal) * (FUNIL_PROB[String(f.status || '').toUpperCase()] ?? 0.1);
     const funVendors = Array.from(new Set(funil.map((f) => titleCase(f.vendedor) || '-')));
     const funByVendor = funVendors.map((vend) => {
@@ -418,24 +858,11 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         const dias = (c - new Date()) / 86400000;
         return dias >= -3 && dias <= 45;
     }).sort((a, b) => (parseDisplayDate(a.conclusao) || 0) - (parseDisplayDate(b.conclusao) || 0));
-
-    const periodLabel = {
-        'semana-atual': 'Semana atual',
-        'mes-atual': 'Mês atual',
-        'ultimos-3m': 'Últimos 3 meses',
-        'tudo': 'Tudo',
-        'personalizado': 'Período personalizado'
-    }[period] || 'Mês atual';
-
-    // Seções recolhíveis (setinha no cabeçalho) — o estado fica em memória
-    // enquanto a tela existe.
-    const collapsedSet = new Set(state.reportCollapsedSections || []);
-    const secOpen = (key) => !collapsedSet.has(key);
-    const secToggle = (key) => `<button type="button" class="report-section-toggle no-print" aria-label="Recolher/expandir seção" aria-expanded="${secOpen(key) ? 'true' : 'false'}">▾</button>`;
+    const periodLabel = PERIOD_LABELS[period] || 'Mês atual';
 
     body.innerHTML = `
         <div class="report-print-header">
-            <h2>Relatório de KPIs — ${escapeHtml(periodLabel)}</h2>
+            <h2>Relatório de Funil — ${escapeHtml(periodLabel)}</h2>
             <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>
         <div class="card report-period-card no-print">
@@ -446,224 +873,83 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                     <button type="button" class="text-link" id="report-filter-toggle">Ocultar</button>
                 </div>
             </div>
-            <div class="pill-row">
-                <button type="button" class="pill${period === 'semana-atual' ? ' active' : ''}" data-period="semana-atual">Semana atual</button>
-                <button type="button" class="pill${period === 'mes-atual' ? ' active' : ''}" data-period="mes-atual">Mês atual</button>
-                <button type="button" class="pill${period === 'ultimos-3m' ? ' active' : ''}" data-period="ultimos-3m">Últimos 3 meses</button>
-                <button type="button" class="pill${period === 'tudo' ? ' active' : ''}" data-period="tudo">Tudo</button>
-                <button type="button" class="pill${period === 'personalizado' ? ' active' : ''}" data-period="personalizado">Personalizado</button>
-            </div>
-            <div class="visits-filter-grid" id="report-filter-panel">
-            ${period === 'personalizado' ? `
-            <div class="report-custom-range">
-                <div class="form-group"><label for="report-date-from">De</label><input type="date" id="report-date-from" value="${escapeHtml(state.reportCustomFrom)}"></div>
-                <div class="form-group"><label for="report-date-to">Até</label><input type="date" id="report-date-to" value="${escapeHtml(state.reportCustomTo)}"></div>
-            </div>` : ''}
-            ${isAdmin ? `
-            <div class="report-custom-range">
-                <div class="form-group">
-                    <label for="report-gerencia">Gerência</label>
-                    <select id="report-gerencia">
-                        <option value="">Todas</option>
-                        ${gerenciasDisponiveis.map((g) => `<option value="${escapeHtml(g)}" ${gerencia === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="report-area">Área de Atuação</label>
-                    <select id="report-area">
-                        <option value="">Todas</option>
-                        ${areasDisponiveis.map((a) => `<option value="${escapeHtml(a)}" ${area === a ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}
-                    </select>
-                </div>
-            </div>` : ''}
-            ${propStatusDisponiveis.length ? `
-            <div class="form-group report-status-filter">
-                <label for="report-prop-status">Status da proposta <span class="report-status-hint">(marque um ou mais)</span></label>
-                <div class="searchable-select">
-                    <input type="text" id="report-prop-status" placeholder="Todos" autocomplete="off">
-                    <div class="searchable-select-menu" id="report-prop-status-menu"></div>
-                </div>
-                <div class="selected-types" id="report-prop-status-selected" style="margin-top:0.3rem"></div>
-            </div>` : ''}
-            ${funilStatusDisponiveis.length ? `
-            <div class="form-group report-status-filter">
-                <label for="report-funil-status">Status do funil <span class="report-status-hint">(marque um ou mais)</span></label>
-                <div class="searchable-select">
-                    <input type="text" id="report-funil-status" placeholder="Todos" autocomplete="off">
-                    <div class="searchable-select-menu" id="report-funil-status-menu"></div>
-                </div>
-                <div class="selected-types" id="report-funil-status-selected" style="margin-top:0.3rem"></div>
-            </div>` : ''}
-            </div>
+            ${filterPanelHtml({
+                period, isAdmin, gerencia, gerenciasDisponiveis, vendedor, vendedoresDisponiveis, cidade, cidadesDisponiveis,
+                customFrom: state.rptFunCustomFrom, customTo: state.rptFunCustomTo,
+                extraHtml: `
+                ${statusDisponiveis.length ? `
+                <div class="form-group report-status-filter">
+                    <label for="report-funil-status">Status <span class="report-status-hint">(marque um ou mais)</span></label>
+                    <div class="searchable-select">
+                        <input type="text" id="report-funil-status" placeholder="Todos" autocomplete="off">
+                        <div class="searchable-select-menu" id="report-funil-status-menu"></div>
+                    </div>
+                    <div class="selected-types" id="report-funil-status-selected" style="margin-top:0.3rem"></div>
+                </div>` : ''}
+                ${aplicacoesDisponiveis.length ? `
+                <div class="form-group report-status-filter">
+                    <label for="report-funil-aplicacao">Aplicação <span class="report-status-hint">(marque uma ou mais)</span></label>
+                    <div class="searchable-select">
+                        <input type="text" id="report-funil-aplicacao" placeholder="Todas" autocomplete="off">
+                        <div class="searchable-select-menu" id="report-funil-aplicacao-menu"></div>
+                    </div>
+                    <div class="selected-types" id="report-funil-aplicacao-selected" style="margin-top:0.3rem"></div>
+                </div>` : ''}
+                `
+            })}
         </div>
 
-        <div class="report-jump-nav no-print">
-            <span>Ir para:</span>
-            <button type="button" class="text-link" data-jump="visitas">📋 Visitas</button>
-            <button type="button" class="text-link" data-jump="propostas">📄 Propostas</button>
-            <button type="button" class="text-link" data-jump="funil">📊 Funil</button>
-        </div>
-
-        <div class="report-section report-section-visitas${secOpen('visitas') ? '' : ' is-collapsed'}" data-section-key="visitas">
-            <div class="report-section-head">
-                <h3>📋 Visitas</h3>
-                <div class="report-section-actions no-print">
-                    <button type="button" class="text-link" id="pdf-visitas">📄 Resumo</button>
-                    ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-visitas">📄 Por gerência/vendedor</button>' : ''}
-                    <button type="button" class="text-link" id="csv-visitas">📥 Excel</button>
-                    ${secToggle('visitas')}
-                </div>
-            </div>
-            <div class="report-section-body">
-            <div class="report-kpi-row">
-                <div class="report-kpi"><strong>${visits.length}</strong><span>Total no período</span></div>
-            </div>
-            ${visitsByType.length ? `<p class="report-subtitle">Por tipo (principais)</p><div class="report-bar-list">${topN(visitsByType, 10).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
-            ${isAdmGer && visitsByVendor.length ? `<p class="report-subtitle">Por vendedor</p><div class="report-bar-list">${topN(visitsByVendor, 15).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
-            ${visitsByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(visitsByCidade, 8).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
-            ${topClientesVisitas.length ? `<p class="report-subtitle">Top 5 clientes com mais visitas</p><div class="report-top-list">${topClientesVisitas.map(([cliente, total], i) => reportTopRow(i, cliente, total)).join('')}</div>` : ''}
-            ${topTiposComCliente.length ? `<p class="report-subtitle">Top 5 tipos de visita — cliente mais frequente</p><div class="report-top-list">${topTiposComCliente.map((t, i) => reportTopRow(i, titleCase(t.tipo) + (t.cliente ? ` — ${t.cliente}` : ''), t.clienteCount)).join('')}</div>` : ''}
+        <div class="report-section">
+        <div class="report-section-head no-print">
+            <h3>📊 Funil</h3>
+            <div class="report-section-actions">
+                <button type="button" class="text-link" id="pdf-funil">📄 Resumo</button>
+                ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-funil">📄 Por vendedor</button>' : ''}
+                <button type="button" class="text-link" id="csv-funil">📥 Excel</button>
             </div>
         </div>
-
-        <div class="report-section report-section-propostas${secOpen('propostas') ? '' : ' is-collapsed'}" data-section-key="propostas">
-            <div class="report-section-head">
-                <h3>📄 Propostas</h3>
-                <div class="report-section-actions no-print">
-                    <button type="button" class="text-link" id="pdf-propostas">📄 Resumo</button>
-                    ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-propostas">📄 Por vendedor</button>' : ''}
-                    <button type="button" class="text-link" id="csv-propostas">📥 Excel</button>
-                    ${secToggle('propostas')}
-                </div>
-            </div>
-            <div class="report-section-body">
-            <div class="report-kpi-row">
-                <div class="report-kpi"><strong>${proposals.length}</strong><span>Total no período</span></div>
-                <div class="report-kpi"><strong>${conversao}%</strong><span>Taxa de conversão</span></div>
-                <div class="report-kpi report-kpi-alert"><strong>${proposalsAtrasadas}</strong><span>Atrasadas &gt;30d</span></div>
-            </div>
-            ${isAdmGer && propByVendor.length ? `<p class="report-subtitle">Por vendedor</p>${reportTable(
-                ['Vendedor', 'Total', 'Abertas', 'Atrasadas', 'Ganhas', 'Perdidas', 'Conv. %'],
-                propByVendor.map((r) => [escapeHtml(r.vend), r.total, r.abertas, r.atrasadas, r.ganhas, r.perdidas, r.conv + '%'])
-            )}` : ''}
-            ${proposalsByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${proposalsByStatus.map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
-            ${propByFoco.length ? `<p class="report-subtitle">Por linha de produto (foco)</p><div class="report-bar-list">${topN(propByFoco, 10).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
-            ${proposalsByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(proposalsByCidade, 8).map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : ''}
-            ${propAging.length ? `<p class="report-subtitle">Propostas paradas (sem atualização &gt;30d)</p>${reportTable(
-                ['Cliente', 'Vendedor', 'Status', 'Dias parado', 'Data limite'],
-                propAging.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), p.diasAtraso || 0, escapeHtml(p.dataLimite || '-')])
-            )}` : ''}
-            ${propVencendo.length ? `<p class="report-subtitle">Vencendo (data limite nos próximos 15 dias)</p>${reportTable(
-                ['Cliente', 'Vendedor', 'Status', 'Data limite'],
-                propVencendo.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), escapeHtml(p.dataLimite || '-')])
-            )}` : ''}
-            </div>
+        <div class="report-kpi-row">
+            <div class="report-kpi"><strong>${funilAtivo.length}</strong><span>Ativas no período</span></div>
+            <div class="report-kpi"><strong>${formatMoney(funilValorTotal)}</strong><span>Vl Mensal em pipeline</span></div>
+            <div class="report-kpi"><strong>${formatMoney(funForecastTotal)}</strong><span>Forecast ponderado</span></div>
+            <div class="report-kpi report-kpi-alert"><strong>${funilAtrasado}</strong><span>Sem atualização &gt;30d</span></div>
         </div>
-
-        <div class="report-section report-section-funil${secOpen('funil') ? '' : ' is-collapsed'}" data-section-key="funil">
-            <div class="report-section-head">
-                <h3>📊 Funil</h3>
-                <div class="report-section-actions no-print">
-                    <button type="button" class="text-link" id="pdf-funil">📄 Resumo</button>
-                    ${isAdmGer ? '<button type="button" class="text-link" id="pdf-det-funil">📄 Por vendedor</button>' : ''}
-                    <button type="button" class="text-link" id="csv-funil">📥 Excel</button>
-                    ${secToggle('funil')}
-                </div>
-            </div>
-            <div class="report-section-body">
-            <div class="report-kpi-row">
-                <div class="report-kpi"><strong>${funilAtivo.length}</strong><span>Ativas no período</span></div>
-                <div class="report-kpi"><strong>${formatMoney(funilValorTotal)}</strong><span>Vl Mensal em pipeline</span></div>
-                <div class="report-kpi"><strong>${formatMoney(funForecastTotal)}</strong><span>Forecast ponderado</span></div>
-                <div class="report-kpi report-kpi-alert"><strong>${funilAtrasado}</strong><span>Sem atualização &gt;30d</span></div>
-            </div>
-            ${isAdmGer && funByVendor.length ? `<p class="report-subtitle">Por vendedor</p>${reportTable(
-                ['Vendedor', 'Ativas', 'Identif.', 'Proposta', 'Negociar', 'Retomar', 'Concl.', 'Perd.', 'Vl Mensal', 'Forecast'],
-                funByVendor.map((r) => [escapeHtml(r.vend), r.ativas, r.identificar, r.proposta, r.negociar, r.retomar, r.concluidas, r.perdidas, formatMoney(r.vlAtivo), formatMoney(r.forecast)])
-            )}` : ''}
-            ${funilByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${funilByStatus.map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
-            ${funMotivoPerda.length ? `<p class="report-subtitle">Motivo da perda</p><div class="report-bar-list">${funMotivoPerda.map(([k, v]) => reportBar(k, v, funMotivoPerda.reduce((s, x) => s + x[1], 0))).join('')}</div>` : ''}
-            ${funPorAtuacao.length ? `<p class="report-subtitle">Por atuação</p><div class="report-bar-list">${topN(funPorAtuacao, 10).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
-            ${funPorAplicacao.length ? `<p class="report-subtitle">Por aplicação</p><div class="report-bar-list">${topN(funPorAplicacao, 10).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
-            ${funilByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(funilByCidade, 8).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
-            ${funFechamento.length ? `<p class="report-subtitle">Previsão de fechamento (conclusão nos próximos 45 dias)</p>${reportTable(
-                ['Cliente', 'Vendedor', 'Status', 'Vl Mensal', 'Conclusão'],
-                funFechamento.map((f) => [escapeHtml(titleCase(f.cliente)), escapeHtml(titleCase(f.vendedor)), escapeHtml(f.status || '-'), formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.conclusao || '-')])
-            )}` : ''}
-            </div>
+        ${isAdmGer && funByVendor.length ? `<p class="report-subtitle">Por vendedor</p>${reportTable(
+            ['Vendedor', 'Ativas', 'Identif.', 'Proposta', 'Negociar', 'Retomar', 'Concl.', 'Perd.', 'Vl Mensal', 'Forecast'],
+            funByVendor.map((r) => [escapeHtml(r.vend), r.ativas, r.identificar, r.proposta, r.negociar, r.retomar, r.concluidas, r.perdidas, formatMoney(r.vlAtivo), formatMoney(r.forecast)])
+        )}` : ''}
+        ${funilByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${funilByStatus.map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+        ${funMotivoPerda.length ? `<p class="report-subtitle">Motivo da perda</p><div class="report-bar-list">${funMotivoPerda.map(([k, v]) => reportBar(k, v, funMotivoPerda.reduce((s, x) => s + x[1], 0))).join('')}</div>` : ''}
+        ${funPorAtuacao.length ? `<p class="report-subtitle">Por atuação</p><div class="report-bar-list">${topN(funPorAtuacao, 10).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+        ${funPorAplicacao.length ? `<p class="report-subtitle">Por aplicação</p><div class="report-bar-list">${topN(funPorAplicacao, 10).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+        ${funilByCidade.length ? `<p class="report-subtitle">Por cidade (principais)</p><div class="report-bar-list">${topN(funilByCidade, 8).map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : ''}
+        ${funFechamento.length ? `<p class="report-subtitle">Previsão de fechamento (conclusão nos próximos 45 dias)</p>${reportTable(
+            ['Cliente', 'Vendedor', 'Status', 'Vl Mensal', 'Conclusão'],
+            funFechamento.map((f) => [escapeHtml(titleCase(f.cliente)), escapeHtml(titleCase(f.vendedor)), escapeHtml(f.status || '-'), formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.conclusao || '-')])
+        )}` : ''}
         </div>
     `;
 
-    body.querySelectorAll('[data-period]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            state.reportPeriod = btn.dataset.period;
-            renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
-        });
+    wireFilterPanel({
+        mainContent, rerender: () => renderReportFunilBody(mainContent, allFunil, isAdmGer),
+        keys: { period: 'rptFunPeriod', customFrom: 'rptFunCustomFrom', customTo: 'rptFunCustomTo', gerencia: 'rptFunGerencia', vendedor: 'rptFunVendedor', cidade: 'rptFunCidade', filterCollapsed: 'rptFunFilterCollapsed' },
+        extraClear: () => { state.rptFunStatus = []; state.rptFunAplicacao = []; }
+    });
+    initMultiSelectFilter('report-funil-status', statusDisponiveis, statusFiltro, () => {
+        state.rptFunStatus = statusFiltro.slice();
+        renderReportFunilBody(mainContent, allFunil, isAdmGer);
+    });
+    initMultiSelectFilter('report-funil-aplicacao', aplicacoesDisponiveis, aplicacaoFiltro, () => {
+        state.rptFunAplicacao = aplicacaoFiltro.slice();
+        renderReportFunilBody(mainContent, allFunil, isAdmGer);
     });
 
-    const filterToggle = document.getElementById('report-filter-toggle');
-    const filterPanel = document.getElementById('report-filter-panel');
-    if (filterToggle && filterPanel) {
-        const isMobile = window.matchMedia('(max-width: 640px)').matches;
-        if (state.reportFilterCollapsed === null) { state.reportFilterCollapsed = isMobile; }
-        let collapsed = state.reportFilterCollapsed;
-        filterPanel.classList.toggle('collapsed', collapsed);
-        filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
-        filterToggle.addEventListener('click', () => {
-            collapsed = !collapsed;
-            state.reportFilterCollapsed = collapsed;
-            filterPanel.classList.toggle('collapsed', collapsed);
-            filterToggle.textContent = collapsed ? 'Mostrar' : 'Ocultar';
-        });
-    }
-    document.getElementById('report-filter-clear')?.addEventListener('click', () => {
-        state.reportCustomFrom = '';
-        state.reportCustomTo = '';
-        state.reportGerencia = '';
-        state.reportArea = '';
-        state.reportPropStatus = [];
-        state.reportFunilStatus = [];
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
-    });
-
-    const _stamp = new Date().toISOString().slice(0, 10);
-    document.getElementById('pdf-visitas')?.addEventListener('click', () => printReport('visitas'));
-    document.getElementById('pdf-propostas')?.addEventListener('click', () => printReport('propostas'));
-    document.getElementById('pdf-funil')?.addEventListener('click', () => printReport('funil'));
-
-    body.querySelectorAll('[data-jump]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            document.querySelector(`.report-section-${btn.dataset.jump}`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    });
-
-    document.getElementById('pdf-det-propostas')?.addEventListener('click', async () => {
-        if (!proposals.length) { showToast('Nenhuma proposta no período.', true); return; }
-        let proposalsParaPdf = proposals;
-        if (!propStatus.length && propStatusDisponiveis.length > 1) {
-            const escolha = await pickStatusParaPdf(propStatusDisponiveis, 'Status no PDF');
-            if (escolha === null) return;
-            if (escolha.length) {
-                proposalsParaPdf = proposals.filter((p) => escolha.includes(p.status));
-                if (!proposalsParaPdf.length) { showToast('Nenhuma proposta com esses status no período.', true); return; }
-            }
-        }
-        printDetalhe('Propostas — detalhado por vendedor', `${escapeHtml(periodLabel)}${gerencia ? ' · ' + gerencia : ''} — ${proposalsParaPdf.length} proposta(s)`, groupedVendorTables(
-            proposalsParaPdf, (p) => p.vendedor, (p) => p.data,
-            ['Data', 'Cliente', 'Foco', 'Produtos', 'Cidade', 'Status', 'Atualização', 'Tempo proposta'],
-            (p) => [
-                escapeHtml(p.data || '-'), escapeHtml(titleCase(p.cliente) || '-'), escapeHtml(p.foco || '-'),
-                escapeHtml(p.produtos || '-'), escapeHtml(titleCase(p.cidade) || '-'), escapeHtml(p.status || '-'),
-                escapeHtml(p.atualizacao || '-'), escapeHtml(formatAge(p.data))
-            ]
-        ));
-    });
+    document.getElementById('pdf-funil')?.addEventListener('click', () => printReport(''));
     document.getElementById('pdf-det-funil')?.addEventListener('click', async () => {
         if (!funil.length) { showToast('Nenhuma oportunidade no período.', true); return; }
         let funilParaPdf = funil;
-        if (!funilStatus.length && funilStatusDisponiveis.length > 1) {
-            const escolha = await pickStatusParaPdf(funilStatusDisponiveis, 'Status no PDF');
+        if (!statusFiltro.length && statusDisponiveis.length > 1) {
+            const escolha = await pickStatusParaPdf(statusDisponiveis, 'Status no PDF');
             if (escolha === null) return;
             if (escolha.length) {
                 funilParaPdf = funil.filter((f) => escolha.includes(f.status));
@@ -680,71 +966,9 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             ]
         ));
     });
-    document.getElementById('pdf-det-visitas')?.addEventListener('click', async () => {
-        if (!visits.length) { showToast('Nenhuma visita no período.', true); return; }
-        let visitsParaPdf = visits;
-        let gerenciaEscolhida = gerencia;
-        // Já filtrado por uma gerência específica no painel de Filtros? Não
-        // faz sentido perguntar de novo — só pergunta quando o relatório
-        // ainda mostra mais de uma gerência.
-        if (isAdmin && !gerencia && gerenciasDisponiveis.length > 1) {
-            const escolha = await pickGerenciaParaPdf(gerenciasDisponiveis);
-            if (escolha === null) return;
-            if (escolha) {
-                gerenciaEscolhida = escolha;
-                visitsParaPdf = visits.filter((v) => titleCase(v.gerencia) === escolha);
-                if (!visitsParaPdf.length) { showToast(`Nenhuma visita de "${escolha}" no período.`, true); return; }
-            }
-        }
-        printDetalhe('Visitas — detalhado por gerência e vendedor', `${escapeHtml(periodLabel)}${gerenciaEscolhida ? ' · ' + gerenciaEscolhida : ''} — ${visitsParaPdf.length} visita(s)`, groupedGerenciaVendorTables(
-            visitsParaPdf, (v) => v.gerencia, (v) => v.vendedorGerente, (v) => v.dataVisita,
-            ['Data', 'Cliente', 'Tipo da Visita', 'Cidade', 'Contato'],
-            (v) => [
-                escapeHtml(v.dataVisita || '-'), escapeHtml(titleCase(v.cliente) || '-'), escapeHtml(v.tipoVisita || '-'),
-                escapeHtml(titleCase(v.cidade) || '-'), escapeHtml(v.contato || '-')
-            ]
-        ));
-    });
-    document.getElementById('csv-visitas')?.addEventListener('click', () => {
-        const rows = visits
-            .slice()
-            .sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0))
-            .map((v) => ({
-                data: v.dataVisita || '', vendedor: titleCase(v.vendedorGerente), gerencia: titleCase(v.gerencia),
-                cliente: titleCase(v.cliente), cidade: titleCase(v.cidade), tipoVisita: v.tipoVisita || '',
-                areaAtuacao: v.areaAtuacao || '', contato: v.contato || '', prospeccao: v.prospeccao || ''
-            }));
-        if (!rows.length) { showToast('Nenhuma visita no período.', true); return; }
-        downloadXLSX(rows, `visitas-${_stamp}.xlsx`, [
-            { key: 'data', label: 'Data', type: 'date' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
-            { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'tipoVisita', label: 'Tipo da Visita' },
-            { key: 'areaAtuacao', label: 'Área de Atuação' }, { key: 'contato', label: 'Contato' }, { key: 'prospeccao', label: 'Prospecção' }
-        ], 'Visitas');
-    });
-    document.getElementById('csv-propostas')?.addEventListener('click', () => {
-        const rows = proposals
-            .slice()
-            .sort((a, b) => (parseDisplayDate(b.data) || 0) - (parseDisplayDate(a.data) || 0))
-            .map((p) => ({
-                data: p.data || '', vendedor: titleCase(p.vendedor), gerencia: titleCase(p.gerencia),
-                cliente: titleCase(p.cliente), cidade: titleCase(p.cidade), foco: p.foco || '', produtos: p.produtos || '',
-                status: p.status || '', situacao: propStatusKind(p.status),
-                atualizacao: p.atualizacao || '', diasSemAtualizacao: calculateDaysFromDisplayDate(p.atualizacao || p.data || ''),
-                atrasada: p.atrasada ? 'Sim' : 'Não', dataLimite: p.dataLimite || '', email: p.email || ''
-            }));
-        if (!rows.length) { showToast('Nenhuma proposta no período.', true); return; }
-        downloadXLSX(rows, `propostas-${_stamp}.xlsx`, [
-            { key: 'data', label: 'Data', type: 'date' }, { key: 'vendedor', label: 'Vendedor' }, { key: 'gerencia', label: 'Gerência' },
-            { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'foco', label: 'Foco' },
-            { key: 'produtos', label: 'Produtos' }, { key: 'status', label: 'Status' }, { key: 'situacao', label: 'Situação' },
-            { key: 'atualizacao', label: 'Última atualização', type: 'date' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
-            { key: 'atrasada', label: 'Atrasada' }, { key: 'dataLimite', label: 'Data limite', type: 'date' }, { key: 'email', label: 'E-mail' }
-        ], 'Propostas');
-    });
     document.getElementById('csv-funil')?.addEventListener('click', () => {
-        const rows = funil
-            .slice()
-            .sort((a, b) => (parseDisplayDate(b.data) || 0) - (parseDisplayDate(a.data) || 0))
+        const _stamp = new Date().toISOString().slice(0, 10);
+        const rows = funil.slice().sort((a, b) => (parseDisplayDate(b.data) || 0) - (parseDisplayDate(a.data) || 0))
             .map((f) => ({
                 data: f.data || '', vendedor: titleCase(f.vendedor), gerencia: titleCase(f.gerencia),
                 cliente: titleCase(f.cliente), cidade: titleCase(f.cidade), status: f.status || '',
@@ -765,75 +989,4 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             { key: 'conclusao', label: 'Conclusão prevista', type: 'date' }, { key: 'motivoPerda', label: 'Motivo da perda' }
         ], 'Funil');
     });
-    document.getElementById('report-date-from')?.addEventListener('change', (e) => {
-        state.reportCustomFrom = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
-    });
-    document.getElementById('report-date-to')?.addEventListener('change', (e) => {
-        state.reportCustomTo = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
-    });
-    document.getElementById('report-gerencia')?.addEventListener('change', (e) => {
-        state.reportGerencia = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
-    });
-    document.getElementById('report-area')?.addEventListener('change', (e) => {
-        state.reportArea = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
-    });
-    const initReportStatusFilter = (id, items, stateKey) => {
-        if (!document.getElementById(id)) return;
-        const arr = Array.isArray(state[stateKey]) ? state[stateKey] : [];
-        initializeSearchableInput({
-            input: document.getElementById(id),
-            menu: document.getElementById(id + '-menu'),
-            items,
-            multiSelect: true,
-            maxSelections: 99,
-            selectedItems: arr,
-            selectedContainer: document.getElementById(id + '-selected'),
-            selectionLabel: 'status',
-            onSelectionChange: () => {
-                state[stateKey] = arr.slice();
-                renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
-            }
-        });
-    };
-    initReportStatusFilter('report-prop-status', propStatusDisponiveis, 'reportPropStatus');
-    initReportStatusFilter('report-funil-status', funilStatusDisponiveis, 'reportFunilStatus');
-
-    body.querySelectorAll('.report-section-toggle').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const sec = btn.closest('.report-section');
-            const collapsed = sec.classList.toggle('is-collapsed');
-            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-            const key = sec.dataset.sectionKey;
-            if (key) {
-                const set = new Set(state.reportCollapsedSections || []);
-                collapsed ? set.add(key) : set.delete(key);
-                state.reportCollapsedSections = Array.from(set);
-            }
-        });
-    });
-}
-
-function reportTopRow(index, label, value) {
-    return `
-        <div class="report-top-row">
-            <span class="report-top-rank">${index + 1}</span>
-            <span class="report-top-label">${escapeHtml(label)}</span>
-            <span class="report-top-value">${value}</span>
-        </div>
-    `;
-}
-
-function reportBar(label, value, total) {
-    const pct = total ? Math.round((value / total) * 100) : 0;
-    return `
-        <div class="report-bar-row">
-            <span class="report-bar-label">${escapeHtml(titleCase(label))}</span>
-            <div class="report-bar-track"><div class="report-bar-fill" style="width:${pct}%"></div></div>
-            <span class="report-bar-value">${value}</span>
-        </div>
-    `;
 }

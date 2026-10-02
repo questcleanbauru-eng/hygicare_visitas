@@ -402,6 +402,15 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'report':
             await (await import('./pages/report.js')).renderReportPage();
             break;
+        case 'report-visitas':
+            await (await import('./pages/report.js')).renderReportVisitasPage();
+            break;
+        case 'report-propostas':
+            await (await import('./pages/report.js')).renderReportPropostasPage();
+            break;
+        case 'report-funil':
+            await (await import('./pages/report.js')).renderReportFunilPage();
+            break;
         case 'campanhas':
             await (await import('./pages/campanhas.js')).renderCampanhasPage();
             break;
