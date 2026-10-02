@@ -1534,10 +1534,11 @@ async function renderCartaFormPage(record, options) {
             <p class="mnt-carta-form-sec full-width">Datas da visita</p>
             <div class="form-group full-width">
                 <div class="mnt-carta-chips" id="carta-datas-chips"></div>
-                <label class="mnt-carta-add mnt-carta-add-data">
-                    📅 Adicionar data
-                    <input type="date" id="carta-nova-data" aria-label="Adicionar data da visita">
-                </label>
+                <p class="helper-text" style="margin:0 0 0.4rem;text-align:left">Toque numa data pra corrigi-la.</p>
+                <div class="mnt-carta-date-row">
+                    <input type="date" id="carta-nova-data" aria-label="Data da visita">
+                    <button type="button" class="mnt-carta-add" id="carta-add-data">+ Adicionar data</button>
+                </div>
             </div>
 
             <p class="mnt-carta-form-sec full-width">Produtos aferidos</p>
@@ -1572,23 +1573,42 @@ async function renderCartaFormPage(record, options) {
 
     const renderDatas = () => {
         $('carta-datas-chips').innerHTML = datas.length
-            ? datas.map((x, i) => `<span class="mnt-carta-chip">${escapeHtml(x)}<button type="button" class="mnt-carta-x" data-idx="${i}" aria-label="Remover data">×</button></span>`).join('')
+            ? datas.map((x, i) => `<span class="mnt-carta-chip"><button type="button" class="mnt-carta-chip-edit" data-idx="${i}">${escapeHtml(x)}</button><button type="button" class="mnt-carta-x" data-idx="${i}" aria-label="Remover data">×</button></span>`).join('')
             : '<span class="helper-text">Nenhuma data adicionada.</span>';
-        $('carta-datas-chips').querySelectorAll('[data-idx]').forEach((btn) => {
+        $('carta-datas-chips').querySelectorAll('.mnt-carta-x').forEach((btn) => {
             btn.addEventListener('click', () => { datas.splice(Number(btn.dataset.idx), 1); renderDatas(); });
+        });
+        // Tocar na data (não no ×) carrega ela de volta no campo pra
+        // corrigir — remove da lista, o usuário ajusta e clica em
+        // "Adicionar data" de novo.
+        $('carta-datas-chips').querySelectorAll('.mnt-carta-chip-edit').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const idx = Number(btn.dataset.idx);
+                $('carta-nova-data').value = cartaDataParaInput(datas[idx]);
+                datas.splice(idx, 1);
+                renderDatas();
+                $('carta-nova-data').focus();
+            });
         });
     };
     renderDatas();
-    // O botão "Adicionar data" é o próprio input de data (invisível por
-    // cima do botão): tocar abre o calendário do aparelho e escolher o dia
-    // já adiciona — sem campo vazio solto na tela.
-    $('carta-nova-data').addEventListener('change', (e) => {
-        const v = cartaDataDoInput(e.target.value);
+    // Antes o "Adicionar data" era um input de data invisível por cima do
+    // botão (change = adiciona direto) — em browsers/touch reais isso
+    // falhava ao tentar adicionar uma 2ª data (o reset de valor via
+    // setTimeout atrapalhava o picker nativo reabrir). Agora é um campo de
+    // data normal + botão separado: o usuário escolhe a data e confirma
+    // com um clique (ou Enter), sem depender do evento 'change' nativo.
+    const addDataAtual = () => {
+        const v = cartaDataDoInput($('carta-nova-data').value);
         if (!v) return;
         if (!datas.includes(v)) datas.push(v);
         datas.sort((a, b) => cartaDataParaInput(a).localeCompare(cartaDataParaInput(b)));
-        setTimeout(() => { e.target.value = ''; }, 0);
+        $('carta-nova-data').value = '';
         renderDatas();
+    };
+    $('carta-add-data').addEventListener('click', addDataAtual);
+    $('carta-nova-data').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addDataAtual(); }
     });
 
     const produtosEl = $('carta-produtos');
