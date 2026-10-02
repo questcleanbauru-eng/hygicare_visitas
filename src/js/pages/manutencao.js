@@ -1363,7 +1363,7 @@ const MODELOS_CARTA_PADRAO = [
             destinatario: 'TOMOSON CENTRO DE DIAGNÓSTICOS POR IMAGEM', contato: 'Regiane', contatoEmail: '', contatoTelefone: '',
             unidadeNome: 'TOMOSON - Centro de Diagnósticos por Imagem', endereco: 'Rua Tiradentes, 879 - Vila Mendonca - Araçatuba',
             cnpj: '55.755.995/0001-92', produtosAferidos: PRODUTOS_TOMOSON,
-            assinanteNome: 'Bruno Rodrigues', assinanteCargo: 'Auxiliar Técnico', incluirCarimbo: true
+            assinanteCargo: 'Auxiliar Técnico', incluirCarimbo: true
         }
     },
     {
@@ -1372,7 +1372,7 @@ const MODELOS_CARTA_PADRAO = [
             destinatario: 'TOMOSON CENTRO DE DIAGNÓSTICOS POR IMAGEM', contato: 'Regiane', contatoEmail: '', contatoTelefone: '',
             unidadeNome: 'TOMOSON - Centro de Diagnósticos por Imagem', endereco: 'Rua Floriano Peixoto, 497 - Vila Mendonca - Araçatuba',
             cnpj: '55.755.995/0002-73', produtosAferidos: PRODUTOS_TOMOSON,
-            assinanteNome: 'Bruno Rodrigues', assinanteCargo: 'Auxiliar Técnico', incluirCarimbo: true
+            assinanteCargo: 'Auxiliar Técnico', incluirCarimbo: true
         }
     }
 ];
@@ -1430,7 +1430,9 @@ async function renderCartaFormPage(record, options) {
         }
         if (options && options.prefillCliente) m.cliente = options.prefillCliente;
         if (options && options.prefillCidade) m.cidade = options.prefillCidade;
-        if (!d.assinanteNome) d.assinanteNome = state.currentUser?.name || '';
+        // Carta nova sai sempre no nome de quem está usando o app (o técnico
+        // que fez a visita) — nem "Duplicar" nem modelo trocam isso.
+        d.assinanteNome = state.currentUser?.name || d.assinanteNome || '';
         if (!d.documentoData) d.documentoData = cartaHoje();
         if (!d.datasVisitas.length) d.datasVisitas = [cartaHoje()];
     }
@@ -1536,7 +1538,7 @@ async function renderCartaFormPage(record, options) {
 
             <p class="mnt-carta-form-sec full-width">Assinatura</p>
             <div class="form-group">
-                <label for="carta-assinante-nome">Nome</label>
+                <label for="carta-assinante-nome">Técnico</label>
                 <input type="text" id="carta-assinante-nome" value="${escapeHtml(d.assinanteNome)}">
             </div>
             <div class="form-group">
@@ -1603,7 +1605,6 @@ async function renderCartaFormPage(record, options) {
         setVal('carta-unidade', md.unidadeNome);
         setVal('carta-endereco', md.endereco);
         setVal('carta-cnpj', md.cnpj);
-        setVal('carta-assinante-nome', md.assinanteNome);
         setVal('carta-assinante-cargo', md.assinanteCargo);
         $('carta-carimbo').checked = md.incluirCarimbo !== false;
         produtosEl.innerHTML = (md.produtosAferidos.length ? md.produtosAferidos : ['']).map(cartaProdutoRowHtml).join('');
