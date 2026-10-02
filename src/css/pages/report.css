@@ -33,7 +33,7 @@
 
 .report-custom-range .form-group { flex: 1; min-width: 140px; }
 
-.report-status-filter { margin-top: 0.75rem; }
+.report-status-filter { margin-top: 0; }
 .report-status-hint { font-weight: 400; color: var(--text-muted); font-size: 0.78rem; }
 
 .report-status-chips {
@@ -300,6 +300,8 @@
         print-color-adjust: exact;
     }
 }
+
+.report-header-actions { display: flex; gap: 1rem; align-items: center; }
 
 /* Hub de relatórios — 3 cards de navegação pras telas separadas */
 .report-hub-grid {

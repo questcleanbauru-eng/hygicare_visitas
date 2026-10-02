@@ -302,33 +302,30 @@ function filterPanelHtml({ period, isAdmin, gerencia, gerenciasDisponiveis, vend
         </div>
         <div class="visits-filter-grid" id="report-filter-panel">
             ${period === 'personalizado' ? `
-            <div class="report-custom-range">
                 <div class="form-group"><label for="report-date-from">De</label><input type="date" id="report-date-from" value="${escapeHtml(customFrom)}"></div>
                 <div class="form-group"><label for="report-date-to">Até</label><input type="date" id="report-date-to" value="${escapeHtml(customTo)}"></div>
+            ` : ''}
+            ${isAdmin ? `
+            <div class="form-group">
+                <label for="report-gerencia">Gerência</label>
+                <select id="report-gerencia">
+                    <option value="">Todas</option>
+                    ${gerenciasDisponiveis.map((g) => `<option value="${escapeHtml(g)}" ${gerencia === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                </select>
             </div>` : ''}
-            <div class="report-custom-range">
-                ${isAdmin ? `
-                <div class="form-group">
-                    <label for="report-gerencia">Gerência</label>
-                    <select id="report-gerencia">
-                        <option value="">Todas</option>
-                        ${gerenciasDisponiveis.map((g) => `<option value="${escapeHtml(g)}" ${gerencia === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
-                    </select>
-                </div>` : ''}
-                <div class="form-group">
-                    <label for="report-vendedor">Vendedor</label>
-                    <select id="report-vendedor">
-                        <option value="">Todos</option>
-                        ${vendedoresDisponiveis.map((v) => `<option value="${escapeHtml(v)}" ${vendedor === v ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="report-cidade">Cidade</label>
-                    <select id="report-cidade">
-                        <option value="">Todas</option>
-                        ${cidadesDisponiveis.map((c) => `<option value="${escapeHtml(c)}" ${cidade === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                    </select>
-                </div>
+            <div class="form-group">
+                <label for="report-vendedor">Vendedor</label>
+                <select id="report-vendedor">
+                    <option value="">Todos</option>
+                    ${vendedoresDisponiveis.map((v) => `<option value="${escapeHtml(v)}" ${vendedor === v ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="report-cidade">Cidade</label>
+                <select id="report-cidade">
+                    <option value="">Todas</option>
+                    ${cidadesDisponiveis.map((c) => `<option value="${escapeHtml(c)}" ${cidade === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                </select>
             </div>
             ${extraHtml || ''}
         </div>
@@ -405,11 +402,15 @@ export async function renderReportVisitasPage() {
         ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatórios', page: 'report' }, { label: 'Visitas' }])}
         <div class="page-header no-print">
             <div><h2>📋 Relatório de Visitas</h2></div>
-            <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+            <div class="report-header-actions">
+                <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+                <button type="button" class="text-link" id="report-download-excel">📥 Baixar Excel</button>
+            </div>
         </div>
         <div id="report-body">${loadingState('📋', 'Carregando relatório...')}</div>
     `;
     document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
+    document.getElementById('report-download-excel').addEventListener('click', () => document.getElementById('csv-visitas')?.click());
     const isAdmGer = isAdminOrGerenteUser();
 
     const visitsMod = await import('./visits.js');
@@ -565,11 +566,15 @@ export async function renderReportPropostasPage() {
         ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatórios', page: 'report' }, { label: 'Propostas' }])}
         <div class="page-header no-print">
             <div><h2>📄 Relatório de Propostas</h2></div>
-            <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+            <div class="report-header-actions">
+                <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+                <button type="button" class="text-link" id="report-download-excel">📥 Baixar Excel</button>
+            </div>
         </div>
         <div id="report-body">${loadingState('📄', 'Carregando relatório...')}</div>
     `;
     document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
+    document.getElementById('report-download-excel').addEventListener('click', () => document.getElementById('csv-propostas')?.click());
     const isAdmGer = isAdminOrGerenteUser();
 
     const proposalsMod = await import('./proposals.js');
@@ -776,11 +781,15 @@ export async function renderReportFunilPage() {
         ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatórios', page: 'report' }, { label: 'Funil' }])}
         <div class="page-header no-print">
             <div><h2>📊 Relatório de Funil</h2></div>
-            <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+            <div class="report-header-actions">
+                <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+                <button type="button" class="text-link" id="report-download-excel">📥 Baixar Excel</button>
+            </div>
         </div>
         <div id="report-body">${loadingState('📊', 'Carregando relatório...')}</div>
     `;
     document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
+    document.getElementById('report-download-excel').addEventListener('click', () => document.getElementById('csv-funil')?.click());
     const isAdmGer = isAdminOrGerenteUser();
 
     const funilMod = await import('./funil.js');
