@@ -19,7 +19,7 @@ const PAGE_TO_NAV_ID = {
     contratos: 'contratos', 'contrato-detail': 'contratos', 'contrato-new': 'contratos', 'contrato-edit': 'contratos',
     manutencao: 'manutencao', 'manutencao-detail': 'manutencao', 'manutencao-new': 'manutencao', 'manutencao-edit': 'manutencao',
     'relatorio-tecnico': 'manutencao', 'relatorio-tecnico-detail': 'manutencao', 'relatorio-tecnico-new': 'manutencao', 'relatorio-tecnico-edit': 'manutencao',
-    report: 'report'
+    report: 'report', 'report-visitas': 'report', 'report-propostas': 'report', 'report-funil': 'report'
 };
 
 export const state = {
@@ -397,6 +397,15 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'report':
             await (await import('./pages/report.js')).renderReportPage();
             break;
+        case 'report-visitas':
+            await (await import('./pages/report.js')).renderReportSectionPage('visitas');
+            break;
+        case 'report-propostas':
+            await (await import('./pages/report.js')).renderReportSectionPage('propostas');
+            break;
+        case 'report-funil':
+            await (await import('./pages/report.js')).renderReportSectionPage('funil');
+            break;
         case 'campanhas':
             await (await import('./pages/campanhas.js')).renderCampanhasPage();
             break;
@@ -425,4 +434,4 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         requestAnimationFrame(() => window.scrollTo(0, savedY));
     }
 }
-
+

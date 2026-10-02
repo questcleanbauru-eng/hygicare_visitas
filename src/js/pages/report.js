@@ -225,13 +225,50 @@ function inRange(date, start, end) {
     return date >= start && date <= end;
 }
 
+const REPORT_SECTIONS = {
+    visitas:   { page: 'report-visitas',   icon: '📋', label: 'Visitas',   desc: 'Visitas por tipo, vendedor, cidade e clientes mais visitados' },
+    propostas: { page: 'report-propostas', icon: '📄', label: 'Propostas', desc: 'Conversão, status, propostas paradas e vencendo' },
+    funil:     { page: 'report-funil',     icon: '📊', label: 'Funil',     desc: 'Pipeline, forecast ponderado, motivo de perda e fechamentos' }
+};
+
+// Tela de entrada do Relatório: só os botões pra cada relatório — não busca
+// nada do servidor (cada tela busca só a própria base quando abre).
 export async function renderReportPage() {
     ensureStyles('report');
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = `
         ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatório' }])}
+        <div class="page-header">
+            <div><h2>Relatório de KPIs</h2><p class="page-subtitle">Escolha o relatório que quer ver</p></div>
+        </div>
+        <div class="report-hub">
+            ${Object.values(REPORT_SECTIONS).map((s) => `
+                <button type="button" class="report-hub-card" data-report-page="${s.page}">
+                    <span class="report-hub-icon">${s.icon}</span>
+                    <span class="report-hub-text">
+                        <strong>${s.label}</strong>
+                        <span>${s.desc}</span>
+                    </span>
+                    <span class="report-hub-arrow">›</span>
+                </button>`).join('')}
+        </div>
+    `;
+    mainContent.querySelectorAll('[data-report-page]').forEach((btn) => {
+        btn.addEventListener('click', () => navigateTo(btn.dataset.reportPage));
+    });
+}
+
+// Uma tela por relatório (visitas | propostas | funil). Busca só a base
+// daquele relatório — antes a tela única puxava as 3 de uma vez.
+export async function renderReportSectionPage(section) {
+    const sec = REPORT_SECTIONS[section];
+    if (!sec) { return renderReportPage(); }
+    ensureStyles('report');
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
+        ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatório', page: 'report' }, { label: sec.label }])}
         <div class="page-header no-print">
-            <div><h2>Relatório de KPIs</h2><p class="page-subtitle">Resumo de visitas, propostas e funil</p></div>
+            <div><h2>${sec.icon} Relatório de ${sec.label}</h2><p class="page-subtitle">${sec.desc}</p></div>
             <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
         </div>
         <div id="report-body">${loadingState('📊', 'Carregando relatório...')}</div>
@@ -239,15 +276,10 @@ export async function renderReportPage() {
     document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
 
     const isAdmGer = isAdminOrGerenteUser();
-    const [visitsMod, proposalsMod, funilMod] = await Promise.all([
-        import('./visits.js'), import('./proposals.js'), import('./funil.js')
-    ]);
 
-    // As 3 buscas do relatório pedem o histórico inteiro (dias:0) — pesadas.
-    // Em paralelo, numa função serverless fria, elas competem pelo tempo/cota
-    // do Sheets e alguma estoura o limite (erro "não foi possível carregar").
-    // Sequencial + 1 retry: cada uma pega o orçamento inteiro e ainda aquece
-    // o cache do servidor pra próxima.
+    // A busca do relatório pede o histórico inteiro (dias:0) — pesada. Numa
+    // função serverless fria ela pode estourar o limite do Sheets; 1 retry
+    // aproveita o cache do servidor já aquecido pela primeira tentativa.
     const fetchWithRetry = async (fn, tries = 2) => {
         let last = { status: 'error', message: 'Sem resposta do servidor.' };
         for (let i = 0; i < tries; i++) {
@@ -257,9 +289,17 @@ export async function renderReportPage() {
         }
         return last;
     };
-    const visitsRes = await fetchWithRetry(() => visitsMod.getVisits(0));
-    const proposalsRes = await fetchWithRetry(() => proposalsMod.getProposals(0));
-    const funilRes = await fetchWithRetry(() => funilMod.getFunil(0));
+    let res;
+    if (section === 'visitas') {
+        res = await fetchWithRetry(async () => (await import('./visits.js')).getVisits(0));
+    } else if (section === 'propostas') {
+        res = await fetchWithRetry(async () => (await import('./proposals.js')).getProposals(0));
+    } else {
+        res = await fetchWithRetry(async () => (await import('./funil.js')).getFunil(0));
+    }
+
+    // Usuário já saiu da tela enquanto carregava — não pinta por cima.
+    if (state.currentPage !== sec.page) return;
 
     state.reportPeriod = state.reportPeriod || 'mes-atual';
     state.reportCustomFrom = state.reportCustomFrom || '';
@@ -269,37 +309,33 @@ export async function renderReportPage() {
     state.reportCollapsedSections = state.reportCollapsedSections || [];
     if (state.reportFilterCollapsed === undefined) { state.reportFilterCollapsed = null; }
 
-    if (visitsRes.status !== 'success' || proposalsRes.status !== 'success' || funilRes.status !== 'success') {
+    if (!res || res.status !== 'success') {
         // Não renderiza um relatório "zerado" quando a busca falhou de
         // verdade — daria a entender que não houve nenhuma atividade.
-        const falhas = [
-            visitsRes.status !== 'success' ? 'Visitas' : null,
-            proposalsRes.status !== 'success' ? 'Propostas' : null,
-            funilRes.status !== 'success' ? 'Funil' : null
-        ].filter(Boolean);
-        const motivo = String(visitsRes.message || proposalsRes.message || funilRes.message || '').trim();
+        const motivo = String((res && res.message) || '').trim();
         const body = document.getElementById('report-body');
         if (body) {
             body.innerHTML = `<div class="empty-state">
                 <span class="empty-state-icon">⚠️</span>
-                <p>Não foi possível carregar: ${falhas.join(', ')}.${motivo ? `<br><span class="helper-text">${escapeHtml(motivo)}</span>` : ''}</p>
+                <p>Não foi possível carregar: ${sec.label}.${motivo ? `<br><span class="helper-text">${escapeHtml(motivo)}</span>` : ''}</p>
                 <button type="button" class="secondary-button" id="report-retry-btn">Tentar novamente</button>
             </div>`;
-            document.getElementById('report-retry-btn')?.addEventListener('click', () => navigateTo('report'));
+            document.getElementById('report-retry-btn')?.addEventListener('click', () => navigateTo(sec.page));
         }
         return;
     }
 
-    const allVisits = visitsRes.visits.map(normalizeVisit);
-    const allProposals = proposalsRes.proposals.map(normalizeProposal);
-    const allFunil = funilRes.funil || [];
+    const allVisits = section === 'visitas' ? (res.visits || []).map(normalizeVisit) : [];
+    const allProposals = section === 'propostas' ? (res.proposals || []).map(normalizeProposal) : [];
+    const allFunil = section === 'funil' ? (res.funil || []) : [];
 
-    renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+    renderReportBody(mainContent, section, allVisits, allProposals, allFunil, isAdmGer);
 }
 
-function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer) {
+function renderReportBody(mainContent, section, allVisits, allProposals, allFunil, isAdmGer) {
     const body = document.getElementById('report-body');
     if (!body) return;
+    const rerender = () => renderReportBody(mainContent, section, allVisits, allProposals, allFunil, isAdmGer);
 
     const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
     const gerencia = state.reportGerencia || '';
@@ -435,7 +471,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
 
     body.innerHTML = `
         <div class="report-print-header">
-            <h2>Relatório de KPIs — ${escapeHtml(periodLabel)}</h2>
+            <h2>Relatório de ${escapeHtml(REPORT_SECTIONS[section].label)} — ${escapeHtml(periodLabel)}</h2>
             <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>
         <div class="card report-period-card no-print">
@@ -468,15 +504,15 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                         ${gerenciasDisponiveis.map((g) => `<option value="${escapeHtml(g)}" ${gerencia === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
                     </select>
                 </div>
-                <div class="form-group">
+                ${section !== 'propostas' ? `<div class="form-group">
                     <label for="report-area">Área de Atuação</label>
                     <select id="report-area">
                         <option value="">Todas</option>
                         ${areasDisponiveis.map((a) => `<option value="${escapeHtml(a)}" ${area === a ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}
                     </select>
-                </div>
+                </div>` : ''}
             </div>` : ''}
-            ${propStatusDisponiveis.length ? `
+            ${section === 'propostas' && propStatusDisponiveis.length ? `
             <div class="form-group report-status-filter">
                 <label for="report-prop-status">Status da proposta <span class="report-status-hint">(marque um ou mais)</span></label>
                 <div class="searchable-select">
@@ -485,7 +521,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 </div>
                 <div class="selected-types" id="report-prop-status-selected" style="margin-top:0.3rem"></div>
             </div>` : ''}
-            ${funilStatusDisponiveis.length ? `
+            ${section === 'funil' && funilStatusDisponiveis.length ? `
             <div class="form-group report-status-filter">
                 <label for="report-funil-status">Status do funil <span class="report-status-hint">(marque um ou mais)</span></label>
                 <div class="searchable-select">
@@ -498,13 +534,12 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         </div>
 
         <div class="report-jump-nav no-print">
-            <span>Ir para:</span>
-            <button type="button" class="text-link" data-jump="visitas">📋 Visitas</button>
-            <button type="button" class="text-link" data-jump="propostas">📄 Propostas</button>
-            <button type="button" class="text-link" data-jump="funil">📊 Funil</button>
+            <span>Outros relatórios:</span>
+            ${Object.entries(REPORT_SECTIONS).filter(([k]) => k !== section).map(([, s]) =>
+                `<button type="button" class="text-link" data-report-page="${s.page}">${s.icon} ${s.label}</button>`).join('')}
         </div>
 
-        <div class="report-section report-section-visitas${secOpen('visitas') ? '' : ' is-collapsed'}" data-section-key="visitas">
+        ${section === 'visitas' ? `<div class="report-section report-section-visitas${secOpen('visitas') ? '' : ' is-collapsed'}" data-section-key="visitas">
             <div class="report-section-head">
                 <h3>📋 Visitas</h3>
                 <div class="report-section-actions no-print">
@@ -524,9 +559,9 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             ${topClientesVisitas.length ? `<p class="report-subtitle">Top 5 clientes com mais visitas</p><div class="report-top-list">${topClientesVisitas.map(([cliente, total], i) => reportTopRow(i, cliente, total)).join('')}</div>` : ''}
             ${topTiposComCliente.length ? `<p class="report-subtitle">Top 5 tipos de visita — cliente mais frequente</p><div class="report-top-list">${topTiposComCliente.map((t, i) => reportTopRow(i, titleCase(t.tipo) + (t.cliente ? ` — ${t.cliente}` : ''), t.clienteCount)).join('')}</div>` : ''}
             </div>
-        </div>
+        </div>` : ''}
 
-        <div class="report-section report-section-propostas${secOpen('propostas') ? '' : ' is-collapsed'}" data-section-key="propostas">
+        ${section === 'propostas' ? `<div class="report-section report-section-propostas${secOpen('propostas') ? '' : ' is-collapsed'}" data-section-key="propostas">
             <div class="report-section-head">
                 <h3>📄 Propostas</h3>
                 <div class="report-section-actions no-print">
@@ -558,9 +593,9 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 propVencendo.map((p) => [escapeHtml(titleCase(p.cliente)), escapeHtml(titleCase(p.vendedor)), escapeHtml(p.status || '-'), escapeHtml(p.dataLimite || '-')])
             )}` : ''}
             </div>
-        </div>
+        </div>` : ''}
 
-        <div class="report-section report-section-funil${secOpen('funil') ? '' : ' is-collapsed'}" data-section-key="funil">
+        ${section === 'funil' ? `<div class="report-section report-section-funil${secOpen('funil') ? '' : ' is-collapsed'}" data-section-key="funil">
             <div class="report-section-head">
                 <h3>📊 Funil</h3>
                 <div class="report-section-actions no-print">
@@ -591,13 +626,13 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
                 funFechamento.map((f) => [escapeHtml(titleCase(f.cliente)), escapeHtml(titleCase(f.vendedor)), escapeHtml(f.status || '-'), formatMoney(parseCurrencyBR(f.vlMensal)), escapeHtml(f.conclusao || '-')])
             )}` : ''}
             </div>
-        </div>
+        </div>` : ''}
     `;
 
     body.querySelectorAll('[data-period]').forEach((btn) => {
         btn.addEventListener('click', () => {
             state.reportPeriod = btn.dataset.period;
-            renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+            rerender();
         });
     });
 
@@ -623,7 +658,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
         state.reportArea = '';
         state.reportPropStatus = [];
         state.reportFunilStatus = [];
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+        rerender();
     });
 
     const _stamp = new Date().toISOString().slice(0, 10);
@@ -631,11 +666,8 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     document.getElementById('pdf-propostas')?.addEventListener('click', () => printReport('propostas'));
     document.getElementById('pdf-funil')?.addEventListener('click', () => printReport('funil'));
 
-    body.querySelectorAll('[data-jump]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            document.querySelector(`.report-section-${btn.dataset.jump}`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
+    body.querySelectorAll('[data-report-page]').forEach((btn) => {
+        btn.addEventListener('click', () => navigateTo(btn.dataset.reportPage));
     });
 
     document.getElementById('pdf-det-propostas')?.addEventListener('click', async () => {
@@ -767,19 +799,19 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
     });
     document.getElementById('report-date-from')?.addEventListener('change', (e) => {
         state.reportCustomFrom = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+        rerender();
     });
     document.getElementById('report-date-to')?.addEventListener('change', (e) => {
         state.reportCustomTo = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+        rerender();
     });
     document.getElementById('report-gerencia')?.addEventListener('change', (e) => {
         state.reportGerencia = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+        rerender();
     });
     document.getElementById('report-area')?.addEventListener('change', (e) => {
         state.reportArea = e.target.value;
-        renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+        rerender();
     });
     const initReportStatusFilter = (id, items, stateKey) => {
         if (!document.getElementById(id)) return;
@@ -795,7 +827,7 @@ function renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmG
             selectionLabel: 'status',
             onSelectionChange: () => {
                 state[stateKey] = arr.slice();
-                renderReportBody(mainContent, allVisits, allProposals, allFunil, isAdmGer);
+                rerender();
             }
         });
     };
