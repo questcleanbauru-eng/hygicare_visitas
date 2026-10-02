@@ -1792,11 +1792,12 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
             </div>
             ${!isEdit ? `
             <div class="form-group full-width">
-                <label for="visit-notificar-usuario">Notificar um usuário sobre esta visita <span class="field-helper-text" style="display:inline">(opcional)</span></label>
-                <div class="searchable-select">
-                    <input type="text" id="visit-notificar-usuario" placeholder="Busque o vendedor/gerente" autocomplete="off">
+                <label for="visit-notificar-usuario">Notificar usuário(s) sobre esta visita <span class="field-helper-text" style="display:inline">(opcional)</span></label>
+                <div class="searchable-select multi-select">
+                    <input type="text" id="visit-notificar-usuario" placeholder="Busque e selecione um ou mais" autocomplete="off">
                     <div class="searchable-select-menu" id="visit-notificar-usuario-menu"></div>
                 </div>
+                <div class="selected-types" id="visit-notificar-usuario-selected"></div>
             </div>` : ''}
             ${state.canLancarDespesas ? `
             <div class="form-group full-width">
@@ -1868,6 +1869,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
     // rascunho restaurado — descartando o que não exista mais na lista.
     // Fica seedado ANTES do initializeSearchableInput abaixo, que já
     // renderiza os chips a partir deste array na inicialização.
+    let selectedNotifyUsuarios = [];
     let selectedVisitTypes = [];
     if (isEdit && normalizedVisit && normalizedVisit.tipoVisita) {
         selectedVisitTypes = [normalizedVisit.tipoVisita];
@@ -1908,23 +1910,25 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
         });
     }
     if (document.getElementById('visit-notificar-usuario-menu')) {
-        // Lista restrita (não é "notifique qualquer um da empresa"): só o(s)
-        // gerente(s) da própria gerência de quem tá registrando + os admins
-        // — as pessoas que realmente fazem sentido avisar sobre uma visita.
-        // Pro Admin (que não tem uma "própria gerência" fixa pra comparar),
-        // a restrição de gerência não faz sentido — vê todos os gerentes.
-        const meuGerencia = String(state.currentUser?.gerencia || '').trim().toLowerCase();
-        const notificarOptions = (formData.vendedores || []).filter((v) => {
-            if (!v.nome || v.nome === state.currentUser?.name) return false;
-            const perfil = String(v.perfil || '').trim().toLowerCase();
-            if (perfil === 'admin') return true;
-            if (perfil !== 'gerente') return false;
-            return isAdminUser || String(v.gerencia || '').trim().toLowerCase() === meuGerencia;
-        }).map((v) => v.nome);
+        // Mesma regra de "quem pode ser notificado" usada em Agenda/Funil
+        // (resolveNotifyOptions): admin notifica qualquer um; gerente só
+        // admins + a própria equipe; vendedor comum só admins/gerentes da
+        // própria gerência. Agora também seleciona mais de um de uma vez.
+        const notificarOptions = resolveNotifyOptions(formData.vendedores || [], state.currentUser);
+        const notifyInput = document.getElementById('visit-notificar-usuario');
         initializeSearchableInput({
-            input: document.getElementById('visit-notificar-usuario'),
+            input: notifyInput,
             menu: document.getElementById('visit-notificar-usuario-menu'),
-            items: notificarOptions
+            items: notificarOptions,
+            multiSelect: true,
+            maxSelections: 10,
+            selectedItems: selectedNotifyUsuarios,
+            selectedContainer: document.getElementById('visit-notificar-usuario-selected'),
+            selectionLabel: 'usuário',
+            onSelectionChange: (items) => {
+                selectedNotifyUsuarios = items;
+                notifyInput.value = '';
+            }
         });
     }
     initializeSearchableInput({
@@ -2263,7 +2267,7 @@ export async function renderVisitFormPage(visit = null, radarClienteId = null, r
             longitude: isEdit ? undefined : '',
             teveDespesas: state.canLancarDespesas ? (document.querySelector('input[name="teveDespesas"]:checked')?.value || 'Nao') : undefined,
             valorDespesas: state.canLancarDespesas ? document.getElementById('valor-despesas')?.value.trim() : undefined,
-            notificarUsuario: isEdit ? undefined : (document.getElementById('visit-notificar-usuario')?.value.trim() || ''),
+            notificarUsuarios: isEdit ? undefined : selectedNotifyUsuarios,
             user: state.currentUser
         };
 
