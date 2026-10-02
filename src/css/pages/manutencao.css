@@ -1161,8 +1161,6 @@
     background: var(--bg);
     font-size: 0.85rem;
 }
-.mnt-carta-add-data { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-.mnt-carta-add-data input { flex: 1; min-width: 150px; }
 .mnt-carta-add {
     background: none;
     border: 1px dashed var(--text-muted);
@@ -1173,16 +1171,46 @@
     font-size: 0.85rem;
     cursor: pointer;
 }
-.mnt-carta-prod-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 2rem;
-    gap: 0.4rem;
-    margin-bottom: 0.4rem;
+/* Input de data invisível por cima do botão — tocar no botão abre o
+   calendário nativo (ver listener em renderCartaFormPage). */
+.form-group .mnt-carta-add-data, .mnt-carta-add-data { position: relative; display: inline-flex !important; width: fit-content; align-items: center; gap: 0.3rem; overflow: hidden; font-weight: 400; margin: 0; }
+.mnt-carta-add-data input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    border: 0;
+    padding: 0;
 }
+
+#carta-produtos { counter-reset: carta-prod; }
+.mnt-carta-prod-row {
+    counter-increment: carta-prod;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.7rem 0.7rem;
+    margin-bottom: 0.6rem;
+}
+.mnt-carta-prod-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem; }
+.mnt-carta-prod-num::before {
+    content: "Produto " counter(carta-prod);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+.mnt-carta-prod-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 0.5rem;
+}
+.mnt-carta-prod-fields label { display: flex; flex-direction: column; gap: 0.2rem; margin: 0; }
+.mnt-carta-prod-fields label > span { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+.mnt-carta-prod-fields input { background: var(--surface); font-weight: 400; }
 @media (max-width: 560px) {
-    .mnt-carta-prod-row { grid-template-columns: minmax(0, 1fr) 2rem; }
-    .mnt-carta-prod-row .carta-prod-desc { grid-column: 1; grid-row: 2; }
-    .mnt-carta-prod-row .carta-prod-remove { grid-row: 1 / span 2; grid-column: 2; }
+    .mnt-carta-prod-fields { grid-template-columns: minmax(0, 1fr); }
 }
 .mnt-carta-x {
     border: 0;
