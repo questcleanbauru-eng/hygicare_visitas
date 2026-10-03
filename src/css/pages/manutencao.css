@@ -1092,13 +1092,14 @@
 /* ── Carta de Visita — folha A4 no mesmo layout do modelo em PDF da
    Hygicare (Calibri 11pt, margens e rodapé iguais). A folha tem tamanho
    fixo de A4 na tela também, pra tela e PDF baterem; no celular ela é
-   reduzida com zoom (--carta-zoom, calculado em fitCartaFolha). ──── */
+   reduzida com transform:scale (calculado em fitCartaFolha). ──── */
 .mnt-modelo-icon-carta { background: #fce7f3; }
 
-.mnt-carta-wrap { --carta-zoom: 1; overflow-x: hidden; padding-bottom: 1rem; }
+.mnt-carta-wrap { overflow: hidden; margin-bottom: 1rem; }
 .mnt-carta-folha {
-    zoom: var(--carta-zoom);
     box-sizing: border-box;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     width: 210mm;
     min-height: 297mm;
     margin: 0 auto;
@@ -1228,13 +1229,35 @@
 
 /* PDF: a folha já tem as margens do modelo — a margem zero da página
    entra só durante a impressão (bindCartaPrintPage, manutencao.js). */
+/* Impressão em 1 folha só, em qualquer navegador: o Safari do iPhone põe
+   margem própria (e cabeçalho/rodapé com link e data) por cima do @page,
+   então a altura útil é menor que A4 e a folha de 297mm transbordava pra
+   uma 2ª página. Na impressão a folha não força altura; o rodapé da
+   empresa fica preso no pé da página (position:fixed na impressão é
+   relativo à página) e os espaçamentos ficam um pouco mais justos. */
 @media print {
-    .mnt-carta-wrap { padding: 0; overflow: visible; }
+    .mnt-carta-wrap { overflow: visible; height: auto !important; margin: 0; }
     .mnt-carta-folha {
-        zoom: 1 !important;
+        transform: none !important;
         box-shadow: none;
-        min-height: 296mm;
+        width: 100%;
+        min-height: 0;
+        padding: 8mm 22mm 24mm 30mm;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+    }
+    .mnt-carta-logo { margin-bottom: 5mm; }
+    .mnt-carta-mt { margin-top: 4mm !important; }
+    .mnt-carta-gap { margin-top: 7mm !important; }
+    .mnt-carta-titulo { margin: 5mm 0 !important; }
+    .mnt-carta-list { margin-top: 3mm; }
+    .mnt-carta-carimbo { width: 100mm; margin: -4mm 0 0 46mm; }
+    .mnt-carta-rodape {
+        position: fixed;
+        left: 6mm;
+        right: 6mm;
+        bottom: 5mm;
+        margin: 0;
+        background: #fff;
     }
 }

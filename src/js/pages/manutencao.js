@@ -856,30 +856,41 @@ function ensureCartaFont() {
 // só enquanto imprime uma carta, entra uma regra @page por cima. Vale pro
 // botão PDF e pro Ctrl+P.
 let _cartaPrintBound = false;
+function addCartaPrintPageStyle() {
+    if (!document.querySelector('.mnt-carta-folha') || document.getElementById('carta-print-page')) return;
+    const style = document.createElement('style');
+    style.id = 'carta-print-page';
+    style.textContent = '@page { size: A4; margin: 0; }';
+    document.head.appendChild(style);
+}
 function bindCartaPrintPage() {
     if (_cartaPrintBound) return;
     _cartaPrintBound = true;
-    window.addEventListener('beforeprint', () => {
-        if (!document.querySelector('.mnt-carta-folha') || document.getElementById('carta-print-page')) return;
-        const style = document.createElement('style');
-        style.id = 'carta-print-page';
-        style.textContent = '@page { size: A4; margin: 0; }';
-        document.head.appendChild(style);
-    });
+    window.addEventListener('beforeprint', addCartaPrintPageStyle);
     window.addEventListener('afterprint', () => document.getElementById('carta-print-page')?.remove());
 }
 
 // A folha tem largura fixa de A4 (pra tela e PDF baterem); no celular ela
-// é reduzida (zoom) pra caber na largura sem rolar de lado. Na impressão o
-// CSS volta o zoom pra 1.
+// é reduzida pra caber na largura sem rolar de lado. Usa transform:scale e
+// não CSS zoom: no iPhone o zoom encolhia a folha mas o Safari aumentava o
+// texto de volta (ajuste automático de fonte), e as linhas se sobrepunham.
+// transform não muda o espaço ocupado, então a altura do wrap é ajustada
+// na mão. Na impressão o CSS desfaz tudo (transform/altura).
 let _cartaResizeBound = false;
 function fitCartaFolha() {
     const wrap = document.querySelector('.mnt-carta-wrap');
     const folha = wrap && wrap.querySelector('.mnt-carta-folha');
     if (!wrap || !folha) return;
     const larguraFolha = folha.offsetWidth || 794;
-    const escala = Math.min(1, wrap.clientWidth / larguraFolha);
-    wrap.style.setProperty('--carta-zoom', String(Math.max(0.3, escala)));
+    const escala = Math.max(0.3, Math.min(1, wrap.clientWidth / larguraFolha));
+    if (escala < 1) {
+        folha.style.transform = `scale(${escala})`;
+        folha.style.transformOrigin = 'top left';
+        wrap.style.height = `${Math.ceil(folha.offsetHeight * escala)}px`;
+    } else {
+        folha.style.transform = '';
+        wrap.style.height = '';
+    }
 }
 
 // "TASKI PROFI: aferido na diluição 1/50" -> nome do produto (antes do
@@ -978,6 +989,9 @@ function renderCartaDetailPage(mainContent, m) {
     `;
 
     fitCartaFolha();
+    // A fonte da carta (Carlito) chega depois e muda a altura da folha.
+    document.fonts?.ready.then(fitCartaFolha).catch(() => {});
+    document.querySelectorAll('.mnt-carta-folha img').forEach((img) => img.addEventListener('load', fitCartaFolha));
     bindCartaPrintPage();
     if (!_cartaResizeBound) {
         _cartaResizeBound = true;
@@ -1001,6 +1015,9 @@ function renderCartaDetailPage(mainContent, m) {
         document.title = `Carta de Visita - ${sanitize(m.cliente)} - ${sanitize(d.documentoData)}`;
         const restoreTitle = () => { document.title = originalTitle; window.removeEventListener('afterprint', restoreTitle); };
         window.addEventListener('afterprint', restoreTitle);
+        // Já põe a margem zero aqui — o Safari do iPhone nem sempre dispara
+        // beforeprint antes de montar a prévia.
+        addCartaPrintPageStyle();
         window.print();
         setTimeout(restoreTitle, 3000);
     });
