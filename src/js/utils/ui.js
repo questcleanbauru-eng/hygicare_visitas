@@ -938,7 +938,70 @@ export async function refreshNotificacoesBadge() {
     _lastNotifBadgeCheck = Date.now();
     try {
         const r = await callAPI('getNotificacoes', { user: state.currentUser });
-        if (r && r.status === 'success') updateNotificacoesBadge(r.naoLidas || 0);
+        if (r && r.status === 'success') {
+            updateNotificacoesBadge(r.naoLidas || 0);
+            maybeShowAvisosPedidos(r.notificacoes || []);
+        }
     } catch (e) { /* badge é só um extra visual */ }
 }
-
+
+// Avisos que alguém pediu pra mandar pra esta pessoa ("Notificar usuário"
+// na Visita, "Notificar outros usuários" na Agenda/Funil/Propostas, aviso
+// manual do admin/gerente) aparecem numa janela assim que o app abre, em
+// vez de ficarem só na tela de Notificações. Os automáticos (resumo
+// diário, lembretes — tipo 'aviso') não entram aqui. Uma vez por abertura
+// do app: "Depois" fecha e só volta a mostrar (o que ainda não foi lido)
+// na próxima vez que o app for aberto.
+const TIPOS_AVISO_PEDIDO = new Set(['visita', 'registro', 'manual']);
+let _avisosPedidosMostrados = false;
+function maybeShowAvisosPedidos(notificacoes) {
+    if (_avisosPedidosMostrados) return;
+    if (['login', 'forgot-password', 'campanha-preencher'].includes(state.currentPage)) return;
+    const pendentes = notificacoes.filter((n) => !n.lida && TIPOS_AVISO_PEDIDO.has(n.tipo));
+    if (!pendentes.length || document.querySelector('.avisos-pedidos-overlay')) return;
+    _avisosPedidosMostrados = true;
+
+    const marcarLidas = (ids) => Promise.all(ids.map((id) => callAPI('marcarNotificacaoLida', { id, user: state.currentUser }).catch(() => {})));
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay avisos-pedidos-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card avisos-pedidos-card" role="dialog" aria-modal="true" aria-labelledby="avisos-pedidos-titulo">
+            <h3 id="avisos-pedidos-titulo">🔔 ${pendentes.length === 1 ? 'Você tem 1 aviso novo' : `Você tem ${pendentes.length} avisos novos`}</h3>
+            <div class="avisos-pedidos-list">
+                ${pendentes.slice(0, 10).map((n) => `
+                    <button type="button" class="avisos-pedidos-item" data-aviso-id="${escapeHtml(n.id)}">
+                        <span class="avisos-pedidos-text">
+                            <strong>${escapeHtml(n.titulo || 'Aviso')}</strong>
+                            ${n.corpo ? `<span>${escapeHtml(n.corpo)}</span>` : ''}
+                            ${n.criadaEm ? `<small>${escapeHtml(n.criadaEm)}</small>` : ''}
+                        </span>
+                        <span class="avisos-pedidos-abrir">Abrir ›</span>
+                    </button>`).join('')}
+            </div>
+            ${pendentes.length > 10 ? `<p class="helper-text">E mais ${pendentes.length - 10} na tela de Notificações.</p>` : ''}
+            <div class="avisos-pedidos-actions">
+                <button type="button" class="secondary-button" id="avisos-pedidos-depois">Depois</button>
+                <button type="button" class="primary-button" id="avisos-pedidos-ok">Marcar como lidos</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#avisos-pedidos-depois').addEventListener('click', close);
+    overlay.querySelector('#avisos-pedidos-ok').addEventListener('click', async () => {
+        close();
+        await marcarLidas(pendentes.map((n) => n.id));
+        _lastNotifBadgeCheck = 0;
+        refreshNotificacoesBadge();
+    });
+    overlay.querySelectorAll('[data-aviso-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const n = pendentes.find((x) => x.id === btn.dataset.avisoId);
+            close();
+            if (!n) return;
+            marcarLidas([n.id]).then(() => { _lastNotifBadgeCheck = 0; refreshNotificacoesBadge(); });
+            navigateTo(n.page || 'notificacoes', n.params || {});
+        });
+    });
+}
+
