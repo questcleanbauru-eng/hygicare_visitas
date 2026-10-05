@@ -21,5 +21,10 @@ if not exist .env (
 
 echo Iniciando o robo de WhatsApp numa janela separada...
 start "HygicareWhatsAppBot" cmd /k npm start
-echo Pronto — pode fechar esta janela, o robo continua na outra.
+
+echo Abrindo o painel de status...
 timeout /t 3 >nul
+start http://localhost:3344
+
+echo Pronto — pode fechar esta janela, o robo continua na outra.
+timeout /t 2 >nul

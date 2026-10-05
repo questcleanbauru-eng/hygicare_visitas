@@ -67,10 +67,17 @@ mensagem (pra não parecer disparo em massa). Se o computador estiver
 desligado na hora programada, ele manda assim que for ligado de novo,
 contanto que ainda esteja dentro da janela do mesmo dia.
 
-Pra iniciar/parar fácil (sem abrir terminal), use `iniciar.bat` e
-`parar.bat` nesta pasta — dois cliques e pronto. Pra deixar sempre ativo,
-é só deixar a janela que o `iniciar.bat` abre aberta (ou configurar pra
-iniciar com o Windows, se quiser — não obrigatório).
+Pra iniciar fácil (sem abrir terminal), dê duplo clique em `iniciar.bat` —
+ele sobe o robô numa janela separada e já abre sozinho um **painel de
+status** em `http://localhost:3344` (conexão, última checagem, último
+envio, se está pausado no app). O painel tem um botão **"Parar robô"** —
+clicar nele encerra o robô por completo; pra ligar de novo é só rodar o
+`iniciar.bat` outra vez. `parar.bat` faz a mesma coisa, caso o painel não
+abra por algum motivo.
+
+Pra deixar sempre ativo, é só deixar a janela que o `iniciar.bat` abre
+aberta (ou configurar pra iniciar com o Windows, se quiser — não
+obrigatório).
 
 ## ⚠️ Sobre o risco
 
