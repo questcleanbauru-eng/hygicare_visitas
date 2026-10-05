@@ -19,12 +19,13 @@ if not exist .env (
     exit /b 1
 )
 
-echo Iniciando o robo de WhatsApp numa janela separada...
-start "HygicareWhatsAppBot" cmd /k npm start
+echo Iniciando o robo de WhatsApp em segundo plano (sem janela)...
+wscript.exe "%~dp0iniciar-oculto.vbs"
 
 echo Abrindo o painel de status...
 timeout /t 3 >nul
 start http://localhost:3344
 
-echo Pronto — pode fechar esta janela, o robo continua na outra.
-timeout /t 2 >nul
+echo Pronto — esta janela ja pode ser fechada, o robo continua rodando escondido.
+echo (Acompanhe tudo pelo painel que acabou de abrir. Log tecnico fica em robo.log, se precisar.)
+timeout /t 3 >nul

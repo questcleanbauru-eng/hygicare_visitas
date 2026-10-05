@@ -14,7 +14,8 @@ risco mais abaixo.
 1. Tenha um chip/número que ainda não tenha WhatsApp nele (pode ser aquele
    "só de dados" que você mencionou, desde que receba SMS/ligação).
 2. Não precisa instalar o WhatsApp nesse celular — a conexão é feita
-   escaneando o QR code que este robô mostra no terminal.
+   escaneando um QR code, que aparece **no painel** (http://localhost:3344)
+   assim que o robô precisar parear.
 
 ## 2. Instalar
 
@@ -41,17 +42,17 @@ robô lê isso a cada checagem, então mudar lá já vale na próxima.
 
 ## 3. Primeira execução (parear o número)
 
-Use o `iniciar.bat` (duplo clique, ou `npm start` direto se preferir pelo
-terminal):
+Dê duplo clique em `iniciar.bat` (ou no atalho "Robô WhatsApp - Iniciar"
+na Área de Trabalho, se já tiver um). Ele instala as dependências na
+primeira vez, sobe o robô **escondido** (sem janela de terminal) e abre
+o painel sozinho.
 
-```
-npm start
-```
-
-Vai aparecer um **QR code no terminal**. No celular com o número separado:
+No painel, assim que o robô precisar parear, aparece um card **"📷
+Escaneie pra conectar"** com o QR code. No celular com o número separado:
 WhatsApp → Configurações → Aparelhos conectados → Conectar um aparelho →
-escaneie o QR. Depois disso o robô fica conectado sozinho — não precisa
-repetir esse passo (a menos que fique muito tempo sem rodar).
+escaneie o QR ali na tela. Depois disso o robô fica conectado sozinho —
+não precisa repetir esse passo (a menos que fique muito tempo sem rodar
+ou a sessão seja desconectada no celular).
 
 ## 4. Deixar rodando
 
@@ -67,17 +68,24 @@ mensagem (pra não parecer disparo em massa). Se o computador estiver
 desligado na hora programada, ele manda assim que for ligado de novo,
 contanto que ainda esteja dentro da janela do mesmo dia.
 
-Pra iniciar fácil (sem abrir terminal), dê duplo clique em `iniciar.bat` —
-ele sobe o robô numa janela separada e já abre sozinho um **painel de
-status** em `http://localhost:3344` (conexão, última checagem, último
-envio, se está pausado no app). O painel tem um botão **"Parar robô"** —
-clicar nele encerra o robô por completo; pra ligar de novo é só rodar o
-`iniciar.bat` outra vez. `parar.bat` faz a mesma coisa, caso o painel não
-abra por algum motivo.
+O robô roda sem janela de terminal visível — acompanhe tudo pelo painel
+(`http://localhost:3344`): conexão, contagem regressiva pra próxima
+checagem, janela de envio, se está pausado no app, e uma lista "Quem
+receberia agora" (nome + telefone + pendências de cada um, atualizada a
+cada checagem). O botão "🔍 Verificar agora" força uma checagem na hora,
+só pra conferir — nunca manda nada sozinho. Se algo der errado, o log
+técnico completo fica em `robo.log`, nesta pasta.
 
-Pra deixar sempre ativo, é só deixar a janela que o `iniciar.bat` abre
-aberta (ou configurar pra iniciar com o Windows, se quiser — não
-obrigatório).
+O painel tem um botão "⏹ Parar robô" — clicar nele encerra o processo por
+completo; pra ligar de novo, use o atalho na Área de Trabalho (ou
+`iniciar.bat`). `parar.bat` faz a mesma coisa, caso o painel não abra por
+algum motivo.
+
+Pra deixar sempre ativo, não precisa fazer nada especial — ele já roda em
+segundo plano sem depender de nenhuma janela aberta (só o computador
+ligado). Se quiser que suba sozinho ao ligar o Windows, dá pra colocar um
+atalho do `iniciar.bat` na pasta de Inicialização do Windows — não
+obrigatório.
 
 ## ⚠️ Sobre o risco
 
@@ -92,6 +100,8 @@ contato com cliente.
 
 - `auth_info/` — guarda a sessão conectada (tão sensível quanto uma senha)
 - `estado-envio.json` — só controla se já mandou hoje
+- `bot.pid` — PID do processo rodando, usado pelo `parar.bat`
+- `robo.log` — log técnico (console.log/erros), útil se algo der errado
 - `.env` — sua chave de API
 
 Todos já estão no `.gitignore` desta pasta.
