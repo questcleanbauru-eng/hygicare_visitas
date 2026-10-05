@@ -287,7 +287,7 @@ function paginaPainel() {
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
-    max-width: 980px; margin: 0 auto; padding: 2rem 1.3rem 3rem;
+    max-width: 1800px; margin: 0 auto; padding: 2rem 2rem 3rem;
     background: #f6f7fa; color: #0f172a; min-height: 100vh;
   }
   header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.4rem; }
@@ -313,7 +313,8 @@ function paginaPainel() {
   .hero-num-label { font-size: 0.74rem; color: #047857; margin-top: 0.15rem; }
 
   .grid { display: grid; grid-template-columns: 1fr; gap: 1.1rem; }
-  @media (min-width: 860px) { .grid { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 860px) { .grid { grid-template-columns: 1fr 1.4fr; } }
+  @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 2fr; } }
   .col { display: flex; flex-direction: column; gap: 1.1rem; }
 
   .card {
@@ -368,7 +369,7 @@ function paginaPainel() {
   .cat-label:first-of-type { margin-top: 0.1rem; }
 
   .kanban-wrap { display: flex; gap: 0.8rem; overflow-x: auto; padding-bottom: 0.3rem; margin: 0 -0.1rem; }
-  .kanban-col { flex: 0 0 230px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 440px; }
+  .kanban-col { flex: 1 1 260px; min-width: 260px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 560px; }
   .kanban-col-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; padding: 0 0.1rem; }
   .kanban-count { flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; }
   .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
@@ -381,6 +382,8 @@ function paginaPainel() {
   .kanban-card-flag { font-size: 0.68rem; color: #b45309; margin-top: 0.3rem; font-weight: 700; }
   .kanban-vazio { font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 1rem 0; }
 
+  #historico-lista { display: flex; flex-direction: column; }
+  @media (min-width: 1400px) { #historico-lista { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.3rem; } }
   .hist-item { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.65rem 0; border-bottom: 1px solid #eef2f7; }
   .hist-item:last-child { border-bottom: none; padding-bottom: 0; }
   .hist-item:first-child { padding-top: 0; }
