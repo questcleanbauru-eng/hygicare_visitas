@@ -139,13 +139,38 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function montarMensagem(nome, pendencias) {
-    const linhas = pendencias
-        .slice(0, 15)
-        .map((p) => `• ${p.cliente} — venceu ${p.dataAgendada} (${p.diasAtraso}d atrás)`)
-        .join('\n');
-    const extra = pendencias.length > 15 ? `\n…e mais ${pendencias.length - 15}.` : '';
-    return `📋 *Pendências de hoje* — ${nome}\n\n🔴 Agendamentos vencidos (${pendencias.length}):\n${linhas}${extra}\n\nBom trabalho! 💪\n_App de Visitas_`;
+// Monta uma lista "• item (até 10, com '…e mais N.' se passar disso)".
+function listaComLimite(itens, formatar, limite = 10) {
+    const linhas = itens.slice(0, limite).map((i) => `• ${formatar(i)}`).join('\n');
+    const extra = itens.length > limite ? `\n…e mais ${itens.length - limite}.` : '';
+    return linhas + extra;
+}
+
+function totalPendencias(dest) {
+    return dest.agendamentos.length + dest.propostas.length + dest.funil.length + dest.campanhas.length + (dest.diasSemAtividade ? 1 : 0);
+}
+
+// Uma mensagem só, com uma seção por tipo de pendência — só entram as
+// seções que o destinatário realmente tem.
+function montarMensagem(dest) {
+    const partes = [`📋 *Pendências de hoje* — ${dest.nome}`];
+    if (dest.agendamentos.length) {
+        partes.push(`🔴 Agendamentos vencidos (${dest.agendamentos.length}):\n` + listaComLimite(dest.agendamentos, (p) => `${p.cliente} — venceu ${p.dataAgendada} (${p.diasAtraso}d atrás)`));
+    }
+    if (dest.propostas.length) {
+        partes.push(`📄 Propostas paradas (${dest.propostas.length}):\n` + listaComLimite(dest.propostas, (p) => `${p.cliente} — sem atualização há ${p.diasParada}d`));
+    }
+    if (dest.funil.length) {
+        partes.push(`📊 Funil parado (${dest.funil.length}):\n` + listaComLimite(dest.funil, (f) => `${f.cliente} — sem atualização há ${f.diasParado}d`));
+    }
+    if (dest.campanhas.length) {
+        partes.push(`📣 Campanhas aguardando resposta (${dest.campanhas.length}):\n` + listaComLimite(dest.campanhas, (c) => `${c.titulo} — ${c.pendentes} cliente(s) pendente(s)`));
+    }
+    if (dest.diasSemAtividade) {
+        partes.push(`⏰ Já fazem ${dest.diasSemAtividade} dias desde sua última visita/prospecção registrada — *favor atualizar o aplicativo!*`);
+    }
+    partes.push('Bom trabalho! 💪\n_App de Visitas_');
+    return partes.join('\n\n');
 }
 
 async function buscarPendencias() {
@@ -196,12 +221,12 @@ async function enviarPendenciasDoDia(sock, destinatarios) {
     let falhas = 0;
     for (const dest of destinatarios) {
         const jid = `${dest.telefone}@s.whatsapp.net`;
-        const texto = montarMensagem(dest.nome, dest.pendencias);
+        const texto = montarMensagem(dest);
         try {
             await sock.sendMessage(jid, { text: texto });
             console.log(`  ✓ ${dest.nome} (${dest.telefone})`);
             sucessos++;
-            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', pendencias: dest.pendencias.length, quando: new Date().toISOString() });
+            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', pendencias: totalPendencias(dest), quando: new Date().toISOString() });
         } catch (err) {
             console.error(`  ✗ ${dest.nome} (${dest.telefone}):`, err.message);
             falhas++;
@@ -339,6 +364,8 @@ function paginaPainel() {
   .pend-cliente { font-size: 0.84rem; font-weight: 600; color: #0f172a; }
   .pend-venceu { font-size: 0.74rem; color: #64748b; margin-top: 0.1rem; }
   .pend-atraso { flex-shrink: 0; font-size: 0.74rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; background: #fef3c7; color: #92400e; white-space: nowrap; }
+  .cat-label { font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.02em; margin: 0.7rem 0 0; }
+  .cat-label:first-of-type { margin-top: 0.1rem; }
 
   .hist-item { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.65rem 0; border-bottom: 1px solid #eef2f7; }
   .hist-item:last-child { border-bottom: none; padding-bottom: 0; }
@@ -512,15 +539,56 @@ function renderDestinatarios(s) {
           <div class="dest-tel">\${d.telefone}</div>
         </div>
       </div>
-      \${d.pendencias.slice(0, 5).map((p) => \`
-        <div class="pend-row">
-          <div><div class="pend-cliente">\${p.cliente}</div><div class="pend-venceu">Venceu em \${p.dataAgendada}</div></div>
-          <span class="pend-atraso">há \${p.diasAtraso}d</span>
-        </div>
-      \`).join('')}
-      \${d.pendencias.length > 5 ? '<p class="hint" style="text-align:left;margin-top:0.4rem">…e mais ' + (d.pendencias.length - 5) + '.</p>' : ''}
+      \${renderCategorias(d)}
     </div>
   \`).join('');
+}
+
+// Cada destinatário pode ter até 5 tipos de pendência diferentes — só
+// mostra as seções que ele realmente tem, igual a mensagem que é mandada.
+function renderCategorias(d) {
+  let html = '';
+  if (d.agendamentos && d.agendamentos.length) {
+    html += '<p class="cat-label">🔴 Agendamentos vencidos</p>';
+    html += d.agendamentos.slice(0, 5).map((p) => \`
+      <div class="pend-row">
+        <div><div class="pend-cliente">\${p.cliente}</div><div class="pend-venceu">Venceu em \${p.dataAgendada}</div></div>
+        <span class="pend-atraso">há \${p.diasAtraso}d</span>
+      </div>
+    \`).join('');
+  }
+  if (d.propostas && d.propostas.length) {
+    html += '<p class="cat-label">📄 Propostas paradas</p>';
+    html += d.propostas.slice(0, 5).map((p) => \`
+      <div class="pend-row">
+        <div class="pend-cliente">\${p.cliente}</div>
+        <span class="pend-atraso">há \${p.diasParada}d</span>
+      </div>
+    \`).join('');
+  }
+  if (d.funil && d.funil.length) {
+    html += '<p class="cat-label">📊 Funil parado</p>';
+    html += d.funil.slice(0, 5).map((f) => \`
+      <div class="pend-row">
+        <div class="pend-cliente">\${f.cliente}</div>
+        <span class="pend-atraso">há \${f.diasParado}d</span>
+      </div>
+    \`).join('');
+  }
+  if (d.campanhas && d.campanhas.length) {
+    html += '<p class="cat-label">📣 Campanhas aguardando resposta</p>';
+    html += d.campanhas.slice(0, 5).map((c) => \`
+      <div class="pend-row">
+        <div class="pend-cliente">\${c.titulo}</div>
+        <span class="pend-atraso">\${c.pendentes} pendente\${c.pendentes === 1 ? '' : 's'}</span>
+      </div>
+    \`).join('');
+  }
+  if (d.diasSemAtividade) {
+    html += '<p class="cat-label">⏰ Sem atividade recente</p>';
+    html += '<div class="pend-row"><div class="pend-cliente">Favor atualizar o aplicativo</div><span class="pend-atraso">há ' + d.diasSemAtividade + 'd</span></div>';
+  }
+  return html;
 }
 
 function renderSemTelefone(s) {
@@ -528,17 +596,20 @@ function renderSemTelefone(s) {
   const lista = s.semTelefonePrevia || [];
   if (s.pausadoNoApp || !lista.length) { card.style.display = 'none'; return; }
   card.style.display = 'block';
-  document.getElementById('sem-telefone-lista').innerHTML = lista.map((d) => \`
+  document.getElementById('sem-telefone-lista').innerHTML = lista.map((d) => {
+    const total = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.diasSemAtividade ? 1 : 0);
+    return \`
     <div class="dest-item">
       <div class="dest-head">
         <span class="avatar" style="background:#fef3c7;color:#92400e">\${iniciais(d.nome)}</span>
         <div>
           <div class="dest-nome">\${d.nome}</div>
-          <div class="dest-tel">\${d.pendencias.length} pendência\${d.pendencias.length === 1 ? '' : 's'}</div>
+          <div class="dest-tel">\${total} pendência\${total === 1 ? '' : 's'}</div>
         </div>
       </div>
     </div>
-  \`).join('');
+  \`;
+  }).join('');
 }
 
 function renderHistorico(s) {
