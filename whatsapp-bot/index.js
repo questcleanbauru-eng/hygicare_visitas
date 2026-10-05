@@ -124,10 +124,15 @@ function diaDaSemanaLocal() {
 }
 
 // schedule vem da API (Admin > Configurações no app) — ver buscarPendencias.
+// O "fim" da janela não é um limite rígido — é só a referência "normal"
+// mostrada no painel. Se o computador ficar desligado durante toda a
+// janela, o robô manda assim que ligar (mesmo depois do horário de fim),
+// contanto que ainda seja hoje e já tenha passado do horário de início —
+// sem isso, um dia inteiro passava sem avisar ninguém só porque o PC
+// ligou às 19h num dia configurado até 18h.
 function dentroDaJanela(schedule) {
     if (!schedule.diasSemana.includes(diaDaSemanaLocal())) return false;
-    const agora = horaAgoraLocal();
-    return agora >= schedule.horaInicio && agora <= schedule.horaLimite;
+    return horaAgoraLocal() >= schedule.horaInicio;
 }
 
 function sleep(ms) {
@@ -488,6 +493,15 @@ function renderDestinatarios(s) {
   const lista = s.destinatariosPrevia || [];
   const el = document.getElementById('destinatarios-lista');
   if (s.pausadoNoApp) { el.innerHTML = '<p class="vazio">⏸️ Pausado em Admin &gt; Configurações — ninguém recebe enquanto isso.</p>'; return; }
+  // enviadoHoje = já mandou hoje — a lista abaixo é só quem TEM pendência
+  // agora, não quem vai receber de novo (só manda 1x/dia). Sem isso o
+  // card dava a entender que ia reenviar pra quem já tinha recebido.
+  if (s.enviadoHoje) {
+    el.innerHTML = lista.length
+      ? '<p class="vazio">✅ Já enviado hoje pra ' + lista.length + (lista.length === 1 ? ' pessoa' : ' pessoas') + '. Essas pendências não geram um novo envio até amanhã.</p>'
+      : '<p class="vazio">✅ Já enviado hoje. Nenhuma pendência nova desde então.</p>';
+    return;
+  }
   if (!lista.length) { el.innerHTML = '<p class="vazio">Ninguém com pendência no momento.</p>'; return; }
   el.innerHTML = lista.map((d) => \`
     <div class="dest-item">

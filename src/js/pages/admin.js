@@ -459,10 +459,11 @@ function fillAdminContent(mainContent, data, emailConfig) {
                             <input type="time" id="whatsapp-hora-inicio" value="${escapeHtml(emailConfig.whatsapp_hora_inicio || '08:00')}">
                         </div>
                         <div class="form-group">
-                            <label for="whatsapp-hora-limite">Fim da janela de envio</label>
+                            <label for="whatsapp-hora-limite">Fim "normal" da janela</label>
                             <input type="time" id="whatsapp-hora-limite" value="${escapeHtml(emailConfig.whatsapp_hora_limite || '18:00')}">
                         </div>
                     </div>
+                    <p class="helper-text" style="text-align:left;margin:0">O fim não é um limite rígido: se o computador ficar desligado durante toda a janela, o robô manda assim que ligar de novo (mesmo depois desse horário), contanto que ainda seja o dia certo e já tenha passado do início.</p>
                     <div class="form-group full-width" style="text-align:left;margin:0">
                         <label>Dias que envia</label>
                         <div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:0.3rem">
