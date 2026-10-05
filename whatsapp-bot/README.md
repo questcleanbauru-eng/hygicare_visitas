@@ -1,9 +1,10 @@
 # Robô de avisos por WhatsApp
 
 Roda **local, no seu computador** — não faz parte do deploy na Vercel (não
-dá pra manter uma conexão de WhatsApp viva numa função serverless). Todo
-dia útil, dentro da janela de horário configurada, busca no App de Visitas
-quem tem agendamento vencido e manda um aviso por WhatsApp pra cada um.
+dá pra manter uma conexão de WhatsApp viva numa função serverless). Nos
+dias e horário configurados **dentro do próprio app** (Admin >
+Configurações), busca quem tem agendamento vencido e manda um aviso por
+WhatsApp pra cada um.
 
 Usa um número de WhatsApp **separado** (não o seu pessoal) — ver aviso de
 risco mais abaixo.
@@ -32,10 +33,16 @@ Abra o `.env` e preencha:
   `WHATSAPP_PENDENCIAS_SECRET` do projeto na Vercel (peça pra quem tem
   acesso ao painel da Vercel gerar uma chave aleatória e configurar lá)
 
-Os outros campos (`HORA_INICIO`, `HORA_LIMITE`, etc.) já vêm com um padrão
-razoável — ajuste se quiser.
+O intervalo de checagem e o ritmo de envio (`INTERVALO_CHECAGEM_MIN`,
+`DELAY_ENTRE_ENVIOS_MS`) já vêm com um padrão razoável — ajuste se quiser.
+**Horário e dias da semana não ficam aqui**: são configurados dentro do
+app, em Admin > Configurações > "Avisos de pendência por WhatsApp" — o
+robô lê isso a cada checagem, então mudar lá já vale na próxima.
 
 ## 3. Primeira execução (parear o número)
+
+Use o `iniciar.bat` (duplo clique, ou `npm start` direto se preferir pelo
+terminal):
 
 ```
 npm start
@@ -48,18 +55,22 @@ repetir esse passo (a menos que fique muito tempo sem rodar).
 
 ## 4. Deixar rodando
 
-O robô fica checando a cada alguns minutos (`INTERVALO_CHECAGEM_MIN`) se:
-- é dia útil (segunda a sexta)
-- está dentro da janela `HORA_INICIO`–`HORA_LIMITE`
+O robô fica checando a cada alguns minutos (`INTERVALO_CHECAGEM_MIN`) se,
+segundo o que está configurado no Admin:
+- hoje é um dos dias marcados pra envio
+- está dentro da janela de horário
 - ainda não enviou hoje
+- o envio não está pausado
 
 Se tudo bater, busca as pendências e manda, com um intervalo entre cada
 mensagem (pra não parecer disparo em massa). Se o computador estiver
 desligado na hora programada, ele manda assim que for ligado de novo,
 contanto que ainda esteja dentro da janela do mesmo dia.
 
-Pra deixar sempre ativo, basta deixar este terminal aberto (ou configurar
-pra iniciar com o Windows, se quiser — não obrigatório).
+Pra iniciar/parar fácil (sem abrir terminal), use `iniciar.bat` e
+`parar.bat` nesta pasta — dois cliques e pronto. Pra deixar sempre ativo,
+é só deixar a janela que o `iniciar.bat` abre aberta (ou configurar pra
+iniciar com o Windows, se quiser — não obrigatório).
 
 ## ⚠️ Sobre o risco
 

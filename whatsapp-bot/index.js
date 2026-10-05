@@ -1,8 +1,13 @@
 // Robô local de avisos por WhatsApp — roda no seu computador (não na
-// Vercel, que não mantém conexão viva o suficiente pra isso), de segunda a
-// sexta, dentro da janela de horário configurada em .env. Busca as
+// Vercel, que não mantém conexão viva o suficiente pra isso). Busca as
 // pendências (agendamentos vencidos) de cada vendedor no App de Visitas e
 // manda uma mensagem pra cada um que tiver telefone cadastrado.
+//
+// Horário/dias da semana NÃO ficam fixos aqui — vêm da resposta da API
+// (schedule), que por sua vez lê o que foi configurado em Admin >
+// Configurações no app. Isso deixa ajustar o agendamento sem mexer neste
+// computador. O .env só guarda o que é mesmo "deste computador": URL/chave
+// da API e intervalo/ritmo técnico do robô.
 //
 // Usa um número de WhatsApp separado (não o pessoal) — ver README.md pra
 // como configurar. Primeira vez: escaneia o QR code que aparece aqui no
@@ -21,8 +26,6 @@ const AUTH_DIR = join(__dirname, 'auth_info');
 
 const API_URL = process.env.API_URL;
 const API_SECRET = process.env.API_SECRET;
-const HORA_INICIO = process.env.HORA_INICIO || '08:00';
-const HORA_LIMITE = process.env.HORA_LIMITE || '18:00';
 const INTERVALO_CHECAGEM_MIN = Number(process.env.INTERVALO_CHECAGEM_MIN || 5);
 const DELAY_ENTRE_ENVIOS_MS = Number(process.env.DELAY_ENTRE_ENVIOS_MS || 8000);
 
@@ -54,16 +57,16 @@ function horaAgoraLocal() {
 }
 
 function diaDaSemanaLocal() {
-    // 0 = domingo ... 6 = sábado
+    // 0 = domingo ... 6 = sábado (mesmo índice de Date.getDay())
     const s = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(new Date());
     return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[s];
 }
 
-function dentroDaJanela() {
-    const dia = diaDaSemanaLocal();
-    if (dia === 0 || dia === 6) return false; // fim de semana, não manda
+// schedule vem da API (Admin > Configurações no app) — ver buscarPendencias.
+function dentroDaJanela(schedule) {
+    if (!schedule.diasSemana.includes(diaDaSemanaLocal())) return false;
     const agora = horaAgoraLocal();
-    return agora >= HORA_INICIO && agora <= HORA_LIMITE;
+    return agora >= schedule.horaInicio && agora <= schedule.horaLimite;
 }
 
 function sleep(ms) {
@@ -84,14 +87,15 @@ async function buscarPendencias() {
     if (!res.ok) throw new Error(`API respondeu ${res.status}`);
     const json = await res.json();
     if (json.status !== 'success') throw new Error(json.message || 'Erro desconhecido na API.');
-    return json.data;
+    // schedule sempre vem preenchido (mesmo pausado) — default aqui é só
+    // uma rede de segurança caso a API esteja numa versão antiga.
+    const schedule = json.schedule || { horaInicio: '08:00', horaLimite: '18:00', diasSemana: [1, 2, 3, 4, 5] };
+    return { destinatarios: json.data || [], schedule, pausado: !!json.pausado };
 }
 
-async function enviarPendenciasDoDia(sock) {
-    console.log('Buscando pendências...');
-    const destinatarios = await buscarPendencias();
+async function enviarPendenciasDoDia(sock, destinatarios) {
     if (!destinatarios.length) {
-        console.log('Ninguém com pendência hoje — nada a enviar.');
+        console.log('Ninguém com pendência agora — nada a enviar.');
         return;
     }
     console.log(`Enviando para ${destinatarios.length} pessoa(s)...`);
@@ -140,11 +144,13 @@ async function iniciar() {
     });
 
     setInterval(async () => {
-        if (!dentroDaJanela()) return;
         const estado = lerEstado();
         if (estado.ultimoEnvio === hojeChaveLocal()) return; // já mandou hoje
         try {
-            await enviarPendenciasDoDia(sock);
+            const { destinatarios, schedule, pausado } = await buscarPendencias();
+            if (pausado) return; // pausado em Admin > Configurações
+            if (!dentroDaJanela(schedule)) return; // fora do horário/dias configurados
+            await enviarPendenciasDoDia(sock, destinatarios);
         } catch (err) {
             console.error('Falha ao buscar/enviar pendências:', err.message);
         }

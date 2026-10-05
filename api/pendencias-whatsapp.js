@@ -38,8 +38,16 @@ export default async function handler(req, res) {
 
     try {
         const config = await readEmailConfig();
+        // Devolvido em toda resposta (mesmo pausado) — é assim que o robô
+        // local sabe horário/dias sem precisar guardar isso no .env dele;
+        // o Admin vira a única fonte de verdade pro agendamento de envio.
+        const schedule = {
+            horaInicio: config.whatsapp_hora_inicio || '08:00',
+            horaLimite: config.whatsapp_hora_limite || '18:00',
+            diasSemana: String(config.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d))
+        };
         if (isConfigOn(config.whatsapp_pendencias_pausado)) {
-            res.status(200).json({ status: 'success', data: [], pausado: true });
+            res.status(200).json({ status: 'success', data: [], pausado: true, schedule });
             return;
         }
 
@@ -74,7 +82,7 @@ export default async function handler(req, res) {
             })
             .filter((d) => d.telefone && d.pendencias.length);
 
-        res.status(200).json({ status: 'success', data: destinatarios });
+        res.status(200).json({ status: 'success', data: destinatarios, pausado: false, schedule });
     } catch (error) {
         console.error('pendencias-whatsapp:', error);
         res.status(200).json({ status: 'error', message: error.message });

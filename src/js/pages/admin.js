@@ -11,6 +11,13 @@ let activeAdminTab = 'users';
 // só um link direto pra planilha de verdade.
 const AUDITORIA_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rW2cl0V-HWNnYWHsRTgtEv9dvR2PEIL0X92eBGAIrzQ/edit';
 
+// Mesmo índice do Date.getDay() (0=domingo...6=sábado) — é o que
+// api/pendencias-whatsapp.js devolve em "schedule.diasSemana" pro robô.
+const WHATSAPP_DIAS_SEMANA = [
+    { v: 1, l: 'Seg' }, { v: 2, l: 'Ter' }, { v: 3, l: 'Qua' }, { v: 4, l: 'Qui' },
+    { v: 5, l: 'Sex' }, { v: 6, l: 'Sáb' }, { v: 0, l: 'Dom' }
+];
+
 // A API do Sheets pode devolver "TRUE" (maiúsculo) em vez do "true" que o
 // app grava, quando a célula vira um tipo booleano de verdade na planilha
 // (ex.: editada direto no Sheets) — comparação exata `=== 'true'` sem isso
@@ -185,6 +192,7 @@ export async function renderAdminPage() {
 }
 
 function fillAdminContent(mainContent, data, emailConfig) {
+    const whatsappDiasAtivos = String(emailConfig.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d));
 
     mainContent.innerHTML = `
         <div class="admin-hero">
@@ -444,11 +452,32 @@ function fillAdminContent(mainContent, data, emailConfig) {
             <div class="admin-section" style="margin-bottom:1.25rem">
                 <div class="section-title-row"><h3 class="section-title">📱 Avisos de pendência por WhatsApp</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
-                    <p class="helper-text" style="text-align:left;margin:0">Quando pausado, o robô de WhatsApp (roda separado, fora do app) não envia nenhum aviso — útil em férias ou feriados prolongados. Não precisa desligar o robô em si, só ligar essa chave de novo quando voltar.</p>
+                    <p class="helper-text" style="text-align:left;margin:0">Controla o robô de WhatsApp que roda separado (fora deste app, no computador configurado) — ele busca horário e dias aqui a cada checagem, não precisa mexer no computador pra ajustar.</p>
+                    <div class="form-row-pair">
+                        <div class="form-group">
+                            <label for="whatsapp-hora-inicio">Início da janela de envio</label>
+                            <input type="time" id="whatsapp-hora-inicio" value="${escapeHtml(emailConfig.whatsapp_hora_inicio || '08:00')}">
+                        </div>
+                        <div class="form-group">
+                            <label for="whatsapp-hora-limite">Fim da janela de envio</label>
+                            <input type="time" id="whatsapp-hora-limite" value="${escapeHtml(emailConfig.whatsapp_hora_limite || '18:00')}">
+                        </div>
+                    </div>
+                    <div class="form-group full-width" style="text-align:left;margin:0">
+                        <label>Dias que envia</label>
+                        <div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:0.3rem">
+                            ${WHATSAPP_DIAS_SEMANA.map(({ v, l }) => `
+                                <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.85rem;font-weight:500;cursor:pointer">
+                                    <input type="checkbox" class="whatsapp-dia-check" value="${v}" style="width:auto;accent-color:var(--primary)" ${whatsappDiasAtivos.includes(v) ? 'checked' : ''}>
+                                    ${l}
+                                </label>`).join('')}
+                        </div>
+                    </div>
                     <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
                         <input type="checkbox" id="whatsapp-pendencias-pausado" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.whatsapp_pendencias_pausado) ? 'checked' : ''}>
                         ⏸️ Pausar envio de pendências por WhatsApp
                     </label>
+                    <p class="helper-text" style="text-align:left;margin:0">A pausa tem prioridade sobre horário/dias — útil pra férias ou feriado prolongado sem precisar mexer no resto.</p>
                     <button type="button" id="save-whatsapp-pendencias" class="primary-button" style="align-self:flex-start">Salvar</button>
                 </div>
             </div>
@@ -1203,9 +1232,14 @@ export function bindAdminEvents(data) {
     // Pausa do robô de WhatsApp
     document.getElementById('save-whatsapp-pendencias')?.addEventListener('click', async () => {
         const btn = document.getElementById('save-whatsapp-pendencias');
+        const diasMarcados = Array.from(document.querySelectorAll('.whatsapp-dia-check:checked')).map((c) => c.value);
+        if (!diasMarcados.length) { showToast('Marque pelo menos um dia da semana.', true); return; }
         setSaving(true, btn, 'Salvando...');
         const result = await saveEmailConfig({
-            whatsapp_pendencias_pausado: document.getElementById('whatsapp-pendencias-pausado').checked ? 'true' : 'false'
+            whatsapp_pendencias_pausado: document.getElementById('whatsapp-pendencias-pausado').checked ? 'true' : 'false',
+            whatsapp_hora_inicio: document.getElementById('whatsapp-hora-inicio').value || '08:00',
+            whatsapp_hora_limite: document.getElementById('whatsapp-hora-limite').value || '18:00',
+            whatsapp_dias_semana: diasMarcados.join(',')
         });
         if (result.status === 'success') { showToast('Preferência salva.'); setSaving(false, btn); }
         else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
