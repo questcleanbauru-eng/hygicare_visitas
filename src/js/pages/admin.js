@@ -478,11 +478,18 @@ function fillAdminContent(mainContent, data, emailConfig) {
                         ⏸️ Pausar envio de pendências por WhatsApp
                     </label>
                     <p class="helper-text" style="text-align:left;margin:0">A pausa tem prioridade sobre horário/dias — útil pra férias ou feriado prolongado sem precisar mexer no resto.</p>
-                    <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
-                        <button type="button" id="save-whatsapp-pendencias" class="primary-button">Salvar</button>
-                        <button type="button" id="testar-whatsapp" class="secondary-button">🧪 Enviar teste pro meu WhatsApp</button>
+                    <button type="button" id="save-whatsapp-pendencias" class="primary-button" style="align-self:flex-start">Salvar</button>
+                    <div class="form-group full-width" style="text-align:left;margin:0.4rem 0 0">
+                        <label for="testar-whatsapp-alvo">🧪 Testar envio pro WhatsApp de</label>
+                        <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+                            <select id="testar-whatsapp-alvo" style="flex:1;min-width:180px">
+                                <option value="">— Eu mesmo —</option>
+                                ${data.users.map((u) => `<option value="${escapeHtml(u.EmailLogin || '')}">${escapeHtml(u.NomeVendedor || u.EmailLogin || '')}</option>`).join('')}
+                            </select>
+                            <button type="button" id="testar-whatsapp" class="secondary-button">Enviar teste</button>
+                        </div>
                     </div>
-                    <p class="helper-text" style="text-align:left;margin:0">O teste manda uma mensagem avulsa só pra confirmar que está chegando — vai pro WhatsApp cadastrado na sua própria conta (Admin &gt; Usuários). Depende do robô local estar rodando.</p>
+                    <p class="helper-text" style="text-align:left;margin:0">O teste manda uma mensagem avulsa só pra confirmar que está chegando — a pessoa escolhida precisa ter WhatsApp cadastrado em Admin &gt; Usuários. Depende do robô local estar rodando.</p>
                 </div>
             </div>
         </div>
@@ -1251,8 +1258,9 @@ export function bindAdminEvents(data) {
 
     document.getElementById('testar-whatsapp')?.addEventListener('click', async () => {
         const btn = document.getElementById('testar-whatsapp');
+        const targetEmail = document.getElementById('testar-whatsapp-alvo')?.value || '';
         setSaving(true, btn, 'Enviando pedido...');
-        const result = await solicitarTesteWhatsapp();
+        const result = await solicitarTesteWhatsapp(targetEmail);
         if (result.status === 'success') { showToast(result.message || 'Pedido de teste enviado.'); }
         else { showToast(result.message || 'Não foi possível pedir o teste.', true); }
         setSaving(false, btn);
@@ -1729,9 +1737,9 @@ export async function saveEmailConfig(config) {
 }
 
 
-export async function solicitarTesteWhatsapp() {
+export async function solicitarTesteWhatsapp(targetEmail) {
     try {
-        return await callAPI('solicitarTesteWhatsapp', { user: state.currentUser });
+        return await callAPI('solicitarTesteWhatsapp', { user: state.currentUser, targetEmail: targetEmail || undefined });
     } catch (error) {
         return { status: 'error', message: error.message };
     }
