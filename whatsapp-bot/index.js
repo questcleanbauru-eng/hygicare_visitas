@@ -49,7 +49,12 @@ const painelStatus = {
     ultimoEnvio: null,
     ultimoErro: null,
     schedule: null,
-    pausadoNoApp: false
+    pausadoNoApp: false,
+    // Prévia: quem receberia SE o envio acontecesse agora — atualizado a
+    // cada checagem (ou no botão "Verificar agora"), nunca dispara envio
+    // de verdade sozinho.
+    destinatariosPrevia: [],
+    dentroDaJanelaAgora: false
 };
 
 function lerEstado() {
@@ -136,6 +141,19 @@ async function enviarPendenciasDoDia(sock, destinatarios) {
     console.log('Envio do dia concluído.');
 }
 
+// Busca pendências e atualiza o painel (prévia), sem nunca mandar nada —
+// usado tanto pela checagem automática quanto pelo botão "Verificar agora".
+async function atualizarPrevia() {
+    painelStatus.ultimaChecagem = new Date().toISOString();
+    const { destinatarios, schedule, pausado } = await buscarPendencias();
+    painelStatus.schedule = schedule;
+    painelStatus.pausadoNoApp = pausado;
+    painelStatus.destinatariosPrevia = destinatarios;
+    painelStatus.dentroDaJanelaAgora = dentroDaJanela(schedule);
+    painelStatus.ultimoErro = null;
+    return { destinatarios, schedule, pausado };
+}
+
 // ── Painel local (http://localhost:PORTA_PAINEL) ────────────────────────
 function paginaPainel() {
     return `<!doctype html>
@@ -156,17 +174,51 @@ function paginaPainel() {
   .on { background: #22c55e; } .off { background: #ef4444; } .warn { background: #f59e0b; }
   button { width: 100%; padding: 0.75rem; border: none; border-radius: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; background: #ef4444; color: #fff; }
   button:hover { opacity: 0.9; }
+  button.secundario { background: #2563eb; margin-bottom: 0.6rem; }
   .hint { font-size: 0.78rem; color: #6b7a99; margin-top: 0.6rem; text-align: center; }
+  .previa-item { padding: 0.55rem 0; border-bottom: 1px solid #1d2a40; }
+  .previa-item:last-child { border-bottom: none; }
+  .previa-nome { font-weight: 600; font-size: 0.88rem; }
+  .previa-lista { margin: 0.25rem 0 0; padding-left: 1.1rem; font-size: 0.78rem; color: #93a1bb; }
+  .vazio { font-size: 0.85rem; color: #6b7a99; text-align: center; padding: 0.4rem 0; }
 </style>
 </head>
 <body>
   <h1>📱 Robô de WhatsApp — App de Visitas</h1>
   <div class="card" id="status-card">Carregando...</div>
   <div class="card">
+    <div class="row" style="border:none;padding-bottom:0.6rem">
+      <span>📋 Quem receberia agora</span>
+      <span id="previa-janela"></span>
+    </div>
+    <div id="previa-lista"></div>
+  </div>
+  <div class="card">
+    <button class="secundario" id="btn-verificar">🔍 Verificar agora</button>
     <button id="btn-parar">⏹ Parar robô</button>
-    <p class="hint">Pra iniciar de novo depois, rode o <code>iniciar.bat</code>.</p>
+    <p class="hint">"Verificar agora" só confere e mostra — não manda nada. O envio de verdade só acontece dentro da janela configurada no Admin.</p>
   </div>
 <script>
+function renderPrevia(s) {
+  const janelaOk = s.dentroDaJanelaAgora ? '🟢 dentro da janela agora' : '🟡 fora da janela agora';
+  document.getElementById('previa-janela').textContent = janelaOk;
+  const lista = s.destinatariosPrevia || [];
+  if (s.pausadoNoApp) {
+    document.getElementById('previa-lista').innerHTML = '<p class="vazio">⏸️ Pausado em Admin &gt; Configurações — ninguém recebe enquanto isso.</p>';
+    return;
+  }
+  if (!lista.length) {
+    document.getElementById('previa-lista').innerHTML = '<p class="vazio">Ninguém com pendência no momento.</p>';
+    return;
+  }
+  document.getElementById('previa-lista').innerHTML = lista.map((d) => \`
+    <div class="previa-item">
+      <div class="previa-nome">\${d.nome} <span style="color:#6b7a99;font-weight:400">(\${d.telefone})</span></div>
+      <ul class="previa-lista">\${d.pendencias.slice(0, 5).map((p) => \`<li>\${p.cliente} — venceu \${p.dataAgendada} (\${p.diasAtraso}d)</li>\`).join('')}\${d.pendencias.length > 5 ? '<li>…e mais ' + (d.pendencias.length - 5) + '</li>' : ''}</ul>
+    </div>
+  \`).join('');
+}
+
 async function atualizar() {
   try {
     const r = await fetch('/status');
@@ -183,10 +235,19 @@ async function atualizar() {
       <div class="row"><span>Último envio</span><span>\${s.ultimoEnvio ? new Date(s.ultimoEnvio).toLocaleString('pt-BR') : 'Nenhum ainda'}</span></div>
       \${s.ultimoErro ? '<div class="row"><span>Último erro</span><span style="color:#f87171">' + s.ultimoErro + '</span></div>' : ''}
     \`;
+    renderPrevia(s);
   } catch (e) {
     document.getElementById('status-card').innerHTML = '<span style="color:#f87171">Não consegui falar com o robô — ele ainda está rodando?</span>';
   }
 }
+document.getElementById('btn-verificar').addEventListener('click', async (ev) => {
+  ev.target.disabled = true;
+  ev.target.textContent = 'Verificando...';
+  await fetch('/verificar-agora', { method: 'POST' }).catch(() => {});
+  await atualizar();
+  ev.target.disabled = false;
+  ev.target.textContent = '🔍 Verificar agora';
+});
 document.getElementById('btn-parar').addEventListener('click', async () => {
   if (!confirm('Parar o robô agora? Pra ligar de novo, roda o iniciar.bat.')) return;
   await fetch('/parar', { method: 'POST' }).catch(() => {});
@@ -209,6 +270,18 @@ function iniciarPainel() {
         if (req.method === 'GET' && req.url === '/status') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(painelStatus));
+            return;
+        }
+        if (req.method === 'POST' && req.url === '/verificar-agora') {
+            try {
+                await atualizarPrevia();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(painelStatus));
+            } catch (err) {
+                painelStatus.ultimoErro = err.message;
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ...painelStatus, erroChecagem: err.message }));
+            }
             return;
         }
         if (req.method === 'POST' && req.url === '/parar') {
@@ -255,14 +328,15 @@ async function iniciar() {
     });
 
     setInterval(async () => {
-        painelStatus.ultimaChecagem = new Date().toISOString();
         const estado = lerEstado();
-        if (estado.ultimoEnvio === hojeChaveLocal()) return; // já mandou hoje
+        if (estado.ultimoEnvio === hojeChaveLocal()) {
+            // Já mandou hoje — ainda atualiza a prévia pro painel mostrar o
+            // que ESTARIA pendente agora, só não envia de novo.
+            try { await atualizarPrevia(); } catch (err) { painelStatus.ultimoErro = err.message; }
+            return;
+        }
         try {
-            const { destinatarios, schedule, pausado } = await buscarPendencias();
-            painelStatus.schedule = schedule;
-            painelStatus.pausadoNoApp = pausado;
-            painelStatus.ultimoErro = null;
+            const { destinatarios, schedule, pausado } = await atualizarPrevia();
             if (pausado) return; // pausado em Admin > Configurações
             if (!dentroDaJanela(schedule)) return; // fora do horário/dias configurados
             await enviarPendenciasDoDia(sock, destinatarios);
