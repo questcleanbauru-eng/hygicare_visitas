@@ -46,8 +46,14 @@ export default async function handler(req, res) {
             horaLimite: config.whatsapp_hora_limite || '18:00',
             diasSemana: String(config.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d))
         };
+        // Pedido de mensagem de teste (botão em Admin > Configurações) —
+        // devolvido sempre, mesmo pausado, porque teste deve funcionar
+        // independente da pausa/janela (é só pra confirmar que chega).
+        let teste = null;
+        try { teste = JSON.parse(config.whatsapp_teste_pedido || 'null'); } catch { /* ignora valor inválido */ }
+
         if (isConfigOn(config.whatsapp_pendencias_pausado)) {
-            res.status(200).json({ status: 'success', data: [], pausado: true, schedule });
+            res.status(200).json({ status: 'success', data: [], pausado: true, schedule, teste });
             return;
         }
 
@@ -82,7 +88,7 @@ export default async function handler(req, res) {
             })
             .filter((d) => d.telefone && d.pendencias.length);
 
-        res.status(200).json({ status: 'success', data: destinatarios, pausado: false, schedule });
+        res.status(200).json({ status: 'success', data: destinatarios, pausado: false, schedule, teste });
     } catch (error) {
         console.error('pendencias-whatsapp:', error);
         res.status(200).json({ status: 'error', message: error.message });

@@ -43,7 +43,7 @@ import {
 import { handleGetDashboardData, handleGetPendenciasPorVendedor } from '../lib/handlers/dashboard.js';
 import { handleGetAdminData, handleSaveUser, handleSetUserAtivo, handleDeleteUser, handleSaveNotificationConfig, handleSaveLookupList, handleGetHealthPanel, handleForceRefreshData } from '../lib/handlers/admin.js';
 import { handleGetFormData } from '../lib/handlers/formdata.js';
-import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig, handleGetManutencao } from '../lib/handlers/config.js';
+import { handleGetEmailConfig, handleGetConfigVersion, handleSaveEmailConfig, handleGetManutencao, handleSolicitarTesteWhatsapp } from '../lib/handlers/config.js';
 import {
     handleSubscribePush, handleUnsubscribePush, handleSendPushNotification,
     handleGetNotificacoes, handleMarcarNotificacaoLida, handleNotifyRegistroCriado
@@ -157,6 +157,7 @@ const HANDLERS = {
     getEmailConfig: handleGetEmailConfig,
     getConfigVersion: handleGetConfigVersion,
     saveEmailConfig: handleSaveEmailConfig,
+    solicitarTesteWhatsapp: handleSolicitarTesteWhatsapp,
     getManutencao: handleGetManutencao,
     getHealthPanel: handleGetHealthPanel,
     forceRefreshData: handleForceRefreshData,

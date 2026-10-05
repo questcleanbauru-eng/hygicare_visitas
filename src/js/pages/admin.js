@@ -478,7 +478,11 @@ function fillAdminContent(mainContent, data, emailConfig) {
                         ⏸️ Pausar envio de pendências por WhatsApp
                     </label>
                     <p class="helper-text" style="text-align:left;margin:0">A pausa tem prioridade sobre horário/dias — útil pra férias ou feriado prolongado sem precisar mexer no resto.</p>
-                    <button type="button" id="save-whatsapp-pendencias" class="primary-button" style="align-self:flex-start">Salvar</button>
+                    <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+                        <button type="button" id="save-whatsapp-pendencias" class="primary-button">Salvar</button>
+                        <button type="button" id="testar-whatsapp" class="secondary-button">🧪 Enviar teste pro meu WhatsApp</button>
+                    </div>
+                    <p class="helper-text" style="text-align:left;margin:0">O teste manda uma mensagem avulsa só pra confirmar que está chegando — vai pro WhatsApp cadastrado na sua própria conta (Admin &gt; Usuários). Depende do robô local estar rodando.</p>
                 </div>
             </div>
         </div>
@@ -1245,6 +1249,15 @@ export function bindAdminEvents(data) {
         else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
     });
 
+    document.getElementById('testar-whatsapp')?.addEventListener('click', async () => {
+        const btn = document.getElementById('testar-whatsapp');
+        setSaving(true, btn, 'Enviando pedido...');
+        const result = await solicitarTesteWhatsapp();
+        if (result.status === 'success') { showToast(result.message || 'Pedido de teste enviado.'); }
+        else { showToast(result.message || 'Não foi possível pedir o teste.', true); }
+        setSaving(false, btn);
+    });
+
     bindImportarTab();
 }
 
@@ -1710,6 +1723,15 @@ export async function getEmailConfig() {
 export async function saveEmailConfig(config) {
     try {
         return await callAPI('saveEmailConfig', { config, user: state.currentUser });
+    } catch (error) {
+        return { status: 'error', message: error.message };
+    }
+}
+
+
+export async function solicitarTesteWhatsapp() {
+    try {
+        return await callAPI('solicitarTesteWhatsapp', { user: state.currentUser });
     } catch (error) {
         return { status: 'error', message: error.message };
     }

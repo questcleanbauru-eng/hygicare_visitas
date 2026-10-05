@@ -67,15 +67,39 @@ const painelStatus = {
     // cada checagem (ou no botão "Verificar agora"), nunca dispara envio
     // de verdade sozinho.
     destinatariosPrevia: [],
-    dentroDaJanelaAgora: false
+    dentroDaJanelaAgora: false,
+    historico: [],
+    enviosHoje: 0,
+    enviosSemana: 0
 };
 
 function lerEstado() {
-    if (!existsSync(STATE_FILE)) return { ultimoEnvio: '' };
-    try { return JSON.parse(readFileSync(STATE_FILE, 'utf-8')); } catch { return { ultimoEnvio: '' }; }
+    if (!existsSync(STATE_FILE)) return { ultimoEnvio: '', historico: [] };
+    try {
+        const parsed = JSON.parse(readFileSync(STATE_FILE, 'utf-8'));
+        if (!Array.isArray(parsed.historico)) parsed.historico = [];
+        return parsed;
+    } catch { return { ultimoEnvio: '', historico: [] }; }
 }
 function salvarEstado(estado) {
     writeFileSync(STATE_FILE, JSON.stringify(estado, null, 2));
+}
+
+// Registro de cada tentativa de envio (sucesso ou falha), pro painel
+// mostrar "Últimos envios" — mantém só os 30 mais recentes.
+function registrarHistorico(entry) {
+    const estado = lerEstado();
+    estado.historico = [entry, ...estado.historico].slice(0, 30);
+    salvarEstado(estado);
+}
+
+function atualizarContadoresHistorico() {
+    const historico = lerEstado().historico;
+    const hoje = hojeChaveLocal();
+    const seteDiasAtras = Date.now() - 7 * 86400000;
+    painelStatus.historico = historico.slice(0, 8);
+    painelStatus.enviosHoje = historico.filter((h) => h.status === 'ok' && String(h.quando || '').startsWith(hoje)).length;
+    painelStatus.enviosSemana = historico.filter((h) => h.status === 'ok' && new Date(h.quando).getTime() >= seteDiasAtras).length;
 }
 
 function hojeChaveLocal() {
@@ -124,7 +148,34 @@ async function buscarPendencias() {
     // schedule sempre vem preenchido (mesmo pausado) — default aqui é só
     // uma rede de segurança caso a API esteja numa versão antiga.
     const schedule = json.schedule || { horaInicio: '08:00', horaLimite: '18:00', diasSemana: [1, 2, 3, 4, 5] };
-    return { destinatarios: json.data || [], schedule, pausado: !!json.pausado };
+    return { destinatarios: json.data || [], schedule, pausado: !!json.pausado, teste: json.teste || null };
+}
+
+// Conexão ativa, pra funções fora de iniciar() (tipo /verificar-agora via
+// HTTP) conseguirem mandar o teste sem precisar passar sock por todo lado.
+let sockAtual = null;
+let ultimoTesteProcessado = 0;
+
+// Botão "🧪 Enviar teste" em Admin > Configurações grava um pedido na
+// planilha; o robô vê isso em toda checagem e manda na hora, IGNORANDO
+// pausa/janela (o objetivo é só confirmar que a mensagem chega). Controla
+// localmente qual pedido já processou (por timestamp) pra não reenviar o
+// mesmo teste a cada checagem.
+async function processarTesteSeNecessario(teste) {
+    if (!teste || !teste.quando || teste.quando <= ultimoTesteProcessado) return;
+    ultimoTesteProcessado = teste.quando;
+    if (!sockAtual) {
+        console.log('Teste pedido, mas o robô ainda não está conectado ao WhatsApp.');
+        return;
+    }
+    const texto = `✅ *Teste do robô de avisos*\n\nSe você recebeu essa mensagem, está tudo funcionando certinho!\n_App de Visitas_`;
+    try {
+        await sockAtual.sendMessage(`${teste.telefone}@s.whatsapp.net`, { text: texto });
+        console.log(`Teste enviado para ${teste.nome} (${teste.telefone}).`);
+    } catch (err) {
+        console.error('Falha ao enviar teste:', err.message);
+        painelStatus.ultimoErro = `Falha ao enviar teste: ${err.message}`;
+    }
 }
 
 async function enviarPendenciasDoDia(sock, destinatarios) {
@@ -142,9 +193,11 @@ async function enviarPendenciasDoDia(sock, destinatarios) {
             await sock.sendMessage(jid, { text: texto });
             console.log(`  ✓ ${dest.nome} (${dest.telefone})`);
             sucessos++;
+            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', pendencias: dest.pendencias.length, quando: new Date().toISOString() });
         } catch (err) {
             console.error(`  ✗ ${dest.nome} (${dest.telefone}):`, err.message);
             falhas++;
+            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'erro', detalhe: err.message, quando: new Date().toISOString() });
         }
         // Espera entre envios + variação aleatória, pra não parecer disparo
         // em massa (gatilho comum de bloqueio).
@@ -176,12 +229,14 @@ async function atualizarPrevia() {
     painelStatus.ultimaChecagem = new Date(agora).toISOString();
     painelStatus.proximaChecagemPrevista = new Date(agora + INTERVALO_CHECAGEM_MIN * 60 * 1000).toISOString();
     painelStatus.enviadoHoje = lerEstado().ultimoEnvio === hojeChaveLocal();
-    const { destinatarios, schedule, pausado } = await buscarPendencias();
+    const { destinatarios, schedule, pausado, teste } = await buscarPendencias();
     painelStatus.schedule = schedule;
     painelStatus.pausadoNoApp = pausado;
     painelStatus.destinatariosPrevia = destinatarios;
     painelStatus.dentroDaJanelaAgora = dentroDaJanela(schedule);
     painelStatus.ultimoErro = null;
+    atualizarContadoresHistorico();
+    await processarTesteSeNecessario(teste);
     return { destinatarios, schedule, pausado };
 }
 
@@ -194,103 +249,268 @@ function paginaPainel() {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Robô de WhatsApp</title>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: light; }
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
-    max-width: 520px; margin: 0 auto; padding: 2rem 1.2rem 3rem;
-    background: radial-gradient(1200px 600px at 50% -10%, #152036 0%, #0a0f1c 55%, #080c16 100%);
-    color: #e7eaf2; min-height: 100vh;
+    max-width: 980px; margin: 0 auto; padding: 2rem 1.3rem 3rem;
+    background: #f6f7fa; color: #0f172a; min-height: 100vh;
   }
-  header { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1.4rem; }
-  header .icon { font-size: 1.6rem; }
-  header h1 { font-size: 1.15rem; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
-  header p { margin: 0.1rem 0 0; font-size: 0.78rem; color: #7c8aad; }
+  header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.4rem; }
+  header .icon-box {
+    width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; background: #dcfce7;
+  }
+  header h1 { font-size: 1.25rem; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  header p { margin: 0.1rem 0 0; font-size: 0.82rem; color: #64748b; }
 
-  .badge-conexao {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
-    letter-spacing: 0.02em; text-transform: uppercase;
+  .hero {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 16px;
+    padding: 1.1rem 1.4rem; margin-bottom: 1.1rem;
   }
-  .badge-conexao.on { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
-  .badge-conexao.off { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
-  .badge-conexao.warn { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
-  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
+  .hero-left { display: flex; align-items: center; gap: 0.8rem; }
+  .hero-dot { width: 12px; height: 12px; border-radius: 999px; background: #22c55e; flex-shrink: 0; box-shadow: 0 0 0 4px rgba(34,197,94,0.18); }
+  .hero-dot.off { background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,0.15); }
+  .hero-title { font-size: 1.1rem; font-weight: 800; color: #065f46; margin: 0; }
+  .hero-sub { font-size: 0.82rem; color: #047857; margin: 0.1rem 0 0; }
+  .hero-right { text-align: right; }
+  .hero-num { font-size: 1.6rem; font-weight: 800; color: #065f46; line-height: 1; }
+  .hero-num-label { font-size: 0.74rem; color: #047857; margin-top: 0.15rem; }
+
+  .grid { display: grid; grid-template-columns: 1fr; gap: 1.1rem; }
+  @media (min-width: 860px) { .grid { grid-template-columns: 1fr 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 1.1rem; }
 
   .card {
-    background: linear-gradient(180deg, #131b2c 0%, #101726 100%);
-    border: 1px solid #22304a; border-radius: 16px; padding: 1.25rem 1.3rem;
-    margin-bottom: 1rem; box-shadow: 0 8px 24px -12px rgba(0,0,0,0.5);
+    background: #ffffff; border: 1px solid #e5e9f0; border-radius: 16px; padding: 1.25rem 1.3rem;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.04);
   }
-  .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem; }
-  .card-title { font-size: 0.82rem; font-weight: 700; color: #c3cbdd; text-transform: uppercase; letter-spacing: 0.04em; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 0.5rem; flex-wrap: wrap; }
+  .card-title { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; }
 
-  .countdown { text-align: center; padding: 0.4rem 0 1rem; }
-  .countdown .num { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-  .countdown .label { font-size: 0.76rem; color: #7c8aad; margin-top: 0.15rem; }
+  .badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.76rem; font-weight: 700; }
+  .badge.on { background: #dcfce7; color: #15803d; }
+  .badge.off { background: #fee2e2; color: #b91c1c; }
+  .badge.warn { background: #fef3c7; color: #92400e; }
+  .badge.muted { background: #f1f5f9; color: #475569; }
+  .dot-sm { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
 
   .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-  .stat { background: #0d1522; border: 1px solid #1d2a40; border-radius: 10px; padding: 0.6rem 0.75rem; }
-  .stat .k { font-size: 0.7rem; color: #7c8aad; margin-bottom: 0.2rem; }
-  .stat .v { font-size: 0.85rem; font-weight: 600; }
-  .stat .v.err { color: #f87171; font-weight: 500; font-size: 0.76rem; }
-
-  .pill { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.74rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; }
-  .pill.on { background: rgba(34,197,94,0.15); color: #4ade80; }
-  .pill.off { background: rgba(245,158,11,0.15); color: #fbbf24; }
-
-  .previa-item { padding: 0.6rem 0; border-bottom: 1px solid #1d2a40; }
-  .previa-item:last-child { border-bottom: none; }
-  .previa-nome { font-weight: 700; font-size: 0.88rem; }
-  .previa-tel { color: #7c8aad; font-weight: 400; font-size: 0.78rem; }
-  .previa-lista { margin: 0.3rem 0 0; padding-left: 1.1rem; font-size: 0.78rem; color: #a5afc9; line-height: 1.5; }
-  .vazio { font-size: 0.85rem; color: #7c8aad; text-align: center; padding: 0.6rem 0; }
+  .stat { background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 0.65rem 0.8rem; }
+  .stat .k { font-size: 0.72rem; color: #64748b; margin-bottom: 0.2rem; }
+  .stat .v { font-size: 0.9rem; font-weight: 700; color: #0f172a; }
+  .stat .v.ok { color: #16a34a; }
+  .stat .v.err { color: #dc2626; font-weight: 600; font-size: 0.78rem; }
 
   button {
-    width: 100%; padding: 0.8rem; border: none; border-radius: 12px;
-    font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: transform 0.1s, opacity 0.15s;
+    width: 100%; padding: 0.85rem; border-radius: 12px; font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; transition: transform 0.1s, opacity 0.15s, background 0.15s;
   }
   button:active { transform: scale(0.98); }
-  button:disabled { opacity: 0.6; cursor: default; }
-  .btn-primario { background: linear-gradient(180deg, #3b82f6, #2563eb); color: #fff; margin-bottom: 0.6rem; }
-  .btn-perigo { background: linear-gradient(180deg, #ef4444, #dc2626); color: #fff; }
-  button:hover:not(:disabled) { opacity: 0.92; }
-  .hint { font-size: 0.74rem; color: #64719396; color: #6b7a99; margin-top: 0.7rem; text-align: center; line-height: 1.5; }
+  button:disabled { opacity: 0.55; cursor: default; }
+  .btn-primario { background: #2563eb; color: #fff; border: none; }
+  .btn-primario:hover:not(:disabled) { background: #1d4ed8; }
+  .btn-perigo-outline { background: #fff; color: #dc2626; border: 1.5px solid #fecaca; margin-top: 0.7rem; }
+  .btn-perigo-outline:hover:not(:disabled) { background: #fef2f2; }
+  .feedback-ok { font-size: 0.82rem; color: #16a34a; font-weight: 600; text-align: center; margin: 0.6rem 0 0; }
+  .hint { font-size: 0.76rem; color: #94a3b8; margin-top: 0.5rem; text-align: center; line-height: 1.5; }
+
+  .avatar { width: 36px; height: 36px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem; flex-shrink: 0; }
+  .dest-item { padding: 0.9rem 0; border-bottom: 1px solid #eef2f7; }
+  .dest-item:first-child { padding-top: 0; }
+  .dest-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .dest-head { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.6rem; }
+  .dest-nome { font-weight: 700; font-size: 0.9rem; color: #0f172a; }
+  .dest-tel { font-size: 0.76rem; color: #64748b; margin-top: 0.1rem; }
+  .pend-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 0.6rem;
+    background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 0.55rem 0.75rem; margin-top: 0.45rem;
+  }
+  .pend-cliente { font-size: 0.84rem; font-weight: 600; color: #0f172a; }
+  .pend-venceu { font-size: 0.74rem; color: #64748b; margin-top: 0.1rem; }
+  .pend-atraso { flex-shrink: 0; font-size: 0.74rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; background: #fef3c7; color: #92400e; white-space: nowrap; }
+
+  .hist-item { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.65rem 0; border-bottom: 1px solid #eef2f7; }
+  .hist-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .hist-item:first-child { padding-top: 0; }
+  .hist-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+  .hist-icon { flex-shrink: 0; width: 20px; height: 20px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; }
+  .hist-icon.ok { background: #dcfce7; color: #16a34a; }
+  .hist-icon.erro { background: #fee2e2; color: #dc2626; }
+  .hist-nome { font-size: 0.85rem; font-weight: 600; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-nome .det { color: #64748b; font-weight: 400; }
+  .hist-nome .det.err { color: #dc2626; }
+  .hist-quando { flex-shrink: 0; font-size: 0.76rem; color: #94a3b8; }
+
+  .vazio { font-size: 0.85rem; color: #94a3b8; text-align: center; padding: 1rem 0; }
+
+  #qr-card img { width: 100%; max-width: 260px; border-radius: 10px; margin: 0.6rem auto 0; display: block; border: 1px solid #e5e9f0; }
 </style>
 </head>
 <body>
   <header>
-    <span class="icon">📱</span>
+    <span class="icon-box">📱</span>
     <div>
       <h1>Robô de WhatsApp</h1>
-      <p>Avisos de pendência — App de Visitas</p>
+      <p>Avisos de pendência · App de Visitas</p>
     </div>
   </header>
 
-  <div class="card" id="status-card">Carregando...</div>
+  <div class="hero" id="hero">Carregando...</div>
 
-  <div class="card" id="qr-card" style="display:none;text-align:center">
-    <span class="card-title">📷 Escaneie pra conectar</span>
-    <p class="hint" style="margin-top:0.3rem">WhatsApp → Configurações → Aparelhos conectados → Conectar um aparelho</p>
-    <img id="qr-img" style="width:100%;max-width:280px;border-radius:10px;margin-top:0.6rem" alt="QR code de pareamento">
+  <div class="card" id="qr-card" style="display:none;text-align:center;margin-bottom:1.1rem">
+    <span class="card-title" style="justify-content:center">📷 Escaneie pra conectar</span>
+    <p class="hint">WhatsApp → Configurações → Aparelhos conectados → Conectar um aparelho</p>
+    <img id="qr-img" alt="QR code de pareamento">
   </div>
 
-  <div class="card">
-    <div class="card-head">
-      <span class="card-title">📋 Quem receberia agora</span>
-      <span id="previa-janela"></span>
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">⚡ Status</span>
+          <span class="badge" id="badge-conexao">—</span>
+        </div>
+        <div class="stats-grid" id="status-stats">—</div>
+      </div>
+
+      <div class="card">
+        <button class="btn-primario" id="btn-verificar">🔍 Verificar agora</button>
+        <p class="feedback-ok" id="feedback-verificar" style="display:none"></p>
+        <p class="hint">"Verificar agora" só confere as pendências — nenhuma mensagem é enviada. O envio de verdade só acontece dentro da janela configurada no Admin.</p>
+        <button class="btn-perigo-outline" id="btn-parar">⏹ Parar robô</button>
+      </div>
     </div>
-    <div id="previa-lista"></div>
-  </div>
 
-  <div class="card">
-    <button class="btn-primario" id="btn-verificar">🔍 Verificar agora</button>
-    <button class="btn-perigo" id="btn-parar">⏹ Parar robô</button>
-    <p class="hint">"Verificar agora" só confere e mostra — não manda nada. O envio de verdade só acontece dentro da janela configurada no Admin. Pra ligar de novo depois de parar, use o atalho na Área de Trabalho.</p>
+    <div class="col">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">☑️ Pendências atuais</span>
+          <span class="badge muted" id="badge-proximo-envio">—</span>
+        </div>
+        <div id="destinatarios-lista"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">🕒 Últimos envios</span>
+        </div>
+        <div id="historico-lista"></div>
+      </div>
+    </div>
   </div>
 
 <script>
 let proximaChecagemMs = null;
+
+function iniciais(nome) {
+  const partes = String(nome || '?').trim().split(/\\s+/);
+  const primeiras = (partes[0]?.[0] || '') + (partes.length > 1 ? partes[partes.length - 1][0] : '');
+  return primeiras.toUpperCase() || '?';
+}
+
+function formatHora(iso) {
+  return iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+}
+
+function formatRelativo(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const hoje = new Date();
+  const mesmodia = d.toDateString() === hoje.toDateString();
+  if (mesmodia) return 'hoje, ' + formatHora(iso);
+  const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
+  if (d.toDateString() === ontem.toDateString()) return 'ontem, ' + formatHora(iso);
+  const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  return dias[d.getDay()] + ', ' + formatHora(iso);
+}
+
+function proximoEnvioLabel(s) {
+  if (!s.schedule) return '—';
+  if (s.pausadoNoApp) return 'pausado';
+  const agora = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+  if (s.enviadoHoje) return 'amanhã, ' + s.schedule.horaInicio;
+  if (agora < s.schedule.horaInicio) return 'hoje, ' + s.schedule.horaInicio;
+  if (agora > s.schedule.horaLimite) return 'amanhã, ' + s.schedule.horaInicio;
+  return 'em instantes';
+}
+
+function renderHero(s) {
+  const funcionando = s.conectado && !s.pausadoNoApp;
+  const titulo = s.pausadoNoApp ? '⏸️ Pausado' : (s.conectado ? 'Funcionando' : 'Desconectado');
+  const enviouTxt = s.ultimoEnvio ? ('Enviou hoje às ' + formatHora(s.ultimoEnvio)) : 'Ainda não enviou hoje';
+  document.getElementById('hero').innerHTML = \`
+    <div class="hero-left">
+      <span class="hero-dot \${funcionando ? '' : 'off'}"></span>
+      <div>
+        <p class="hero-title">\${titulo}</p>
+        <p class="hero-sub">\${enviouTxt} · Próximo envio \${proximoEnvioLabel(s)}</p>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-num">\${s.enviosHoje || 0}</div>
+      <div class="hero-num-label">mensagem\${s.enviosHoje === 1 ? '' : 's'} hoje · \${s.enviosSemana || 0} na semana</div>
+    </div>
+  \`;
+}
+
+function renderStatus(s) {
+  const dot = s.conectado ? 'on' : (s.aguardandoQr ? 'warn' : 'off');
+  const linhaConexao = s.aguardandoQr ? 'Aguardando pareamento' : (s.conectado ? 'Conectado' : 'Desconectado');
+  document.getElementById('badge-conexao').className = 'badge ' + dot;
+  document.getElementById('badge-conexao').innerHTML = '<span class="dot-sm"></span>' + linhaConexao;
+
+  document.getElementById('status-stats').innerHTML = \`
+    <div class="stat"><div class="k">Envio no app</div><div class="v \${s.pausadoNoApp ? '' : 'ok'}">\${s.pausadoNoApp ? '⏸️ Pausado' : '✅ Ativo'}</div></div>
+    <div class="stat"><div class="k">Janela de envio</div><div class="v">\${s.schedule ? s.schedule.horaInicio + ' – ' + s.schedule.horaLimite : '—'}</div></div>
+    <div class="stat"><div class="k">Última checagem</div><div class="v">\${s.ultimaChecagem ? formatHora(s.ultimaChecagem) : '—'}</div></div>
+    <div class="stat"><div class="k">Próxima checagem em</div><div class="v" id="countdown-num">--:--</div></div>
+    \${s.ultimoErro ? '<div class="stat" style="grid-column:1/-1"><div class="k">Último erro</div><div class="v err">' + s.ultimoErro + '</div></div>' : ''}
+  \`;
+}
+
+function renderDestinatarios(s) {
+  const badge = document.getElementById('badge-proximo-envio');
+  badge.textContent = 'Próximo envio: ' + proximoEnvioLabel(s);
+  const lista = s.destinatariosPrevia || [];
+  const el = document.getElementById('destinatarios-lista');
+  if (s.pausadoNoApp) { el.innerHTML = '<p class="vazio">⏸️ Pausado em Admin &gt; Configurações — ninguém recebe enquanto isso.</p>'; return; }
+  if (!lista.length) { el.innerHTML = '<p class="vazio">Ninguém com pendência no momento.</p>'; return; }
+  el.innerHTML = lista.map((d) => \`
+    <div class="dest-item">
+      <div class="dest-head">
+        <span class="avatar">\${iniciais(d.nome)}</span>
+        <div>
+          <div class="dest-nome">\${d.nome}</div>
+          <div class="dest-tel">\${d.telefone}</div>
+        </div>
+      </div>
+      \${d.pendencias.slice(0, 5).map((p) => \`
+        <div class="pend-row">
+          <div><div class="pend-cliente">\${p.cliente}</div><div class="pend-venceu">Venceu em \${p.dataAgendada}</div></div>
+          <span class="pend-atraso">há \${p.diasAtraso}d</span>
+        </div>
+      \`).join('')}
+      \${d.pendencias.length > 5 ? '<p class="hint" style="text-align:left;margin-top:0.4rem">…e mais ' + (d.pendencias.length - 5) + '.</p>' : ''}
+    </div>
+  \`).join('');
+}
+
+function renderHistorico(s) {
+  const el = document.getElementById('historico-lista');
+  const hist = s.historico || [];
+  if (!hist.length) { el.innerHTML = '<p class="vazio">Nenhum envio ainda.</p>'; return; }
+  el.innerHTML = hist.map((h) => \`
+    <div class="hist-item">
+      <div class="hist-left">
+        <span class="hist-icon \${h.status}">\${h.status === 'ok' ? '✓' : '✕'}</span>
+        <span class="hist-nome">\${h.nome} <span class="det \${h.status === 'erro' ? 'err' : ''}">· \${h.status === 'ok' ? (h.pendencias + ' pendência' + (h.pendencias === 1 ? '' : 's')) : ('falhou (' + (h.detalhe || 'erro') + ')')}</span></span>
+      </div>
+      <span class="hist-quando">\${formatRelativo(h.quando)}</span>
+    </div>
+  \`).join('');
+}
 
 function formatCountdown(ms) {
   if (ms === null || ms < 0) return '--:--';
@@ -299,42 +519,17 @@ function formatCountdown(ms) {
   const s = String(totalSeg % 60).padStart(2, '0');
   return m + ':' + s;
 }
-
 function tickCountdown() {
   const el = document.getElementById('countdown-num');
   if (!el) return;
-  if (proximaChecagemMs === null) { el.textContent = '--:--'; return; }
-  el.textContent = formatCountdown(proximaChecagemMs - Date.now());
+  el.textContent = proximaChecagemMs === null ? '--:--' : formatCountdown(proximaChecagemMs - Date.now());
 }
 setInterval(tickCountdown, 1000);
-
-function renderPrevia(s) {
-  const janelaCls = s.dentroDaJanelaAgora ? 'on' : 'off';
-  const janelaTxt = s.dentroDaJanelaAgora ? '🟢 dentro da janela' : '🟡 fora da janela';
-  document.getElementById('previa-janela').innerHTML = '<span class="pill ' + janelaCls + '">' + janelaTxt + '</span>';
-  const lista = s.destinatariosPrevia || [];
-  if (s.pausadoNoApp) {
-    document.getElementById('previa-lista').innerHTML = '<p class="vazio">⏸️ Pausado em Admin &gt; Configurações — ninguém recebe enquanto isso.</p>';
-    return;
-  }
-  if (!lista.length) {
-    document.getElementById('previa-lista').innerHTML = '<p class="vazio">Ninguém com pendência no momento.</p>';
-    return;
-  }
-  document.getElementById('previa-lista').innerHTML = lista.map((d) => \`
-    <div class="previa-item">
-      <div class="previa-nome">\${d.nome} <span class="previa-tel">(\${d.telefone})</span></div>
-      <ul class="previa-lista">\${d.pendencias.slice(0, 5).map((p) => \`<li>\${p.cliente} — venceu \${p.dataAgendada} (\${p.diasAtraso}d)</li>\`).join('')}\${d.pendencias.length > 5 ? '<li>…e mais ' + (d.pendencias.length - 5) + '</li>' : ''}</ul>
-    </div>
-  \`).join('');
-}
 
 async function atualizar() {
   try {
     const r = await fetch('/status');
     const s = await r.json();
-    const dot = s.conectado ? 'on' : (s.aguardandoQr ? 'warn' : 'off');
-    const linhaConexao = s.aguardandoQr ? 'Aguardando pareamento' : (s.conectado ? 'Conectado' : 'Desconectado');
     proximaChecagemMs = s.proximaChecagemPrevista ? new Date(s.proximaChecagemPrevista).getTime() : null;
 
     const qrCard = document.getElementById('qr-card');
@@ -345,37 +540,28 @@ async function atualizar() {
       qrCard.style.display = 'none';
     }
 
-    const subtitulo = s.enviadoHoje
-      ? '✅ Já enviado hoje'
-      : (s.pausadoNoApp ? '⏸️ Pausado' : (s.dentroDaJanelaAgora ? 'Próxima checagem em' : 'Fora da janela — próxima checagem em'));
-
-    document.getElementById('status-card').innerHTML = \`
-      <div class="card-head" style="margin-bottom:0.2rem">
-        <span class="card-title">Status</span>
-        <span class="badge-conexao \${dot}"><span class="dot"></span>\${linhaConexao}</span>
-      </div>
-      <div class="countdown">
-        <div class="num" id="countdown-num">--:--</div>
-        <div class="label">\${subtitulo}</div>
-      </div>
-      <div class="stats-grid">
-        <div class="stat"><div class="k">Janela de envio</div><div class="v">\${s.schedule ? s.schedule.horaInicio + '–' + s.schedule.horaLimite : '—'}</div></div>
-        <div class="stat"><div class="k">Pausado no app</div><div class="v">\${s.pausadoNoApp ? '⏸️ Sim' : '✅ Não'}</div></div>
-        <div class="stat"><div class="k">Última checagem</div><div class="v">\${s.ultimaChecagem ? new Date(s.ultimaChecagem).toLocaleTimeString('pt-BR') : '—'}</div></div>
-        <div class="stat"><div class="k">Último envio</div><div class="v">\${s.ultimoEnvio ? new Date(s.ultimoEnvio).toLocaleString('pt-BR') : 'Nenhum ainda'}</div></div>
-        \${s.ultimoErro ? '<div class="stat" style="grid-column:1/-1"><div class="k">Último erro</div><div class="v err">' + s.ultimoErro + '</div></div>' : ''}
-      </div>
-    \`;
+    renderHero(s);
+    renderStatus(s);
     tickCountdown();
-    renderPrevia(s);
+    renderDestinatarios(s);
+    renderHistorico(s);
   } catch (e) {
-    document.getElementById('status-card').innerHTML = '<span style="color:#f87171">Não consegui falar com o robô — ele ainda está rodando?</span>';
+    document.getElementById('hero').innerHTML = '<span style="color:#dc2626">Não consegui falar com o robô — ele ainda está rodando?</span>';
   }
 }
+
 document.getElementById('btn-verificar').addEventListener('click', async (ev) => {
   ev.target.disabled = true;
   ev.target.textContent = 'Verificando...';
-  await fetch('/verificar-agora', { method: 'POST' }).catch(() => {});
+  const fb = document.getElementById('feedback-verificar');
+  fb.style.display = 'none';
+  try {
+    const r = await fetch('/verificar-agora', { method: 'POST' });
+    const s = await r.json();
+    const n = (s.destinatariosPrevia || []).length;
+    fb.textContent = '✓ Verificado agora · ' + n + (n === 1 ? ' pendência encontrada' : ' pendências encontradas');
+    fb.style.display = 'block';
+  } catch (e) { /* status atualiza mesmo assim abaixo */ }
   await atualizar();
   ev.target.disabled = false;
   ev.target.textContent = '🔍 Verificar agora';
@@ -383,7 +569,7 @@ document.getElementById('btn-verificar').addEventListener('click', async (ev) =>
 document.getElementById('btn-parar').addEventListener('click', async () => {
   if (!confirm('Parar o robô agora? Pra ligar de novo, use o atalho na Área de Trabalho.')) return;
   await fetch('/parar', { method: 'POST' }).catch(() => {});
-  document.getElementById('status-card').innerHTML = 'Robô parado. Pode fechar esta aba.';
+  document.getElementById('hero').innerHTML = 'Robô parado. Pode fechar esta aba.';
 });
 atualizar();
 setInterval(atualizar, 4000);
@@ -401,6 +587,7 @@ function iniciarPainel() {
         }
         if (req.method === 'GET' && req.url === '/status') {
             painelStatus.enviadoHoje = lerEstado().ultimoEnvio === hojeChaveLocal();
+            atualizarContadoresHistorico();
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(painelStatus));
             return;
@@ -453,11 +640,13 @@ async function iniciar() {
         }
         if (connection === 'close') {
             painelStatus.conectado = false;
+            sockAtual = null;
             const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
             const deveReconectar = statusCode !== DisconnectReason.loggedOut;
             console.log('Conexão caiu.', deveReconectar ? 'Reconectando...' : 'Sessão encerrada — apague a pasta auth_info/ e rode de novo pra reparear.');
             if (deveReconectar) iniciar();
         } else if (connection === 'open') {
+            sockAtual = sock;
             painelStatus.conectado = true;
             painelStatus.aguardandoQr = false;
             painelStatus.qrDataUrl = null;
