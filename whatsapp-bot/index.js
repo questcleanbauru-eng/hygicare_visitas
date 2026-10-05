@@ -367,6 +367,20 @@ function paginaPainel() {
   .cat-label { font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.02em; margin: 0.7rem 0 0; }
   .cat-label:first-of-type { margin-top: 0.1rem; }
 
+  .kanban-wrap { display: flex; gap: 0.8rem; overflow-x: auto; padding-bottom: 0.3rem; margin: 0 -0.1rem; }
+  .kanban-col { flex: 0 0 230px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 440px; }
+  .kanban-col-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; padding: 0 0.1rem; }
+  .kanban-count { flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; }
+  .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
+  .kanban-card { background: #fff; border: 1px solid #e5e9f0; border-radius: 10px; padding: 0.6rem 0.7rem; }
+  .kanban-card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; }
+  .kanban-card-nome { font-size: 0.82rem; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kanban-card-badge { flex-shrink: 0; font-size: 0.72rem; font-weight: 800; background: #dbeafe; color: #1d4ed8; padding: 0.1rem 0.5rem; border-radius: 999px; }
+  .kanban-card-badge.warn { background: #fef3c7; color: #92400e; }
+  .kanban-card-detalhe { font-size: 0.74rem; color: #64748b; margin-top: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kanban-card-flag { font-size: 0.68rem; color: #b45309; margin-top: 0.3rem; font-weight: 700; }
+  .kanban-vazio { font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 1rem 0; }
+
   .hist-item { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.65rem 0; border-bottom: 1px solid #eef2f7; }
   .hist-item:last-child { border-bottom: none; padding-bottom: 0; }
   .hist-item:first-child { padding-top: 0; }
@@ -401,6 +415,14 @@ function paginaPainel() {
     <img id="qr-img" alt="QR code de pareamento">
   </div>
 
+  <div class="card" style="margin-bottom:1.1rem">
+    <div class="card-head">
+      <span class="card-title">📋 Pendências por tipo</span>
+      <span class="badge muted" id="badge-proximo-envio">—</span>
+    </div>
+    <div class="kanban-wrap" id="kanban-board">—</div>
+  </div>
+
   <div class="grid">
     <div class="col">
       <div class="card">
@@ -420,22 +442,6 @@ function paginaPainel() {
     </div>
 
     <div class="col">
-      <div class="card">
-        <div class="card-head">
-          <span class="card-title">☑️ Pendências atuais</span>
-          <span class="badge muted" id="badge-proximo-envio">—</span>
-        </div>
-        <div id="destinatarios-lista"></div>
-      </div>
-
-      <div class="card" id="sem-telefone-card" style="display:none">
-        <div class="card-head">
-          <span class="card-title">⚠️ Sem WhatsApp cadastrado</span>
-        </div>
-        <p class="hint" style="margin:0 0 0.6rem;text-align:left">Essas pessoas têm pendência mas não recebem aviso — cadastre o WhatsApp delas em Admin &gt; Usuários.</p>
-        <div id="sem-telefone-lista"></div>
-      </div>
-
       <div class="card">
         <div class="card-head">
           <span class="card-title">🕒 Últimos envios</span>
@@ -514,102 +520,79 @@ function renderStatus(s) {
   \`;
 }
 
-function renderDestinatarios(s) {
+// Pendências organizadas em colunas por TIPO (estilo kanban) em vez de
+// agrupadas por pessoa — com números grandes (uma pessoa pode acumular
+// várias dezenas), fica muito mais fácil ver de relance onde está o
+// maior volume do que rolando uma lista comprida por pessoa.
+const KANBAN_DEFS = [
+  { key: 'agendamentos', label: '🔴 Agendamentos', getItens: (d) => d.agendamentos, detalhe: (p) => p.cliente },
+  { key: 'propostas', label: '📄 Propostas', getItens: (d) => d.propostas, detalhe: (p) => p.cliente },
+  { key: 'funil', label: '📊 Funil', getItens: (d) => d.funil, detalhe: (f) => f.cliente },
+  { key: 'campanhas', label: '📣 Campanhas', getItens: (d) => d.campanhas, detalhe: (c) => c.titulo }
+];
+
+function montarColunasKanban(s) {
+  const todos = [
+    ...(s.destinatariosPrevia || []).map((d) => Object.assign({ temTelefone: true }, d)),
+    ...(s.semTelefonePrevia || []).map((d) => Object.assign({ temTelefone: false }, d))
+  ];
+  const cols = KANBAN_DEFS.map(({ key, label, getItens, detalhe }) => ({
+    key, label,
+    cards: todos
+      .filter((d) => getItens(d) && getItens(d).length)
+      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, count: getItens(d).length, detalhe: detalhe(getItens(d)[0]) + (getItens(d).length > 1 ? ' +' + (getItens(d).length - 1) : '') }))
+      .sort((a, b) => b.count - a.count)
+  }));
+  cols.push({
+    key: 'inatividade', label: '⏰ Inatividade',
+    cards: todos.filter((d) => d.diasSemAtividade)
+      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, count: 1, detalhe: 'há ' + d.diasSemAtividade + ' dias' }))
+      .sort((a, b) => b.count - a.count)
+  });
+  return cols;
+}
+
+function renderKanban(s) {
   const badge = document.getElementById('badge-proximo-envio');
   badge.textContent = 'Próximo envio: ' + proximoEnvioLabel(s);
-  const lista = s.destinatariosPrevia || [];
-  const el = document.getElementById('destinatarios-lista');
-  if (s.pausadoNoApp) { el.innerHTML = '<p class="vazio">⏸️ Pausado em Admin &gt; Configurações — ninguém recebe enquanto isso.</p>'; return; }
-  // enviadoHoje = já mandou hoje — a lista abaixo é só quem TEM pendência
-  // agora, não quem vai receber de novo (só manda 1x/dia). Sem isso o
-  // card dava a entender que ia reenviar pra quem já tinha recebido.
-  if (s.enviadoHoje) {
-    el.innerHTML = lista.length
-      ? '<p class="vazio">✅ Já enviado hoje pra ' + lista.length + (lista.length === 1 ? ' pessoa' : ' pessoas') + '. Essas pendências não geram um novo envio até amanhã.</p>'
-      : '<p class="vazio">✅ Já enviado hoje. Nenhuma pendência nova desde então.</p>';
+  const board = document.getElementById('kanban-board');
+  if (s.pausadoNoApp) { board.innerHTML = '<p class="vazio">⏸️ Pausado em Admin &gt; Configurações — ninguém recebe enquanto isso.</p>'; return; }
+  const semTelCount = (s.semTelefonePrevia || []).length;
+  const cols = montarColunasKanban(s);
+  if (!cols.some((c) => c.cards.length)) {
+    board.innerHTML = s.enviadoHoje
+      ? '<p class="vazio">✅ Já enviado hoje. Nada de novo desde então.</p>'
+      : '<p class="vazio">Ninguém com pendência no momento.</p>';
     return;
   }
-  if (!lista.length) { el.innerHTML = '<p class="vazio">Ninguém com pendência no momento.</p>'; return; }
-  el.innerHTML = lista.map((d) => \`
-    <div class="dest-item">
-      <div class="dest-head">
-        <span class="avatar">\${iniciais(d.nome)}</span>
-        <div>
-          <div class="dest-nome">\${d.nome}</div>
-          <div class="dest-tel">\${d.telefone}</div>
-        </div>
-      </div>
-      \${renderCategorias(d)}
-    </div>
-  \`).join('');
-}
-
-// Cada destinatário pode ter até 5 tipos de pendência diferentes — só
-// mostra as seções que ele realmente tem, igual a mensagem que é mandada.
-function renderCategorias(d) {
-  let html = '';
-  if (d.agendamentos && d.agendamentos.length) {
-    html += '<p class="cat-label">🔴 Agendamentos vencidos</p>';
-    html += d.agendamentos.slice(0, 5).map((p) => \`
-      <div class="pend-row">
-        <div><div class="pend-cliente">\${p.cliente}</div><div class="pend-venceu">Venceu em \${p.dataAgendada}</div></div>
-        <span class="pend-atraso">há \${p.diasAtraso}d</span>
-      </div>
-    \`).join('');
-  }
-  if (d.propostas && d.propostas.length) {
-    html += '<p class="cat-label">📄 Propostas paradas</p>';
-    html += d.propostas.slice(0, 5).map((p) => \`
-      <div class="pend-row">
-        <div class="pend-cliente">\${p.cliente}</div>
-        <span class="pend-atraso">há \${p.diasParada}d</span>
-      </div>
-    \`).join('');
-  }
-  if (d.funil && d.funil.length) {
-    html += '<p class="cat-label">📊 Funil parado</p>';
-    html += d.funil.slice(0, 5).map((f) => \`
-      <div class="pend-row">
-        <div class="pend-cliente">\${f.cliente}</div>
-        <span class="pend-atraso">há \${f.diasParado}d</span>
-      </div>
-    \`).join('');
-  }
-  if (d.campanhas && d.campanhas.length) {
-    html += '<p class="cat-label">📣 Campanhas aguardando resposta</p>';
-    html += d.campanhas.slice(0, 5).map((c) => \`
-      <div class="pend-row">
-        <div class="pend-cliente">\${c.titulo}</div>
-        <span class="pend-atraso">\${c.pendentes} pendente\${c.pendentes === 1 ? '' : 's'}</span>
-      </div>
-    \`).join('');
-  }
-  if (d.diasSemAtividade) {
-    html += '<p class="cat-label">⏰ Sem atividade recente</p>';
-    html += '<div class="pend-row"><div class="pend-cliente">Favor atualizar o aplicativo</div><span class="pend-atraso">há ' + d.diasSemAtividade + 'd</span></div>';
-  }
-  return html;
-}
-
-function renderSemTelefone(s) {
-  const card = document.getElementById('sem-telefone-card');
-  const lista = s.semTelefonePrevia || [];
-  if (s.pausadoNoApp || !lista.length) { card.style.display = 'none'; return; }
-  card.style.display = 'block';
-  document.getElementById('sem-telefone-lista').innerHTML = lista.map((d) => {
-    const total = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.diasSemAtividade ? 1 : 0);
-    return \`
-    <div class="dest-item">
-      <div class="dest-head">
-        <span class="avatar" style="background:#fef3c7;color:#92400e">\${iniciais(d.nome)}</span>
-        <div>
-          <div class="dest-nome">\${d.nome}</div>
-          <div class="dest-tel">\${total} pendência\${total === 1 ? '' : 's'}</div>
-        </div>
+  board.innerHTML = cols.map((c) => \`
+    <div class="kanban-col">
+      <div class="kanban-col-head"><span>\${c.label}</span><span class="kanban-count">\${c.cards.length}</span></div>
+      <div class="kanban-cards">
+        \${c.cards.length ? c.cards.map((card) => \`
+          <div class="kanban-card">
+            <div class="kanban-card-top">
+              <span class="kanban-card-nome">\${card.nome}</span>
+              <span class="kanban-card-badge \${card.temTelefone ? '' : 'warn'}">\${card.count}</span>
+            </div>
+            <div class="kanban-card-detalhe">\${card.detalhe}</div>
+            \${!card.temTelefone ? '<div class="kanban-card-flag">📵 sem WhatsApp</div>' : ''}
+          </div>
+        \`).join('') : '<p class="kanban-vazio">Nada aqui</p>'}
       </div>
     </div>
-  \`;
-  }).join('');
+  \`).join('') + (semTelCount ? \`
+    <div class="kanban-col" style="background:#fffbeb;border-color:#fde68a">
+      <div class="kanban-col-head"><span>⚠️ Sem WhatsApp</span><span class="kanban-count" style="background:#fef3c7;color:#92400e">\${semTelCount}</span></div>
+      <p class="hint" style="margin:0;text-align:left">Cadastre o WhatsApp dessas pessoas em Admin &gt; Usuários pra elas passarem a receber.</p>
+      <div class="kanban-cards">
+        \${(s.semTelefonePrevia || []).map((d) => {
+          const total = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.diasSemAtividade ? 1 : 0);
+          return \`<div class="kanban-card"><div class="kanban-card-top"><span class="kanban-card-nome">\${d.nome}</span><span class="kanban-card-badge warn">\${total}</span></div></div>\`;
+        }).join('')}
+      </div>
+    </div>
+  \` : '');
 }
 
 function renderHistorico(s) {
@@ -658,8 +641,7 @@ async function atualizar() {
     renderHero(s);
     renderStatus(s);
     tickCountdown();
-    renderDestinatarios(s);
-    renderSemTelefone(s);
+    renderKanban(s);
     renderHistorico(s);
   } catch (e) {
     document.getElementById('hero').innerHTML = '<span style="color:#dc2626">Não consegui falar com o robô — ele ainda está rodando?</span>';
