@@ -31,6 +31,10 @@ const PID_FILE = join(__dirname, 'bot.pid');
 
 const API_URL = process.env.API_URL;
 const API_SECRET = process.env.API_SECRET;
+// Pro botão "Cadastrar no Admin" do painel abrir o app de verdade — deriva
+// da própria API_URL (tira o /api/pendencias-whatsapp do final) em vez de
+// precisar de mais uma variável no .env.
+const APP_URL = API_URL ? API_URL.replace(/\/api\/.*$/, '/') : '';
 const INTERVALO_CHECAGEM_MIN = Number(process.env.INTERVALO_CHECAGEM_MIN || 5);
 const DELAY_ENTRE_ENVIOS_MS = Number(process.env.DELAY_ENTRE_ENVIOS_MS || 8000);
 const PORTA_PAINEL = Number(process.env.PORTA_PAINEL || 3344);
@@ -290,32 +294,49 @@ function paginaPainel() {
     max-width: 1800px; margin: 0 auto; padding: 2rem 2rem 3rem;
     background: #f6f7fa; color: #0f172a; min-height: 100vh;
   }
-  header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.4rem; }
+  header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.4rem; flex-wrap: wrap; }
   header .icon-box {
     width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
     font-size: 1.3rem; background: #dcfce7;
   }
   header h1 { font-size: 1.25rem; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
   header p { margin: 0.1rem 0 0; font-size: 0.82rem; color: #64748b; }
+  .header-actions { display: flex; gap: 0.6rem; margin-left: auto; align-items: center; flex-wrap: wrap; }
 
-  .hero {
+  .banner {
     display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-    background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 16px;
+    border: 1px solid transparent; border-radius: 16px;
     padding: 1.1rem 1.4rem; margin-bottom: 1.1rem;
   }
-  .hero-left { display: flex; align-items: center; gap: 0.8rem; }
-  .hero-dot { width: 12px; height: 12px; border-radius: 999px; background: #22c55e; flex-shrink: 0; box-shadow: 0 0 0 4px rgba(34,197,94,0.18); }
-  .hero-dot.off { background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,0.15); }
-  .hero-title { font-size: 1.1rem; font-weight: 800; color: #065f46; margin: 0; }
-  .hero-sub { font-size: 0.82rem; color: #047857; margin: 0.1rem 0 0; }
-  .hero-right { text-align: right; }
-  .hero-num { font-size: 1.6rem; font-weight: 800; color: #065f46; line-height: 1; }
-  .hero-num-label { font-size: 0.74rem; color: #047857; margin-top: 0.15rem; }
+  .banner.ok { background: #ecfdf5; border-color: #a7f3d0; }
+  .banner.warn { background: #fffbeb; border-color: #fde68a; }
+  .banner.off { background: #fef2f2; border-color: #fecaca; }
+  .banner.paused { background: #f1f5f9; border-color: #e2e8f0; }
+  .banner-left { display: flex; align-items: flex-start; gap: 0.8rem; min-width: 0; }
+  .banner-icon { font-size: 1.3rem; flex-shrink: 0; line-height: 1.35; }
+  .banner-title { font-size: 1.05rem; font-weight: 800; margin: 0; }
+  .banner-sub { font-size: 0.82rem; margin: 0.2rem 0 0; line-height: 1.45; }
+  .banner.ok .banner-title, .banner.ok .banner-sub { color: #065f46; }
+  .banner.warn .banner-title, .banner.warn .banner-sub { color: #92400e; }
+  .banner.off .banner-title, .banner.off .banner-sub { color: #991b1b; }
+  .banner.paused .banner-title, .banner.paused .banner-sub { color: #475569; }
+  .banner-cta {
+    flex-shrink: 0; width: auto; padding: 0.6rem 1.1rem; border-radius: 10px; font-size: 0.82rem; font-weight: 700;
+    white-space: nowrap; background: #b45309; color: #fff; border: none; text-decoration: none; display: inline-flex; align-items: center;
+  }
+  .banner-cta:hover { background: #92400e; }
 
-  .grid { display: grid; grid-template-columns: 1fr; gap: 1.1rem; }
-  @media (min-width: 860px) { .grid { grid-template-columns: 1fr 1.4fr; } }
-  @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 2fr; } }
-  .col { display: flex; flex-direction: column; gap: 1.1rem; }
+  .status-strip {
+    display: flex; flex-wrap: wrap; align-items: center; row-gap: 0.4rem; column-gap: 0.9rem;
+    background: #ffffff; border: 1px solid #e5e9f0; border-radius: 12px; padding: 0.7rem 1.1rem;
+    margin-bottom: 1.1rem; font-size: 0.82rem; color: #475569;
+  }
+  .status-strip .sep { color: #cbd5e1; }
+  .status-strip b { color: #0f172a; font-weight: 700; }
+  .status-strip .err-line { flex-basis: 100%; color: #dc2626; font-size: 0.78rem; font-weight: 600; }
+  .status-dot { width: 8px; height: 8px; border-radius: 999px; background: #22c55e; display: inline-block; margin-right: 0.35rem; }
+  .status-dot.off { background: #ef4444; }
+  .status-dot.warn { background: #f59e0b; }
 
   .card {
     background: #ffffff; border: 1px solid #e5e9f0; border-radius: 16px; padding: 1.25rem 1.3rem;
@@ -323,20 +344,6 @@ function paginaPainel() {
   }
   .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 0.5rem; flex-wrap: wrap; }
   .card-title { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; }
-
-  .badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.76rem; font-weight: 700; }
-  .badge.on { background: #dcfce7; color: #15803d; }
-  .badge.off { background: #fee2e2; color: #b91c1c; }
-  .badge.warn { background: #fef3c7; color: #92400e; }
-  .badge.muted { background: #f1f5f9; color: #475569; }
-  .dot-sm { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
-
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-  .stat { background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 0.65rem 0.8rem; }
-  .stat .k { font-size: 0.72rem; color: #64748b; margin-bottom: 0.2rem; }
-  .stat .v { font-size: 0.9rem; font-weight: 700; color: #0f172a; }
-  .stat .v.ok { color: #16a34a; }
-  .stat .v.err { color: #dc2626; font-weight: 600; font-size: 0.78rem; }
 
   button {
     width: 100%; padding: 0.85rem; border-radius: 12px; font-size: 0.9rem; font-weight: 700;
@@ -346,41 +353,52 @@ function paginaPainel() {
   button:disabled { opacity: 0.55; cursor: default; }
   .btn-primario { background: #2563eb; color: #fff; border: none; }
   .btn-primario:hover:not(:disabled) { background: #1d4ed8; }
-  .btn-perigo-outline { background: #fff; color: #dc2626; border: 1.5px solid #fecaca; margin-top: 0.7rem; }
+  .btn-perigo-outline { background: #fff; color: #dc2626; border: 1.5px solid #fecaca; }
   .btn-perigo-outline:hover:not(:disabled) { background: #fef2f2; }
-  .feedback-ok { font-size: 0.82rem; color: #16a34a; font-weight: 600; text-align: center; margin: 0.6rem 0 0; }
+  .btn-sm { width: auto; padding: 0.55rem 0.95rem; border-radius: 10px; font-size: 0.82rem; }
+  .feedback-ok { font-size: 0.82rem; color: #16a34a; font-weight: 600; text-align: right; margin: -0.7rem 0 1rem; }
   .hint { font-size: 0.76rem; color: #94a3b8; margin-top: 0.5rem; text-align: center; line-height: 1.5; }
 
-  .avatar { width: 36px; height: 36px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem; flex-shrink: 0; }
-  .dest-item { padding: 0.9rem 0; border-bottom: 1px solid #eef2f7; }
-  .dest-item:first-child { padding-top: 0; }
-  .dest-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .dest-head { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.6rem; }
-  .dest-nome { font-weight: 700; font-size: 0.9rem; color: #0f172a; }
-  .dest-tel { font-size: 0.76rem; color: #64748b; margin-top: 0.1rem; }
-  .pend-row {
-    display: flex; justify-content: space-between; align-items: center; gap: 0.6rem;
-    background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 0.55rem 0.75rem; margin-top: 0.45rem;
-  }
-  .pend-cliente { font-size: 0.84rem; font-weight: 600; color: #0f172a; }
-  .pend-venceu { font-size: 0.74rem; color: #64748b; margin-top: 0.1rem; }
-  .pend-atraso { flex-shrink: 0; font-size: 0.74rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; background: #fef3c7; color: #92400e; white-space: nowrap; }
-  .cat-label { font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.02em; margin: 0.7rem 0 0; }
-  .cat-label:first-of-type { margin-top: 0.1rem; }
+  .kanban-head-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .kanban-legend { display: flex; gap: 1rem; font-size: 0.74rem; color: #64748b; font-weight: 600; }
+  .kanban-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
+  .legend-dot.on { background: #22c55e; }
+  .legend-dot.off { background: #cbd5e1; }
 
   .kanban-wrap { display: flex; gap: 0.8rem; overflow-x: auto; padding-bottom: 0.3rem; margin: 0 -0.1rem; }
-  .kanban-col { flex: 1 1 260px; min-width: 260px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 560px; }
+  .kanban-col { flex: 1 1 260px; min-width: 260px; background: #f8fafc; border: 1px solid #eef2f7; border-left: 4px solid #cbd5e1; border-radius: 12px; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 560px; }
+  .kanban-col.c-agendamentos { border-left-color: #ef4444; }
+  .kanban-col.c-propostas { border-left-color: #a855f7; }
+  .kanban-col.c-funil { border-left-color: #3b82f6; }
+  .kanban-col.c-campanhas { border-left-color: #f97316; }
+  .kanban-col.c-inatividade { border-left-color: #94a3b8; }
+  .kanban-col.c-semwhats { background: #fffbeb; border-color: #fde68a; border-left-color: #f59e0b; }
   .kanban-col-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; padding: 0 0.1rem; }
   .kanban-count { flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; }
   .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
   .kanban-card { background: #fff; border: 1px solid #e5e9f0; border-radius: 10px; padding: 0.6rem 0.7rem; }
+  .kanban-card.recebe { border-color: #86efac; background: #f0fdf4; }
   .kanban-card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; }
   .kanban-card-nome { font-size: 0.82rem; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .kanban-card-badge { flex-shrink: 0; font-size: 0.72rem; font-weight: 800; background: #dbeafe; color: #1d4ed8; padding: 0.1rem 0.5rem; border-radius: 999px; }
+  .kanban-card-badge { flex-shrink: 0; font-size: 0.72rem; font-weight: 800; background: #dbeafe; color: #1d4ed8; padding: 0.1rem 0.5rem; border-radius: 999px; white-space: nowrap; }
   .kanban-card-badge.warn { background: #fef3c7; color: #92400e; }
   .kanban-card-detalhe { font-size: 0.74rem; color: #64748b; margin-top: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .kanban-card-flag { font-size: 0.68rem; color: #b45309; margin-top: 0.3rem; font-weight: 700; }
+  .kanban-card-status { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; margin-top: 0.35rem; }
+  .kanban-card-status .ok { color: #16a34a; font-weight: 700; font-size: 0.7rem; }
+  .kanban-card-status .no { color: #94a3b8; font-weight: 600; font-size: 0.7rem; }
+  .kanban-card-dias { flex-shrink: 0; font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; background: #fef3c7; color: #92400e; white-space: nowrap; }
+  .kanban-mais { font-size: 0.74rem; color: #2563eb; font-weight: 700; text-align: center; padding: 0.3rem 0; }
   .kanban-vazio { font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 1rem 0; }
+
+  .semwhats-intro { font-size: 0.76rem; color: #92400e; margin: 0 0 0.5rem; line-height: 1.4; }
+  .semwhats-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid #fde68a; }
+  .semwhats-row:last-child { border-bottom: none; }
+  .semwhats-nome { font-weight: 700; font-size: 0.82rem; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .semwhats-right { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
+  .semwhats-pend { font-size: 0.74rem; color: #92400e; white-space: nowrap; }
+  .semwhats-cadastrar { font-size: 0.76rem; color: #2563eb; font-weight: 700; text-decoration: none; }
+  .semwhats-cadastrar:hover { text-decoration: underline; }
 
   #historico-lista { display: flex; flex-direction: column; }
   @media (min-width: 1400px) { #historico-lista { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.3rem; } }
@@ -408,9 +426,15 @@ function paginaPainel() {
       <h1>Robô de WhatsApp</h1>
       <p>Avisos de pendência · App de Visitas</p>
     </div>
+    <div class="header-actions">
+      <button class="btn-primario btn-sm" id="btn-verificar" title="Só confere as pendências — nenhuma mensagem é enviada.">🔍 Verificar agora</button>
+      <button class="btn-perigo-outline btn-sm" id="btn-parar">⏹ Parar robô</button>
+    </div>
   </header>
+  <p class="feedback-ok" id="feedback-verificar" style="display:none"></p>
 
-  <div class="hero" id="hero">Carregando...</div>
+  <div class="banner" id="banner">Carregando...</div>
+  <div class="status-strip" id="status-strip"></div>
 
   <div class="card" id="qr-card" style="display:none;text-align:center;margin-bottom:1.1rem">
     <span class="card-title" style="justify-content:center">📷 Escaneie pra conectar</span>
@@ -419,42 +443,25 @@ function paginaPainel() {
   </div>
 
   <div class="card" style="margin-bottom:1.1rem">
-    <div class="card-head">
+    <div class="kanban-head-row">
       <span class="card-title">📋 Pendências por tipo</span>
-      <span class="badge muted" id="badge-proximo-envio">—</span>
+      <div class="kanban-legend">
+        <span><span class="legend-dot on"></span>Vai receber</span>
+        <span><span class="legend-dot off"></span>Sem WhatsApp</span>
+      </div>
     </div>
     <div class="kanban-wrap" id="kanban-board">—</div>
   </div>
 
-  <div class="grid">
-    <div class="col">
-      <div class="card">
-        <div class="card-head">
-          <span class="card-title">⚡ Status</span>
-          <span class="badge" id="badge-conexao">—</span>
-        </div>
-        <div class="stats-grid" id="status-stats">—</div>
-      </div>
-
-      <div class="card">
-        <button class="btn-primario" id="btn-verificar">🔍 Verificar agora</button>
-        <p class="feedback-ok" id="feedback-verificar" style="display:none"></p>
-        <p class="hint">"Verificar agora" só confere as pendências — nenhuma mensagem é enviada. O envio de verdade só acontece dentro da janela configurada no Admin.</p>
-        <button class="btn-perigo-outline" id="btn-parar">⏹ Parar robô</button>
-      </div>
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">🕒 Últimos envios</span>
     </div>
-
-    <div class="col">
-      <div class="card">
-        <div class="card-head">
-          <span class="card-title">🕒 Últimos envios</span>
-        </div>
-        <div id="historico-lista"></div>
-      </div>
-    </div>
+    <div id="historico-lista"></div>
   </div>
 
 <script>
+const APP_URL = ${JSON.stringify(APP_URL)};
 let proximaChecagemMs = null;
 
 function iniciais(nome) {
@@ -489,37 +496,73 @@ function proximoEnvioLabel(s) {
   return 'em instantes';
 }
 
-function renderHero(s) {
-  const funcionando = s.conectado && !s.pausadoNoApp;
-  const titulo = s.pausadoNoApp ? '⏸️ Pausado' : (s.conectado ? 'Funcionando' : 'Desconectado');
-  const enviouTxt = s.ultimoEnvio ? ('Enviou hoje às ' + formatHora(s.ultimoEnvio)) : 'Ainda não enviou hoje';
-  document.getElementById('hero').innerHTML = \`
-    <div class="hero-left">
-      <span class="hero-dot \${funcionando ? '' : 'off'}"></span>
+function listaNomes(nomes) {
+  if (!nomes.length) return '';
+  if (nomes.length === 1) return nomes[0];
+  if (nomes.length === 2) return nomes[0] + ' e ' + nomes[1];
+  return nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1];
+}
+
+function renderBanner(s) {
+  const el = document.getElementById('banner');
+  const comTel = (s.destinatariosPrevia || []).length;
+  const semTel = (s.semTelefonePrevia || []).length;
+  const total = comTel + semTel;
+  const quando = proximoEnvioLabel(s);
+  let classe = 'ok';
+  let icone = '✅';
+  let titulo = 'Funcionando';
+  let sub = '';
+  let cta = '';
+
+  if (s.pausadoNoApp) {
+    classe = 'paused'; icone = '⏸️'; titulo = 'Pausado';
+    sub = 'Envio desligado em Admin &gt; Configurações — ninguém recebe enquanto isso.';
+  } else if (!s.conectado) {
+    classe = 'off'; icone = s.aguardandoQr ? '📷' : '🔴'; titulo = s.aguardandoQr ? 'Aguardando pareamento' : 'Desconectado';
+    sub = s.aguardandoQr ? 'Escaneie o QR code abaixo pra conectar.' : 'O WhatsApp caiu — o robô tenta reconectar sozinho.';
+  } else if (total > 0 && semTel > 0) {
+    classe = 'warn'; icone = '⚠️';
+    titulo = 'Funcionando, mas ' + semTel + ' de ' + total + (total === 1 ? ' pessoa está' : ' pessoas estão') + ' sem WhatsApp';
+    const nomes = (s.destinatariosPrevia || []).map((d) => d.nome);
+    sub = nomes.length
+      ? ('Só ' + listaNomes(nomes) + (nomes.length === 1 ? ' vai receber' : ' vão receber') + ' o aviso ' + quando + '. Os cards cinza não serão avisados.')
+      : ('Ninguém vai receber aviso ' + quando + ' — nenhuma das ' + total + ' pessoas com pendência tem WhatsApp cadastrado.');
+    cta = '<a class="banner-cta" href="' + APP_URL + '" target="_blank" rel="noopener">Cadastrar no Admin →</a>';
+  } else {
+    const enviouTxt = s.ultimoEnvio ? ('Enviou hoje às ' + formatHora(s.ultimoEnvio)) : 'Ainda não enviou hoje';
+    sub = enviouTxt + ' · Próximo envio ' + quando;
+  }
+
+  el.className = 'banner ' + classe;
+  el.innerHTML = \`
+    <div class="banner-left">
+      <span class="banner-icon">\${icone}</span>
       <div>
-        <p class="hero-title">\${titulo}</p>
-        <p class="hero-sub">\${enviouTxt} · Próximo envio \${proximoEnvioLabel(s)}</p>
+        <p class="banner-title">\${titulo}</p>
+        <p class="banner-sub">\${sub}</p>
       </div>
     </div>
-    <div class="hero-right">
-      <div class="hero-num">\${s.enviosHoje || 0}</div>
-      <div class="hero-num-label">mensagem\${s.enviosHoje === 1 ? '' : 's'} hoje · \${s.enviosSemana || 0} na semana</div>
-    </div>
+    \${cta}
   \`;
 }
 
-function renderStatus(s) {
-  const dot = s.conectado ? 'on' : (s.aguardandoQr ? 'warn' : 'off');
+function renderStatusStrip(s) {
+  const dotClasse = s.conectado ? '' : (s.aguardandoQr ? 'warn' : 'off');
   const linhaConexao = s.aguardandoQr ? 'Aguardando pareamento' : (s.conectado ? 'Conectado' : 'Desconectado');
-  document.getElementById('badge-conexao').className = 'badge ' + dot;
-  document.getElementById('badge-conexao').innerHTML = '<span class="dot-sm"></span>' + linhaConexao;
-
-  document.getElementById('status-stats').innerHTML = \`
-    <div class="stat"><div class="k">Envio no app</div><div class="v \${s.pausadoNoApp ? '' : 'ok'}">\${s.pausadoNoApp ? '⏸️ Pausado' : '✅ Ativo'}</div></div>
-    <div class="stat"><div class="k">Janela de envio</div><div class="v">\${s.schedule ? s.schedule.horaInicio + ' – ' + s.schedule.horaLimite : '—'}</div></div>
-    <div class="stat"><div class="k">Última checagem</div><div class="v">\${s.ultimaChecagem ? formatHora(s.ultimaChecagem) : '—'}</div></div>
-    <div class="stat"><div class="k">Próxima checagem em</div><div class="v" id="countdown-num">--:--</div></div>
-    \${s.ultimoErro ? '<div class="stat" style="grid-column:1/-1"><div class="k">Último erro</div><div class="v err">' + s.ultimoErro + '</div></div>' : ''}
+  const janela = s.schedule ? (s.schedule.horaInicio + '–' + s.schedule.horaLimite) : '—';
+  const checagem = s.ultimaChecagem ? formatHora(s.ultimaChecagem) : '—';
+  document.getElementById('status-strip').innerHTML = \`
+    <span><span class="status-dot \${dotClasse}"></span>\${linhaConexao}</span>
+    <span class="sep">·</span>
+    <span>Janela <b>\${janela}</b></span>
+    <span class="sep">·</span>
+    <span>Última checagem <b>\${checagem}</b></span>
+    <span class="sep">·</span>
+    <span>Próxima em <b id="countdown-num">--:--</b></span>
+    <span class="sep">·</span>
+    <span>Enviadas hoje <b>\${s.enviosHoje || 0}</b> · semana <b>\${s.enviosSemana || 0}</b></span>
+    \${s.ultimoErro ? '<span class="err-line">⚠️ ' + s.ultimoErro + '</span>' : ''}
   \`;
 }
 
@@ -528,74 +571,108 @@ function renderStatus(s) {
 // várias dezenas), fica muito mais fácil ver de relance onde está o
 // maior volume do que rolando uma lista comprida por pessoa.
 const KANBAN_DEFS = [
-  { key: 'agendamentos', label: '🔴 Agendamentos', getItens: (d) => d.agendamentos, detalhe: (p) => p.cliente },
-  { key: 'propostas', label: '📄 Propostas', getItens: (d) => d.propostas, detalhe: (p) => p.cliente },
-  { key: 'funil', label: '📊 Funil', getItens: (d) => d.funil, detalhe: (f) => f.cliente },
-  { key: 'campanhas', label: '📣 Campanhas', getItens: (d) => d.campanhas, detalhe: (c) => c.titulo }
+  { key: 'agendamentos', classe: 'c-agendamentos', label: '🔴 Agendamentos', getItens: (d) => d.agendamentos, detalhe: (p) => p.cliente, contagem: (n) => n + (n === 1 ? ' item' : ' itens'), dias: (p) => p.diasAtraso },
+  { key: 'propostas', classe: 'c-propostas', label: '📄 Propostas', getItens: (d) => d.propostas, detalhe: (p) => p.cliente, contagem: (n) => n + (n === 1 ? ' proposta' : ' propostas') },
+  { key: 'funil', classe: 'c-funil', label: '📊 Funil', getItens: (d) => d.funil, detalhe: (f) => f.cliente, contagem: (n) => n + (n === 1 ? ' cliente' : ' clientes') },
+  { key: 'campanhas', classe: 'c-campanhas', label: '📣 Campanhas', getItens: (d) => d.campanhas, detalhe: (c) => c.titulo, contagem: (n) => n + (n === 1 ? ' campanha' : ' campanhas') }
 ];
+const LIMITE_CARDS_COLUNA = 5;
+const LIMITE_LINHAS_SEM_WHATSAPP = 7;
 
 function montarColunasKanban(s) {
   const todos = [
     ...(s.destinatariosPrevia || []).map((d) => Object.assign({ temTelefone: true }, d)),
     ...(s.semTelefonePrevia || []).map((d) => Object.assign({ temTelefone: false }, d))
   ];
-  const cols = KANBAN_DEFS.map(({ key, label, getItens, detalhe }) => ({
-    key, label,
+  const cols = KANBAN_DEFS.map(({ key, classe, label, getItens, detalhe, contagem, dias }) => ({
+    key, classe, label,
     cards: todos
       .filter((d) => getItens(d) && getItens(d).length)
-      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, count: getItens(d).length, detalhe: detalhe(getItens(d)[0]) + (getItens(d).length > 1 ? ' +' + (getItens(d).length - 1) : '') }))
+      .map((d) => {
+        const itens = getItens(d);
+        const diasValor = dias ? dias(itens[0]) : null;
+        return {
+          nome: d.nome, temTelefone: d.temTelefone, count: itens.length,
+          badge: contagem(itens.length),
+          detalhe: detalhe(itens[0]) + (itens.length > 1 ? ' +' + (itens.length - 1) : ''),
+          dias: diasValor
+        };
+      })
       .sort((a, b) => b.count - a.count)
   }));
   cols.push({
-    key: 'inatividade', label: '⏰ Inatividade',
+    key: 'inatividade', classe: 'c-inatividade', label: '⏰ Inatividade',
     cards: todos.filter((d) => d.diasSemAtividade)
-      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, count: 1, detalhe: 'há ' + d.diasSemAtividade + ' dias' }))
+      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null }))
       .sort((a, b) => b.count - a.count)
   });
   return cols;
 }
 
+function kanbanCardHtml(card) {
+  return \`
+    <div class="kanban-card \${card.temTelefone ? 'recebe' : ''}">
+      <div class="kanban-card-top">
+        <span class="kanban-card-nome">\${card.nome}</span>
+        <span class="kanban-card-badge \${card.temTelefone ? '' : 'warn'}">\${card.badge}</span>
+      </div>
+      \${card.detalhe ? '<div class="kanban-card-detalhe">' + card.detalhe + '</div>' : ''}
+      <div class="kanban-card-status">
+        \${card.temTelefone ? '<span class="ok">✓ vai receber</span>' : '<span class="no">sem WhatsApp</span>'}
+        \${card.dias ? '<span class="kanban-card-dias">há ' + card.dias + ' dias</span>' : ''}
+      </div>
+    </div>
+  \`;
+}
+
 function renderKanban(s) {
-  const badge = document.getElementById('badge-proximo-envio');
-  badge.textContent = 'Próximo envio: ' + proximoEnvioLabel(s);
   const board = document.getElementById('kanban-board');
   if (s.pausadoNoApp) { board.innerHTML = '<p class="vazio">⏸️ Pausado em Admin &gt; Configurações — ninguém recebe enquanto isso.</p>'; return; }
-  const semTelCount = (s.semTelefonePrevia || []).length;
+  const semTelefone = s.semTelefonePrevia || [];
   const cols = montarColunasKanban(s);
-  if (!cols.some((c) => c.cards.length)) {
+  if (!cols.some((c) => c.cards.length) && !semTelefone.length) {
     board.innerHTML = s.enviadoHoje
       ? '<p class="vazio">✅ Já enviado hoje. Nada de novo desde então.</p>'
       : '<p class="vazio">Ninguém com pendência no momento.</p>';
     return;
   }
-  board.innerHTML = cols.map((c) => \`
-    <div class="kanban-col">
+  board.innerHTML = cols.map((c) => {
+    const visiveis = c.cards.slice(0, LIMITE_CARDS_COLUNA);
+    const resto = c.cards.length - visiveis.length;
+    return \`
+    <div class="kanban-col \${c.classe}">
       <div class="kanban-col-head"><span>\${c.label}</span><span class="kanban-count">\${c.cards.length}</span></div>
       <div class="kanban-cards">
-        \${c.cards.length ? c.cards.map((card) => \`
-          <div class="kanban-card">
-            <div class="kanban-card-top">
-              <span class="kanban-card-nome">\${card.nome}</span>
-              <span class="kanban-card-badge \${card.temTelefone ? '' : 'warn'}">\${card.count}</span>
-            </div>
-            <div class="kanban-card-detalhe">\${card.detalhe}</div>
-            \${!card.temTelefone ? '<div class="kanban-card-flag">📵 sem WhatsApp</div>' : ''}
-          </div>
-        \`).join('') : '<p class="kanban-vazio">Nada aqui</p>'}
+        \${visiveis.length ? visiveis.map(kanbanCardHtml).join('') : '<p class="kanban-vazio">Nenhuma pendência</p>'}
+        \${resto > 0 ? '<div class="kanban-mais">+' + resto + ' mais</div>' : ''}
       </div>
     </div>
-  \`).join('') + (semTelCount ? \`
-    <div class="kanban-col" style="background:#fffbeb;border-color:#fde68a">
-      <div class="kanban-col-head"><span>⚠️ Sem WhatsApp</span><span class="kanban-count" style="background:#fef3c7;color:#92400e">\${semTelCount}</span></div>
-      <p class="hint" style="margin:0;text-align:left">Cadastre o WhatsApp dessas pessoas em Admin &gt; Usuários pra elas passarem a receber.</p>
+  \`;
+  }).join('') + (semTelefone.length ? (() => {
+    const visiveis = semTelefone.slice(0, LIMITE_LINHAS_SEM_WHATSAPP);
+    const resto = semTelefone.length - visiveis.length;
+    return \`
+    <div class="kanban-col c-semwhats">
+      <div class="kanban-col-head"><span>⚠️ Sem WhatsApp</span><span class="kanban-count" style="background:#fef3c7;color:#92400e">\${semTelefone.length}</span></div>
+      <p class="semwhats-intro">Essas pessoas não recebem avisos até ter o WhatsApp cadastrado.</p>
       <div class="kanban-cards">
-        \${(s.semTelefonePrevia || []).map((d) => {
-          const total = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.diasSemAtividade ? 1 : 0);
-          return \`<div class="kanban-card"><div class="kanban-card-top"><span class="kanban-card-nome">\${d.nome}</span><span class="kanban-card-badge warn">\${total}</span></div></div>\`;
+        \${visiveis.map((d) => {
+          const totalPend = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.diasSemAtividade ? 1 : 0);
+          return \`
+          <div class="semwhats-row">
+            <span class="semwhats-nome">\${d.nome}</span>
+            <span class="semwhats-right">
+              <span class="semwhats-pend">\${totalPend} pend.</span>
+              <a class="semwhats-cadastrar" href="\${APP_URL}" target="_blank" rel="noopener">Cadastrar</a>
+            </span>
+          </div>
+        \`;
         }).join('')}
+        \${resto > 0 ? '<div class="kanban-mais">+' + resto + ' mais</div>' : ''}
       </div>
     </div>
-  \` : '');
+  \`;
+  })() : '');
 }
 
 function renderHistorico(s) {
@@ -641,13 +718,13 @@ async function atualizar() {
       qrCard.style.display = 'none';
     }
 
-    renderHero(s);
-    renderStatus(s);
+    renderBanner(s);
+    renderStatusStrip(s);
     tickCountdown();
     renderKanban(s);
     renderHistorico(s);
   } catch (e) {
-    document.getElementById('hero').innerHTML = '<span style="color:#dc2626">Não consegui falar com o robô — ele ainda está rodando?</span>';
+    document.getElementById('banner').innerHTML = '<span style="color:#dc2626">Não consegui falar com o robô — ele ainda está rodando?</span>';
   }
 }
 
@@ -672,7 +749,7 @@ document.getElementById('btn-verificar').addEventListener('click', async (ev) =>
 document.getElementById('btn-parar').addEventListener('click', async () => {
   if (!confirm('Parar o robô agora? Pra ligar de novo, use o atalho na Área de Trabalho.')) return;
   await fetch('/parar', { method: 'POST' }).catch(() => {});
-  document.getElementById('hero').innerHTML = 'Robô parado. Pode fechar esta aba.';
+  document.getElementById('banner').innerHTML = 'Robô parado. Pode fechar esta aba.';
 });
 atualizar();
 setInterval(atualizar, 4000);
