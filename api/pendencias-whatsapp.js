@@ -7,9 +7,10 @@
 // própria — esse endpoint expõe nome+telefone de todo mundo, então merece
 // uma chave só dele em vez de reaproveitar o CRON_SECRET.
 import { getSheetObjects, withCache } from '../lib/sheets.js';
-import { parseDate } from '../lib/common.js';
+import { parseDate, isConfigOn } from '../lib/common.js';
 import { readAgendamentoRows } from '../lib/handlers/agendamentos.js';
 import { nowInSaoPaulo } from '../lib/handlers/resumo.js';
+import { readEmailConfig } from '../lib/handlers/config.js';
 
 const RESUMO_USER = { profile: 'admin', name: '', email: '', gerencia: '' };
 
@@ -36,6 +37,12 @@ export default async function handler(req, res) {
     }
 
     try {
+        const config = await readEmailConfig();
+        if (isConfigOn(config.whatsapp_pendencias_pausado)) {
+            res.status(200).json({ status: 'success', data: [], pausado: true });
+            return;
+        }
+
         const today = startOfDay(nowInSaoPaulo());
         const [vendedores, agendamentos] = await Promise.all([
             withCache('vendedores_all_wa', 60, () => getSheetObjects('Vendedores')),

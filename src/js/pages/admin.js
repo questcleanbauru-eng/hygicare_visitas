@@ -441,6 +441,17 @@ function fillAdminContent(mainContent, data, emailConfig) {
                     <button type="button" id="save-manutencao" class="primary-button" style="align-self:flex-start">Salvar</button>
                 </div>
             </div>
+            <div class="admin-section" style="margin-bottom:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">📱 Avisos de pendência por WhatsApp</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <p class="helper-text" style="text-align:left;margin:0">Quando pausado, o robô de WhatsApp (roda separado, fora do app) não envia nenhum aviso — útil em férias ou feriados prolongados. Não precisa desligar o robô em si, só ligar essa chave de novo quando voltar.</p>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="whatsapp-pendencias-pausado" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.whatsapp_pendencias_pausado) ? 'checked' : ''}>
+                        ⏸️ Pausar envio de pendências por WhatsApp
+                    </label>
+                    <button type="button" id="save-whatsapp-pendencias" class="primary-button" style="align-self:flex-start">Salvar</button>
+                </div>
+            </div>
         </div>
 
         <!-- Tab: Auditoria -->
@@ -1186,6 +1197,17 @@ export function bindAdminEvents(data) {
             manutencao_mensagem: document.getElementById('manutencao-mensagem').value.trim()
         });
         if (result.status === 'success') { showToast('Modo manutenção salvo.'); setSaving(false, btn); }
+        else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
+    });
+
+    // Pausa do robô de WhatsApp
+    document.getElementById('save-whatsapp-pendencias')?.addEventListener('click', async () => {
+        const btn = document.getElementById('save-whatsapp-pendencias');
+        setSaving(true, btn, 'Salvando...');
+        const result = await saveEmailConfig({
+            whatsapp_pendencias_pausado: document.getElementById('whatsapp-pendencias-pausado').checked ? 'true' : 'false'
+        });
+        if (result.status === 'success') { showToast('Preferência salva.'); setSaving(false, btn); }
         else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
     });
 
