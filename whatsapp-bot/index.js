@@ -133,26 +133,40 @@ async function enviarPendenciasDoDia(sock, destinatarios) {
         return;
     }
     console.log(`Enviando para ${destinatarios.length} pessoa(s)...`);
+    let sucessos = 0;
+    let falhas = 0;
     for (const dest of destinatarios) {
         const jid = `${dest.telefone}@s.whatsapp.net`;
         const texto = montarMensagem(dest.nome, dest.pendencias);
         try {
             await sock.sendMessage(jid, { text: texto });
             console.log(`  ✓ ${dest.nome} (${dest.telefone})`);
+            sucessos++;
         } catch (err) {
             console.error(`  ✗ ${dest.nome} (${dest.telefone}):`, err.message);
+            falhas++;
         }
         // Espera entre envios + variação aleatória, pra não parecer disparo
         // em massa (gatilho comum de bloqueio).
         const jitter = DELAY_ENTRE_ENVIOS_MS * 0.5 * Math.random();
         await sleep(DELAY_ENTRE_ENVIOS_MS + jitter);
     }
-    const estado = lerEstado();
-    estado.ultimoEnvio = hojeChaveLocal();
-    salvarEstado(estado);
-    painelStatus.ultimoEnvio = new Date().toISOString();
-    painelStatus.enviadoHoje = true;
-    console.log('Envio do dia concluído.');
+    // Só marca o dia como "enviado" se pelo menos uma mensagem realmente
+    // saiu — antes marcava sempre, então uma falha total (ex.: conexão
+    // ainda instabilizando logo após parear) travava o dia inteiro sem
+    // nunca re-tentar, com o painel mostrando "já enviado" mesmo sem ter
+    // enviado nada de verdade.
+    if (sucessos > 0) {
+        const estado = lerEstado();
+        estado.ultimoEnvio = hojeChaveLocal();
+        salvarEstado(estado);
+        painelStatus.ultimoEnvio = new Date().toISOString();
+        painelStatus.enviadoHoje = true;
+    }
+    if (falhas > 0) {
+        painelStatus.ultimoErro = `${falhas} de ${destinatarios.length} mensagem(ns) falharam ao enviar — vai tentar de novo na próxima checagem.`;
+    }
+    console.log(`Envio concluído: ${sucessos} ok, ${falhas} falha(s).`);
 }
 
 // Busca pendências e atualiza o painel (prévia), sem nunca mandar nada —
