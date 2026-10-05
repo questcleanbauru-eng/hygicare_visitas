@@ -67,6 +67,9 @@ const painelStatus = {
     // cada checagem (ou no botão "Verificar agora"), nunca dispara envio
     // de verdade sozinho.
     destinatariosPrevia: [],
+    // Quem tem pendência mas não tem WhatsApp cadastrado — não recebe
+    // nada, só aparece como aviso pro admin cadastrar o telefone.
+    semTelefonePrevia: [],
     dentroDaJanelaAgora: false,
     historico: [],
     enviosHoje: 0,
@@ -148,7 +151,7 @@ async function buscarPendencias() {
     // schedule sempre vem preenchido (mesmo pausado) — default aqui é só
     // uma rede de segurança caso a API esteja numa versão antiga.
     const schedule = json.schedule || { horaInicio: '08:00', horaLimite: '18:00', diasSemana: [1, 2, 3, 4, 5] };
-    return { destinatarios: json.data || [], schedule, pausado: !!json.pausado, teste: json.teste || null };
+    return { destinatarios: json.data || [], semTelefone: json.semTelefone || [], schedule, pausado: !!json.pausado, teste: json.teste || null };
 }
 
 // Conexão ativa, pra funções fora de iniciar() (tipo /verificar-agora via
@@ -229,10 +232,11 @@ async function atualizarPrevia() {
     painelStatus.ultimaChecagem = new Date(agora).toISOString();
     painelStatus.proximaChecagemPrevista = new Date(agora + INTERVALO_CHECAGEM_MIN * 60 * 1000).toISOString();
     painelStatus.enviadoHoje = lerEstado().ultimoEnvio === hojeChaveLocal();
-    const { destinatarios, schedule, pausado, teste } = await buscarPendencias();
+    const { destinatarios, semTelefone, schedule, pausado, teste } = await buscarPendencias();
     painelStatus.schedule = schedule;
     painelStatus.pausadoNoApp = pausado;
     painelStatus.destinatariosPrevia = destinatarios;
+    painelStatus.semTelefonePrevia = semTelefone;
     painelStatus.dentroDaJanelaAgora = dentroDaJanela(schedule);
     painelStatus.ultimoErro = null;
     atualizarContadoresHistorico();
@@ -392,6 +396,14 @@ function paginaPainel() {
         <div id="destinatarios-lista"></div>
       </div>
 
+      <div class="card" id="sem-telefone-card" style="display:none">
+        <div class="card-head">
+          <span class="card-title">⚠️ Sem WhatsApp cadastrado</span>
+        </div>
+        <p class="hint" style="margin:0 0 0.6rem;text-align:left">Essas pessoas têm pendência mas não recebem aviso — cadastre o WhatsApp delas em Admin &gt; Usuários.</p>
+        <div id="sem-telefone-lista"></div>
+      </div>
+
       <div class="card">
         <div class="card-head">
           <span class="card-title">🕒 Últimos envios</span>
@@ -497,6 +509,24 @@ function renderDestinatarios(s) {
   \`).join('');
 }
 
+function renderSemTelefone(s) {
+  const card = document.getElementById('sem-telefone-card');
+  const lista = s.semTelefonePrevia || [];
+  if (s.pausadoNoApp || !lista.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  document.getElementById('sem-telefone-lista').innerHTML = lista.map((d) => \`
+    <div class="dest-item">
+      <div class="dest-head">
+        <span class="avatar" style="background:#fef3c7;color:#92400e">\${iniciais(d.nome)}</span>
+        <div>
+          <div class="dest-nome">\${d.nome}</div>
+          <div class="dest-tel">\${d.pendencias.length} pendência\${d.pendencias.length === 1 ? '' : 's'}</div>
+        </div>
+      </div>
+    </div>
+  \`).join('');
+}
+
 function renderHistorico(s) {
   const el = document.getElementById('historico-lista');
   const hist = s.historico || [];
@@ -544,6 +574,7 @@ async function atualizar() {
     renderStatus(s);
     tickCountdown();
     renderDestinatarios(s);
+    renderSemTelefone(s);
     renderHistorico(s);
   } catch (e) {
     document.getElementById('hero').innerHTML = '<span style="color:#dc2626">Não consegui falar com o robô — ele ainda está rodando?</span>';
@@ -559,7 +590,9 @@ document.getElementById('btn-verificar').addEventListener('click', async (ev) =>
     const r = await fetch('/verificar-agora', { method: 'POST' });
     const s = await r.json();
     const n = (s.destinatariosPrevia || []).length;
-    fb.textContent = '✓ Verificado agora · ' + n + (n === 1 ? ' pendência encontrada' : ' pendências encontradas');
+    const semTel = (s.semTelefonePrevia || []).length;
+    fb.textContent = '✓ Verificado agora · ' + n + (n === 1 ? ' pendência encontrada' : ' pendências encontradas')
+        + (semTel ? (' · ⚠️ ' + semTel + ' sem WhatsApp cadastrado') : '');
     fb.style.display = 'block';
   } catch (e) { /* status atualiza mesmo assim abaixo */ }
   await atualizar();

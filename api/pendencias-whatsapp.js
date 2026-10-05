@@ -1,6 +1,8 @@
 // Chamado pelo robozinho de WhatsApp (roda local, fora da Vercel — ver
-// whatsapp-bot/) pra buscar, pra cada vendedor com telefone cadastrado, os
-// agendamentos vencidos dele. Não é um Vercel Cron (por isso não está em
+// whatsapp-bot/) pra buscar os agendamentos vencidos de cada vendedor.
+// Quem tem WhatsApp cadastrado vai em "data" (recebe de verdade); quem tem
+// pendência mas não cadastrou telefone vai em "semTelefone" (só aparece no
+// painel como aviso, não recebe nada). Não é um Vercel Cron (por isso não está em
 // vercel.json "crons") — é puxado sob demanda pelo script local, só quando
 // o computador está ligado. Protegido pelo mesmo esquema do cron-resumo.js
 // (Authorization: Bearer $WHATSAPP_PENDENCIAS_SECRET), mas com secret
@@ -53,7 +55,7 @@ export default async function handler(req, res) {
         try { teste = JSON.parse(config.whatsapp_teste_pedido || 'null'); } catch { /* ignora valor inválido */ }
 
         if (isConfigOn(config.whatsapp_pendencias_pausado)) {
-            res.status(200).json({ status: 'success', data: [], pausado: true, schedule, teste });
+            res.status(200).json({ status: 'success', data: [], semTelefone: [], pausado: true, schedule, teste });
             return;
         }
 
@@ -78,7 +80,7 @@ export default async function handler(req, res) {
             });
         });
 
-        const destinatarios = vendedores
+        const comPendencia = vendedores
             .filter((v) => String(v.Ativo || '').trim().toLowerCase() !== 'nao')
             .map((v) => {
                 const nome = String(v.NomeVendedor || '').trim();
@@ -86,9 +88,15 @@ export default async function handler(req, res) {
                 const pendencias = vencidosPorVendedor[nome] || [];
                 return { nome, telefone, pendencias };
             })
-            .filter((d) => d.telefone && d.pendencias.length);
+            .filter((d) => d.pendencias.length);
 
-        res.status(200).json({ status: 'success', data: destinatarios, pausado: false, schedule, teste });
+        // Só quem tem telefone recebe de verdade; quem tem pendência mas
+        // não cadastrou WhatsApp aparece à parte (semTelefone) — o painel
+        // avisa disso em vez de simplesmente sumir essas pessoas da lista.
+        const destinatarios = comPendencia.filter((d) => d.telefone);
+        const semTelefone = comPendencia.filter((d) => !d.telefone).map((d) => ({ nome: d.nome, pendencias: d.pendencias }));
+
+        res.status(200).json({ status: 'success', data: destinatarios, semTelefone, pausado: false, schedule, teste });
     } catch (error) {
         console.error('pendencias-whatsapp:', error);
         res.status(200).json({ status: 'error', message: error.message });
