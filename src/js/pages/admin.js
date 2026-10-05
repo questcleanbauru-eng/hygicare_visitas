@@ -706,6 +706,10 @@ export function bindAdminEvents(data) {
                         <label>Meta mensal (visitas)</label>
                         <input type="number" class="uif-meta" min="0" placeholder="Ex.: 40">
                     </div>
+                    <div class="uif-field">
+                        <label>WhatsApp <span class="uif-hint">(com DDD, ex.: 14 99999-8888)</span></label>
+                        <input type="text" class="uif-whatsapp" placeholder="(14) 99999-8888">
+                    </div>
                     ${renderPermFieldsHtml({})}
                     ${renderTelasFieldHtml([])}
                 </div>
@@ -737,6 +741,7 @@ export function bindAdminEvents(data) {
                 gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
                 perfil: overlay.querySelector('.uif-perfil').value,
                 metaVisitasMes: overlay.querySelector('.uif-meta').value.trim(),
+                telefoneWhatsapp: overlay.querySelector('.uif-whatsapp').value.trim(),
                 ...readPermFieldsValue(overlay),
                 ...readTelasFieldValue(overlay)
             });
@@ -766,6 +771,11 @@ export function bindAdminEvents(data) {
             const gerencia = (user.gerencia || user.Gerencia || '') === '-' ? '' : (user.gerencia || user.Gerencia || '');
             const metaVisitasMes = user.metaVisitasMes || user.MetaVisitasMes || '';
             const nomeLogin = user.nomeLogin || user.NomeLogin || '';
+            // Mostra sem o "55" na frente pro admin editar do jeito que digitou
+            // (normalizeTelefoneWhatsapp no backend recoloca ao salvar).
+            const telefoneWhatsappRaw = String(user.telefoneWhatsapp || user.TelefoneWhatsapp || '').trim();
+            const telefoneWhatsapp = telefoneWhatsappRaw.startsWith('55') && telefoneWhatsappRaw.length > 11
+                ? telefoneWhatsappRaw.slice(2) : telefoneWhatsappRaw;
             const perms = {
                 permDelete: user.permDelete || user.PermDelete || '',
                 permCriarPropostaFunil: user.permCriarPropostaFunil || user.PermCriarPropostaFunil || '',
@@ -812,6 +822,10 @@ export function bindAdminEvents(data) {
                         <div class="uif-field">
                             <label>Meta mensal (visitas)</label>
                             <input type="number" class="uif-meta" min="0" value="${escapeHtml(String(metaVisitasMes))}" placeholder="Ex.: 40">
+                        </div>
+                        <div class="uif-field">
+                            <label>WhatsApp <span class="uif-hint">(com DDD, ex.: 14 99999-8888)</span></label>
+                            <input type="text" class="uif-whatsapp" value="${escapeHtml(telefoneWhatsapp)}" placeholder="(14) 99999-8888">
                         </div>
                         ${renderPermFieldsHtml(perms)}
                         ${renderTelasFieldHtml(user.telasBloqueadas)}
@@ -864,6 +878,7 @@ export function bindAdminEvents(data) {
                 gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
                 perfil: overlay.querySelector('.uif-perfil').value,
                 metaVisitasMes: overlay.querySelector('.uif-meta').value.trim(),
+                telefoneWhatsapp: overlay.querySelector('.uif-whatsapp').value.trim(),
                 ...readPermFieldsValue(overlay),
                 ...readTelasFieldValue(overlay)
             });

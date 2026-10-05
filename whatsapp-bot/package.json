@@ -1,0 +1,20 @@
+{
+  "name": "hygicare-whatsapp-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Roda local (seu computador) e manda, de seg a sex, as pendencias (agendamentos vencidos) de cada vendedor por WhatsApp — numero separado, nao o App de Visitas principal.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --env-file=.env index.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "pino": "^9.4.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
