@@ -2942,32 +2942,29 @@ export async function showCreateAgendamentoModal(onCreated) {
                     <button type="button" class="newag-modal-close" id="newag-close" aria-label="Fechar">✕</button>
                 </div>
                 <div class="newag-modal-body">
-                    <div class="form-row-pair">
-                        <div class="form-group">
-                            <label for="newag-cliente">Cliente *</label>
-                            <div class="searchable-select">
-                                <input type="text" id="newag-cliente" placeholder="Nome do cliente" autocomplete="off">
-                                <div class="searchable-select-menu" id="newag-cliente-menu"></div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="newag-cidade">Cidade</label>
-                            <input type="text" id="newag-cidade" placeholder="Cidade (opcional)">
+                    <div class="form-group full-width">
+                        <label for="newag-cliente">Cliente *</label>
+                        <div class="searchable-select">
+                            <input type="text" id="newag-cliente" placeholder="Nome do cliente" autocomplete="off">
+                            <div class="searchable-select-menu" id="newag-cliente-menu"></div>
                         </div>
                     </div>
                     <div class="form-row-pair">
                         <div class="form-group">
+                            <label for="newag-cidade">Cidade</label>
+                            <input type="text" id="newag-cidade" placeholder="Cidade (opcional)">
+                        </div>
+                        <div class="form-group">
                             <label for="newag-data">Data do retorno *</label>
                             <input type="date" id="newag-data" value="${defaultDate.toISOString().slice(0, 10)}">
                         </div>
-                        <div class="form-group">
-                            <label class="newag-repetir-spacer" aria-hidden="true">&nbsp;</label>
-                            <label class="newag-repetir-row">
-                                <input type="checkbox" id="newag-repetir" style="width:auto;min-height:0">
-                                🔁 Repetir a cada 30 dias
-                                <span class="text-link" role="button" tabindex="0" id="newag-repetir-help-toggle" title="O que é isso?">ⓘ</span>
-                            </label>
-                        </div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="newag-repetir-row">
+                            <input type="checkbox" id="newag-repetir" style="width:auto;min-height:0">
+                            🔁 Repetir a cada 30 dias
+                            <span class="text-link" role="button" tabindex="0" id="newag-repetir-help-toggle" title="O que é isso?">ⓘ</span>
+                        </label>
                     </div>
                     <p class="helper-text" id="newag-repetir-help" hidden style="text-align:left;margin:-0.3rem 0 0.6rem">Pra acompanhar algo por mais tempo (ex.: teste de produto) — cria vários agendamentos de uma vez, um a cada 30 dias, cada um independente.</p>
                     <div class="form-group full-width" id="newag-repetir-group" style="text-align:left;display:none">

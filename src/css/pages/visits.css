@@ -514,7 +514,6 @@
 }
 .newag-modal-footer button { flex: 1; margin: 0; width: auto; }
 
-.newag-repetir-spacer { display: block; }
 .newag-repetir-row {
     display: flex;
     align-items: center;
@@ -546,12 +545,14 @@
     white-space: nowrap;
 }
 
+/* Sem max-height/scroll próprio: antes a lista tinha um scroll interno de
+   220px DENTRO do corpo do modal, que já rola sozinho — ficava um scroll
+   dentro do outro, obrigando rolar duas vezes pra ver todo mundo. Agora
+   a lista cresce livre e quem rola é só o corpo do modal. */
 .newag-chip-list {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    max-height: 220px;
-    overflow-y: auto;
     padding: 0.1rem;
 }
 .newag-chip {
