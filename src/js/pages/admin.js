@@ -506,7 +506,7 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                     <div class="form-group full-width" style="text-align:left;margin:0">
                         <label>Quem mais recebe o resumo de manutenção (Open/Close), empresa inteira</label>
                         <div style="display:flex;flex-direction:column;gap:0.4rem;margin-top:0.3rem">
-                            ${data.users.filter((u) => String(u.Perfil || '').trim().toLowerCase() === 'admin').map((u) => `
+                            ${data.users.filter((u) => ['admin', 'tecnico', 'administrativo'].includes(String(u.Perfil || '').trim().toLowerCase())).map((u) => `
                                 <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;font-weight:500;cursor:pointer">
                                     <input type="checkbox" class="whatsapp-resumo-manutencao-check" value="${escapeHtml(u.EmailLogin || '')}" style="width:auto;accent-color:var(--primary)" ${whatsappResumoManutencaoEmails.includes(String(u.EmailLogin || '').trim().toLowerCase()) ? 'checked' : ''}>
                                     ${escapeHtml(u.NomeVendedor || u.EmailLogin || '')}
