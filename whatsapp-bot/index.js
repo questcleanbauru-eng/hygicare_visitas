@@ -331,12 +331,18 @@ async function atualizarPrevia() {
     painelStatus.schedule = schedule;
     painelStatus.pausadoNoApp = pausado;
     const estado = lerEstado();
-    // pausadoAte vai junto na prévia pra o card mostrar "⏸️ pausado até Xh"
-    // e trocar o botão por "▶️ Reativar" — null quando não está pausada (ou
-    // a pausa de 24h já venceu sozinha).
+    // pausadoAte/jaEnviadoHoje vão junto na prévia pra o card refletir o
+    // estado real: "⏸️ pausado até Xh" (+ botão vira "▶️ Reativar"), ou
+    // "✓ já enviado hoje" em vez do normal "✓ vai receber" — sem isso o
+    // card de quem já recebeu a mensagem hoje continuava parecendo "ainda
+    // vai receber", dando a impressão de que o robô não controla duplicata.
     painelStatus.destinatariosPrevia = destinatarios.map((d) => {
         const p = estado.pausasIndividuais[d.telefone];
-        return { ...d, pausadoAte: (p && new Date(p.ate).getTime() > Date.now()) ? p.ate : null };
+        return {
+            ...d,
+            pausadoAte: (p && new Date(p.ate).getTime() > Date.now()) ? p.ate : null,
+            jaEnviadoHoje: estaEnviadoHoje(estado, d.telefone)
+        };
     });
     painelStatus.semTelefonePrevia = semTelefone;
     painelStatus.dentroDaJanelaAgora = dentroDaJanela(schedule);
@@ -457,6 +463,7 @@ function paginaPainel() {
   .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
   .kanban-card { background: #fff; border: 1px solid #e5e9f0; border-radius: 10px; padding: 0.6rem 0.7rem; }
   .kanban-card.recebe { border-color: #86efac; background: #f0fdf4; }
+  .kanban-card.ja-enviado { border-color: #bfdbfe; background: #eff6ff; }
   .kanban-card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; }
   .kanban-card-nome { font-size: 0.82rem; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kanban-card-badge { flex-shrink: 0; font-size: 0.72rem; font-weight: 800; background: #dbeafe; color: #1d4ed8; padding: 0.1rem 0.5rem; border-radius: 999px; white-space: nowrap; }
@@ -465,6 +472,7 @@ function paginaPainel() {
   .kanban-card-status { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; margin-top: 0.35rem; }
   .kanban-card-status .ok { color: #16a34a; font-weight: 700; font-size: 0.7rem; }
   .kanban-card-status .no { color: #94a3b8; font-weight: 600; font-size: 0.7rem; }
+  .kanban-card-status .enviado { color: #2563eb; font-weight: 700; font-size: 0.7rem; }
   .kanban-card-dias { flex-shrink: 0; font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; background: #fef3c7; color: #92400e; white-space: nowrap; }
   .kanban-card-actions { display: flex; gap: 0.35rem; margin-top: 0.45rem; }
   .kanban-card-actions button { width: auto; flex: 1; padding: 0.3rem 0.3rem; font-size: 0.66rem; font-weight: 700; border-radius: 7px; border: 1px solid #e5e9f0; background: #f8fafc; color: #475569; cursor: pointer; }
@@ -702,7 +710,7 @@ function montarColunasKanban(s) {
         const itens = getItens(d);
         const diasValor = dias ? dias(itens[0]) : null;
         return {
-          nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null,
+          nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null, jaEnviadoHoje: !!d.jaEnviadoHoje,
           count: itens.length, badge: contagem(itens.length),
           detalhe: detalhe(itens[0]) + (itens.length > 1 ? ' +' + (itens.length - 1) : ''),
           dias: diasValor
@@ -713,7 +721,7 @@ function montarColunasKanban(s) {
   cols.push({
     key: 'inatividade', classe: 'c-inatividade', label: '⏰ Inatividade',
     cards: todos.filter((d) => d.diasSemAtividade)
-      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null, count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null }))
+      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null, jaEnviadoHoje: !!d.jaEnviadoHoje, count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null }))
       .sort((a, b) => b.count - a.count)
   });
   return cols;
@@ -722,23 +730,27 @@ function montarColunasKanban(s) {
 function kanbanCardHtml(card) {
   const acoes = card.temTelefone ? \`
     <div class="kanban-card-actions">
-      <button type="button" data-action="disparar" data-telefone="\${card.telefone}" data-nome="\${card.nome}">📤 Agora</button>
+      <button type="button" data-action="disparar" data-telefone="\${card.telefone}" data-nome="\${card.nome}">📤 \${card.jaEnviadoHoje ? 'Reenviar' : 'Agora'}</button>
       \${card.pausadoAte
         ? '<button type="button" class="pausado" data-action="reativar" data-telefone="' + card.telefone + '" data-nome="' + card.nome + '">▶️ Reativar</button>'
         : '<button type="button" data-action="pausar" data-telefone="' + card.telefone + '" data-nome="' + card.nome + '">⏸️ 24h</button>'}
     </div>
   \` : '';
+  let statusHtml = '<span class="no">sem WhatsApp</span>';
+  if (card.temTelefone) {
+    if (card.pausadoAte) statusHtml = '<span class="no">⏸️ pausado até ' + formatHora(card.pausadoAte) + '</span>';
+    else if (card.jaEnviadoHoje) statusHtml = '<span class="enviado">✓ já enviado hoje</span>';
+    else statusHtml = '<span class="ok">✓ vai receber</span>';
+  }
   return \`
-    <div class="kanban-card \${card.temTelefone ? 'recebe' : ''}">
+    <div class="kanban-card \${card.temTelefone ? 'recebe' : ''} \${card.jaEnviadoHoje ? 'ja-enviado' : ''}">
       <div class="kanban-card-top">
         <span class="kanban-card-nome">\${card.nome}</span>
         <span class="kanban-card-badge \${card.temTelefone ? '' : 'warn'}">\${card.badge}</span>
       </div>
       \${card.detalhe ? '<div class="kanban-card-detalhe">' + card.detalhe + '</div>' : ''}
       <div class="kanban-card-status">
-        \${card.temTelefone
-          ? (card.pausadoAte ? '<span class="no">⏸️ pausado até ' + formatHora(card.pausadoAte) + '</span>' : '<span class="ok">✓ vai receber</span>')
-          : '<span class="no">sem WhatsApp</span>'}
+        \${statusHtml}
         \${card.dias ? '<span class="kanban-card-dias">há ' + card.dias + ' dias</span>' : ''}
       </div>
       \${acoes}
