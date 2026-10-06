@@ -17,8 +17,23 @@ import { readAgendamentoRows } from '../lib/handlers/agendamentos.js';
 import { normalizeProposalRow } from '../lib/handlers/proposals.js';
 import { readFunilRows } from '../lib/handlers/funil.js';
 import { readCampanhaRows } from '../lib/handlers/campanhas.js';
+import { readContratoRows } from '../lib/handlers/contratos.js';
 import { nowInSaoPaulo } from '../lib/handlers/resumo.js';
 import { readEmailConfig } from '../lib/handlers/config.js';
+
+// Cada categoria manda num horário PRÓPRIO (configurável em Admin), como
+// mensagens SEPARADAS — antes era tudo junto numa mensagem só às
+// whatsapp_hora_inicio. O robô local decide, a cada checagem, quais
+// categorias já passaram do próprio horário hoje e ainda não foram
+// enviadas (controle por categoria fica no estado local do robô).
+const HORA_PADRAO_POR_CATEGORIA = {
+    agendamentos: '08:00',
+    propostas: '08:30',
+    funil: '09:00',
+    campanhas: '09:30',
+    inatividade: '10:00',
+    contratos: '10:30'
+};
 
 const RESUMO_USER = { profile: 'admin', name: '', email: '', gerencia: '' };
 
@@ -55,9 +70,12 @@ export default async function handler(req, res) {
         // Devolvido em toda resposta (mesmo pausado) — é assim que o robô
         // local sabe horário/dias sem precisar guardar isso no .env dele;
         // o Admin vira a única fonte de verdade pro agendamento de envio.
+        const horarios = {};
+        Object.keys(HORA_PADRAO_POR_CATEGORIA).forEach((cat) => {
+            horarios[cat] = config[`whatsapp_hora_${cat}`] || HORA_PADRAO_POR_CATEGORIA[cat];
+        });
         const schedule = {
-            horaInicio: config.whatsapp_hora_inicio || '08:00',
-            horaLimite: config.whatsapp_hora_limite || '18:00',
+            horarios,
             diasSemana: String(config.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d))
         };
         // Pedido de mensagem de teste (botão em Admin > Configurações) —
@@ -76,15 +94,19 @@ export default async function handler(req, res) {
         // ajustável sem precisar editar código.
         const DIAS_PARADO = Number(config.whatsapp_dias_parado) || 30;
         const DIAS_INATIVIDADE = Number(config.whatsapp_dias_inatividade) || 60;
+        // Quantos dias ANTES do fim do contrato já conta como "vencendo" —
+        // igual 0 (ou contrato já vencido de verdade) também entra.
+        const DIAS_CONTRATO_VENCENDO = Number(config.whatsapp_dias_contrato_vencendo) || 30;
 
         const today = startOfDay(nowInSaoPaulo());
-        const [vendedores, agendamentos, propostasRaw, funil, campanhas, visitasRaw] = await Promise.all([
+        const [vendedores, agendamentos, propostasRaw, funil, campanhas, visitasRaw, contratos] = await Promise.all([
             withCache('vendedores_all_wa', 60, () => getSheetObjects('Vendedores')),
             readAgendamentoRows(RESUMO_USER),
             withCache('propostas_sheet_raw', 60, () => getSheetObjects('Propostas')),
             readFunilRows(RESUMO_USER, 0),
             readCampanhaRows(RESUMO_USER),
-            withCache('visitas_sheet_raw', 60, () => getSheetObjects('Visitas'))
+            withCache('visitas_sheet_raw', 60, () => getSheetObjects('Visitas')),
+            readContratoRows(RESUMO_USER)
         ]);
         const propostas = propostasRaw.map(normalizeProposalRow);
 
@@ -119,9 +141,15 @@ export default async function handler(req, res) {
         });
 
         // ── Funil parado (ativo, sem atualização há >30d) ────────────────
+        // RETOMAR fica de fora de propósito: não é "parado" esquecido, é
+        // cliente que perdemos e vamos retomar contato eventualmente — não
+        // faz sentido cobrar atualização de algo que está assim por decisão,
+        // não por esquecimento (era a maior fonte de ruído: casos reais
+        // chegando a 800+ dias "parados" eram todos RETOMAR).
         const funilPorVendedor = {};
         funil.forEach((f) => {
             if (String(f.ativo || '').trim().toLowerCase() !== 'sim') return;
+            if (String(f.status || '').trim().toUpperCase() === 'RETOMAR') return;
             const dias = diasEntre(today, f.atualizacao || f.data);
             if (dias === null || dias <= DIAS_PARADO) return;
             const nome = String(f.vendedor || '').trim();
@@ -158,6 +186,24 @@ export default async function handler(req, res) {
             if (dias > DIAS_INATIVIDADE) inatividadePorVendedor[nome] = dias;
         });
 
+        // ── Contratos vencendo (ou já vencidos) ───────────────────────────
+        const contratosPorVendedor = {};
+        contratos.forEach((c) => {
+            if (String(c.ativo || '').trim().toLowerCase() === 'nao') return;
+            if (String(c.enviarAviso || '').trim().toLowerCase() === 'nao') return; // opt-out por contrato
+            const fim = parseDate(c.fim);
+            if (!fim) return;
+            const diasRestantes = Math.round((fim.getTime() - today.getTime()) / 86400000);
+            if (diasRestantes > DIAS_CONTRATO_VENCENDO) return;
+            const nome = String(c.vendedor || '').trim();
+            if (!nome) return;
+            (contratosPorVendedor[nome] = contratosPorVendedor[nome] || []).push({
+                cliente: c.cliente || 'Cliente não informado',
+                fim: c.fim,
+                diasRestantes
+            });
+        });
+
         const comPendencia = vendedores
             .filter((v) => String(v.Ativo || '').trim().toLowerCase() !== 'nao')
             .map((v) => {
@@ -172,10 +218,11 @@ export default async function handler(req, res) {
                     propostas: propostasPorVendedor[nome] || [],
                     funil: funilPorVendedor[nome] || [],
                     campanhas: campanhasPorVendedor[nome] || [],
+                    contratos: contratosPorVendedor[nome] || [],
                     diasSemAtividade: inatividadePorVendedor[nome] || null
                 };
             })
-            .filter((d) => d.agendamentos.length || d.propostas.length || d.funil.length || d.campanhas.length || d.diasSemAtividade);
+            .filter((d) => d.agendamentos.length || d.propostas.length || d.funil.length || d.campanhas.length || d.contratos.length || d.diasSemAtividade);
 
         // Só quem tem telefone recebe de verdade; quem tem pendência mas
         // não cadastrou WhatsApp aparece à parte (semTelefone) — o painel

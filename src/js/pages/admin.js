@@ -18,6 +18,22 @@ const WHATSAPP_DIAS_SEMANA = [
     { v: 5, l: 'Sex' }, { v: 6, l: 'Sáb' }, { v: 0, l: 'Dom' }
 ];
 
+// Cada categoria de pendência manda num horário próprio, como mensagem
+// separada (ver api/pendencias-whatsapp.js) — "key" vira o sufixo da chave
+// de config (whatsapp_hora_<key>) e do id do campo (whatsapp-hora-<key>).
+const WHATSAPP_CATEGORIAS = [
+    { key: 'agendamentos', label: '🔴 Agendamentos' },
+    { key: 'propostas', label: '📄 Propostas' },
+    { key: 'funil', label: '📊 Funil' },
+    { key: 'campanhas', label: '📣 Campanhas' },
+    { key: 'inatividade', label: '⏰ Inatividade' },
+    { key: 'contratos', label: '📑 Contratos' }
+];
+const WHATSAPP_HORA_PADRAO = {
+    agendamentos: '08:00', propostas: '08:30', funil: '09:00',
+    campanhas: '09:30', inatividade: '10:00', contratos: '10:30'
+};
+
 // A API do Sheets pode devolver "TRUE" (maiúsculo) em vez do "true" que o
 // app grava, quando a célula vira um tipo booleano de verdade na planilha
 // (ex.: editada direto no Sheets) — comparação exata `=== 'true'` sem isso
@@ -462,18 +478,15 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
             <div class="admin-section" style="margin-bottom:1.25rem">
                 <div class="section-title-row"><h3 class="section-title">📱 Avisos de pendência por WhatsApp</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
-                    <p class="helper-text" style="text-align:left;margin:0">Controla o robô de WhatsApp que roda separado (fora deste app, no computador configurado) — ele busca horário e dias aqui a cada checagem, não precisa mexer no computador pra ajustar.</p>
-                    <div class="form-row-pair">
-                        <div class="form-group">
-                            <label for="whatsapp-hora-inicio">Início da janela de envio</label>
-                            <input type="time" id="whatsapp-hora-inicio" value="${escapeHtml(emailConfig.whatsapp_hora_inicio || '08:00')}">
-                        </div>
-                        <div class="form-group">
-                            <label for="whatsapp-hora-limite">Fim "normal" da janela</label>
-                            <input type="time" id="whatsapp-hora-limite" value="${escapeHtml(emailConfig.whatsapp_hora_limite || '18:00')}">
-                        </div>
+                    <p class="helper-text" style="text-align:left;margin:0">Controla o robô de WhatsApp que roda separado (fora deste app, no computador configurado) — ele busca horário e dias aqui a cada checagem, não precisa mexer no computador pra ajustar. Cada categoria manda como uma mensagem SEPARADA, no próprio horário.</p>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.7rem">
+                        ${WHATSAPP_CATEGORIAS.map(({ key, label }) => `
+                            <div class="form-group" style="margin:0">
+                                <label for="whatsapp-hora-${key}">${label}</label>
+                                <input type="time" id="whatsapp-hora-${key}" value="${escapeHtml(emailConfig[`whatsapp_hora_${key}`] || WHATSAPP_HORA_PADRAO[key])}">
+                            </div>`).join('')}
                     </div>
-                    <p class="helper-text" style="text-align:left;margin:0">O fim não é um limite rígido: se o computador ficar desligado durante toda a janela, o robô manda assim que ligar de novo (mesmo depois desse horário), contanto que ainda seja o dia certo e já tenha passado do início.</p>
+                    <p class="helper-text" style="text-align:left;margin:0">Não é um limite rígido: se o computador ficar desligado na hora configurada, o robô manda assim que ligar de novo (mesmo depois), contanto que ainda seja o dia certo e já tenha passado do horário.</p>
                     <div class="form-row-pair">
                         <div class="form-group">
                             <label for="whatsapp-dias-parado">Proposta/Funil "parado" após</label>
@@ -482,6 +495,10 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                         <div class="form-group">
                             <label for="whatsapp-dias-inatividade">"Sem atividade" após</label>
                             <input type="number" id="whatsapp-dias-inatividade" min="1" value="${escapeHtml(String(emailConfig.whatsapp_dias_inatividade || '60'))}"> <span class="helper-text" style="display:inline">dias sem visita/prospecção</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="whatsapp-dias-contrato-vencendo">Contrato "vencendo" com</label>
+                            <input type="number" id="whatsapp-dias-contrato-vencendo" min="1" value="${escapeHtml(String(emailConfig.whatsapp_dias_contrato_vencendo || '30'))}"> <span class="helper-text" style="display:inline">dias ou menos pro fim (0 = já vencido)</span>
                         </div>
                     </div>
                     <div class="form-group full-width" style="text-align:left;margin:0">
@@ -502,7 +519,11 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                     <button type="button" id="save-whatsapp-pendencias" class="primary-button" style="align-self:flex-start">Salvar</button>
 
                     <hr style="width:100%;border:none;border-top:1px solid var(--border);margin:0.2rem 0">
-                    <p class="helper-text" style="text-align:left;margin:0"><strong>📋 Resumo diário por WhatsApp</strong> — gerente ativo com WhatsApp cadastrado recebe automaticamente o resumo do próprio time (visitas, agendamentos, relatórios do dia anterior); não precisa marcar ninguém. Usa a mesma janela/dias configurados acima.</p>
+                    <p class="helper-text" style="text-align:left;margin:0"><strong>📋 Resumo diário por WhatsApp</strong> — gerente ativo com WhatsApp cadastrado recebe automaticamente o resumo do próprio time (visitas, agendamentos, relatórios do dia anterior, meta mensal, e ranking da semana às segundas); não precisa marcar ninguém. Usa os dias configurados acima.</p>
+                    <div class="form-group" style="margin:0;max-width:160px">
+                        <label for="whatsapp-hora-resumo">Horário do resumo</label>
+                        <input type="time" id="whatsapp-hora-resumo" value="${escapeHtml(emailConfig.whatsapp_hora_resumo || '07:30')}">
+                    </div>
                     <div class="form-group full-width" style="text-align:left;margin:0">
                         <label>Quem mais recebe o resumo de manutenção (Open/Close), empresa inteira</label>
                         <div style="display:flex;flex-direction:column;gap:0.4rem;margin-top:0.3rem">
@@ -1296,14 +1317,19 @@ export function bindAdminEvents(data) {
         if (!diasMarcados.length) { showToast('Marque pelo menos um dia da semana.', true); return; }
         const diasParado = Number(document.getElementById('whatsapp-dias-parado').value) || 30;
         const diasInatividade = Number(document.getElementById('whatsapp-dias-inatividade').value) || 60;
+        const diasContratoVencendo = Number(document.getElementById('whatsapp-dias-contrato-vencendo').value) || 30;
+        const horarios = {};
+        WHATSAPP_CATEGORIAS.forEach(({ key }) => {
+            horarios[`whatsapp_hora_${key}`] = document.getElementById(`whatsapp-hora-${key}`).value || WHATSAPP_HORA_PADRAO[key];
+        });
         setSaving(true, btn, 'Salvando...');
         const result = await saveEmailConfig({
             whatsapp_pendencias_pausado: document.getElementById('whatsapp-pendencias-pausado').checked ? 'true' : 'false',
-            whatsapp_hora_inicio: document.getElementById('whatsapp-hora-inicio').value || '08:00',
-            whatsapp_hora_limite: document.getElementById('whatsapp-hora-limite').value || '18:00',
+            ...horarios,
             whatsapp_dias_semana: diasMarcados.join(','),
             whatsapp_dias_parado: String(diasParado),
-            whatsapp_dias_inatividade: String(diasInatividade)
+            whatsapp_dias_inatividade: String(diasInatividade),
+            whatsapp_dias_contrato_vencendo: String(diasContratoVencendo)
         });
         if (result.status === 'success') { showToast('Preferência salva.'); setSaving(false, btn); }
         else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
@@ -1315,6 +1341,7 @@ export function bindAdminEvents(data) {
         setSaving(true, btn, 'Salvando...');
         const result = await saveEmailConfig({
             whatsapp_resumo_pausado: document.getElementById('whatsapp-resumo-pausado').checked ? 'true' : 'false',
+            whatsapp_hora_resumo: document.getElementById('whatsapp-hora-resumo').value || '07:30',
             whatsapp_resumo_manutencao_emails: emails.join(',')
         });
         if (result.status === 'success') { showToast('Preferência salva.'); setSaving(false, btn); }

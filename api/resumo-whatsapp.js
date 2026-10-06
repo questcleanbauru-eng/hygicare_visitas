@@ -8,9 +8,33 @@
 // Puxado sob demanda pelo robô local (mesmo esquema de api/pendencias-
 // whatsapp.js — não é Vercel Cron, reaproveita o mesmo secret).
 import { getSheetObjects, withCache } from '../lib/sheets.js';
-import { isConfigOn } from '../lib/common.js';
-import { computeResumoDiario } from '../lib/handlers/resumo.js';
+import { isConfigOn, parseDate } from '../lib/common.js';
+import { computeResumoDiario, nowInSaoPaulo } from '../lib/handlers/resumo.js';
 import { readEmailConfig } from '../lib/handlers/config.js';
+
+function startOfDay(d) {
+    const c = new Date(d);
+    c.setHours(0, 0, 0, 0);
+    return c;
+}
+
+// Visitas do mês corrente até ontem (hoje ainda não "fechou") por vendedor
+// — pra comparar com a meta cadastrada (Vendedores.MetaVisitasMes).
+// Visitas da semana passada (segunda a domingo anterior) por vendedor —
+// só computado às segundas (ver uso abaixo), pro resumo semanal do
+// gerente. Os dois reaproveitam a MESMA leitura de Visitas (raw) pra não
+// duplicar requisição à planilha.
+function contarVisitasPorVendedor(visitasRaw, desde, ate) {
+    const porVendedor = {};
+    visitasRaw.forEach((v) => {
+        const d = parseDate(v['Data da Visita']);
+        if (!d || d < desde || d >= ate) return;
+        const nome = String(v['Vendedor/Gerente'] || '').trim();
+        if (!nome) return;
+        porVendedor[nome] = (porVendedor[nome] || 0) + 1;
+    });
+    return porVendedor;
+}
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -30,13 +54,34 @@ export default async function handler(req, res) {
 
     try {
         const config = await readEmailConfig();
+        const schedule = { hora: config.whatsapp_hora_resumo || '07:30', diasSemana: String(config.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d)) };
         if (isConfigOn(config.whatsapp_resumo_pausado)) {
-            res.status(200).json({ status: 'success', pausado: true, gerentes: [], manutencao: [] });
+            res.status(200).json({ status: 'success', pausado: true, schedule, gerentes: [], manutencao: [] });
             return;
         }
 
         const vendedores = await withCache('vendedores_all_wa', 60, () => getSheetObjects('Vendedores'));
         const ativos = vendedores.filter((v) => String(v.Ativo || '').trim().toLowerCase() !== 'nao');
+        const visitasRaw = await withCache('visitas_sheet_raw', 60, () => getSheetObjects('Visitas'));
+
+        // Meta mensal: mês corrente, do dia 1 até hoje (não "ontem" — a
+        // meta é um acumulado vivo do mês, diferente do resto do resumo
+        // que é sempre sobre um dia já fechado).
+        const hoje = startOfDay(nowInSaoPaulo());
+        const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        const amanha = new Date(hoje); amanha.setDate(amanha.getDate() + 1);
+        const visitasMesPorVendedor = contarVisitasPorVendedor(visitasRaw, inicioMes, amanha);
+
+        // Resumo semanal só faz sentido 1x por semana — calcula (semana
+        // passada completa: segunda a domingo anterior) só quando hoje é
+        // segunda, pra não ficar processando à toa nos outros dias. O robô
+        // decide mandar ou não olhando se "semanal" veio preenchido.
+        const ehSegunda = hoje.getDay() === 1;
+        let semanaInicio = null, semanaFim = null;
+        if (ehSegunda) {
+            semanaFim = new Date(hoje); // exclusivo — até antes de hoje
+            semanaInicio = new Date(hoje); semanaInicio.setDate(semanaInicio.getDate() - 7);
+        }
 
         // ── Resumo por gerência, um por gerente com WhatsApp cadastrado ───
         const gerentes = ativos.filter((v) => String(v.Perfil || '').trim().toLowerCase() === 'gerente' && String(v.TelefoneWhatsapp || '').trim());
@@ -44,17 +89,36 @@ export default async function handler(req, res) {
         for (const g of gerentes) {
             const gerencia = String(g.Gerencia || '').trim();
             if (!gerencia) continue; // sem gerência cadastrada, não dá pra saber o time
-            const vendedoresDoTime = new Set(
-                ativos.filter((v) => String(v.Gerencia || '').trim() === gerencia).map((v) => String(v.NomeVendedor || '').trim())
-            );
+            const vendedoresDoTimeArr = ativos.filter((v) => String(v.Gerencia || '').trim() === gerencia);
+            const vendedoresDoTime = new Set(vendedoresDoTimeArr.map((v) => String(v.NomeVendedor || '').trim()));
             const resumo = await computeResumoDiario(null, { vendedores: vendedoresDoTime, gerencia });
-            const hasAny = resumo.visitas.total || resumo.agendamentos.vencidosTotal || resumo.agendamentos.proximosTotal || resumo.relatorios.total;
+
+            // Meta mensal de cada vendedor do time (só quem tem meta > 0
+            // cadastrada aparece) — junta com a contagem de visitas do mês.
+            const metas = vendedoresDoTimeArr
+                .map((v) => ({ nome: String(v.NomeVendedor || '').trim(), meta: Number(v.MetaVisitasMes) || 0 }))
+                .filter((v) => v.meta > 0)
+                .map((v) => ({ ...v, feitas: visitasMesPorVendedor[v.nome] || 0 }));
+
+            let semanal = null;
+            if (ehSegunda) {
+                const porVendedorSemana = contarVisitasPorVendedor(visitasRaw, semanaInicio, semanaFim);
+                const ranking = vendedoresDoTimeArr
+                    .map((v) => ({ nome: String(v.NomeVendedor || '').trim(), total: porVendedorSemana[String(v.NomeVendedor || '').trim()] || 0 }))
+                    .filter((v) => v.total > 0)
+                    .sort((a, b) => b.total - a.total);
+                if (ranking.length) semanal = { total: ranking.reduce((s, v) => s + v.total, 0), ranking };
+            }
+
+            const hasAny = resumo.visitas.total || resumo.agendamentos.vencidosTotal || resumo.agendamentos.proximosTotal || resumo.relatorios.total || metas.length || semanal;
             if (!hasAny) continue; // dia parado pro time dele — não manda resumo vazio
             gerentesResumo.push({
                 nome: String(g.NomeVendedor || '').trim(),
                 telefone: String(g.TelefoneWhatsapp || '').trim(),
                 email: String(g.EmailLogin || '').trim(),
-                resumo
+                resumo,
+                metas,
+                semanal
             });
         }
 
@@ -76,7 +140,7 @@ export default async function handler(req, res) {
             }
         }
 
-        res.status(200).json({ status: 'success', pausado: false, gerentes: gerentesResumo, manutencao: manutencaoResumo });
+        res.status(200).json({ status: 'success', pausado: false, schedule, gerentes: gerentesResumo, manutencao: manutencaoResumo });
     } catch (error) {
         console.error('resumo-whatsapp:', error);
         res.status(200).json({ status: 'error', message: error.message });

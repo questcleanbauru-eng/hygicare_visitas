@@ -41,6 +41,13 @@ const RESUMO_API_URL = API_URL ? API_URL.replace(/\/api\/.*$/, '/api/resumo-what
 const INTERVALO_CHECAGEM_MIN = Number(process.env.INTERVALO_CHECAGEM_MIN || 5);
 const DELAY_ENTRE_ENVIOS_MS = Number(process.env.DELAY_ENTRE_ENVIOS_MS || 8000);
 const PORTA_PAINEL = Number(process.env.PORTA_PAINEL || 3344);
+// Opcional: número que recebe um alerta por WhatsApp quando o robô fica com
+// erro persistente (ex.: API fora do ar por várias checagens seguidas) —
+// não ajuda quando o problema é a PRÓPRIA conexão do WhatsApp cair (não dá
+// pra avisar pelo canal que caiu), mas cobre os outros casos, onde a
+// conexão continua de pé. Fica de fora do Admin de propósito — é uma
+// preferência de QUEM RODA ESSE COMPUTADOR, não do app.
+const ALERTA_TELEFONE = process.env.ALERTA_TELEFONE || '';
 
 if (!API_URL || !API_SECRET) {
     console.error('Faltou configurar API_URL/API_SECRET no .env — copie env.example para .env e preencha.');
@@ -83,14 +90,26 @@ const painelStatus = {
     // Quem tem pendência mas não tem WhatsApp cadastrado — não recebe
     // nada, só aparece como aviso pro admin cadastrar o telefone.
     semTelefonePrevia: [],
-    dentroDaJanelaAgora: false,
     historico: [],
     enviosHoje: 0,
     enviosSemana: 0
 };
 
+// As 5 categorias de pendência (cada uma com horário próprio — ver
+// CATEGORIA_DEFS mais abaixo) — "inatividade" não tem uma lista de itens
+// (é um fato só, "há N dias sem visita"), mas entra na mesma mecânica de
+// agendamento/envio/dedup que as outras.
+const CATEGORIAS_PENDENCIA = ['agendamentos', 'propostas', 'funil', 'campanhas', 'inatividade', 'contratos'];
+
 function estadoVazio() {
-    return { enviadosHoje: { data: '', telefones: [] }, resumosEnviadosHoje: { data: '', telefones: [] }, pausasIndividuais: {}, ultimoTesteProcessado: 0, historico: [] };
+    return {
+        enviadosHoje: { data: '', categorias: {} },
+        resumosEnviadosHoje: { data: '', telefones: [] },
+        pausasIndividuais: {},
+        ultimoTesteProcessado: 0,
+        ultimoAlertaErro: null,
+        historico: []
+    };
 }
 function lerEstado() {
     if (!existsSync(STATE_FILE)) return estadoVazio();
@@ -98,13 +117,13 @@ function lerEstado() {
         const parsed = JSON.parse(readFileSync(STATE_FILE, 'utf-8'));
         let migrado = false;
         if (!Array.isArray(parsed.historico)) { parsed.historico = []; migrado = true; }
-        // enviadosHoje por telefone (não mais um "enviado o dia todo" único) —
-        // formato antigo (campo "ultimoEnvio" só com a data) é ignorado aqui
-        // de propósito: o pior caso é mandar de novo pras pessoas que já
-        // tinham recebido no formato antigo, só na primeira checagem após
-        // essa atualização.
-        if (!parsed.enviadosHoje || typeof parsed.enviadosHoje !== 'object' || !Array.isArray(parsed.enviadosHoje.telefones)) {
-            parsed.enviadosHoje = { data: '', telefones: [] };
+        // enviadosHoje virou por CATEGORIA (antes era "pendência" como um
+        // bloco só, uma mensagem por pessoa) — formato antigo (telefones
+        // soltos, sem categorias) é descartado na migração de propósito: o
+        // pior caso é reenviar pra quem já tinha recebido no formato
+        // antigo, só na primeira checagem após essa atualização.
+        if (!parsed.enviadosHoje || typeof parsed.enviadosHoje !== 'object' || typeof parsed.enviadosHoje.categorias !== 'object' || Array.isArray(parsed.enviadosHoje.categorias)) {
+            parsed.enviadosHoje = { data: '', categorias: {} };
             migrado = true;
         }
         if (!parsed.resumosEnviadosHoje || typeof parsed.resumosEnviadosHoje !== 'object' || !Array.isArray(parsed.resumosEnviadosHoje.telefones)) {
@@ -123,6 +142,7 @@ function lerEstado() {
         // salvar, toda leitura recalculava um "agora" novo e podia, por
         // coincidência de milissegundos, deixar passar um teste de verdade.
         if (typeof parsed.ultimoTesteProcessado !== 'number') { parsed.ultimoTesteProcessado = Date.now(); migrado = true; }
+        if (parsed.ultimoAlertaErro === undefined) { parsed.ultimoAlertaErro = null; migrado = true; }
         if (migrado) salvarEstado(parsed);
         return parsed;
     } catch { return estadoVazio(); }
@@ -131,30 +151,32 @@ function salvarEstado(estado) {
     writeFileSync(STATE_FILE, JSON.stringify(estado, null, 2));
 }
 
-// Quem já recebeu a mensagem de pendências HOJE — por pessoa, não por dia
-// inteiro. Antes, uma falha de envio pra parte da lista marcava o dia
-// inteiro como "enviado" e ninguém que falhou era tentado de novo até o dia
-// seguinte. Agora só quem realmente recebeu entra aqui, e as próximas
-// checagens do mesmo dia tentam de novo só quem ainda falta.
-//
-// Mesmo mecanismo serve pro resumo diário (bucket separado,
-// resumosEnviadosHoje) — é uma mensagem DIFERENTE da de pendências, então a
-// mesma pessoa pode legitimamente receber as duas no mesmo dia; não dava
-// pra reaproveitar o bucket de pendências sem um bloquear o outro.
-function estaNoBucketHoje(bucket, telefone) {
-    return bucket.data === hojeChaveLocal() && bucket.telefones.includes(telefone);
+// Quem já recebeu cada CATEGORIA de pendência hoje — por pessoa E por
+// categoria agora (antes era só por pessoa, com tudo numa mensagem só).
+// Resumo diário continua com bucket PRÓPRIO (resumosEnviadosHoje) — é uma
+// mensagem diferente, a mesma pessoa pode legitimamente receber pendência(s)
+// e resumo no mesmo dia sem um bloquear o outro.
+function estaEnviadoHoje(estado, categoria, telefone) {
+    return estado.enviadosHoje.data === hojeChaveLocal() && (estado.enviadosHoje.categorias[categoria] || []).includes(telefone);
 }
-function marcarNoBucketHoje(bucketKey, telefones) {
+function marcarEnviadosHoje(categoria, telefones) {
     if (!telefones.length) return;
     const estado = lerEstado();
-    if (estado[bucketKey].data !== hojeChaveLocal()) estado[bucketKey] = { data: hojeChaveLocal(), telefones: [] };
-    telefones.forEach((t) => { if (!estado[bucketKey].telefones.includes(t)) estado[bucketKey].telefones.push(t); });
+    if (estado.enviadosHoje.data !== hojeChaveLocal()) estado.enviadosHoje = { data: hojeChaveLocal(), categorias: {} };
+    if (!estado.enviadosHoje.categorias[categoria]) estado.enviadosHoje.categorias[categoria] = [];
+    telefones.forEach((t) => { if (!estado.enviadosHoje.categorias[categoria].includes(t)) estado.enviadosHoje.categorias[categoria].push(t); });
     salvarEstado(estado);
 }
-function estaEnviadoHoje(estado, telefone) { return estaNoBucketHoje(estado.enviadosHoje, telefone); }
-function marcarEnviadosHoje(telefones) { marcarNoBucketHoje('enviadosHoje', telefones); }
-function estaResumoEnviadoHoje(estado, telefone) { return estaNoBucketHoje(estado.resumosEnviadosHoje, telefone); }
-function marcarResumosEnviadosHoje(telefones) { marcarNoBucketHoje('resumosEnviadosHoje', telefones); }
+function estaResumoEnviadoHoje(estado, telefone) {
+    return estado.resumosEnviadosHoje.data === hojeChaveLocal() && estado.resumosEnviadosHoje.telefones.includes(telefone);
+}
+function marcarResumosEnviadosHoje(telefones) {
+    if (!telefones.length) return;
+    const estado = lerEstado();
+    if (estado.resumosEnviadosHoje.data !== hojeChaveLocal()) estado.resumosEnviadosHoje = { data: hojeChaveLocal(), telefones: [] };
+    telefones.forEach((t) => { if (!estado.resumosEnviadosHoje.telefones.includes(t)) estado.resumosEnviadosHoje.telefones.push(t); });
+    salvarEstado(estado);
+}
 
 // Pausa manual por pessoa (botão "⏸️ 24h" no card) — fica de fora do envio
 // AUTOMÁTICO enquanto durar, mas "📤 Agora" sempre ignora isso (é uma ação
@@ -210,40 +232,41 @@ function diaDaSemanaLocal() {
     return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[s];
 }
 
-// schedule vem da API (Admin > Configurações no app) — ver buscarPendencias.
-// O "fim" da janela não é um limite rígido — é só a referência "normal"
-// mostrada no painel. Se o computador ficar desligado durante toda a
-// janela, o robô manda assim que ligar (mesmo depois do horário de fim),
-// contanto que ainda seja hoje e já tenha passado do horário de início —
-// sem isso, um dia inteiro passava sem avisar ninguém só porque o PC
-// ligou às 19h num dia configurado até 18h.
-function dentroDaJanela(schedule) {
-    if (!schedule.diasSemana.includes(diaDaSemanaLocal())) return false;
-    return horaAgoraLocal() >= schedule.horaInicio;
+// diasSemana vem da API (Admin > Configurações no app) — compartilhado por
+// TODA categoria (só o horário varia por categoria, ver CATEGORIA_DEFS).
+function diaConfiguradoHoje(diasSemana) {
+    return diasSemana.includes(diaDaSemanaLocal());
+}
+
+// Não é um limite rígido — "hora" é só quando a categoria PASSA a poder
+// sair, sem teto. Se o computador ficar desligado durante o horário
+// configurado, o robô manda assim que ligar (mesmo depois), contanto que
+// ainda seja hoje e já tenha passado da hora — sem isso, um dia inteiro
+// passava sem avisar ninguém só porque o PC ligou depois do horário normal.
+function passouDoHorario(hora) {
+    return !!hora && horaAgoraLocal() >= hora;
 }
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Cada item vira um bloco de 2 linhas — nome em negrito, detalhe embaixo
+// Cada item vira um bloco de 2-3 linhas — nome em negrito, detalhe embaixo
 // com uma seta — em vez de uma linha só "Cliente — detalhe bem comprido".
 // No celular essa linha única quebrava no meio do texto de um jeito
 // confuso (ficava sem dar pra saber onde um item terminava e outro
 // começava); com o detalhe na linha de baixo + espaço em branco entre
 // blocos, cada pendência fica visualmente separada mesmo quando o texto
-// quebra em 2-3 linhas de tela. "formatar" devolve {titulo, detalhe}.
+// quebra em 2-3 linhas de tela. "formatar" devolve {titulo, detalhe,
+// extra?} — "extra" é opcional (ex.: a observação do relatório) e só
+// aparece quando o item realmente tem esse texto.
 function listaComLimite(itens, formatar, limite = 10) {
     const linhas = itens.slice(0, limite).map((i) => {
-        const { titulo, detalhe } = formatar(i);
-        return `• *${titulo}*\n   ↳ ${detalhe}`;
+        const { titulo, detalhe, extra } = formatar(i);
+        return `• *${titulo}*\n   ↳ ${detalhe}` + (extra ? `\n   💬 _${extra}_` : '');
     }).join('\n\n');
-    const extra = itens.length > limite ? `\n\n…e mais ${itens.length - limite}.` : '';
-    return linhas + extra;
-}
-
-function totalPendencias(dest) {
-    return dest.agendamentos.length + dest.propostas.length + dest.funil.length + dest.campanhas.length + (dest.diasSemAtividade ? 1 : 0);
+    const resto = itens.length > limite ? `\n\n…e mais ${itens.length - limite}.` : '';
+    return linhas + resto;
 }
 
 // "BRUNO RODRIGUES" -> "Bruno" — só pro cumprimento ficar natural; o resto
@@ -253,34 +276,40 @@ function primeiroNome(nomeCompleto) {
     return primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase();
 }
 
-// Uma mensagem só, com uma seção por tipo de pendência — só entram as
-// seções que o destinatário realmente tem. Cada seção vira um bloco
-// separado por linha em branco (join com \n\n), pra não ficar um bloco de
-// texto só colado do início ao fim.
-function montarMensagem(dest) {
-    const partes = [`Olá, *${primeiroNome(dest.nome)}*! 👋\n\n📋 *Pendências de hoje*`];
-    if (dest.agendamentos.length) {
-        partes.push(`🔴 *Agendamentos vencidos* (${dest.agendamentos.length})\n` + listaComLimite(dest.agendamentos, (p) => ({ titulo: p.cliente, detalhe: `venceu ${p.dataAgendada} (${p.diasAtraso}d atrás)` })));
+// Uma categoria = uma mensagem separada agora (antes era tudo junto numa
+// mensagem só por pessoa). Cada entrada descreve como extrair os itens de
+// "dest", formatar cada um ({titulo, detalhe}) e o limite de itens na
+// mensagem — Funil entra com limite menor por já ter acumulado 17+ itens
+// num caso real (alguns com mais de 800 dias parados).
+const CATEGORIA_DEFS = {
+    agendamentos: { label: '🔴 Agendamentos vencidos', itens: (d) => d.agendamentos, formatar: (p) => ({ titulo: p.cliente, detalhe: `venceu ${p.dataAgendada} (${p.diasAtraso}d atrás)` }), limite: 10 },
+    propostas: { label: '📄 Propostas paradas', itens: (d) => d.propostas, formatar: (p) => ({ titulo: p.cliente, detalhe: `sem atualização há ${p.diasParada}d` }), limite: 10 },
+    funil: { label: '📊 Funil parado', itens: (d) => d.funil, formatar: (f) => ({ titulo: f.cliente, detalhe: `sem atualização há ${f.diasParado}d` }), limite: 5 },
+    campanhas: { label: '📣 Campanhas aguardando resposta', itens: (d) => d.campanhas, formatar: (c) => ({ titulo: c.titulo, detalhe: `${c.pendentes} cliente(s) pendente(s)` }), limite: 10 },
+    contratos: { label: '📑 Contratos vencendo', itens: (d) => d.contratos, formatar: (c) => ({ titulo: c.cliente, detalhe: c.diasRestantes < 0 ? `venceu há ${-c.diasRestantes}d` : (c.diasRestantes === 0 ? 'vence hoje' : `vence em ${c.diasRestantes}d (${c.fim})`) }), limite: 10 }
+};
+
+function contarItensCategoria(dest, categoria) {
+    if (categoria === 'inatividade') return dest.diasSemAtividade ? 1 : 0;
+    const def = CATEGORIA_DEFS[categoria];
+    return def ? (def.itens(dest) || []).length : 0;
+}
+
+const RODAPE_ACESSO = `🔗 Acesse o app: ${APP_URL}\nLogin: seu e-mail cadastrado (ou seu nome de usuário)\nSenha: os 4 últimos dígitos do seu celular`;
+
+// Uma mensagem com UMA seção (a categoria pedida). "inatividade" não tem
+// lista de itens — é um fato só ("há N dias sem visita").
+function montarMensagemCategoria(dest, categoria) {
+    const saudacao = `Olá, *${primeiroNome(dest.nome)}*! 👋`;
+    let corpo;
+    if (categoria === 'inatividade') {
+        corpo = `⏰ *Inatividade*\n\nJá fazem *${dest.diasSemAtividade} dias* desde sua última visita/prospecção registrada — favor atualizar o aplicativo!`;
+    } else {
+        const def = CATEGORIA_DEFS[categoria];
+        const itens = def.itens(dest) || [];
+        corpo = `${def.label} (${itens.length})\n` + listaComLimite(itens, def.formatar, def.limite);
     }
-    if (dest.propostas.length) {
-        partes.push(`📄 *Propostas paradas* (${dest.propostas.length})\n` + listaComLimite(dest.propostas, (p) => ({ titulo: p.cliente, detalhe: `sem atualização há ${p.diasParada}d` })));
-    }
-    if (dest.funil.length) {
-        // Funil costuma acumular MUITO mais itens que o resto (visto caso
-        // real com 17+, alguns com mais de 800 dias parados) — limite menor
-        // pra não virar a mensagem inteira; o "…e mais N." já deixa claro
-        // que tem mais, sem precisar listar tudo.
-        partes.push(`📊 *Funil parado* (${dest.funil.length})\n` + listaComLimite(dest.funil, (f) => ({ titulo: f.cliente, detalhe: `sem atualização há ${f.diasParado}d` }), 5));
-    }
-    if (dest.campanhas.length) {
-        partes.push(`📣 *Campanhas aguardando resposta* (${dest.campanhas.length})\n` + listaComLimite(dest.campanhas, (c) => ({ titulo: c.titulo, detalhe: `${c.pendentes} cliente(s) pendente(s)` })));
-    }
-    if (dest.diasSemAtividade) {
-        partes.push(`⏰ Já fazem *${dest.diasSemAtividade} dias* desde sua última visita/prospecção registrada — favor atualizar o aplicativo!`);
-    }
-    partes.push(`🔗 Acesse o app: ${APP_URL}\nLogin: seu e-mail cadastrado (ou seu nome de usuário)\nSenha: os 4 últimos dígitos do seu celular`);
-    partes.push('Bom trabalho! 💪\n_App de Visitas_');
-    return partes.join('\n\n');
+    return [saudacao, corpo, RODAPE_ACESSO, 'Bom trabalho! 💪\n_App de Visitas_'].join('\n\n');
 }
 
 async function buscarPendencias() {
@@ -290,7 +319,7 @@ async function buscarPendencias() {
     if (json.status !== 'success') throw new Error(json.message || 'Erro desconhecido na API.');
     // schedule sempre vem preenchido (mesmo pausado) — default aqui é só
     // uma rede de segurança caso a API esteja numa versão antiga.
-    const schedule = json.schedule || { horaInicio: '08:00', horaLimite: '18:00', diasSemana: [1, 2, 3, 4, 5] };
+    const schedule = json.schedule || { horarios: {}, diasSemana: [1, 2, 3, 4, 5] };
     return { destinatarios: json.data || [], semTelefone: json.semTelefone || [], schedule, pausado: !!json.pausado, teste: json.teste || null };
 }
 
@@ -299,11 +328,15 @@ async function buscarResumos() {
     if (!res.ok) throw new Error(`API de resumo respondeu ${res.status}`);
     const json = await res.json();
     if (json.status !== 'success') throw new Error(json.message || 'Erro desconhecido na API de resumo.');
-    return { gerentes: json.gerentes || [], manutencao: json.manutencao || [], pausado: !!json.pausado };
+    const schedule = json.schedule || { hora: '07:30', diasSemana: [1, 2, 3, 4, 5] };
+    return { gerentes: json.gerentes || [], manutencao: json.manutencao || [], pausado: !!json.pausado, schedule };
 }
 
 // Resumo do time do gerente — mesmas seções do resumo por e-mail (Início/
-// cron), só que condensado pra WhatsApp e sem link por item.
+// cron), só que condensado pra WhatsApp e sem link por item. "metas" (meta
+// mensal x visitas feitas) e "semanal" (ranking da semana passada, só às
+// segundas) são opcionais — vêm preenchidos pela API só quando fazem
+// sentido (ver api/resumo-whatsapp.js).
 function montarMensagemResumoGerente(g) {
     const r = g.resumo;
     const partes = [`Olá, *${primeiroNome(g.nome)}*! 👋\n\n📋 *Resumo da sua equipe* — ${r.dataResumo}`];
@@ -326,6 +359,16 @@ function montarMensagemResumoGerente(g) {
         partes.push(`🔧 *Relatórios criados* (${r.relatorios.total})\nAferição: ${r.relatorios['aferição']} · SPSP: ${r.relatorios.spsp} · Geral: ${r.relatorios.geral}`);
     }
 
+    if (g.metas && g.metas.length) {
+        const metaTxt = g.metas.map((m) => `• ${m.nome} — ${m.feitas}/${m.meta}${m.feitas >= m.meta ? ' ✅' : ''}`).join('\n');
+        partes.push(`🎯 *Meta mensal*\n${metaTxt}`);
+    }
+
+    if (g.semanal) {
+        const rankTxt = g.semanal.ranking.slice(0, 10).map((v, i) => `${i + 1}º ${v.nome} — ${v.total}`).join('\n');
+        partes.push(`📅 *Semana passada* (${g.semanal.total} visitas)\n${rankTxt}`);
+    }
+
     partes.push(`🔗 Acesse o app: ${APP_URL}`);
     partes.push('Bom trabalho! 💪\n_App de Visitas_');
     return partes.join('\n\n');
@@ -335,7 +378,11 @@ function montarMensagemResumoGerente(g) {
 // marcado em Admin > Configurações pra receber isso (ex.: Kadu).
 function montarMensagemResumoManutencao(m) {
     const partes = [`Olá, *${primeiroNome(m.nome)}*! 👋\n\n🛠️ *Resumo de Manutenção (Open/Close)* — ${m.dataResumo}`];
-    partes.push(listaComLimite(m.manutencao, (v) => ({ titulo: v.cliente, detalhe: v.tipo + (v.vendedor ? ' — ' + v.vendedor : '') }), 20));
+    partes.push(listaComLimite(m.manutencao, (v) => ({
+        titulo: v.cliente,
+        detalhe: v.tipo + (v.vendedor ? ' — ' + v.vendedor : ''),
+        extra: v.observacao || undefined
+    }), 20));
     partes.push(`🔗 Acesse o app: ${APP_URL}`);
     partes.push('_App de Visitas_');
     return partes.join('\n\n');
@@ -372,48 +419,50 @@ async function processarTesteSeNecessario(teste) {
     }
 }
 
-async function enviarPendenciasDoDia(sock, destinatarios) {
-    if (!destinatarios.length) {
-        console.log('Ninguém com pendência agora — nada a enviar.');
-        return;
-    }
-    console.log(`Enviando para ${destinatarios.length} pessoa(s)...`);
+// Uma categoria por vez agora (antes mandava tudo junto numa mensagem só
+// por pessoa) — chamada uma vez pra cada categoria que já passou do
+// próprio horário (ver checar()).
+async function enviarCategoriaDoDia(sock, categoria, destinatarios) {
+    if (!destinatarios.length) return;
+    console.log(`Enviando ${categoria} para ${destinatarios.length} pessoa(s)...`);
     const telefonesOk = [];
     let falhas = 0;
     for (const dest of destinatarios) {
         const jid = `${dest.telefone}@s.whatsapp.net`;
-        const texto = montarMensagem(dest);
+        const texto = montarMensagemCategoria(dest, categoria);
         try {
             await sock.sendMessage(jid, { text: texto });
-            console.log(`  ✓ ${dest.nome} (${dest.telefone})`);
+            console.log(`  ✓ [${categoria}] ${dest.nome} (${dest.telefone})`);
             telefonesOk.push(dest.telefone);
-            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', pendencias: totalPendencias(dest), quando: new Date().toISOString() });
+            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', categoria, pendencias: contarItensCategoria(dest, categoria), quando: new Date().toISOString() });
         } catch (err) {
-            console.error(`  ✗ ${dest.nome} (${dest.telefone}):`, err.message);
+            console.error(`  ✗ [${categoria}] ${dest.nome} (${dest.telefone}):`, err.message);
             falhas++;
-            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'erro', detalhe: err.message, quando: new Date().toISOString() });
+            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'erro', categoria, detalhe: err.message, quando: new Date().toISOString() });
         }
         // Espera entre envios + variação aleatória, pra não parecer disparo
         // em massa (gatilho comum de bloqueio).
         const jitter = DELAY_ENTRE_ENVIOS_MS * 0.5 * Math.random();
         await sleep(DELAY_ENTRE_ENVIOS_MS + jitter);
     }
-    // Marca como "enviado hoje" só quem realmente recebeu — quem falhou
-    // (ex.: conexão ainda instabilizando logo após parear) continua fora da
-    // lista e entra de novo na próxima checagem, em vez de ficar esquecido
-    // até o dia seguinte.
+    // Marca como "enviado hoje" (nessa categoria) só quem realmente recebeu
+    // — quem falhou (ex.: conexão ainda instabilizando logo após parear)
+    // continua fora da lista e entra de novo na próxima checagem, em vez de
+    // ficar esquecido até o dia seguinte.
     if (telefonesOk.length) {
-        marcarEnviadosHoje(telefonesOk);
+        marcarEnviadosHoje(categoria, telefonesOk);
         painelStatus.ultimoEnvio = new Date().toISOString();
     }
     if (falhas > 0) {
-        painelStatus.ultimoErro = `${falhas} de ${destinatarios.length} mensagem(ns) falharam ao enviar — vai tentar de novo na próxima checagem.`;
+        const label = CATEGORIA_DEFS[categoria]?.label || categoria;
+        painelStatus.ultimoErro = `${falhas} de ${destinatarios.length} mensagem(ns) de "${label}" falharam ao enviar — vai tentar de novo na próxima checagem.`;
     }
-    console.log(`Envio concluído: ${telefonesOk.length} ok, ${falhas} falha(s).`);
+    console.log(`[${categoria}] concluído: ${telefonesOk.length} ok, ${falhas} falha(s).`);
 }
 
 // Resumo diário (gerente por time + manutenção pra quem está marcado em
-// Admin > Configurações) — mesma janela/dias dos avisos de pendência, mas
+// Admin > Configurações) — horário PRÓPRIO (separado das categorias de
+// pendência, checado aqui dentro já que só esta função usa esse schedule),
 // com dedup PRÓPRIO (resumosEnviadosHoje): a pessoa pode já ter recebido
 // pendência hoje e ainda faltar o resumo, ou vice-versa.
 async function enviarResumosDoDia(sock) {
@@ -422,6 +471,7 @@ async function enviarResumosDoDia(sock) {
     try {
         const r = await buscarResumos();
         if (r.pausado) return;
+        if (!diaConfiguradoHoje(r.schedule.diasSemana) || !passouDoHorario(r.schedule.hora)) return;
         gerentes = r.gerentes;
         manutencao = r.manutencao;
     } catch (err) {
@@ -456,6 +506,9 @@ async function enviarResumosDoDia(sock) {
 
 // Busca pendências e atualiza o painel (prévia), sem nunca mandar nada —
 // usado tanto pela checagem automática quanto pelo botão "Verificar agora".
+// Devolve pendentesPorCategoria (quem ainda falta receber em CADA
+// categoria, já descontando quem já recebeu hoje ou está pausado) pra
+// checar() decidir, categoria por categoria, o que mandar.
 async function atualizarPrevia() {
     const agora = Date.now();
     painelStatus.ultimaChecagem = new Date(agora).toISOString();
@@ -464,31 +517,44 @@ async function atualizarPrevia() {
     painelStatus.schedule = schedule;
     painelStatus.pausadoNoApp = pausado;
     const estado = lerEstado();
-    // pausadoAte/jaEnviadoHoje vão junto na prévia pra o card refletir o
-    // estado real: "⏸️ pausado até Xh" (+ botão vira "▶️ Reativar"), ou
-    // "✓ já enviado hoje" em vez do normal "✓ vai receber" — sem isso o
-    // card de quem já recebeu a mensagem hoje continuava parecendo "ainda
-    // vai receber", dando a impressão de que o robô não controla duplicata.
+    // pausadoAte/enviadosPorCategoria vão junto na prévia pra cada card
+    // (que já é por categoria) refletir o estado real daquela categoria
+    // especificamente: "⏸️ pausado até Xh" (+ botão vira "▶️ Reativar"), ou
+    // "✓ já enviado hoje" em vez do normal "✓ vai receber" — uma pessoa
+    // pode ter Agendamentos já mandado e Funil ainda não, por exemplo.
     painelStatus.destinatariosPrevia = destinatarios.map((d) => {
         const p = estado.pausasIndividuais[d.telefone];
+        const enviadosPorCategoria = {};
+        CATEGORIAS_PENDENCIA.forEach((cat) => { enviadosPorCategoria[cat] = estaEnviadoHoje(estado, cat, d.telefone); });
         return {
             ...d,
             pausadoAte: (p && new Date(p.ate).getTime() > Date.now()) ? p.ate : null,
-            jaEnviadoHoje: estaEnviadoHoje(estado, d.telefone)
+            enviadosPorCategoria
         };
     });
     painelStatus.semTelefonePrevia = semTelefone;
-    painelStatus.dentroDaJanelaAgora = dentroDaJanela(schedule);
     painelStatus.ultimoErro = null;
-    // "Enviado hoje" agora é por pessoa — só fica true quando ninguém de
-    // quem tem WhatsApp e pendência ainda está faltando receber. Pausado
-    // individualmente também não conta como "faltando" (não é pra mandar
-    // mesmo, não é uma falha a resolver).
-    const pendentes = destinatarios.filter((d) => !estaEnviadoHoje(estado, d.telefone) && !estaPausadoIndividualmente(estado, d.telefone));
-    painelStatus.enviadoHoje = destinatarios.length > 0 && pendentes.length === 0;
+
+    // Quem ainda falta receber em cada categoria — ignora pausado
+    // individual (não é "faltando", é intencional) e quem já recebeu hoje
+    // naquela categoria específica. O FILTRO POR HORÁRIO (categoria já
+    // passou da própria hora?) fica a cargo de quem chama isso (checar()),
+    // não aqui — a prévia do painel precisa mostrar tudo que falta, mesmo
+    // o que ainda não chegou a hora de mandar.
+    const pendentesPorCategoria = {};
+    CATEGORIAS_PENDENCIA.forEach((cat) => {
+        pendentesPorCategoria[cat] = destinatarios.filter((d) =>
+            contarItensCategoria(d, cat) > 0 &&
+            !estaEnviadoHoje(estado, cat, d.telefone) &&
+            !estaPausadoIndividualmente(estado, d.telefone)
+        );
+    });
+    const totalPendente = Object.values(pendentesPorCategoria).reduce((soma, lista) => soma + lista.length, 0);
+    painelStatus.enviadoHoje = destinatarios.length > 0 && totalPendente === 0;
+
     atualizarContadoresHistorico();
     await processarTesteSeNecessario(teste);
-    return { destinatarios: pendentes, schedule, pausado };
+    return { destinatarios, pendentesPorCategoria, schedule, pausado };
 }
 
 // ── Painel local (http://localhost:PORTA_PAINEL) ────────────────────────
@@ -590,6 +656,7 @@ function paginaPainel() {
   .kanban-col.c-propostas { border-left-color: #a855f7; }
   .kanban-col.c-funil { border-left-color: #3b82f6; }
   .kanban-col.c-campanhas { border-left-color: #f97316; }
+  .kanban-col.c-contratos { border-left-color: #0d9488; }
   .kanban-col-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; padding: 0 0.1rem; }
   .kanban-count { flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; }
   .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
@@ -729,13 +796,26 @@ function formatRelativo(iso) {
   return dias[d.getDay()] + ', ' + formatHora(iso);
 }
 
+// Cada categoria tem seu próprio horário agora — "próximo envio" vira "a
+// mais cedo das que ainda não passaram hoje" (ou a mais cedo de amanhã, se
+// todas já passaram). Só uma aproximação pro banner, não uma promessa exata
+// (afinal pode já ter passado da hora de uma categoria mas ela não ter
+// ninguém pendente agora).
+function horaMaisCedoPendente(s) {
+  if (!s.schedule || !s.schedule.horarios) return null;
+  const horas = Object.values(s.schedule.horarios).filter(Boolean).sort();
+  if (!horas.length) return null;
+  const agora = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+  return horas.find((h) => h > agora) || horas[0];
+}
 function proximoEnvioLabel(s) {
   if (!s.schedule) return '—';
   if (s.pausadoNoApp) return 'pausado';
+  const proxima = horaMaisCedoPendente(s);
+  if (!proxima) return '—';
+  if (s.enviadoHoje) return 'amanhã, ' + proxima;
   const agora = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
-  if (s.enviadoHoje) return 'amanhã, ' + s.schedule.horaInicio;
-  if (agora < s.schedule.horaInicio) return 'hoje, ' + s.schedule.horaInicio;
-  if (agora > s.schedule.horaLimite) return 'amanhã, ' + s.schedule.horaInicio;
+  if (agora < proxima) return 'hoje, ' + proxima;
   return 'em instantes';
 }
 
@@ -798,15 +878,27 @@ function renderBanner(s) {
   \`;
 }
 
+const CATEGORIA_LABEL_CURTO = { agendamentos: 'Agend', propostas: 'Prop', funil: 'Funil', campanhas: 'Camp', inatividade: 'Inativ', contratos: 'Contr' };
+const CATEGORIA_LABEL_COMPLETO = { agendamentos: 'Agendamentos', propostas: 'Propostas', funil: 'Funil', campanhas: 'Campanhas', inatividade: 'Inatividade', contratos: 'Contratos' };
+
 function renderStatusStrip(s) {
   const dotClasse = s.conectado ? '' : (s.aguardandoQr ? 'warn' : 'off');
   const linhaConexao = s.aguardandoQr ? 'Aguardando pareamento' : (s.conectado ? 'Conectado' : 'Desconectado');
-  const janela = s.schedule ? (s.schedule.horaInicio + '–' + s.schedule.horaLimite) : '—';
+  let janela = '—';
+  let janelaTitle = 'Horário de cada categoria';
+  if (s.schedule && s.schedule.horarios) {
+    const entradas = Object.entries(s.schedule.horarios).filter(([, h]) => h);
+    if (entradas.length) {
+      const horas = entradas.map(([, h]) => h).sort();
+      janela = horas[0] + '–' + horas[horas.length - 1];
+      janelaTitle = entradas.map(([cat, h]) => (CATEGORIA_LABEL_CURTO[cat] || cat) + ' ' + h).join(' · ');
+    }
+  }
   const checagem = s.ultimaChecagem ? formatHora(s.ultimaChecagem) : '—';
   document.getElementById('status-strip').innerHTML = \`
     <span><span class="status-dot \${dotClasse}"></span>\${linhaConexao}</span>
     <span class="sep">·</span>
-    <span>Janela <b>\${janela}</b></span>
+    <span title="\${janelaTitle}">Horários <b>\${janela}</b></span>
     <span class="sep">·</span>
     <span>Última checagem <b>\${checagem}</b></span>
     <span class="sep">·</span>
@@ -825,7 +917,8 @@ const KANBAN_DEFS = [
   { key: 'agendamentos', classe: 'c-agendamentos', label: '🔴 Agendamentos', getItens: (d) => d.agendamentos, detalhe: (p) => p.cliente, contagem: (n) => n + (n === 1 ? ' item' : ' itens'), dias: (p) => p.diasAtraso },
   { key: 'propostas', classe: 'c-propostas', label: '📄 Propostas', getItens: (d) => d.propostas, detalhe: (p) => p.cliente, contagem: (n) => n + (n === 1 ? ' proposta' : ' propostas') },
   { key: 'funil', classe: 'c-funil', label: '📊 Funil', getItens: (d) => d.funil, detalhe: (f) => f.cliente, contagem: (n) => n + (n === 1 ? ' cliente' : ' clientes') },
-  { key: 'campanhas', classe: 'c-campanhas', label: '📣 Campanhas', getItens: (d) => d.campanhas, detalhe: (c) => c.titulo, contagem: (n) => n + (n === 1 ? ' campanha' : ' campanhas') }
+  { key: 'campanhas', classe: 'c-campanhas', label: '📣 Campanhas', getItens: (d) => d.campanhas, detalhe: (c) => c.titulo, contagem: (n) => n + (n === 1 ? ' campanha' : ' campanhas') },
+  { key: 'contratos', classe: 'c-contratos', label: '📑 Contratos', getItens: (d) => d.contratos, detalhe: (c) => c.cliente, contagem: (n) => n + (n === 1 ? ' contrato' : ' contratos') }
 ];
 const LIMITE_CARDS_COLUNA = 5;
 const LIMITE_LINHAS_SEM_WHATSAPP = 7;
@@ -851,7 +944,8 @@ function montarColunasKanban(s) {
         const itens = getItens(d);
         const diasValor = dias ? dias(itens[0]) : null;
         return {
-          nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null, jaEnviadoHoje: !!d.jaEnviadoHoje,
+          categoria: key, nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null,
+          jaEnviadoHoje: !!(d.enviadosPorCategoria && d.enviadosPorCategoria[key]),
           count: itens.length, badge: contagem(itens.length),
           detalhe: detalhe(itens[0]) + (itens.length > 1 ? ' +' + (itens.length - 1) : ''),
           dias: diasValor
@@ -871,14 +965,18 @@ function montarCardsInatividade(s) {
     ...(s.semTelefonePrevia || []).map((d) => Object.assign({ temTelefone: false }, d))
   ];
   return todos.filter((d) => d.diasSemAtividade)
-    .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null, jaEnviadoHoje: !!d.jaEnviadoHoje, count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null }))
+    .map((d) => ({
+      categoria: 'inatividade', nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null,
+      jaEnviadoHoje: !!(d.enviadosPorCategoria && d.enviadosPorCategoria.inatividade),
+      count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null
+    }))
     .sort((a, b) => b.count - a.count);
 }
 
 function kanbanCardHtml(card) {
   const acoes = card.temTelefone ? \`
     <div class="kanban-card-actions">
-      <button type="button" data-action="disparar" data-telefone="\${card.telefone}" data-nome="\${card.nome}">📤 \${card.jaEnviadoHoje ? 'Reenviar' : 'Agora'}</button>
+      <button type="button" data-action="disparar" data-categoria="\${card.categoria}" data-telefone="\${card.telefone}" data-nome="\${card.nome}">📤 \${card.jaEnviadoHoje ? 'Reenviar' : 'Agora'}</button>
       \${card.pausadoAte
         ? '<button type="button" class="pausado" data-action="reativar" data-telefone="' + card.telefone + '" data-nome="' + card.nome + '">▶️ Reativar</button>'
         : '<button type="button" data-action="pausar" data-telefone="' + card.telefone + '" data-nome="' + card.nome + '">⏸️ 24h</button>'}
@@ -947,11 +1045,13 @@ async function tratarAcaoCard(ev) {
   if (btnDisparar) {
     const telefone = btnDisparar.dataset.telefone;
     const nome = btnDisparar.dataset.nome;
-    if (!confirm('Enviar a mensagem de pendências pra ' + nome + ' agora mesmo?')) return true;
+    const categoria = btnDisparar.dataset.categoria;
+    const label = (CATEGORIA_LABEL_COMPLETO[categoria] || categoria);
+    if (!confirm('Enviar a mensagem de "' + label + '" pra ' + nome + ' agora mesmo?')) return true;
     btnDisparar.disabled = true;
     btnDisparar.textContent = 'Enviando...';
     try {
-      const r = await fetch('/disparar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefone }) });
+      const r = await fetch('/disparar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefone, categoria }) });
       const s = await r.json();
       if (s.status === 'error') alert(s.message);
     } catch (e) { alert('Não consegui falar com o robô.'); }
@@ -1239,13 +1339,14 @@ function iniciarPainel() {
         }
         if (req.method === 'POST' && req.url === '/disparar') {
             try {
-                const { telefone } = await lerCorpoJson(req);
+                const { telefone, categoria } = await lerCorpoJson(req);
                 if (!telefone) throw new Error('telefone obrigatório.');
+                if (!categoria || !CATEGORIAS_PENDENCIA.includes(categoria)) throw new Error('categoria inválida.');
                 if (!sockAtual) throw new Error('WhatsApp não está conectado agora.');
                 const { destinatarios } = await buscarPendencias();
                 const dest = destinatarios.find((d) => d.telefone === telefone);
-                if (!dest) throw new Error('Essa pessoa não tem pendência agora (pode já ter sido resolvida).');
-                await enviarPendenciasDoDia(sockAtual, [dest]);
+                if (!dest || contarItensCategoria(dest, categoria) === 0) throw new Error('Essa pessoa não tem pendência nessa categoria agora (pode já ter sido resolvida).');
+                await enviarCategoriaDoDia(sockAtual, categoria, [dest]);
                 await atualizarPrevia();
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(painelStatus));
@@ -1365,6 +1466,31 @@ async function reparear() {
     await conectar();
 }
 
+// Avisa ALERTA_TELEFONE (.env, opcional) quando a checagem falha
+// repetidamente — não ajuda se o problema é a PRÓPRIA conexão do WhatsApp
+// (não dá pra avisar pelo canal que caiu nesse caso; aí o jeito é olhar o
+// painel), mas cobre os outros casos (API fora do ar, erro de código,
+// etc.), onde sockAtual continua de pé. Debounced por 1h (ultimoAlertaErro
+// em disco) pra não mandar o mesmo alerta de novo a cada checagem enquanto
+// o problema persiste.
+const LIMIAR_FALHAS_PARA_ALERTA = 3;
+let falhasConsecutivas = 0;
+async function avisarErroPersistenteSeNecessario(mensagemErro) {
+    if (!ALERTA_TELEFONE || !sockAtual) return;
+    const estado = lerEstado();
+    const agora = Date.now();
+    if (estado.ultimoAlertaErro && (agora - estado.ultimoAlertaErro) < 3600000) return;
+    try {
+        await sockAtual.sendMessage(`${ALERTA_TELEFONE}@s.whatsapp.net`, {
+            text: `⚠️ *Robô de WhatsApp com problema*\n\nFalhando há ${falhasConsecutivas}+ checagens seguidas:\n${mensagemErro}\n\nConfira o painel: http://localhost:${PORTA_PAINEL}`
+        });
+        estado.ultimoAlertaErro = agora;
+        salvarEstado(estado);
+    } catch (err) {
+        console.error('Falha ao mandar alerta de erro persistente:', err.message);
+    }
+}
+
 // Sempre usa sockAtual (mantido certinho por connection.update acima) em vez
 // de fechar sobre um "sock" específico — assim, depois de uma reconexão,
 // nunca manda mensagem usando uma conexão antiga/morta.
@@ -1379,20 +1505,35 @@ const checar = async () => {
     if (checagemEmAndamento) { console.log('Checagem anterior ainda em andamento — pulando esta.'); return; }
     checagemEmAndamento = true;
     try {
-        // atualizarPrevia já devolve só quem AINDA não recebeu hoje — quem
-        // já foi avisado com sucesso não entra aqui de novo, mas quem
-        // falhou (ou é pendência nova desde a última checagem) continua.
-        const { destinatarios: pendentes, schedule, pausado } = await atualizarPrevia();
-        if (!dentroDaJanela(schedule)) return; // fora do horário/dias configurados
-        if (!sockAtual) { console.log('Checagem adiada: WhatsApp ainda não está conectado.'); return; }
-        // Pausa de pendências (Admin > Configurações) não trava o resumo —
-        // são toggles independentes, resumo tem o próprio (checado dentro
-        // de enviarResumosDoDia, via buscarResumos().pausado).
-        if (!pausado && pendentes.length) await enviarPendenciasDoDia(sockAtual, pendentes);
-        await enviarResumosDoDia(sockAtual);
+        // atualizarPrevia devolve TODOS os destinatários (não filtrados) +
+        // pendentesPorCategoria (quem ainda falta em CADA categoria) —
+        // decide aqui, categoria por categoria, se já passou da própria
+        // hora configurada pra ela.
+        const { pendentesPorCategoria, schedule, pausado } = await atualizarPrevia();
+        if (sockAtual) {
+            if (!diaConfiguradoHoje(schedule.diasSemana)) {
+                // dia da semana não configurado — nem pendência nem resumo saem hoje
+            } else if (!pausado) {
+                for (const categoria of CATEGORIAS_PENDENCIA) {
+                    const hora = schedule.horarios[categoria];
+                    if (!passouDoHorario(hora)) continue; // ainda não chegou a vez dessa categoria
+                    const pendentes = pendentesPorCategoria[categoria];
+                    if (pendentes && pendentes.length) await enviarCategoriaDoDia(sockAtual, categoria, pendentes);
+                }
+            }
+            // Resumo diário tem horário/pausa PRÓPRIOS, checados dentro dele
+            // (buscarResumos() tem seu próprio schedule) — independente da
+            // pausa de pendências acima.
+            await enviarResumosDoDia(sockAtual);
+        } else {
+            console.log('Checagem adiada: WhatsApp ainda não está conectado.');
+        }
+        falhasConsecutivas = 0;
     } catch (err) {
         painelStatus.ultimoErro = err.message;
         console.error('Falha ao buscar/enviar pendências:', err.message);
+        falhasConsecutivas++;
+        if (falhasConsecutivas >= LIMIAR_FALHAS_PARA_ALERTA) await avisarErroPersistenteSeNecessario(err.message);
     } finally {
         checagemEmAndamento = false;
     }
