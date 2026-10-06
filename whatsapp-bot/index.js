@@ -226,13 +226,19 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Monta uma lista "• item (até 10, com '…e mais N.' se passar disso)" —
-// cada item recebe uma linha em branco antes pra não grudar no título da
-// seção (WhatsApp já respeita \n simples pra quebra de linha dentro do
-// texto, mas uma seção some visualmente sem esse respiro).
+// Cada item vira um bloco de 2 linhas — nome em negrito, detalhe embaixo
+// com uma seta — em vez de uma linha só "Cliente — detalhe bem comprido".
+// No celular essa linha única quebrava no meio do texto de um jeito
+// confuso (ficava sem dar pra saber onde um item terminava e outro
+// começava); com o detalhe na linha de baixo + espaço em branco entre
+// blocos, cada pendência fica visualmente separada mesmo quando o texto
+// quebra em 2-3 linhas de tela. "formatar" devolve {titulo, detalhe}.
 function listaComLimite(itens, formatar, limite = 10) {
-    const linhas = itens.slice(0, limite).map((i) => `• ${formatar(i)}`).join('\n');
-    const extra = itens.length > limite ? `\n…e mais ${itens.length - limite}.` : '';
+    const linhas = itens.slice(0, limite).map((i) => {
+        const { titulo, detalhe } = formatar(i);
+        return `• *${titulo}*\n   ↳ ${detalhe}`;
+    }).join('\n\n');
+    const extra = itens.length > limite ? `\n\n…e mais ${itens.length - limite}.` : '';
     return linhas + extra;
 }
 
@@ -254,16 +260,20 @@ function primeiroNome(nomeCompleto) {
 function montarMensagem(dest) {
     const partes = [`Olá, *${primeiroNome(dest.nome)}*! 👋\n\n📋 *Pendências de hoje*`];
     if (dest.agendamentos.length) {
-        partes.push(`🔴 *Agendamentos vencidos* (${dest.agendamentos.length})\n` + listaComLimite(dest.agendamentos, (p) => `${p.cliente} — venceu ${p.dataAgendada} (${p.diasAtraso}d atrás)`));
+        partes.push(`🔴 *Agendamentos vencidos* (${dest.agendamentos.length})\n` + listaComLimite(dest.agendamentos, (p) => ({ titulo: p.cliente, detalhe: `venceu ${p.dataAgendada} (${p.diasAtraso}d atrás)` })));
     }
     if (dest.propostas.length) {
-        partes.push(`📄 *Propostas paradas* (${dest.propostas.length})\n` + listaComLimite(dest.propostas, (p) => `${p.cliente} — sem atualização há ${p.diasParada}d`));
+        partes.push(`📄 *Propostas paradas* (${dest.propostas.length})\n` + listaComLimite(dest.propostas, (p) => ({ titulo: p.cliente, detalhe: `sem atualização há ${p.diasParada}d` })));
     }
     if (dest.funil.length) {
-        partes.push(`📊 *Funil parado* (${dest.funil.length})\n` + listaComLimite(dest.funil, (f) => `${f.cliente} — sem atualização há ${f.diasParado}d`));
+        // Funil costuma acumular MUITO mais itens que o resto (visto caso
+        // real com 17+, alguns com mais de 800 dias parados) — limite menor
+        // pra não virar a mensagem inteira; o "…e mais N." já deixa claro
+        // que tem mais, sem precisar listar tudo.
+        partes.push(`📊 *Funil parado* (${dest.funil.length})\n` + listaComLimite(dest.funil, (f) => ({ titulo: f.cliente, detalhe: `sem atualização há ${f.diasParado}d` }), 5));
     }
     if (dest.campanhas.length) {
-        partes.push(`📣 *Campanhas aguardando resposta* (${dest.campanhas.length})\n` + listaComLimite(dest.campanhas, (c) => `${c.titulo} — ${c.pendentes} cliente(s) pendente(s)`));
+        partes.push(`📣 *Campanhas aguardando resposta* (${dest.campanhas.length})\n` + listaComLimite(dest.campanhas, (c) => ({ titulo: c.titulo, detalhe: `${c.pendentes} cliente(s) pendente(s)` })));
     }
     if (dest.diasSemAtividade) {
         partes.push(`⏰ Já fazem *${dest.diasSemAtividade} dias* desde sua última visita/prospecção registrada — favor atualizar o aplicativo!`);
@@ -298,14 +308,16 @@ function montarMensagemResumoGerente(g) {
     const r = g.resumo;
     const partes = [`Olá, *${primeiroNome(g.nome)}*! 👋\n\n📋 *Resumo da sua equipe* — ${r.dataResumo}`];
 
+    // Contagem por vendedor é só "Nome — N", cabe numa linha só (o bloco de
+    // 2 linhas do listaComLimite é pra item com detalhe mais longo).
     const visitasTxt = r.visitas.total
-        ? listaComLimite(r.visitas.porVendedor, (v) => `${v.nome} — ${v.total}`)
+        ? r.visitas.porVendedor.slice(0, 10).map((v) => `• ${v.nome} — ${v.total}`).join('\n')
         : 'Nenhuma visita registrada.';
     partes.push(`📍 *Visitas* (${r.visitas.total})\n${visitasTxt}`);
 
     const agLinhas = [];
     if (r.agendamentos.vencidosTotal) {
-        agLinhas.push(`🔴 ${r.agendamentos.vencidosTotal} vencido(s):\n` + listaComLimite(r.agendamentos.vencidos, (a) => `${a.cliente} — venceu ${a.dataAgendada}`));
+        agLinhas.push(`🔴 ${r.agendamentos.vencidosTotal} vencido(s):\n` + listaComLimite(r.agendamentos.vencidos, (a) => ({ titulo: a.cliente, detalhe: `venceu ${a.dataAgendada}` })));
     }
     if (r.agendamentos.proximosTotal) agLinhas.push(`📅 ${r.agendamentos.proximosTotal} nos próximos 7 dias`);
     partes.push(`📌 *Agendamentos*\n${agLinhas.length ? agLinhas.join('\n') : 'Nenhum vencido ou próximo.'}`);
@@ -323,7 +335,7 @@ function montarMensagemResumoGerente(g) {
 // marcado em Admin > Configurações pra receber isso (ex.: Kadu).
 function montarMensagemResumoManutencao(m) {
     const partes = [`Olá, *${primeiroNome(m.nome)}*! 👋\n\n🛠️ *Resumo de Manutenção (Open/Close)* — ${m.dataResumo}`];
-    partes.push(listaComLimite(m.manutencao, (v) => `${v.cliente} — ${v.tipo}${v.vendedor ? ' (' + v.vendedor + ')' : ''}`, 20));
+    partes.push(listaComLimite(m.manutencao, (v) => ({ titulo: v.cliente, detalhe: v.tipo + (v.vendedor ? ' — ' + v.vendedor : '') }), 20));
     partes.push(`🔗 Acesse o app: ${APP_URL}`);
     partes.push('_App de Visitas_');
     return partes.join('\n\n');
