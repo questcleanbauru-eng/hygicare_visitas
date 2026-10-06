@@ -827,7 +827,14 @@ function iniciarPainel() {
     });
 }
 
-async function iniciar() {
+// Só cuida da conexão com o WhatsApp — chamada de novo a cada reconexão
+// (normal: cai e reconecta sozinho de vez em quando). NÃO mexe em
+// checar()/setInterval: isso fica de fora, configurado uma única vez lá
+// embaixo — senão cada reconexão criava mais um setInterval por cima dos
+// anteriores (nunca limpos), e depois de algumas reconexões várias
+// checagens passavam a rodar em paralelo, arriscando mandar a mesma
+// mensagem duas vezes pra todo mundo.
+async function conectar() {
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -851,7 +858,7 @@ async function iniciar() {
             const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
             const deveReconectar = statusCode !== DisconnectReason.loggedOut;
             console.log('Conexão caiu.', deveReconectar ? 'Reconectando...' : 'Sessão encerrada — apague a pasta auth_info/ e rode de novo pra reparear.');
-            if (deveReconectar) iniciar();
+            if (deveReconectar) conectar();
         } else if (connection === 'open') {
             sockAtual = sock;
             painelStatus.conectado = true;
@@ -860,8 +867,22 @@ async function iniciar() {
             console.log('Conectado ao WhatsApp. Robô rodando — verificando a cada', INTERVALO_CHECAGEM_MIN, 'minuto(s).');
         }
     });
+}
 
-    const checar = async () => {
+// Sempre usa sockAtual (mantido certinho por connection.update acima) em vez
+// de fechar sobre um "sock" específico — assim, depois de uma reconexão,
+// nunca manda mensagem usando uma conexão antiga/morta.
+//
+// checagemEmAndamento trava reentrância: setInterval dispara no relógio sem
+// esperar a checagem anterior terminar — se o envio pra muita gente demorar
+// mais que INTERVALO_CHECAGEM_MIN (improvável com poucas dezenas de
+// pessoas, mas não impossível conforme a lista cresce), sem essa trava duas
+// checagens rodariam juntas e mandariam a mesma pendência duas vezes.
+let checagemEmAndamento = false;
+const checar = async () => {
+    if (checagemEmAndamento) { console.log('Checagem anterior ainda em andamento — pulando esta.'); return; }
+    checagemEmAndamento = true;
+    try {
         const estado = lerEstado();
         if (estado.ultimoEnvio === hojeChaveLocal()) {
             // Já mandou hoje — ainda atualiza a prévia pro painel mostrar o
@@ -873,16 +894,18 @@ async function iniciar() {
             const { destinatarios, schedule, pausado } = await atualizarPrevia();
             if (pausado) return; // pausado em Admin > Configurações
             if (!dentroDaJanela(schedule)) return; // fora do horário/dias configurados
-            await enviarPendenciasDoDia(sock, destinatarios);
+            if (!sockAtual) { console.log('Checagem adiada: WhatsApp ainda não está conectado.'); return; }
+            await enviarPendenciasDoDia(sockAtual, destinatarios);
         } catch (err) {
             painelStatus.ultimoErro = err.message;
             console.error('Falha ao buscar/enviar pendências:', err.message);
         }
-    };
-
-    checar(); // primeira checagem já na subida, sem esperar o 1º intervalo
-    setInterval(checar, INTERVALO_CHECAGEM_MIN * 60 * 1000);
-}
+    } finally {
+        checagemEmAndamento = false;
+    }
+};
 
 iniciarPainel();
-iniciar();
+conectar();
+checar(); // primeira checagem já na subida, sem esperar o 1º intervalo
+setInterval(checar, INTERVALO_CHECAGEM_MIN * 60 * 1000);
