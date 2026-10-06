@@ -309,7 +309,8 @@ function montarMensagemCategoria(dest, categoria) {
         const itens = def.itens(dest) || [];
         corpo = `${def.label} (${itens.length})\n` + listaComLimite(itens, def.formatar, def.limite);
     }
-    return [saudacao, corpo, RODAPE_ACESSO, 'Bom trabalho! 💪\n_App de Visitas_'].join('\n\n');
+    const dicaPausar = '_Responda "pausar" pra não receber avisos por 24h._';
+    return [saudacao, corpo, RODAPE_ACESSO, dicaPausar, 'Bom trabalho! 💪\n_App de Visitas_'].join('\n\n');
 }
 
 async function buscarPendencias() {
@@ -1407,6 +1408,32 @@ function iniciarPainel() {
 // anteriores (nunca limpos), e depois de algumas reconexões várias
 // checagens passavam a rodar em paralelo, arriscando mandar a mesma
 // mensagem duas vezes pra todo mundo.
+// Vendedor manda "pausar" (ou "voltar"/"reativar") no privado do próprio
+// robô pra se auto-servir, sem precisar pedir pro admin — reaproveita
+// pausarPessoa/reativarPessoa, os mesmos usados pelo botão "⏸️ 24h" do
+// painel. Só responde a quem JÁ aparece na prévia de pendências (número
+// conhecido, achado via telefone) e só a esses comandos exatos — não tenta
+// interpretar texto livre (evita mal-entendido) nem responde grupo/status.
+async function processarComandoRecebido(sock, msg) {
+    if (msg.key.fromMe) return;
+    const jid = msg.key.remoteJid || '';
+    if (!jid.endsWith('@s.whatsapp.net')) return; // ignora grupo (@g.us), status, etc.
+    const texto = String(msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim().toLowerCase();
+    if (texto !== 'pausar' && texto !== 'voltar' && texto !== 'reativar') return;
+
+    const telefone = jid.replace('@s.whatsapp.net', '');
+    const conhecido = (painelStatus.destinatariosPrevia || []).find((d) => d.telefone === telefone);
+    if (!conhecido) return; // número que o robô não reconhece — ignora, não responde pra qualquer um
+
+    if (texto === 'pausar') {
+        pausarPessoa(telefone, conhecido.nome, 24);
+        await sock.sendMessage(jid, { text: `⏸️ Combinado, *${primeiroNome(conhecido.nome)}*! Você não recebe avisos de pendência pelas próximas 24h.\n\nPra voltar antes, é só mandar *voltar*.` });
+    } else {
+        reativarPessoa(telefone);
+        await sock.sendMessage(jid, { text: `▶️ Prontinho, *${primeiroNome(conhecido.nome)}*! Avisos de pendência reativados.` });
+    }
+}
+
 async function conectar() {
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
     const { version } = await fetchLatestBaileysVersion();
@@ -1414,6 +1441,13 @@ async function conectar() {
     const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false });
 
     sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('messages.upsert', ({ messages, type }) => {
+        if (type !== 'notify') return;
+        for (const msg of messages) {
+            processarComandoRecebido(sock, msg).catch((err) => console.error('Falha ao processar comando recebido:', err.message));
+        }
+    });
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
