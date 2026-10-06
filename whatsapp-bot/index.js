@@ -176,7 +176,10 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Monta uma lista "• item (até 10, com '…e mais N.' se passar disso)".
+// Monta uma lista "• item (até 10, com '…e mais N.' se passar disso)" —
+// cada item recebe uma linha em branco antes pra não grudar no título da
+// seção (WhatsApp já respeita \n simples pra quebra de linha dentro do
+// texto, mas uma seção some visualmente sem esse respiro).
 function listaComLimite(itens, formatar, limite = 10) {
     const linhas = itens.slice(0, limite).map((i) => `• ${formatar(i)}`).join('\n');
     const extra = itens.length > limite ? `\n…e mais ${itens.length - limite}.` : '';
@@ -187,25 +190,35 @@ function totalPendencias(dest) {
     return dest.agendamentos.length + dest.propostas.length + dest.funil.length + dest.campanhas.length + (dest.diasSemAtividade ? 1 : 0);
 }
 
+// "BRUNO RODRIGUES" -> "Bruno" — só pro cumprimento ficar natural; o resto
+// da mensagem mantém o nome como está cadastrado.
+function primeiroNome(nomeCompleto) {
+    const primeiro = String(nomeCompleto || '').trim().split(/\s+/)[0] || '';
+    return primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase();
+}
+
 // Uma mensagem só, com uma seção por tipo de pendência — só entram as
-// seções que o destinatário realmente tem.
+// seções que o destinatário realmente tem. Cada seção vira um bloco
+// separado por linha em branco (join com \n\n), pra não ficar um bloco de
+// texto só colado do início ao fim.
 function montarMensagem(dest) {
-    const partes = [`📋 *Pendências de hoje* — ${dest.nome}`];
+    const partes = [`Olá, *${primeiroNome(dest.nome)}*! 👋\n\n📋 *Pendências de hoje*`];
     if (dest.agendamentos.length) {
-        partes.push(`🔴 Agendamentos vencidos (${dest.agendamentos.length}):\n` + listaComLimite(dest.agendamentos, (p) => `${p.cliente} — venceu ${p.dataAgendada} (${p.diasAtraso}d atrás)`));
+        partes.push(`🔴 *Agendamentos vencidos* (${dest.agendamentos.length})\n` + listaComLimite(dest.agendamentos, (p) => `${p.cliente} — venceu ${p.dataAgendada} (${p.diasAtraso}d atrás)`));
     }
     if (dest.propostas.length) {
-        partes.push(`📄 Propostas paradas (${dest.propostas.length}):\n` + listaComLimite(dest.propostas, (p) => `${p.cliente} — sem atualização há ${p.diasParada}d`));
+        partes.push(`📄 *Propostas paradas* (${dest.propostas.length})\n` + listaComLimite(dest.propostas, (p) => `${p.cliente} — sem atualização há ${p.diasParada}d`));
     }
     if (dest.funil.length) {
-        partes.push(`📊 Funil parado (${dest.funil.length}):\n` + listaComLimite(dest.funil, (f) => `${f.cliente} — sem atualização há ${f.diasParado}d`));
+        partes.push(`📊 *Funil parado* (${dest.funil.length})\n` + listaComLimite(dest.funil, (f) => `${f.cliente} — sem atualização há ${f.diasParado}d`));
     }
     if (dest.campanhas.length) {
-        partes.push(`📣 Campanhas aguardando resposta (${dest.campanhas.length}):\n` + listaComLimite(dest.campanhas, (c) => `${c.titulo} — ${c.pendentes} cliente(s) pendente(s)`));
+        partes.push(`📣 *Campanhas aguardando resposta* (${dest.campanhas.length})\n` + listaComLimite(dest.campanhas, (c) => `${c.titulo} — ${c.pendentes} cliente(s) pendente(s)`));
     }
     if (dest.diasSemAtividade) {
-        partes.push(`⏰ Já fazem ${dest.diasSemAtividade} dias desde sua última visita/prospecção registrada — *favor atualizar o aplicativo!*`);
+        partes.push(`⏰ Já fazem *${dest.diasSemAtividade} dias* desde sua última visita/prospecção registrada — favor atualizar o aplicativo!`);
     }
+    partes.push(`🔗 Acesse o app: ${APP_URL}\nLogin: seu e-mail cadastrado (ou seu nome de usuário)\nSenha: os 4 últimos dígitos do seu celular`);
     partes.push('Bom trabalho! 💪\n_App de Visitas_');
     return partes.join('\n\n');
 }
@@ -874,6 +887,14 @@ document.getElementById('btn-parar').addEventListener('click', async () => {
 });
 atualizar();
 setInterval(atualizar, 4000);
+
+// A pedido: fechar (ou recarregar) essa aba para o robô — não fica mais
+// rodando escondido sem ninguém olhando. sendBeacon é o jeito confiável de
+// disparar isso durante o fechamento da página; um fetch normal aqui pode
+// ser cancelado pelo navegador antes de completar.
+window.addEventListener('pagehide', () => {
+  navigator.sendBeacon('/parar');
+});
 </script>
 </body>
 </html>`;
