@@ -645,6 +645,8 @@ function paginaPainel() {
   .btn-primario:hover:not(:disabled) { background: #1d4ed8; }
   .btn-perigo-outline { background: #fff; color: #dc2626; border: 1.5px solid #fecaca; }
   .btn-perigo-outline:hover:not(:disabled) { background: #fef2f2; }
+  .btn-neutro-outline { background: #fff; color: #475569; border: 1.5px solid #e2e8f0; }
+  .btn-neutro-outline:hover:not(:disabled) { background: #f8fafc; }
   .btn-sm { width: auto; padding: 0.55rem 0.95rem; border-radius: 10px; font-size: 0.82rem; }
   .feedback-ok { font-size: 0.82rem; color: #16a34a; font-weight: 600; text-align: right; margin: -0.7rem 0 1rem; }
   .hint { font-size: 0.76rem; color: #94a3b8; margin-top: 0.5rem; text-align: center; line-height: 1.5; }
@@ -729,6 +731,7 @@ function paginaPainel() {
     </div>
     <div class="header-actions">
       <button class="btn-primario btn-sm" id="btn-verificar" title="Só confere as pendências — nenhuma mensagem é enviada.">🔍 Verificar agora</button>
+      <button class="btn-neutro-outline btn-sm" id="btn-desconectar" title="Encerra a sessão do WhatsApp (precisa escanear o QR de novo pra reconectar) — o robô e o painel continuam rodando.">🔌 Desconectar</button>
       <button class="btn-perigo-outline btn-sm" id="btn-parar">⏹ Parar robô</button>
     </div>
   </header>
@@ -1275,6 +1278,19 @@ document.getElementById('btn-verificar').addEventListener('click', async (ev) =>
   ev.target.disabled = false;
   ev.target.textContent = '🔍 Verificar agora';
 });
+document.getElementById('btn-desconectar').addEventListener('click', async (ev) => {
+  if (!confirm('Desconectar do WhatsApp agora? Ninguém recebe avisos até você escanear o QR code de novo (ex.: amanhã de manhã) — o robô e esse painel continuam rodando.')) return;
+  ev.target.disabled = true;
+  ev.target.textContent = 'Desconectando...';
+  try {
+    const r = await fetch('/desconectar', { method: 'POST' });
+    const s = await r.json();
+    if (s.status === 'error') alert(s.message);
+  } catch (e) { alert('Não consegui falar com o robô.'); }
+  ev.target.disabled = false;
+  ev.target.textContent = '🔌 Desconectar';
+  await atualizar();
+});
 document.getElementById('btn-parar').addEventListener('click', async () => {
   if (!confirm('Parar o robô agora? Pra ligar de novo, use o atalho na Área de Trabalho.')) return;
   await fetch('/parar', { method: 'POST' }).catch(() => {});
@@ -1339,6 +1355,17 @@ function iniciarPainel() {
         if (req.method === 'POST' && req.url === '/reparear') {
             try {
                 await reparear();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(painelStatus));
+            } catch (err) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'error', message: err.message }));
+            }
+            return;
+        }
+        if (req.method === 'POST' && req.url === '/desconectar') {
+            try {
+                await desconectar();
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(painelStatus));
             } catch (err) {
@@ -1493,6 +1520,20 @@ async function conectar() {
             console.log('Conectado ao WhatsApp. Robô rodando — verificando a cada', INTERVALO_CHECAGEM_MIN, 'minuto(s).');
         }
     });
+}
+
+// Desconecta de propósito (botão "🔌 Desconectar" no painel) — pra quem
+// prefere logar de manhã e desconectar à noite em vez de deixar vinculado
+// o tempo todo. Diferente de "Parar robô": o processo Node (e o painel)
+// continuam de pé, só a sessão do WhatsApp é encerrada de verdade
+// (sock.logout() avisa o WhatsApp, que remove o aparelho vinculado — igual
+// tirar manualmente em Aparelhos Conectados no celular). Cai no mesmo
+// tratamento que já existe pra "sessão encerrada" (o close handler detecta
+// loggedOut e NÃO tenta reconectar sozinho); pra religar de manhã, é só
+// usar o mesmo botão "Reparear agora" que aparece nesse estado.
+async function desconectar() {
+    if (!sockAtual) throw new Error('Já não está conectado ao WhatsApp.');
+    await sockAtual.logout();
 }
 
 // Apaga as credenciais antigas (já inválidas) e começa um pareamento do
