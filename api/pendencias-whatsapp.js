@@ -164,9 +164,11 @@ export default async function handler(req, res) {
             .map((v) => {
                 const nome = String(v.NomeVendedor || '').trim();
                 const telefone = String(v.TelefoneWhatsapp || '').trim();
+                const email = String(v.EmailLogin || '').trim();
                 return {
                     nome,
                     telefone,
+                    email,
                     agendamentos: agendamentosPorVendedor[nome] || [],
                     propostas: propostasPorVendedor[nome] || [],
                     funil: funilPorVendedor[nome] || [],

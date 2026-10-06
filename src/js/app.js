@@ -98,11 +98,29 @@ export function peekCampanhaNome() {
     } catch (e) { return ''; }
 }
 
+// Deep-link pro botão "Cadastrar no Admin"/"Cadastrar" do robô local de
+// WhatsApp (painel em localhost, ver whatsapp-bot/) — ?goto=admin cai direto
+// na aba Admin, e ?editUser=<email> já abre a edição daquela pessoa (pra
+// cadastrar o WhatsApp sem precisar procurar na tabela).
+function peekAdminGoto() {
+    try { return new URLSearchParams(window.location.search || '').get('goto') === 'admin'; } catch (e) { return false; }
+}
+function peekAdminEditUser() {
+    try { return new URLSearchParams(window.location.search || '').get('editUser') || null; } catch (e) { return null; }
+}
+
 export function consumeDeepLink() {
     const id = peekCampanhaId();
-    if (!id) return null;
-    try { window.history.replaceState({}, '', '/'); } catch (e) {}
-    return { page: 'campanha-preencher', options: { id } };
+    if (id) {
+        try { window.history.replaceState({}, '', '/'); } catch (e) {}
+        return { page: 'campanha-preencher', options: { id } };
+    }
+    const editUserEmail = peekAdminEditUser();
+    if (editUserEmail || peekAdminGoto()) {
+        try { window.history.replaceState({}, '', '/'); } catch (e) {}
+        return { page: 'admin', options: editUserEmail ? { editUserEmail } : {} };
+    }
+    return null;
 }
 
 // Depois de logar: se veio de um link de campanha, cai direto nela (sem
@@ -397,7 +415,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
             await (await import('./pages/cliente360.js')).renderCliente360Page(options);
             break;
         case 'admin':
-            await (await import('./pages/admin.js')).renderAdminPage();
+            await (await import('./pages/admin.js')).renderAdminPage(options);
             break;
         case 'report':
             await (await import('./pages/report.js')).renderReportPage();

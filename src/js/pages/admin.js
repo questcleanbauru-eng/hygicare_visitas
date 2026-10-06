@@ -146,7 +146,7 @@ async function resizeImageToDataUrl(file, maxDim) {
     return canvas.toDataURL('image/png');
 }
 
-export async function renderAdminPage() {
+export async function renderAdminPage(options = {}) {
     ensureStyles('admin');
     const mainContent = document.getElementById('main-content');
 
@@ -186,12 +186,15 @@ export async function renderAdminPage() {
     const emailConfig = emailResult.status === 'success' ? emailResult.data : (cachedEmail || {});
     if (emailResult.status === 'success') { saveCache('admin_email', emailResult.data); }
 
+    // editUserEmail só é aplicado aqui (dados frescos), nunca no render com
+    // cache acima — senão a reconstrução da tabela logo em seguida dispara
+    // o auto-open de novo e abre o modal duplicado.
     if (state.currentPage === 'admin' && document.getElementById('main-content') === mainContent) {
-        fillAdminContent(mainContent, result.data, emailConfig);
+        fillAdminContent(mainContent, result.data, emailConfig, options);
     }
 }
 
-function fillAdminContent(mainContent, data, emailConfig) {
+function fillAdminContent(mainContent, data, emailConfig, options = {}) {
     const whatsappDiasAtivos = String(emailConfig.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d));
 
     mainContent.innerHTML = `
@@ -548,6 +551,16 @@ function fillAdminContent(mainContent, data, emailConfig) {
     bindAdminEvents(data);
     if (activeAdminTab === 'saude') { loadSaudeTab(); }
     if (activeAdminTab === 'listas') { loadClientesPrincipaisTab(); }
+
+    // Veio do botão "Cadastrar" do robô de WhatsApp (link com ?editUser=) —
+    // abre direto a edição da pessoa certa, sem o admin ter que procurar.
+    if (options.editUserEmail) {
+        const alvo = String(options.editUserEmail).toLowerCase();
+        const idx = data.users.findIndex((u) => String(u.emailLogin || u.EmailLogin || u.email || '').toLowerCase() === alvo);
+        const btn = idx >= 0 ? mainContent.querySelector(`[data-user-index="${idx}"]`) : null;
+        if (btn) btn.click();
+        else showToast('Não achei esse usuário pra abrir a edição automaticamente.', true);
+    }
 }
 
 

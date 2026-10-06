@@ -388,7 +388,8 @@ function paginaPainel() {
   .kanban-card-status .ok { color: #16a34a; font-weight: 700; font-size: 0.7rem; }
   .kanban-card-status .no { color: #94a3b8; font-weight: 600; font-size: 0.7rem; }
   .kanban-card-dias { flex-shrink: 0; font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; background: #fef3c7; color: #92400e; white-space: nowrap; }
-  .kanban-mais { font-size: 0.74rem; color: #2563eb; font-weight: 700; text-align: center; padding: 0.3rem 0; }
+  .kanban-mais { width: auto; background: transparent; border: none; font-size: 0.74rem; color: #2563eb; font-weight: 700; text-align: center; padding: 0.3rem 0; cursor: pointer; }
+  .kanban-mais:hover { text-decoration: underline; }
   .kanban-vazio { font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 1rem 0; }
 
   .semwhats-intro { font-size: 0.76rem; color: #92400e; margin: 0 0 0.5rem; line-height: 1.4; }
@@ -528,7 +529,7 @@ function renderBanner(s) {
     sub = nomes.length
       ? ('Só ' + listaNomes(nomes) + (nomes.length === 1 ? ' vai receber' : ' vão receber') + ' o aviso ' + quando + '. Os cards cinza não serão avisados.')
       : ('Ninguém vai receber aviso ' + quando + ' — nenhuma das ' + total + ' pessoas com pendência tem WhatsApp cadastrado.');
-    cta = '<a class="banner-cta" href="' + APP_URL + '" target="_blank" rel="noopener">Cadastrar no Admin →</a>';
+    cta = '<a class="banner-cta" href="' + APP_URL + '?goto=admin" target="_blank" rel="noopener">Cadastrar no Admin →</a>';
   } else {
     const enviouTxt = s.ultimoEnvio ? ('Enviou hoje às ' + formatHora(s.ultimoEnvio)) : 'Ainda não enviou hoje';
     sub = enviouTxt + ' · Próximo envio ' + quando;
@@ -578,6 +579,14 @@ const KANBAN_DEFS = [
 ];
 const LIMITE_CARDS_COLUNA = 5;
 const LIMITE_LINHAS_SEM_WHATSAPP = 7;
+// Quais colunas o usuário já clicou "+N mais" pra ver tudo — guardado aqui
+// (não no servidor) só pra lembrar entre atualizações automáticas do painel.
+const colunasExpandidas = new Set();
+let ultimoStatusParaKanban = null;
+
+function adminLink(email) {
+  return APP_URL + (email ? ('?editUser=' + encodeURIComponent(email)) : '?goto=admin');
+}
 
 function montarColunasKanban(s) {
   const todos = [
@@ -625,7 +634,14 @@ function kanbanCardHtml(card) {
   \`;
 }
 
+function maisBotaoHtml(key, resto, expandido, totalCount) {
+  if (resto > 0) return '<button type="button" class="kanban-mais" data-col="' + key + '">+' + resto + ' mais</button>';
+  if (expandido && totalCount > LIMITE_CARDS_COLUNA) return '<button type="button" class="kanban-mais" data-col="' + key + '">mostrar menos</button>';
+  return '';
+}
+
 function renderKanban(s) {
+  ultimoStatusParaKanban = s;
   const board = document.getElementById('kanban-board');
   if (s.pausadoNoApp) { board.innerHTML = '<p class="vazio">⏸️ Pausado em Admin &gt; Configurações — ninguém recebe enquanto isso.</p>'; return; }
   const semTelefone = s.semTelefonePrevia || [];
@@ -637,20 +653,23 @@ function renderKanban(s) {
     return;
   }
   board.innerHTML = cols.map((c) => {
-    const visiveis = c.cards.slice(0, LIMITE_CARDS_COLUNA);
-    const resto = c.cards.length - visiveis.length;
+    const expandido = colunasExpandidas.has(c.key);
+    const visiveis = expandido ? c.cards : c.cards.slice(0, LIMITE_CARDS_COLUNA);
+    const resto = expandido ? 0 : c.cards.length - visiveis.length;
     return \`
     <div class="kanban-col \${c.classe}">
       <div class="kanban-col-head"><span>\${c.label}</span><span class="kanban-count">\${c.cards.length}</span></div>
       <div class="kanban-cards">
         \${visiveis.length ? visiveis.map(kanbanCardHtml).join('') : '<p class="kanban-vazio">Nenhuma pendência</p>'}
-        \${resto > 0 ? '<div class="kanban-mais">+' + resto + ' mais</div>' : ''}
+        \${maisBotaoHtml(c.key, resto, expandido, c.cards.length)}
       </div>
     </div>
   \`;
   }).join('') + (semTelefone.length ? (() => {
-    const visiveis = semTelefone.slice(0, LIMITE_LINHAS_SEM_WHATSAPP);
-    const resto = semTelefone.length - visiveis.length;
+    const key = 'semwhats';
+    const expandido = colunasExpandidas.has(key);
+    const visiveis = expandido ? semTelefone : semTelefone.slice(0, LIMITE_LINHAS_SEM_WHATSAPP);
+    const resto = expandido ? 0 : semTelefone.length - visiveis.length;
     return \`
     <div class="kanban-col c-semwhats">
       <div class="kanban-col-head"><span>⚠️ Sem WhatsApp</span><span class="kanban-count" style="background:#fef3c7;color:#92400e">\${semTelefone.length}</span></div>
@@ -663,17 +682,25 @@ function renderKanban(s) {
             <span class="semwhats-nome">\${d.nome}</span>
             <span class="semwhats-right">
               <span class="semwhats-pend">\${totalPend} pend.</span>
-              <a class="semwhats-cadastrar" href="\${APP_URL}" target="_blank" rel="noopener">Cadastrar</a>
+              <a class="semwhats-cadastrar" href="\${adminLink(d.email)}" target="_blank" rel="noopener">Cadastrar</a>
             </span>
           </div>
         \`;
         }).join('')}
-        \${resto > 0 ? '<div class="kanban-mais">+' + resto + ' mais</div>' : ''}
+        \${maisBotaoHtml(key, resto, expandido, semTelefone.length)}
       </div>
     </div>
   \`;
   })() : '');
 }
+
+document.getElementById('kanban-board').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.kanban-mais');
+  if (!btn) return;
+  const key = btn.dataset.col;
+  if (colunasExpandidas.has(key)) colunasExpandidas.delete(key); else colunasExpandidas.add(key);
+  if (ultimoStatusParaKanban) renderKanban(ultimoStatusParaKanban);
+});
 
 function renderHistorico(s) {
   const el = document.getElementById('historico-lista');
