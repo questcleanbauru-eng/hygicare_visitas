@@ -467,6 +467,16 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                         </div>
                     </div>
                     <p class="helper-text" style="text-align:left;margin:0">O fim não é um limite rígido: se o computador ficar desligado durante toda a janela, o robô manda assim que ligar de novo (mesmo depois desse horário), contanto que ainda seja o dia certo e já tenha passado do início.</p>
+                    <div class="form-row-pair">
+                        <div class="form-group">
+                            <label for="whatsapp-dias-parado">Proposta/Funil "parado" após</label>
+                            <input type="number" id="whatsapp-dias-parado" min="1" value="${escapeHtml(String(emailConfig.whatsapp_dias_parado || '30'))}"> <span class="helper-text" style="display:inline">dias sem atualização</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="whatsapp-dias-inatividade">"Sem atividade" após</label>
+                            <input type="number" id="whatsapp-dias-inatividade" min="1" value="${escapeHtml(String(emailConfig.whatsapp_dias_inatividade || '60'))}"> <span class="helper-text" style="display:inline">dias sem visita/prospecção</span>
+                        </div>
+                    </div>
                     <div class="form-group full-width" style="text-align:left;margin:0">
                         <label>Dias que envia</label>
                         <div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:0.3rem">
@@ -1259,12 +1269,16 @@ export function bindAdminEvents(data) {
         const btn = document.getElementById('save-whatsapp-pendencias');
         const diasMarcados = Array.from(document.querySelectorAll('.whatsapp-dia-check:checked')).map((c) => c.value);
         if (!diasMarcados.length) { showToast('Marque pelo menos um dia da semana.', true); return; }
+        const diasParado = Number(document.getElementById('whatsapp-dias-parado').value) || 30;
+        const diasInatividade = Number(document.getElementById('whatsapp-dias-inatividade').value) || 60;
         setSaving(true, btn, 'Salvando...');
         const result = await saveEmailConfig({
             whatsapp_pendencias_pausado: document.getElementById('whatsapp-pendencias-pausado').checked ? 'true' : 'false',
             whatsapp_hora_inicio: document.getElementById('whatsapp-hora-inicio').value || '08:00',
             whatsapp_hora_limite: document.getElementById('whatsapp-hora-limite').value || '18:00',
-            whatsapp_dias_semana: diasMarcados.join(',')
+            whatsapp_dias_semana: diasMarcados.join(','),
+            whatsapp_dias_parado: String(diasParado),
+            whatsapp_dias_inatividade: String(diasInatividade)
         });
         if (result.status === 'success') { showToast('Preferência salva.'); setSaving(false, btn); }
         else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }

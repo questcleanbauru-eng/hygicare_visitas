@@ -22,13 +22,6 @@ import { readEmailConfig } from '../lib/handlers/config.js';
 
 const RESUMO_USER = { profile: 'admin', name: '', email: '', gerencia: '' };
 
-// Mesmo critério de "parado" já usado no Relatório de Propostas/Funil e no
-// Resumo Diário — não inventa um novo número.
-const DIAS_PARADO = 30;
-// Sem nenhuma visita/prospecção registrada há mais que isso = "favor
-// atualizar o aplicativo" (pedido do admin).
-const DIAS_INATIVIDADE = 60;
-
 function startOfDay(d) {
     const c = new Date(d);
     c.setHours(0, 0, 0, 0);
@@ -77,6 +70,12 @@ export default async function handler(req, res) {
             res.status(200).json({ status: 'success', data: [], semTelefone: [], pausado: true, schedule, teste });
             return;
         }
+
+        // Configurável em Admin > Configurações — mesmo critério usado no
+        // Relatório de Propostas/Funil e no Resumo Diário, só que agora
+        // ajustável sem precisar editar código.
+        const DIAS_PARADO = Number(config.whatsapp_dias_parado) || 30;
+        const DIAS_INATIVIDADE = Number(config.whatsapp_dias_inatividade) || 60;
 
         const today = startOfDay(nowInSaoPaulo());
         const [vendedores, agendamentos, propostasRaw, funil, campanhas, visitasRaw] = await Promise.all([

@@ -80,16 +80,43 @@ const painelStatus = {
     enviosSemana: 0
 };
 
+function estadoVazio() {
+    return { enviadosHoje: { data: '', telefones: [] }, historico: [] };
+}
 function lerEstado() {
-    if (!existsSync(STATE_FILE)) return { ultimoEnvio: '', historico: [] };
+    if (!existsSync(STATE_FILE)) return estadoVazio();
     try {
         const parsed = JSON.parse(readFileSync(STATE_FILE, 'utf-8'));
         if (!Array.isArray(parsed.historico)) parsed.historico = [];
+        // enviadosHoje por telefone (não mais um "enviado o dia todo" único) —
+        // formato antigo (campo "ultimoEnvio" só com a data) é ignorado aqui
+        // de propósito: o pior caso é mandar de novo pras pessoas que já
+        // tinham recebido no formato antigo, só na primeira checagem após
+        // essa atualização.
+        if (!parsed.enviadosHoje || typeof parsed.enviadosHoje !== 'object' || !Array.isArray(parsed.enviadosHoje.telefones)) {
+            parsed.enviadosHoje = { data: '', telefones: [] };
+        }
         return parsed;
-    } catch { return { ultimoEnvio: '', historico: [] }; }
+    } catch { return estadoVazio(); }
 }
 function salvarEstado(estado) {
     writeFileSync(STATE_FILE, JSON.stringify(estado, null, 2));
+}
+
+// Quem já recebeu a mensagem de pendências HOJE — por pessoa, não por dia
+// inteiro. Antes, uma falha de envio pra parte da lista marcava o dia
+// inteiro como "enviado" e ninguém que falhou era tentado de novo até o dia
+// seguinte. Agora só quem realmente recebeu entra aqui, e as próximas
+// checagens do mesmo dia tentam de novo só quem ainda falta.
+function estaEnviadoHoje(estado, telefone) {
+    return estado.enviadosHoje.data === hojeChaveLocal() && estado.enviadosHoje.telefones.includes(telefone);
+}
+function marcarEnviadosHoje(telefones) {
+    if (!telefones.length) return;
+    const estado = lerEstado();
+    if (estado.enviadosHoje.data !== hojeChaveLocal()) estado.enviadosHoje = { data: hojeChaveLocal(), telefones: [] };
+    telefones.forEach((t) => { if (!estado.enviadosHoje.telefones.includes(t)) estado.enviadosHoje.telefones.push(t); });
+    salvarEstado(estado);
 }
 
 // Registro de cada tentativa de envio (sucesso ou falha), pro painel
@@ -221,7 +248,7 @@ async function enviarPendenciasDoDia(sock, destinatarios) {
         return;
     }
     console.log(`Enviando para ${destinatarios.length} pessoa(s)...`);
-    let sucessos = 0;
+    const telefonesOk = [];
     let falhas = 0;
     for (const dest of destinatarios) {
         const jid = `${dest.telefone}@s.whatsapp.net`;
@@ -229,7 +256,7 @@ async function enviarPendenciasDoDia(sock, destinatarios) {
         try {
             await sock.sendMessage(jid, { text: texto });
             console.log(`  ✓ ${dest.nome} (${dest.telefone})`);
-            sucessos++;
+            telefonesOk.push(dest.telefone);
             registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', pendencias: totalPendencias(dest), quando: new Date().toISOString() });
         } catch (err) {
             console.error(`  ✗ ${dest.nome} (${dest.telefone}):`, err.message);
@@ -241,22 +268,18 @@ async function enviarPendenciasDoDia(sock, destinatarios) {
         const jitter = DELAY_ENTRE_ENVIOS_MS * 0.5 * Math.random();
         await sleep(DELAY_ENTRE_ENVIOS_MS + jitter);
     }
-    // Só marca o dia como "enviado" se pelo menos uma mensagem realmente
-    // saiu — antes marcava sempre, então uma falha total (ex.: conexão
-    // ainda instabilizando logo após parear) travava o dia inteiro sem
-    // nunca re-tentar, com o painel mostrando "já enviado" mesmo sem ter
-    // enviado nada de verdade.
-    if (sucessos > 0) {
-        const estado = lerEstado();
-        estado.ultimoEnvio = hojeChaveLocal();
-        salvarEstado(estado);
+    // Marca como "enviado hoje" só quem realmente recebeu — quem falhou
+    // (ex.: conexão ainda instabilizando logo após parear) continua fora da
+    // lista e entra de novo na próxima checagem, em vez de ficar esquecido
+    // até o dia seguinte.
+    if (telefonesOk.length) {
+        marcarEnviadosHoje(telefonesOk);
         painelStatus.ultimoEnvio = new Date().toISOString();
-        painelStatus.enviadoHoje = true;
     }
     if (falhas > 0) {
         painelStatus.ultimoErro = `${falhas} de ${destinatarios.length} mensagem(ns) falharam ao enviar — vai tentar de novo na próxima checagem.`;
     }
-    console.log(`Envio concluído: ${sucessos} ok, ${falhas} falha(s).`);
+    console.log(`Envio concluído: ${telefonesOk.length} ok, ${falhas} falha(s).`);
 }
 
 // Busca pendências e atualiza o painel (prévia), sem nunca mandar nada —
@@ -265,7 +288,6 @@ async function atualizarPrevia() {
     const agora = Date.now();
     painelStatus.ultimaChecagem = new Date(agora).toISOString();
     painelStatus.proximaChecagemPrevista = new Date(agora + INTERVALO_CHECAGEM_MIN * 60 * 1000).toISOString();
-    painelStatus.enviadoHoje = lerEstado().ultimoEnvio === hojeChaveLocal();
     const { destinatarios, semTelefone, schedule, pausado, teste } = await buscarPendencias();
     painelStatus.schedule = schedule;
     painelStatus.pausadoNoApp = pausado;
@@ -273,9 +295,14 @@ async function atualizarPrevia() {
     painelStatus.semTelefonePrevia = semTelefone;
     painelStatus.dentroDaJanelaAgora = dentroDaJanela(schedule);
     painelStatus.ultimoErro = null;
+    // "Enviado hoje" agora é por pessoa — só fica true quando ninguém de
+    // quem tem WhatsApp e pendência ainda está faltando receber.
+    const estado = lerEstado();
+    const pendentes = destinatarios.filter((d) => !estaEnviadoHoje(estado, d.telefone));
+    painelStatus.enviadoHoje = destinatarios.length > 0 && pendentes.length === 0;
     atualizarContadoresHistorico();
     await processarTesteSeNecessario(teste);
-    return { destinatarios, schedule, pausado };
+    return { destinatarios: pendentes, schedule, pausado };
 }
 
 // ── Painel local (http://localhost:PORTA_PAINEL) ────────────────────────
@@ -793,7 +820,9 @@ function iniciarPainel() {
             return;
         }
         if (req.method === 'GET' && req.url === '/status') {
-            painelStatus.enviadoHoje = lerEstado().ultimoEnvio === hojeChaveLocal();
+            // enviadoHoje já vem calculado da última atualizarPrevia (a cada
+            // checagem ou "Verificar agora") — recalcular aqui exigiria a
+            // lista completa de destinatários, que o /status não busca.
             atualizarContadoresHistorico();
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(painelStatus));
@@ -883,23 +912,18 @@ const checar = async () => {
     if (checagemEmAndamento) { console.log('Checagem anterior ainda em andamento — pulando esta.'); return; }
     checagemEmAndamento = true;
     try {
-        const estado = lerEstado();
-        if (estado.ultimoEnvio === hojeChaveLocal()) {
-            // Já mandou hoje — ainda atualiza a prévia pro painel mostrar o
-            // que ESTARIA pendente agora, só não envia de novo.
-            try { await atualizarPrevia(); } catch (err) { painelStatus.ultimoErro = err.message; }
-            return;
-        }
-        try {
-            const { destinatarios, schedule, pausado } = await atualizarPrevia();
-            if (pausado) return; // pausado em Admin > Configurações
-            if (!dentroDaJanela(schedule)) return; // fora do horário/dias configurados
-            if (!sockAtual) { console.log('Checagem adiada: WhatsApp ainda não está conectado.'); return; }
-            await enviarPendenciasDoDia(sockAtual, destinatarios);
-        } catch (err) {
-            painelStatus.ultimoErro = err.message;
-            console.error('Falha ao buscar/enviar pendências:', err.message);
-        }
+        // atualizarPrevia já devolve só quem AINDA não recebeu hoje — quem
+        // já foi avisado com sucesso não entra aqui de novo, mas quem
+        // falhou (ou é pendência nova desde a última checagem) continua.
+        const { destinatarios: pendentes, schedule, pausado } = await atualizarPrevia();
+        if (pausado) return; // pausado em Admin > Configurações
+        if (!dentroDaJanela(schedule)) return; // fora do horário/dias configurados
+        if (!pendentes.length) return; // todo mundo com WhatsApp já recebeu hoje
+        if (!sockAtual) { console.log('Checagem adiada: WhatsApp ainda não está conectado.'); return; }
+        await enviarPendenciasDoDia(sockAtual, pendentes);
+    } catch (err) {
+        painelStatus.ultimoErro = err.message;
+        console.error('Falha ao buscar/enviar pendências:', err.message);
     } finally {
         checagemEmAndamento = false;
     }
