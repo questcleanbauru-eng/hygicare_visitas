@@ -87,7 +87,7 @@ const painelStatus = {
 };
 
 function estadoVazio() {
-    return { enviadosHoje: { data: '', telefones: [] }, historico: [] };
+    return { enviadosHoje: { data: '', telefones: [] }, pausasIndividuais: {}, historico: [] };
 }
 function lerEstado() {
     if (!existsSync(STATE_FILE)) return estadoVazio();
@@ -102,6 +102,7 @@ function lerEstado() {
         if (!parsed.enviadosHoje || typeof parsed.enviadosHoje !== 'object' || !Array.isArray(parsed.enviadosHoje.telefones)) {
             parsed.enviadosHoje = { data: '', telefones: [] };
         }
+        if (!parsed.pausasIndividuais || typeof parsed.pausasIndividuais !== 'object') parsed.pausasIndividuais = {};
         return parsed;
     } catch { return estadoVazio(); }
 }
@@ -122,6 +123,25 @@ function marcarEnviadosHoje(telefones) {
     const estado = lerEstado();
     if (estado.enviadosHoje.data !== hojeChaveLocal()) estado.enviadosHoje = { data: hojeChaveLocal(), telefones: [] };
     telefones.forEach((t) => { if (!estado.enviadosHoje.telefones.includes(t)) estado.enviadosHoje.telefones.push(t); });
+    salvarEstado(estado);
+}
+
+// Pausa manual por pessoa (botão "⏸️ 24h" no card) — fica de fora do envio
+// AUTOMÁTICO enquanto durar, mas "📤 Agora" sempre ignora isso (é uma ação
+// explícita do admin). Expira sozinha depois de "horas" — evita o risco de
+// alguém ficar pausado pra sempre só porque esqueceram de reativar.
+function estaPausadoIndividualmente(estado, telefone) {
+    const p = estado.pausasIndividuais[telefone];
+    return !!(p && new Date(p.ate).getTime() > Date.now());
+}
+function pausarPessoa(telefone, nome, horas) {
+    const estado = lerEstado();
+    estado.pausasIndividuais[telefone] = { nome: nome || '', ate: new Date(Date.now() + horas * 3600000).toISOString() };
+    salvarEstado(estado);
+}
+function reativarPessoa(telefone) {
+    const estado = lerEstado();
+    delete estado.pausasIndividuais[telefone];
     salvarEstado(estado);
 }
 
@@ -310,14 +330,22 @@ async function atualizarPrevia() {
     const { destinatarios, semTelefone, schedule, pausado, teste } = await buscarPendencias();
     painelStatus.schedule = schedule;
     painelStatus.pausadoNoApp = pausado;
-    painelStatus.destinatariosPrevia = destinatarios;
+    const estado = lerEstado();
+    // pausadoAte vai junto na prévia pra o card mostrar "⏸️ pausado até Xh"
+    // e trocar o botão por "▶️ Reativar" — null quando não está pausada (ou
+    // a pausa de 24h já venceu sozinha).
+    painelStatus.destinatariosPrevia = destinatarios.map((d) => {
+        const p = estado.pausasIndividuais[d.telefone];
+        return { ...d, pausadoAte: (p && new Date(p.ate).getTime() > Date.now()) ? p.ate : null };
+    });
     painelStatus.semTelefonePrevia = semTelefone;
     painelStatus.dentroDaJanelaAgora = dentroDaJanela(schedule);
     painelStatus.ultimoErro = null;
     // "Enviado hoje" agora é por pessoa — só fica true quando ninguém de
-    // quem tem WhatsApp e pendência ainda está faltando receber.
-    const estado = lerEstado();
-    const pendentes = destinatarios.filter((d) => !estaEnviadoHoje(estado, d.telefone));
+    // quem tem WhatsApp e pendência ainda está faltando receber. Pausado
+    // individualmente também não conta como "faltando" (não é pra mandar
+    // mesmo, não é uma falha a resolver).
+    const pendentes = destinatarios.filter((d) => !estaEnviadoHoje(estado, d.telefone) && !estaPausadoIndividualmente(estado, d.telefone));
     painelStatus.enviadoHoje = destinatarios.length > 0 && pendentes.length === 0;
     atualizarContadoresHistorico();
     await processarTesteSeNecessario(teste);
@@ -438,6 +466,10 @@ function paginaPainel() {
   .kanban-card-status .ok { color: #16a34a; font-weight: 700; font-size: 0.7rem; }
   .kanban-card-status .no { color: #94a3b8; font-weight: 600; font-size: 0.7rem; }
   .kanban-card-dias { flex-shrink: 0; font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; background: #fef3c7; color: #92400e; white-space: nowrap; }
+  .kanban-card-actions { display: flex; gap: 0.35rem; margin-top: 0.45rem; }
+  .kanban-card-actions button { width: auto; flex: 1; padding: 0.3rem 0.3rem; font-size: 0.66rem; font-weight: 700; border-radius: 7px; border: 1px solid #e5e9f0; background: #f8fafc; color: #475569; cursor: pointer; }
+  .kanban-card-actions button:hover:not(:disabled) { background: #eef2f7; }
+  .kanban-card-actions button.pausado { background: #fef3c7; color: #92400e; border-color: #fde68a; }
   .kanban-mais { width: auto; background: transparent; border: none; font-size: 0.74rem; color: #2563eb; font-weight: 700; text-align: center; padding: 0.3rem 0; cursor: pointer; }
   .kanban-mais:hover { text-decoration: underline; }
   .kanban-vazio { font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 1rem 0; }
@@ -670,8 +702,8 @@ function montarColunasKanban(s) {
         const itens = getItens(d);
         const diasValor = dias ? dias(itens[0]) : null;
         return {
-          nome: d.nome, temTelefone: d.temTelefone, count: itens.length,
-          badge: contagem(itens.length),
+          nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null,
+          count: itens.length, badge: contagem(itens.length),
           detalhe: detalhe(itens[0]) + (itens.length > 1 ? ' +' + (itens.length - 1) : ''),
           dias: diasValor
         };
@@ -681,13 +713,21 @@ function montarColunasKanban(s) {
   cols.push({
     key: 'inatividade', classe: 'c-inatividade', label: '⏰ Inatividade',
     cards: todos.filter((d) => d.diasSemAtividade)
-      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null }))
+      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null, count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null }))
       .sort((a, b) => b.count - a.count)
   });
   return cols;
 }
 
 function kanbanCardHtml(card) {
+  const acoes = card.temTelefone ? \`
+    <div class="kanban-card-actions">
+      <button type="button" data-action="disparar" data-telefone="\${card.telefone}" data-nome="\${card.nome}">📤 Agora</button>
+      \${card.pausadoAte
+        ? '<button type="button" class="pausado" data-action="reativar" data-telefone="' + card.telefone + '" data-nome="' + card.nome + '">▶️ Reativar</button>'
+        : '<button type="button" data-action="pausar" data-telefone="' + card.telefone + '" data-nome="' + card.nome + '">⏸️ 24h</button>'}
+    </div>
+  \` : '';
   return \`
     <div class="kanban-card \${card.temTelefone ? 'recebe' : ''}">
       <div class="kanban-card-top">
@@ -696,9 +736,12 @@ function kanbanCardHtml(card) {
       </div>
       \${card.detalhe ? '<div class="kanban-card-detalhe">' + card.detalhe + '</div>' : ''}
       <div class="kanban-card-status">
-        \${card.temTelefone ? '<span class="ok">✓ vai receber</span>' : '<span class="no">sem WhatsApp</span>'}
+        \${card.temTelefone
+          ? (card.pausadoAte ? '<span class="no">⏸️ pausado até ' + formatHora(card.pausadoAte) + '</span>' : '<span class="ok">✓ vai receber</span>')
+          : '<span class="no">sem WhatsApp</span>'}
         \${card.dias ? '<span class="kanban-card-dias">há ' + card.dias + ' dias</span>' : ''}
       </div>
+      \${acoes}
     </div>
   \`;
 }
@@ -736,7 +779,32 @@ function renderKanban(s) {
   }).join('');
 }
 
-document.getElementById('kanban-board').addEventListener('click', (ev) => {
+document.getElementById('kanban-board').addEventListener('click', async (ev) => {
+  const btnDisparar = ev.target.closest('[data-action="disparar"]');
+  if (btnDisparar) {
+    const telefone = btnDisparar.dataset.telefone;
+    const nome = btnDisparar.dataset.nome;
+    if (!confirm('Enviar a mensagem de pendências pra ' + nome + ' agora mesmo?')) return;
+    btnDisparar.disabled = true;
+    btnDisparar.textContent = 'Enviando...';
+    try {
+      const r = await fetch('/disparar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefone }) });
+      const s = await r.json();
+      if (s.status === 'error') alert(s.message);
+    } catch (e) { alert('Não consegui falar com o robô.'); }
+    await atualizar();
+    return;
+  }
+  const btnPausa = ev.target.closest('[data-action="pausar"], [data-action="reativar"]');
+  if (btnPausa) {
+    const telefone = btnPausa.dataset.telefone;
+    const nome = btnPausa.dataset.nome;
+    const url = btnPausa.dataset.action === 'pausar' ? '/pausar-pessoa' : '/reativar-pessoa';
+    btnPausa.disabled = true;
+    try { await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefone, nome }) }); } catch (e) { /* atualizar() abaixo reflete o estado real */ }
+    await atualizar();
+    return;
+  }
   const btn = ev.target.closest('.kanban-mais[data-col]');
   if (!btn) return;
   const key = btn.dataset.col;
@@ -925,6 +993,19 @@ window.addEventListener('pagehide', () => {
 </html>`;
 }
 
+// Corpo JSON de um POST (telefone/nome) — o servidor é um http puro, sem
+// body-parser. Nunca rejeita: corpo ausente/inválido vira {} e quem chamar
+// trata o campo faltando.
+function lerCorpoJson(req) {
+    return new Promise((resolve) => {
+        let body = '';
+        req.on('data', (chunk) => { body += chunk; });
+        req.on('end', () => {
+            try { resolve(JSON.parse(body || '{}')); } catch { resolve({}); }
+        });
+    });
+}
+
 function iniciarPainel() {
     const server = createServer(async (req, res) => {
         if (req.method === 'GET' && req.url === '/') {
@@ -956,6 +1037,52 @@ function iniciarPainel() {
         if (req.method === 'POST' && req.url === '/reparear') {
             try {
                 await reparear();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(painelStatus));
+            } catch (err) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'error', message: err.message }));
+            }
+            return;
+        }
+        if (req.method === 'POST' && req.url === '/disparar') {
+            try {
+                const { telefone } = await lerCorpoJson(req);
+                if (!telefone) throw new Error('telefone obrigatório.');
+                if (!sockAtual) throw new Error('WhatsApp não está conectado agora.');
+                const { destinatarios } = await buscarPendencias();
+                const dest = destinatarios.find((d) => d.telefone === telefone);
+                if (!dest) throw new Error('Essa pessoa não tem pendência agora (pode já ter sido resolvida).');
+                await enviarPendenciasDoDia(sockAtual, [dest]);
+                await atualizarPrevia();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(painelStatus));
+            } catch (err) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'error', message: err.message }));
+            }
+            return;
+        }
+        if (req.method === 'POST' && req.url === '/pausar-pessoa') {
+            try {
+                const { telefone, nome } = await lerCorpoJson(req);
+                if (!telefone) throw new Error('telefone obrigatório.');
+                pausarPessoa(telefone, nome, 24);
+                await atualizarPrevia();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(painelStatus));
+            } catch (err) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'error', message: err.message }));
+            }
+            return;
+        }
+        if (req.method === 'POST' && req.url === '/reativar-pessoa') {
+            try {
+                const { telefone } = await lerCorpoJson(req);
+                if (!telefone) throw new Error('telefone obrigatório.');
+                reativarPessoa(telefone);
+                await atualizarPrevia();
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(painelStatus));
             } catch (err) {
