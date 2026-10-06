@@ -36,6 +36,10 @@ const HORA_PADRAO_POR_CATEGORIA = {
 };
 
 const RESUMO_USER = { profile: 'admin', name: '', email: '', gerencia: '' };
+// Mesmo padrão de lib/handlers/resumo.js (buildResumoEmailHtml) — pro link
+// de campanha no aviso de WhatsApp abrir a campanha certa direto (sem
+// precisar procurar na lista depois de logar).
+const APP_URL = process.env.APP_URL || 'https://hygicare-visitas.vercel.app';
 
 function startOfDay(d) {
     const c = new Date(d);
@@ -71,11 +75,16 @@ export default async function handler(req, res) {
         // local sabe horário/dias sem precisar guardar isso no .env dele;
         // o Admin vira a única fonte de verdade pro agendamento de envio.
         const horarios = {};
+        const ativos = {};
         Object.keys(HORA_PADRAO_POR_CATEGORIA).forEach((cat) => {
             horarios[cat] = config[`whatsapp_hora_${cat}`] || HORA_PADRAO_POR_CATEGORIA[cat];
+            // Liga/desliga por categoria, independente da pausa geral —
+            // defaultEmailConfig já garante 'true' por padrão.
+            ativos[cat] = isConfigOn(config[`whatsapp_ativo_${cat}`]);
         });
         const schedule = {
             horarios,
+            ativos,
             diasSemana: String(config.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d))
         };
         // Pedido de mensagem de teste (botão em Admin > Configurações) —
@@ -168,7 +177,7 @@ export default async function handler(req, res) {
             if (!pendentes) return;
             const nome = String(c.vendedorDestino || '').trim();
             if (!nome) return;
-            (campanhasPorVendedor[nome] = campanhasPorVendedor[nome] || []).push({ titulo: c.titulo || 'Campanha', pendentes });
+            (campanhasPorVendedor[nome] = campanhasPorVendedor[nome] || []).push({ titulo: c.titulo || 'Campanha', pendentes, link: `${APP_URL}/?c=${c.id}` });
         });
 
         // ── Sem visita/prospecção registrada há mais de 60 dias ──────────

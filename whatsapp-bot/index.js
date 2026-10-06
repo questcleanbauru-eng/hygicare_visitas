@@ -262,8 +262,13 @@ function sleep(ms) {
 // aparece quando o item realmente tem esse texto.
 function listaComLimite(itens, formatar, limite = 10) {
     const linhas = itens.slice(0, limite).map((i) => {
-        const { titulo, detalhe, extra } = formatar(i);
-        return `• *${titulo}*\n   ↳ ${detalhe}` + (extra ? `\n   💬 _${extra}_` : '');
+        const { titulo, detalhe, extra, link } = formatar(i);
+        let bloco = `• *${titulo}*\n   ↳ ${detalhe}`;
+        if (extra) bloco += `\n   💬 _${extra}_`;
+        // Sem itálico (ao contrário de "extra") — WhatsApp às vezes não
+        // detecta/pré-visualiza corretamente um link formatado como itálico.
+        if (link) bloco += `\n   🔗 ${link}`;
+        return bloco;
     }).join('\n\n');
     const resto = itens.length > limite ? `\n\n…e mais ${itens.length - limite}.` : '';
     return linhas + resto;
@@ -285,7 +290,7 @@ const CATEGORIA_DEFS = {
     agendamentos: { label: '🔴 Agendamentos vencidos', itens: (d) => d.agendamentos, formatar: (p) => ({ titulo: p.cliente, detalhe: `venceu ${p.dataAgendada} (${p.diasAtraso}d atrás)` }), limite: 10 },
     propostas: { label: '📄 Propostas paradas', itens: (d) => d.propostas, formatar: (p) => ({ titulo: p.cliente, detalhe: `sem atualização há ${p.diasParada}d` }), limite: 10 },
     funil: { label: '📊 Funil parado', itens: (d) => d.funil, formatar: (f) => ({ titulo: f.cliente, detalhe: `sem atualização há ${f.diasParado}d` }), limite: 5 },
-    campanhas: { label: '📣 Campanhas aguardando resposta', itens: (d) => d.campanhas, formatar: (c) => ({ titulo: c.titulo, detalhe: `${c.pendentes} cliente(s) pendente(s)` }), limite: 10 },
+    campanhas: { label: '📣 Campanhas aguardando resposta', itens: (d) => d.campanhas, formatar: (c) => ({ titulo: c.titulo, detalhe: `${c.pendentes} cliente(s) pendente(s)`, link: c.link }), limite: 10 },
     contratos: { label: '📑 Contratos vencendo', itens: (d) => d.contratos, formatar: (c) => ({ titulo: c.cliente, detalhe: c.diasRestantes < 0 ? `venceu há ${-c.diasRestantes}d` : (c.diasRestantes === 0 ? 'vence hoje' : `vence em ${c.diasRestantes}d (${c.fim})`) }), limite: 10 }
 };
 
@@ -658,6 +663,8 @@ function paginaPainel() {
   .kanban-col.c-funil { border-left-color: #3b82f6; }
   .kanban-col.c-campanhas { border-left-color: #f97316; }
   .kanban-col.c-contratos { border-left-color: #0d9488; }
+  .kanban-col.desligada { opacity: 0.55; }
+  .kanban-desligada-tag { font-size: 0.64rem; font-weight: 800; text-transform: uppercase; color: #94a3b8; background: #f1f5f9; padding: 0.05rem 0.4rem; border-radius: 999px; margin-left: 0.3rem; }
   .kanban-col-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; padding: 0 0.1rem; }
   .kanban-count { flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; }
   .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
@@ -1022,13 +1029,15 @@ function renderKanban(s) {
       : '<p class="vazio">Ninguém com pendência no momento.</p>';
     return;
   }
+  const ativos = (s.schedule && s.schedule.ativos) || {};
   board.innerHTML = cols.map((c) => {
     const expandido = colunasExpandidas.has(c.key);
     const visiveis = expandido ? c.cards : c.cards.slice(0, LIMITE_CARDS_COLUNA);
     const resto = expandido ? 0 : c.cards.length - visiveis.length;
+    const desligada = ativos[c.key] === false;
     return \`
-    <div class="kanban-col \${c.classe}">
-      <div class="kanban-col-head"><span>\${c.label}</span><span class="kanban-count">\${c.cards.length}</span></div>
+    <div class="kanban-col \${c.classe} \${desligada ? 'desligada' : ''}">
+      <div class="kanban-col-head"><span>\${c.label}\${desligada ? ' <span class="kanban-desligada-tag">desligada</span>' : ''}</span><span class="kanban-count">\${c.cards.length}</span></div>
       <div class="kanban-cards">
         \${visiveis.length ? visiveis.map(kanbanCardHtml).join('') : '<p class="kanban-vazio">Nenhuma pendência</p>'}
         \${maisBotaoHtml(c.key, resto, expandido, c.cards.length)}
@@ -1549,6 +1558,7 @@ const checar = async () => {
                 // dia da semana não configurado — nem pendência nem resumo saem hoje
             } else if (!pausado) {
                 for (const categoria of CATEGORIAS_PENDENCIA) {
+                    if (schedule.ativos && schedule.ativos[categoria] === false) continue; // categoria desligada em Admin
                     const hora = schedule.horarios[categoria];
                     if (!passouDoHorario(hora)) continue; // ainda não chegou a vez dessa categoria
                     const pendentes = pendentesPorCategoria[categoria];

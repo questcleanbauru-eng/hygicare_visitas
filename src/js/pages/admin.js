@@ -479,10 +479,16 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                 <div class="section-title-row"><h3 class="section-title">📱 Avisos de pendência por WhatsApp</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <p class="helper-text" style="text-align:left;margin:0">Controla o robô de WhatsApp que roda separado (fora deste app, no computador configurado) — ele busca horário e dias aqui a cada checagem, não precisa mexer no computador pra ajustar. Cada categoria manda como uma mensagem SEPARADA, no próprio horário.</p>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.7rem">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.7rem">
                         ${WHATSAPP_CATEGORIAS.map(({ key, label }) => `
                             <div class="form-group" style="margin:0">
-                                <label for="whatsapp-hora-${key}">${label}</label>
+                                <label for="whatsapp-hora-${key}" style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem">
+                                    <span>${label}</span>
+                                    <label class="toggle-switch" title="Ligar/desligar envio dessa categoria por WhatsApp">
+                                        <input type="checkbox" class="whatsapp-ativo-check" data-categoria="${key}" ${isConfigOn(emailConfig[`whatsapp_ativo_${key}`]) ? 'checked' : ''}>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </label>
                                 <input type="time" id="whatsapp-hora-${key}" value="${escapeHtml(emailConfig[`whatsapp_hora_${key}`] || WHATSAPP_HORA_PADRAO[key])}">
                             </div>`).join('')}
                     </div>
@@ -1319,13 +1325,16 @@ export function bindAdminEvents(data) {
         const diasInatividade = Number(document.getElementById('whatsapp-dias-inatividade').value) || 60;
         const diasContratoVencendo = Number(document.getElementById('whatsapp-dias-contrato-vencendo').value) || 30;
         const horarios = {};
+        const ativos = {};
         WHATSAPP_CATEGORIAS.forEach(({ key }) => {
             horarios[`whatsapp_hora_${key}`] = document.getElementById(`whatsapp-hora-${key}`).value || WHATSAPP_HORA_PADRAO[key];
+            ativos[`whatsapp_ativo_${key}`] = document.querySelector(`.whatsapp-ativo-check[data-categoria="${key}"]`).checked ? 'true' : 'false';
         });
         setSaving(true, btn, 'Salvando...');
         const result = await saveEmailConfig({
             whatsapp_pendencias_pausado: document.getElementById('whatsapp-pendencias-pausado').checked ? 'true' : 'false',
             ...horarios,
+            ...ativos,
             whatsapp_dias_semana: diasMarcados.join(','),
             whatsapp_dias_parado: String(diasParado),
             whatsapp_dias_inatividade: String(diasInatividade),
