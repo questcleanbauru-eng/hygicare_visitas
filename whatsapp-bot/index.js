@@ -424,7 +424,6 @@ function paginaPainel() {
   .kanban-col.c-funil { border-left-color: #3b82f6; }
   .kanban-col.c-campanhas { border-left-color: #f97316; }
   .kanban-col.c-inatividade { border-left-color: #94a3b8; }
-  .kanban-col.c-semwhats { background: #fffbeb; border-color: #fde68a; border-left-color: #f59e0b; }
   .kanban-col-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; padding: 0 0.1rem; }
   .kanban-count { flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; }
   .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
@@ -444,6 +443,8 @@ function paginaPainel() {
   .kanban-vazio { font-size: 0.78rem; color: #94a3b8; text-align: center; padding: 1rem 0; }
 
   .semwhats-intro { font-size: 0.76rem; color: #92400e; margin: 0 0 0.5rem; line-height: 1.4; }
+  .semwhats-rows { display: flex; flex-direction: column; }
+  @media (min-width: 1400px) { .semwhats-rows { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.3rem; } }
   .semwhats-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid #fde68a; }
   .semwhats-row:last-child { border-bottom: none; }
   .semwhats-nome { font-weight: 700; font-size: 0.82rem; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -505,12 +506,20 @@ function paginaPainel() {
     <div class="kanban-wrap" id="kanban-board">—</div>
   </div>
 
-  <div class="card">
+  <div class="card" style="margin-bottom:1.1rem">
     <div class="card-head">
       <span class="card-title">🕒 Últimos envios</span>
       <button type="button" class="card-collapse-btn" id="btn-toggle-historico" aria-label="Mostrar/esconder últimos envios">▾</button>
     </div>
     <div id="historico-lista"></div>
+  </div>
+
+  <div class="card" id="semwhats-card" style="display:none">
+    <div class="card-head">
+      <span class="card-title">⚠️ Sem WhatsApp cadastrado</span>
+      <span class="kanban-count" id="semwhats-card-count" style="background:#fef3c7;color:#92400e">0</span>
+    </div>
+    <div id="sem-whatsapp-board"></div>
   </div>
 
 <script>
@@ -704,9 +713,8 @@ function renderKanban(s) {
   ultimoStatusParaKanban = s;
   const board = document.getElementById('kanban-board');
   if (s.pausadoNoApp) { board.innerHTML = '<p class="vazio">⏸️ Pausado em Admin &gt; Configurações — ninguém recebe enquanto isso.</p>'; return; }
-  const semTelefone = s.semTelefonePrevia || [];
   const cols = montarColunasKanban(s);
-  if (!cols.some((c) => c.cards.length) && !semTelefone.length) {
+  if (!cols.some((c) => c.cards.length)) {
     board.innerHTML = s.enviadoHoje
       ? '<p class="vazio">✅ Já enviado hoje. Nada de novo desde então.</p>'
       : '<p class="vazio">Ninguém com pendência no momento.</p>';
@@ -725,37 +733,54 @@ function renderKanban(s) {
       </div>
     </div>
   \`;
-  }).join('') + (semTelefone.length ? (() => {
-    const key = 'semwhats';
-    const expandido = colunasExpandidas.has(key);
-    const visiveis = expandido ? semTelefone : semTelefone.slice(0, LIMITE_LINHAS_SEM_WHATSAPP);
-    const resto = expandido ? 0 : semTelefone.length - visiveis.length;
-    return \`
-    <div class="kanban-col c-semwhats">
-      <div class="kanban-col-head"><span>⚠️ Sem WhatsApp</span><span class="kanban-count" style="background:#fef3c7;color:#92400e">\${semTelefone.length}</span></div>
-      <p class="semwhats-intro">Essas pessoas não recebem avisos até ter o WhatsApp cadastrado.</p>
-      <button type="button" class="kanban-mais" style="text-align:left;padding:0 0 0.5rem" data-action="copiar-semwhats">📋 Copiar lista de nomes</button>
-      <div class="kanban-cards">
-        \${visiveis.map((d) => {
-          const totalPend = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.diasSemAtividade ? 1 : 0);
-          return \`
-          <div class="semwhats-row">
-            <span class="semwhats-nome">\${d.nome}</span>
-            <span class="semwhats-right">
-              <span class="semwhats-pend">\${totalPend} pend.</span>
-              <a class="semwhats-cadastrar" href="\${adminLink(d.email)}" target="_blank" rel="noopener">Cadastrar</a>
-            </span>
-          </div>
-        \`;
-        }).join('')}
-        \${maisBotaoHtml(key, resto, expandido, semTelefone.length)}
-      </div>
-    </div>
-  \`;
-  })() : '');
+  }).join('');
 }
 
-document.getElementById('kanban-board').addEventListener('click', async (ev) => {
+document.getElementById('kanban-board').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.kanban-mais[data-col]');
+  if (!btn) return;
+  const key = btn.dataset.col;
+  if (colunasExpandidas.has(key)) colunasExpandidas.delete(key); else colunasExpandidas.add(key);
+  if (ultimoStatusParaKanban) renderKanban(ultimoStatusParaKanban);
+});
+
+// "Sem WhatsApp" virou uma seção própria abaixo de "Últimos envios" (em vez
+// de uma 6ª coluna espremendo as outras no kanban) — pedido explícito, fica
+// mais fácil de ler tanto o kanban quanto essa lista.
+function renderSemWhatsapp(s) {
+  const card = document.getElementById('semwhats-card');
+  const board = document.getElementById('sem-whatsapp-board');
+  const semTelefone = s.semTelefonePrevia || [];
+  document.getElementById('semwhats-card-count').textContent = String(semTelefone.length);
+  card.style.display = semTelefone.length ? '' : 'none';
+  if (!semTelefone.length) { board.innerHTML = ''; return; }
+
+  const key = 'semwhats';
+  const expandido = colunasExpandidas.has(key);
+  const visiveis = expandido ? semTelefone : semTelefone.slice(0, LIMITE_LINHAS_SEM_WHATSAPP);
+  const resto = expandido ? 0 : semTelefone.length - visiveis.length;
+  board.innerHTML = \`
+    <p class="semwhats-intro">Essas pessoas não recebem avisos até ter o WhatsApp cadastrado.</p>
+    <button type="button" class="kanban-mais" style="text-align:left;padding:0 0 0.5rem" data-action="copiar-semwhats">📋 Copiar lista de nomes</button>
+    <div class="semwhats-rows">
+      \${visiveis.map((d) => {
+        const totalPend = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.diasSemAtividade ? 1 : 0);
+        return \`
+        <div class="semwhats-row">
+          <span class="semwhats-nome">\${d.nome}</span>
+          <span class="semwhats-right">
+            <span class="semwhats-pend">\${totalPend} pend.</span>
+            <a class="semwhats-cadastrar" href="\${adminLink(d.email)}" target="_blank" rel="noopener">Cadastrar</a>
+          </span>
+        </div>
+      \`;
+      }).join('')}
+      \${maisBotaoHtml(key, resto, expandido, semTelefone.length)}
+    </div>
+  \`;
+}
+
+document.getElementById('semwhats-card').addEventListener('click', async (ev) => {
   const btnCopiar = ev.target.closest('[data-action="copiar-semwhats"]');
   if (btnCopiar) {
     const nomes = (ultimoStatusParaKanban?.semTelefonePrevia || []).map((d) => d.nome);
@@ -770,11 +795,10 @@ document.getElementById('kanban-board').addEventListener('click', async (ev) => 
     setTimeout(() => { btnCopiar.textContent = textoOriginal; }, 2000);
     return;
   }
-  const btn = ev.target.closest('.kanban-mais[data-col]');
+  const btn = ev.target.closest('.kanban-mais[data-col="semwhats"]');
   if (!btn) return;
-  const key = btn.dataset.col;
-  if (colunasExpandidas.has(key)) colunasExpandidas.delete(key); else colunasExpandidas.add(key);
-  if (ultimoStatusParaKanban) renderKanban(ultimoStatusParaKanban);
+  if (colunasExpandidas.has('semwhats')) colunasExpandidas.delete('semwhats'); else colunasExpandidas.add('semwhats');
+  if (ultimoStatusParaKanban) renderSemWhatsapp(ultimoStatusParaKanban);
 });
 
 document.getElementById('banner').addEventListener('click', async (ev) => {
@@ -857,6 +881,7 @@ async function atualizar() {
     tickCountdown();
     renderKanban(s);
     renderHistorico(s);
+    renderSemWhatsapp(s);
   } catch (e) {
     document.getElementById('banner').innerHTML = '<span style="color:#dc2626">Não consegui falar com o robô — ele ainda está rodando?</span>';
   }
