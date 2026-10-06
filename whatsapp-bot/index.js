@@ -87,13 +87,14 @@ const painelStatus = {
 };
 
 function estadoVazio() {
-    return { enviadosHoje: { data: '', telefones: [] }, pausasIndividuais: {}, historico: [] };
+    return { enviadosHoje: { data: '', telefones: [] }, pausasIndividuais: {}, ultimoTesteProcessado: 0, historico: [] };
 }
 function lerEstado() {
     if (!existsSync(STATE_FILE)) return estadoVazio();
     try {
         const parsed = JSON.parse(readFileSync(STATE_FILE, 'utf-8'));
-        if (!Array.isArray(parsed.historico)) parsed.historico = [];
+        let migrado = false;
+        if (!Array.isArray(parsed.historico)) { parsed.historico = []; migrado = true; }
         // enviadosHoje por telefone (não mais um "enviado o dia todo" único) —
         // formato antigo (campo "ultimoEnvio" só com a data) é ignorado aqui
         // de propósito: o pior caso é mandar de novo pras pessoas que já
@@ -101,8 +102,21 @@ function lerEstado() {
         // essa atualização.
         if (!parsed.enviadosHoje || typeof parsed.enviadosHoje !== 'object' || !Array.isArray(parsed.enviadosHoje.telefones)) {
             parsed.enviadosHoje = { data: '', telefones: [] };
+            migrado = true;
         }
-        if (!parsed.pausasIndividuais || typeof parsed.pausasIndividuais !== 'object') parsed.pausasIndividuais = {};
+        if (!parsed.pausasIndividuais || typeof parsed.pausasIndividuais !== 'object') { parsed.pausasIndividuais = {}; migrado = true; }
+        // Campo novo (antes o controle só vivia em memória, por isso
+        // reenviava teste velho — ex.: de admin Kadu — a cada reinício do
+        // robô). Na primeira leitura depois dessa atualização, Date.now()
+        // (não 0) marca qualquer pedido de teste JÁ EXISTENTE como coisa do
+        // passado, pra não disparar de novo um teste antigo só por causa da
+        // migração — um pedido de teste de verdade, clicado depois disso,
+        // sempre tem "quando" no futuro em relação a esse marco. Grava na
+        // hora (migrado=true) pra esse marco ficar fixo — senão, sem nunca
+        // salvar, toda leitura recalculava um "agora" novo e podia, por
+        // coincidência de milissegundos, deixar passar um teste de verdade.
+        if (typeof parsed.ultimoTesteProcessado !== 'number') { parsed.ultimoTesteProcessado = Date.now(); migrado = true; }
+        if (migrado) salvarEstado(parsed);
         return parsed;
     } catch { return estadoVazio(); }
 }
@@ -257,16 +271,20 @@ async function buscarPendencias() {
 // Conexão ativa, pra funções fora de iniciar() (tipo /verificar-agora via
 // HTTP) conseguirem mandar o teste sem precisar passar sock por todo lado.
 let sockAtual = null;
-let ultimoTesteProcessado = 0;
 
 // Botão "🧪 Enviar teste" em Admin > Configurações grava um pedido na
-// planilha; o robô vê isso em toda checagem e manda na hora, IGNORANDO
-// pausa/janela (o objetivo é só confirmar que a mensagem chega). Controla
-// localmente qual pedido já processou (por timestamp) pra não reenviar o
-// mesmo teste a cada checagem.
+// planilha e NUNCA é apagado de lá depois de enviado (fica só guardado como
+// "o último teste pedido"). Controla localmente qual pedido já processou
+// (por timestamp) pra não reenviar o mesmo teste a cada checagem — isso
+// precisa estar salvo em disco (não só em memória): como o robô é
+// reiniciado com frequência (a cada atualização), uma variável em memória
+// resetava pra 0 a cada reinício e reenviava o MESMO teste antigo de novo
+// (ex.: o de admin Kadu de dias atrás) assim que o robô voltava a conectar.
 async function processarTesteSeNecessario(teste) {
-    if (!teste || !teste.quando || teste.quando <= ultimoTesteProcessado) return;
-    ultimoTesteProcessado = teste.quando;
+    const estado = lerEstado();
+    if (!teste || !teste.quando || teste.quando <= estado.ultimoTesteProcessado) return;
+    estado.ultimoTesteProcessado = teste.quando;
+    salvarEstado(estado);
     if (!sockAtual) {
         console.log('Teste pedido, mas o robô ainda não está conectado ao WhatsApp.');
         return;

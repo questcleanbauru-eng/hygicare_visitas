@@ -253,6 +253,7 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                         <th>Região</th>
                         <th>Último acesso</th>
                         <th>E-mail</th>
+                        <th>WhatsApp</th>
                         <th></th>
                     </tr></thead>
                     <tbody>
@@ -264,6 +265,10 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                             const ultimoLogin = user.ultimoLogin || user.UltimoLogin || '';
                             const inativo = user.ativo === false;
                             const pc = profileClass(perfil);
+                            // Mostra sem o "55" na frente, igual o formulário de edição —
+                            // é como o admin normalmente digitou/reconhece o número.
+                            const whatsappRaw = String(user.telefoneWhatsapp || user.TelefoneWhatsapp || '').trim();
+                            const whatsapp = whatsappRaw.startsWith('55') && whatsappRaw.length > 11 ? whatsappRaw.slice(2) : whatsappRaw;
                             return `<tr class="admin-user-row row-collapsed${inativo ? ' admin-user-row-inativo' : ''}">
                                 <td data-label=""><div class="user-avatar-cell">
                                     <div class="user-avatar-initials ${pc}">${escapeHtml(getInitials(nome))}</div>
@@ -279,6 +284,7 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                                 <td data-label="E-mail">
                                     <button type="button" class="admin-icon-btn email-copy-btn" title="${escapeHtml(email)}" aria-label="Copiar e-mail de ${escapeHtml(nome)}" data-email="${escapeHtml(email)}">✉</button>
                                 </td>
+                                <td data-label="WhatsApp" style="font-size:0.85rem;color:${whatsapp ? 'var(--text-muted-strong)' : '#dc2626'}">${whatsapp ? escapeHtml(whatsapp) : '— sem número'}</td>
                                 <td data-label="Editar">
                                     <button type="button" class="admin-icon-btn" data-notify-email="${escapeHtml(email)}" data-notify-nome="${escapeHtml(nome)}" title="Mandar notificação" aria-label="Mandar notificação pra ${escapeHtml(nome)}">🔔</button>
                                     <button type="button" class="admin-icon-btn" data-user-index="${index}" title="Editar" aria-label="Editar usuário ${escapeHtml(nome)}">✏️</button>
