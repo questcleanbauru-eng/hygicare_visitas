@@ -521,7 +521,7 @@ export async function showResumoDiarioModal() {
 // getDashboardData principal, pra não atrasar/complicar o carregamento do
 // resto do Início; se não tiver nada pra mostrar (dia parado), o card nem
 // aparece, em vez de mostrar tudo zerado.
-async function loadResumoDiarioCard() {
+export async function loadResumoDiarioCard() {
     const container = document.getElementById('resumo-diario-card');
     if (!container) return;
     const result = await callAPI('getResumoDiario', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
