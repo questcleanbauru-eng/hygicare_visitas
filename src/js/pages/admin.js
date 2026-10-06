@@ -196,6 +196,7 @@ export async function renderAdminPage(options = {}) {
 
 function fillAdminContent(mainContent, data, emailConfig, options = {}) {
     const whatsappDiasAtivos = String(emailConfig.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d));
+    const whatsappResumoManutencaoEmails = String(emailConfig.whatsapp_resumo_manutencao_emails || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
     mainContent.innerHTML = `
         <div class="admin-hero">
@@ -499,6 +500,24 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                     </label>
                     <p class="helper-text" style="text-align:left;margin:0">A pausa tem prioridade sobre horário/dias — útil pra férias ou feriado prolongado sem precisar mexer no resto.</p>
                     <button type="button" id="save-whatsapp-pendencias" class="primary-button" style="align-self:flex-start">Salvar</button>
+
+                    <hr style="width:100%;border:none;border-top:1px solid var(--border);margin:0.2rem 0">
+                    <p class="helper-text" style="text-align:left;margin:0"><strong>📋 Resumo diário por WhatsApp</strong> — gerente ativo com WhatsApp cadastrado recebe automaticamente o resumo do próprio time (visitas, agendamentos, relatórios do dia anterior); não precisa marcar ninguém. Usa a mesma janela/dias configurados acima.</p>
+                    <div class="form-group full-width" style="text-align:left;margin:0">
+                        <label>Quem mais recebe o resumo de manutenção (Open/Close), empresa inteira</label>
+                        <div style="display:flex;flex-direction:column;gap:0.4rem;margin-top:0.3rem">
+                            ${data.users.filter((u) => String(u.Perfil || '').trim().toLowerCase() === 'admin').map((u) => `
+                                <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;font-weight:500;cursor:pointer">
+                                    <input type="checkbox" class="whatsapp-resumo-manutencao-check" value="${escapeHtml(u.EmailLogin || '')}" style="width:auto;accent-color:var(--primary)" ${whatsappResumoManutencaoEmails.includes(String(u.EmailLogin || '').trim().toLowerCase()) ? 'checked' : ''}>
+                                    ${escapeHtml(u.NomeVendedor || u.EmailLogin || '')}
+                                </label>`).join('') || '<span class="helper-text" style="margin:0">Nenhum admin cadastrado.</span>'}
+                        </div>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="whatsapp-resumo-pausado" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.whatsapp_resumo_pausado) ? 'checked' : ''}>
+                        ⏸️ Pausar resumo diário por WhatsApp
+                    </label>
+                    <button type="button" id="save-whatsapp-resumo" class="primary-button" style="align-self:flex-start">Salvar resumo</button>
                     <div class="form-group full-width" style="text-align:left;margin:0.4rem 0 0">
                         <label for="testar-whatsapp-alvo">🧪 Testar envio pro WhatsApp de</label>
                         <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
@@ -1285,6 +1304,18 @@ export function bindAdminEvents(data) {
             whatsapp_dias_semana: diasMarcados.join(','),
             whatsapp_dias_parado: String(diasParado),
             whatsapp_dias_inatividade: String(diasInatividade)
+        });
+        if (result.status === 'success') { showToast('Preferência salva.'); setSaving(false, btn); }
+        else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
+    });
+
+    document.getElementById('save-whatsapp-resumo')?.addEventListener('click', async () => {
+        const btn = document.getElementById('save-whatsapp-resumo');
+        const emails = Array.from(document.querySelectorAll('.whatsapp-resumo-manutencao-check:checked')).map((c) => c.value);
+        setSaving(true, btn, 'Salvando...');
+        const result = await saveEmailConfig({
+            whatsapp_resumo_pausado: document.getElementById('whatsapp-resumo-pausado').checked ? 'true' : 'false',
+            whatsapp_resumo_manutencao_emails: emails.join(',')
         });
         if (result.status === 'success') { showToast('Preferência salva.'); setSaving(false, btn); }
         else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }

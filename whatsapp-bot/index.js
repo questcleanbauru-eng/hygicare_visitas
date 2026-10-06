@@ -35,6 +35,9 @@ const API_SECRET = process.env.API_SECRET;
 // da própria API_URL (tira o /api/pendencias-whatsapp do final) em vez de
 // precisar de mais uma variável no .env.
 const APP_URL = API_URL ? API_URL.replace(/\/api\/.*$/, '/') : '';
+// Endpoint do resumo diário (gerente por time + manutenção Open/Close) —
+// mesmo domínio/secret de API_URL, só troca o nome do endpoint.
+const RESUMO_API_URL = API_URL ? API_URL.replace(/\/api\/.*$/, '/api/resumo-whatsapp') : '';
 const INTERVALO_CHECAGEM_MIN = Number(process.env.INTERVALO_CHECAGEM_MIN || 5);
 const DELAY_ENTRE_ENVIOS_MS = Number(process.env.DELAY_ENTRE_ENVIOS_MS || 8000);
 const PORTA_PAINEL = Number(process.env.PORTA_PAINEL || 3344);
@@ -87,7 +90,7 @@ const painelStatus = {
 };
 
 function estadoVazio() {
-    return { enviadosHoje: { data: '', telefones: [] }, pausasIndividuais: {}, ultimoTesteProcessado: 0, historico: [] };
+    return { enviadosHoje: { data: '', telefones: [] }, resumosEnviadosHoje: { data: '', telefones: [] }, pausasIndividuais: {}, ultimoTesteProcessado: 0, historico: [] };
 }
 function lerEstado() {
     if (!existsSync(STATE_FILE)) return estadoVazio();
@@ -102,6 +105,10 @@ function lerEstado() {
         // essa atualização.
         if (!parsed.enviadosHoje || typeof parsed.enviadosHoje !== 'object' || !Array.isArray(parsed.enviadosHoje.telefones)) {
             parsed.enviadosHoje = { data: '', telefones: [] };
+            migrado = true;
+        }
+        if (!parsed.resumosEnviadosHoje || typeof parsed.resumosEnviadosHoje !== 'object' || !Array.isArray(parsed.resumosEnviadosHoje.telefones)) {
+            parsed.resumosEnviadosHoje = { data: '', telefones: [] };
             migrado = true;
         }
         if (!parsed.pausasIndividuais || typeof parsed.pausasIndividuais !== 'object') { parsed.pausasIndividuais = {}; migrado = true; }
@@ -129,16 +136,25 @@ function salvarEstado(estado) {
 // inteiro como "enviado" e ninguém que falhou era tentado de novo até o dia
 // seguinte. Agora só quem realmente recebeu entra aqui, e as próximas
 // checagens do mesmo dia tentam de novo só quem ainda falta.
-function estaEnviadoHoje(estado, telefone) {
-    return estado.enviadosHoje.data === hojeChaveLocal() && estado.enviadosHoje.telefones.includes(telefone);
+//
+// Mesmo mecanismo serve pro resumo diário (bucket separado,
+// resumosEnviadosHoje) — é uma mensagem DIFERENTE da de pendências, então a
+// mesma pessoa pode legitimamente receber as duas no mesmo dia; não dava
+// pra reaproveitar o bucket de pendências sem um bloquear o outro.
+function estaNoBucketHoje(bucket, telefone) {
+    return bucket.data === hojeChaveLocal() && bucket.telefones.includes(telefone);
 }
-function marcarEnviadosHoje(telefones) {
+function marcarNoBucketHoje(bucketKey, telefones) {
     if (!telefones.length) return;
     const estado = lerEstado();
-    if (estado.enviadosHoje.data !== hojeChaveLocal()) estado.enviadosHoje = { data: hojeChaveLocal(), telefones: [] };
-    telefones.forEach((t) => { if (!estado.enviadosHoje.telefones.includes(t)) estado.enviadosHoje.telefones.push(t); });
+    if (estado[bucketKey].data !== hojeChaveLocal()) estado[bucketKey] = { data: hojeChaveLocal(), telefones: [] };
+    telefones.forEach((t) => { if (!estado[bucketKey].telefones.includes(t)) estado[bucketKey].telefones.push(t); });
     salvarEstado(estado);
 }
+function estaEnviadoHoje(estado, telefone) { return estaNoBucketHoje(estado.enviadosHoje, telefone); }
+function marcarEnviadosHoje(telefones) { marcarNoBucketHoje('enviadosHoje', telefones); }
+function estaResumoEnviadoHoje(estado, telefone) { return estaNoBucketHoje(estado.resumosEnviadosHoje, telefone); }
+function marcarResumosEnviadosHoje(telefones) { marcarNoBucketHoje('resumosEnviadosHoje', telefones); }
 
 // Pausa manual por pessoa (botão "⏸️ 24h" no card) — fica de fora do envio
 // AUTOMÁTICO enquanto durar, mas "📤 Agora" sempre ignora isso (é uma ação
@@ -268,6 +284,51 @@ async function buscarPendencias() {
     return { destinatarios: json.data || [], semTelefone: json.semTelefone || [], schedule, pausado: !!json.pausado, teste: json.teste || null };
 }
 
+async function buscarResumos() {
+    const res = await fetch(RESUMO_API_URL, { headers: { Authorization: `Bearer ${API_SECRET}` } });
+    if (!res.ok) throw new Error(`API de resumo respondeu ${res.status}`);
+    const json = await res.json();
+    if (json.status !== 'success') throw new Error(json.message || 'Erro desconhecido na API de resumo.');
+    return { gerentes: json.gerentes || [], manutencao: json.manutencao || [], pausado: !!json.pausado };
+}
+
+// Resumo do time do gerente — mesmas seções do resumo por e-mail (Início/
+// cron), só que condensado pra WhatsApp e sem link por item.
+function montarMensagemResumoGerente(g) {
+    const r = g.resumo;
+    const partes = [`Olá, *${primeiroNome(g.nome)}*! 👋\n\n📋 *Resumo da sua equipe* — ${r.dataResumo}`];
+
+    const visitasTxt = r.visitas.total
+        ? listaComLimite(r.visitas.porVendedor, (v) => `${v.nome} — ${v.total}`)
+        : 'Nenhuma visita registrada.';
+    partes.push(`📍 *Visitas* (${r.visitas.total})\n${visitasTxt}`);
+
+    const agLinhas = [];
+    if (r.agendamentos.vencidosTotal) {
+        agLinhas.push(`🔴 ${r.agendamentos.vencidosTotal} vencido(s):\n` + listaComLimite(r.agendamentos.vencidos, (a) => `${a.cliente} — venceu ${a.dataAgendada}`));
+    }
+    if (r.agendamentos.proximosTotal) agLinhas.push(`📅 ${r.agendamentos.proximosTotal} nos próximos 7 dias`);
+    partes.push(`📌 *Agendamentos*\n${agLinhas.length ? agLinhas.join('\n') : 'Nenhum vencido ou próximo.'}`);
+
+    if (r.relatorios.total) {
+        partes.push(`🔧 *Relatórios criados* (${r.relatorios.total})\nAferição: ${r.relatorios['aferição']} · SPSP: ${r.relatorios.spsp} · Geral: ${r.relatorios.geral}`);
+    }
+
+    partes.push(`🔗 Acesse o app: ${APP_URL}`);
+    partes.push('Bom trabalho! 💪\n_App de Visitas_');
+    return partes.join('\n\n');
+}
+
+// Resumo de manutenção (Open/Close) — empresa inteira, só pra quem está
+// marcado em Admin > Configurações pra receber isso (ex.: Kadu).
+function montarMensagemResumoManutencao(m) {
+    const partes = [`Olá, *${primeiroNome(m.nome)}*! 👋\n\n🛠️ *Resumo de Manutenção (Open/Close)* — ${m.dataResumo}`];
+    partes.push(listaComLimite(m.manutencao, (v) => `${v.cliente} — ${v.tipo}${v.vendedor ? ' (' + v.vendedor + ')' : ''}`, 20));
+    partes.push(`🔗 Acesse o app: ${APP_URL}`);
+    partes.push('_App de Visitas_');
+    return partes.join('\n\n');
+}
+
 // Conexão ativa, pra funções fora de iniciar() (tipo /verificar-agora via
 // HTTP) conseguirem mandar o teste sem precisar passar sock por todo lado.
 let sockAtual = null;
@@ -337,6 +398,48 @@ async function enviarPendenciasDoDia(sock, destinatarios) {
         painelStatus.ultimoErro = `${falhas} de ${destinatarios.length} mensagem(ns) falharam ao enviar — vai tentar de novo na próxima checagem.`;
     }
     console.log(`Envio concluído: ${telefonesOk.length} ok, ${falhas} falha(s).`);
+}
+
+// Resumo diário (gerente por time + manutenção pra quem está marcado em
+// Admin > Configurações) — mesma janela/dias dos avisos de pendência, mas
+// com dedup PRÓPRIO (resumosEnviadosHoje): a pessoa pode já ter recebido
+// pendência hoje e ainda faltar o resumo, ou vice-versa.
+async function enviarResumosDoDia(sock) {
+    let gerentes = [];
+    let manutencao = [];
+    try {
+        const r = await buscarResumos();
+        if (r.pausado) return;
+        gerentes = r.gerentes;
+        manutencao = r.manutencao;
+    } catch (err) {
+        console.error('Falha ao buscar resumos:', err.message);
+        return;
+    }
+    const estado = lerEstado();
+    const destinatarios = [
+        ...gerentes.filter((g) => !estaResumoEnviadoHoje(estado, g.telefone)).map((g) => ({ nome: g.nome, telefone: g.telefone, texto: montarMensagemResumoGerente(g) })),
+        ...manutencao.filter((m) => !estaResumoEnviadoHoje(estado, m.telefone)).map((m) => ({ nome: m.nome, telefone: m.telefone, texto: montarMensagemResumoManutencao(m) }))
+    ];
+    if (!destinatarios.length) return;
+
+    console.log(`Enviando resumo diário pra ${destinatarios.length} pessoa(s)...`);
+    const telefonesOk = [];
+    for (const dest of destinatarios) {
+        try {
+            await sock.sendMessage(`${dest.telefone}@s.whatsapp.net`, { text: dest.texto });
+            console.log(`  ✓ resumo: ${dest.nome} (${dest.telefone})`);
+            telefonesOk.push(dest.telefone);
+            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', tipo: 'resumo', quando: new Date().toISOString() });
+        } catch (err) {
+            console.error(`  ✗ resumo: ${dest.nome} (${dest.telefone}):`, err.message);
+            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'erro', tipo: 'resumo', detalhe: err.message, quando: new Date().toISOString() });
+        }
+        const jitter = DELAY_ENTRE_ENVIOS_MS * 0.5 * Math.random();
+        await sleep(DELAY_ENTRE_ENVIOS_MS + jitter);
+    }
+    if (telefonesOk.length) marcarResumosEnviadosHoje(telefonesOk);
+    console.log(`Resumo concluído: ${telefonesOk.length} ok, ${destinatarios.length - telefonesOk.length} falha(s).`);
 }
 
 // Busca pendências e atualiza o painel (prévia), sem nunca mandar nada —
@@ -984,8 +1087,8 @@ function renderHistorico(s) {
   el.innerHTML = hist.map((h) => \`
     <div class="hist-item">
       <div class="hist-left">
-        <span class="hist-icon \${h.status}">\${h.status === 'ok' ? '✓' : '✕'}</span>
-        <span class="hist-nome">\${h.nome} <span class="det \${h.status === 'erro' ? 'err' : ''}">· \${h.status === 'ok' ? (h.pendencias + ' pendência' + (h.pendencias === 1 ? '' : 's')) : ('falhou (' + (h.detalhe || 'erro') + ')')}</span></span>
+        <span class="hist-icon \${h.status}">\${h.tipo === 'resumo' ? '📋' : (h.status === 'ok' ? '✓' : '✕')}</span>
+        <span class="hist-nome">\${h.nome} <span class="det \${h.status === 'erro' ? 'err' : ''}">· \${h.status === 'erro' ? ('falhou (' + (h.detalhe || 'erro') + ')') : (h.tipo === 'resumo' ? 'resumo diário' : (h.pendencias + ' pendência' + (h.pendencias === 1 ? '' : 's')))}</span></span>
       </div>
       <span class="hist-quando">\${formatRelativo(h.quando)}</span>
     </div>
@@ -1268,11 +1371,13 @@ const checar = async () => {
         // já foi avisado com sucesso não entra aqui de novo, mas quem
         // falhou (ou é pendência nova desde a última checagem) continua.
         const { destinatarios: pendentes, schedule, pausado } = await atualizarPrevia();
-        if (pausado) return; // pausado em Admin > Configurações
         if (!dentroDaJanela(schedule)) return; // fora do horário/dias configurados
-        if (!pendentes.length) return; // todo mundo com WhatsApp já recebeu hoje
         if (!sockAtual) { console.log('Checagem adiada: WhatsApp ainda não está conectado.'); return; }
-        await enviarPendenciasDoDia(sockAtual, pendentes);
+        // Pausa de pendências (Admin > Configurações) não trava o resumo —
+        // são toggles independentes, resumo tem o próprio (checado dentro
+        // de enviarResumosDoDia, via buscarResumos().pausado).
+        if (!pausado && pendentes.length) await enviarPendenciasDoDia(sockAtual, pendentes);
+        await enviarResumosDoDia(sockAtual);
     } catch (err) {
         painelStatus.ultimoErro = err.message;
         console.error('Falha ao buscar/enviar pendências:', err.message);
