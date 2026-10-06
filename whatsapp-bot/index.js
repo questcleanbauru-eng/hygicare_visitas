@@ -475,7 +475,6 @@ function paginaPainel() {
   .kanban-col.c-propostas { border-left-color: #a855f7; }
   .kanban-col.c-funil { border-left-color: #3b82f6; }
   .kanban-col.c-campanhas { border-left-color: #f97316; }
-  .kanban-col.c-inatividade { border-left-color: #94a3b8; }
   .kanban-col-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; padding: 0 0.1rem; }
   .kanban-count { flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; }
   .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
@@ -503,6 +502,7 @@ function paginaPainel() {
   .semwhats-intro { font-size: 0.76rem; color: #92400e; margin: 0 0 0.5rem; line-height: 1.4; }
   .semwhats-rows { display: flex; flex-direction: column; }
   @media (min-width: 1400px) { .semwhats-rows { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.3rem; } }
+  .inatividade-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.6rem; }
   .semwhats-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid #fde68a; }
   .semwhats-row:last-child { border-bottom: none; }
   .semwhats-nome { font-weight: 700; font-size: 0.82rem; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -570,6 +570,14 @@ function paginaPainel() {
       <button type="button" class="card-collapse-btn" id="btn-toggle-historico" aria-label="Mostrar/esconder últimos envios">▾</button>
     </div>
     <div id="historico-lista"></div>
+  </div>
+
+  <div class="card" id="inatividade-card" style="display:none;margin-bottom:1.1rem">
+    <div class="card-head">
+      <span class="card-title">⏰ Inatividade</span>
+      <span class="kanban-count" id="inatividade-card-count">0</span>
+    </div>
+    <div class="inatividade-grid" id="inatividade-board"></div>
   </div>
 
   <div class="card" id="semwhats-card" style="display:none">
@@ -736,13 +744,20 @@ function montarColunasKanban(s) {
       })
       .sort((a, b) => b.count - a.count)
   }));
-  cols.push({
-    key: 'inatividade', classe: 'c-inatividade', label: '⏰ Inatividade',
-    cards: todos.filter((d) => d.diasSemAtividade)
-      .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null, jaEnviadoHoje: !!d.jaEnviadoHoje, count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null }))
-      .sort((a, b) => b.count - a.count)
-  });
   return cols;
+}
+
+// Inatividade saiu do kanban (virou seção própria abaixo de "Últimos
+// envios", igual "Sem WhatsApp") — mesmos dados, só não entra mais em
+// montarColunasKanban/renderKanban.
+function montarCardsInatividade(s) {
+  const todos = [
+    ...(s.destinatariosPrevia || []).map((d) => Object.assign({ temTelefone: true }, d)),
+    ...(s.semTelefonePrevia || []).map((d) => Object.assign({ temTelefone: false }, d))
+  ];
+  return todos.filter((d) => d.diasSemAtividade)
+    .map((d) => ({ nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null, jaEnviadoHoje: !!d.jaEnviadoHoje, count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null }))
+    .sort((a, b) => b.count - a.count);
 }
 
 function kanbanCardHtml(card) {
@@ -809,12 +824,15 @@ function renderKanban(s) {
   }).join('');
 }
 
-document.getElementById('kanban-board').addEventListener('click', async (ev) => {
+// Compartilhado pelos cards de "Pendências por tipo" e "Inatividade" (os
+// dois usam kanbanCardHtml, com os mesmos botões de ação) — evita duplicar
+// o mesmo tratamento de clique em dois listeners quase iguais.
+async function tratarAcaoCard(ev) {
   const btnDisparar = ev.target.closest('[data-action="disparar"]');
   if (btnDisparar) {
     const telefone = btnDisparar.dataset.telefone;
     const nome = btnDisparar.dataset.nome;
-    if (!confirm('Enviar a mensagem de pendências pra ' + nome + ' agora mesmo?')) return;
+    if (!confirm('Enviar a mensagem de pendências pra ' + nome + ' agora mesmo?')) return true;
     btnDisparar.disabled = true;
     btnDisparar.textContent = 'Enviando...';
     try {
@@ -823,7 +841,7 @@ document.getElementById('kanban-board').addEventListener('click', async (ev) => 
       if (s.status === 'error') alert(s.message);
     } catch (e) { alert('Não consegui falar com o robô.'); }
     await atualizar();
-    return;
+    return true;
   }
   const btnPausa = ev.target.closest('[data-action="pausar"], [data-action="reativar"]');
   if (btnPausa) {
@@ -833,13 +851,41 @@ document.getElementById('kanban-board').addEventListener('click', async (ev) => 
     btnPausa.disabled = true;
     try { await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefone, nome }) }); } catch (e) { /* atualizar() abaixo reflete o estado real */ }
     await atualizar();
-    return;
+    return true;
   }
+  return false;
+}
+
+document.getElementById('kanban-board').addEventListener('click', async (ev) => {
+  if (await tratarAcaoCard(ev)) return;
   const btn = ev.target.closest('.kanban-mais[data-col]');
   if (!btn) return;
   const key = btn.dataset.col;
   if (colunasExpandidas.has(key)) colunasExpandidas.delete(key); else colunasExpandidas.add(key);
   if (ultimoStatusParaKanban) renderKanban(ultimoStatusParaKanban);
+});
+
+function renderInatividade(s) {
+  const card = document.getElementById('inatividade-card');
+  const board = document.getElementById('inatividade-board');
+  const cards = montarCardsInatividade(s);
+  document.getElementById('inatividade-card-count').textContent = String(cards.length);
+  card.style.display = cards.length ? '' : 'none';
+  if (!cards.length) { board.innerHTML = ''; return; }
+
+  const key = 'inatividade';
+  const expandido = colunasExpandidas.has(key);
+  const visiveis = expandido ? cards : cards.slice(0, LIMITE_CARDS_COLUNA);
+  const resto = expandido ? 0 : cards.length - visiveis.length;
+  board.innerHTML = visiveis.map(kanbanCardHtml).join('') + maisBotaoHtml(key, resto, expandido, cards.length);
+}
+
+document.getElementById('inatividade-board').addEventListener('click', async (ev) => {
+  if (await tratarAcaoCard(ev)) return;
+  const btn = ev.target.closest('.kanban-mais[data-col="inatividade"]');
+  if (!btn) return;
+  if (colunasExpandidas.has('inatividade')) colunasExpandidas.delete('inatividade'); else colunasExpandidas.add('inatividade');
+  if (ultimoStatusParaKanban) renderInatividade(ultimoStatusParaKanban);
 });
 
 // "Sem WhatsApp" virou uma seção própria abaixo de "Últimos envios" (em vez
@@ -979,6 +1025,7 @@ async function atualizar() {
     tickCountdown();
     renderKanban(s);
     renderHistorico(s);
+    renderInatividade(s);
     renderSemWhatsapp(s);
   } catch (e) {
     document.getElementById('banner').innerHTML = '<span style="color:#dc2626">Não consegui falar com o robô — ele ainda está rodando?</span>';
