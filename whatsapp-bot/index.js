@@ -14,7 +14,7 @@
 // terminal (Configurações > Aparelhos conectados > Conectar um aparelho).
 // Depois de pareado, roda escondido (ver iniciar.bat) — acompanhe tudo
 // pelo painel em http://localhost:3344, não precisa mais olhar terminal.
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createServer } from 'node:http';
@@ -59,6 +59,12 @@ const painelStatus = {
     conectado: false,
     aguardandoQr: false,
     qrDataUrl: null,
+    // true quando o WhatsApp encerrou a sessão de verdade (ex.: aparelho
+    // removido pelo celular, ou erro 401) — nesses casos o robô NÃO tenta
+    // reconectar sozinho (reconectar usaria a mesma credencial já inválida
+    // pra sempre), e sem isso visível em algum lugar o robô ficava parado
+    // pra sempre sem ninguém saber que precisava de um QR novo.
+    sessaoEncerrada: false,
     ultimaChecagem: null,
     proximaChecagemPrevista: null,
     intervaloChecagemMin: INTERVALO_CHECAGEM_MIN,
@@ -352,6 +358,8 @@ function paginaPainel() {
     white-space: nowrap; background: #b45309; color: #fff; border: none; text-decoration: none; display: inline-flex; align-items: center;
   }
   .banner-cta:hover { background: #92400e; }
+  .banner-cta.danger { background: #dc2626; }
+  .banner-cta.danger:hover { background: #b91c1c; }
 
   .status-strip {
     display: flex; flex-wrap: wrap; align-items: center; row-gap: 0.4rem; column-gap: 0.9rem;
@@ -371,6 +379,9 @@ function paginaPainel() {
   }
   .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 0.5rem; flex-wrap: wrap; }
   .card-title { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; }
+  .card-collapse-btn { width: auto; background: transparent; border: none; padding: 0.1rem 0.3rem; font-size: 0.85rem; color: #94a3b8; cursor: pointer; transition: transform 0.15s; }
+  .card-collapse-btn:hover { color: #475569; }
+  .card-collapse-btn.collapsed { transform: rotate(-90deg); }
 
   button {
     width: 100%; padding: 0.85rem; border-radius: 12px; font-size: 0.9rem; font-weight: 700;
@@ -484,6 +495,7 @@ function paginaPainel() {
   <div class="card">
     <div class="card-head">
       <span class="card-title">🕒 Últimos envios</span>
+      <button type="button" class="card-collapse-btn" id="btn-toggle-historico" aria-label="Mostrar/esconder últimos envios">▾</button>
     </div>
     <div id="historico-lista"></div>
   </div>
@@ -543,7 +555,15 @@ function renderBanner(s) {
   let sub = '';
   let cta = '';
 
-  if (s.pausadoNoApp) {
+  if (s.sessaoEncerrada) {
+    // Caso mais sério: o WhatsApp encerrou a sessão de verdade (ex.:
+    // aparelho removido pelo celular) — reconectar sozinho repetiria o
+    // mesmo erro pra sempre, então precisa de um "Reparear" explícito.
+    classe = 'off'; icone = '🔌';
+    titulo = 'Sessão do WhatsApp encerrada';
+    sub = 'O aparelho foi desconectado do WhatsApp (ex.: removido pelo celular, ou excesso de aparelhos conectados). O robô NÃO tenta reconectar sozinho nesse caso — clique abaixo pra gerar um novo QR code.';
+    cta = '<button type="button" class="banner-cta danger" data-action="reparear">🔄 Reparear agora</button>';
+  } else if (s.pausadoNoApp) {
     classe = 'paused'; icone = '⏸️'; titulo = 'Pausado';
     sub = 'Envio desligado em Admin &gt; Configurações — ninguém recebe enquanto isso.';
   } else if (!s.conectado) {
@@ -701,6 +721,7 @@ function renderKanban(s) {
     <div class="kanban-col c-semwhats">
       <div class="kanban-col-head"><span>⚠️ Sem WhatsApp</span><span class="kanban-count" style="background:#fef3c7;color:#92400e">\${semTelefone.length}</span></div>
       <p class="semwhats-intro">Essas pessoas não recebem avisos até ter o WhatsApp cadastrado.</p>
+      <button type="button" class="kanban-mais" style="text-align:left;padding:0 0 0.5rem" data-action="copiar-semwhats">📋 Copiar lista de nomes</button>
       <div class="kanban-cards">
         \${visiveis.map((d) => {
           const totalPend = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.diasSemAtividade ? 1 : 0);
@@ -721,13 +742,59 @@ function renderKanban(s) {
   })() : '');
 }
 
-document.getElementById('kanban-board').addEventListener('click', (ev) => {
-  const btn = ev.target.closest('.kanban-mais');
+document.getElementById('kanban-board').addEventListener('click', async (ev) => {
+  const btnCopiar = ev.target.closest('[data-action="copiar-semwhats"]');
+  if (btnCopiar) {
+    const nomes = (ultimoStatusParaKanban?.semTelefonePrevia || []).map((d) => d.nome);
+    const texto = nomes.join('\\n');
+    const textoOriginal = btnCopiar.textContent;
+    try {
+      await navigator.clipboard.writeText(texto);
+      btnCopiar.textContent = '✓ Copiado!';
+    } catch (e) {
+      btnCopiar.textContent = 'Não consegui copiar — copie manualmente';
+    }
+    setTimeout(() => { btnCopiar.textContent = textoOriginal; }, 2000);
+    return;
+  }
+  const btn = ev.target.closest('.kanban-mais[data-col]');
   if (!btn) return;
   const key = btn.dataset.col;
   if (colunasExpandidas.has(key)) colunasExpandidas.delete(key); else colunasExpandidas.add(key);
   if (ultimoStatusParaKanban) renderKanban(ultimoStatusParaKanban);
 });
+
+document.getElementById('banner').addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-action="reparear"]');
+  if (!btn) return;
+  if (!confirm('Isso apaga o pareamento atual e gera um QR code novo pra escanear. Confirma?')) return;
+  btn.disabled = true;
+  btn.textContent = 'Reparando...';
+  try { await fetch('/reparear', { method: 'POST' }); } catch (e) { /* atualizar() abaixo já reflete o estado real */ }
+  await atualizar();
+});
+
+// Colapsado por padrão fica salvo localmente (só preferência de tela,
+// não precisa do servidor) — assim não volta a abrir sozinho a cada
+// atualização automática do painel (a cada 4s).
+const HISTORICO_COLAPSADO_KEY = 'wa-painel-historico-colapsado';
+function aplicarColapsoHistorico(colapsado) {
+  const lista = document.getElementById('historico-lista');
+  const btn = document.getElementById('btn-toggle-historico');
+  if (lista) lista.style.display = colapsado ? 'none' : '';
+  if (btn) btn.classList.toggle('collapsed', colapsado);
+}
+(() => {
+  let colapsado = false;
+  try { colapsado = localStorage.getItem(HISTORICO_COLAPSADO_KEY) === '1'; } catch (e) { /* localStorage indisponível — fica expandido */ }
+  aplicarColapsoHistorico(colapsado);
+  const btn = document.getElementById('btn-toggle-historico');
+  if (btn) btn.addEventListener('click', () => {
+    const agora = document.getElementById('historico-lista').style.display !== 'none';
+    aplicarColapsoHistorico(agora);
+    try { localStorage.setItem(HISTORICO_COLAPSADO_KEY, agora ? '1' : '0'); } catch (e) { /* ignora */ }
+  });
+})();
 
 function renderHistorico(s) {
   const el = document.getElementById('historico-lista');
@@ -840,6 +907,17 @@ function iniciarPainel() {
             }
             return;
         }
+        if (req.method === 'POST' && req.url === '/reparear') {
+            try {
+                await reparear();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(painelStatus));
+            } catch (err) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'error', message: err.message }));
+            }
+            return;
+        }
         if (req.method === 'POST' && req.url === '/parar') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ status: 'ok' }));
@@ -875,6 +953,7 @@ async function conectar() {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
             painelStatus.aguardandoQr = true;
+            painelStatus.sessaoEncerrada = false;
             console.log('\nEscaneie este QR code no WhatsApp (Aparelhos conectados > Conectar um aparelho) — ou abra o painel em http://localhost:3344, o QR aparece lá também:\n');
             qrcodeTerminal.generate(qr, { small: true });
             QRCode.toDataURL(qr, { width: 280, margin: 1 })
@@ -887,15 +966,38 @@ async function conectar() {
             const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
             const deveReconectar = statusCode !== DisconnectReason.loggedOut;
             console.log('Conexão caiu.', deveReconectar ? 'Reconectando...' : 'Sessão encerrada — apague a pasta auth_info/ e rode de novo pra reparear.');
-            if (deveReconectar) conectar();
+            if (deveReconectar) {
+                conectar();
+            } else {
+                // Sessão encerrada de verdade (ex.: aparelho removido pelo
+                // celular) — reconectar com a MESMA credencial só repetiria
+                // o mesmo erro pra sempre. Fica parado e visível no painel
+                // (banner + botão "Reparear agora") até alguém confirmar.
+                painelStatus.sessaoEncerrada = true;
+            }
         } else if (connection === 'open') {
             sockAtual = sock;
             painelStatus.conectado = true;
             painelStatus.aguardandoQr = false;
+            painelStatus.sessaoEncerrada = false;
             painelStatus.qrDataUrl = null;
             console.log('Conectado ao WhatsApp. Robô rodando — verificando a cada', INTERVALO_CHECAGEM_MIN, 'minuto(s).');
         }
     });
+}
+
+// Apaga as credenciais antigas (já inválidas) e começa um pareamento do
+// zero — equivalente ao que o README sempre pediu pra fazer manualmente
+// (apagar auth_info/) quando a sessão é encerrada, só que com um clique no
+// painel em vez de mexer em pasta/terminal.
+async function reparear() {
+    try { rmSync(AUTH_DIR, { recursive: true, force: true }); } catch (err) { console.error('Falha ao apagar auth_info/:', err.message); }
+    painelStatus.sessaoEncerrada = false;
+    painelStatus.conectado = false;
+    painelStatus.aguardandoQr = false;
+    painelStatus.qrDataUrl = null;
+    sockAtual = null;
+    await conectar();
 }
 
 // Sempre usa sockAtual (mantido certinho por connection.update acima) em vez
