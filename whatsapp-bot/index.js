@@ -1819,7 +1819,7 @@ const checar = async () => {
                     const pendentes = pendentesPorCategoria[categoria];
                     if (!pendentes || !pendentes.length) continue;
                     if (aprovacaoManual) {
-                        filaAprovacao.push({ categoria, pessoas: pendentes.length });
+                        filaAprovacao.push({ label: labelCategoria(categoria), pessoas: pendentes.length });
                     } else {
                         const enviados = await enviarCategoriaDoDia(sockAtual, categoria, pendentes);
                         if (enviados) filaEnviada.push({ label: labelCategoria(categoria), pessoas: enviados });
