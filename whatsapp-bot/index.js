@@ -1743,14 +1743,15 @@ function labelCategoria(categoria) {
 
 // Lembrete por WhatsApp (pro próprio ALERTA_TELEFONE) de que tem categoria(s)
 // esperando aprovação manual — só dispara enquanto whatsapp_aprovacao_manual
-// estiver ligado em Admin E tiver algo pendente. Debounced por 1h (mesmo
-// esquema de avisarErroPersistenteSeNecessario) pra não insistir a cada
-// checagem enquanto ninguém aprova.
+// estiver ligado em Admin E tiver algo pendente. Debounced por 12h (pedido
+// explícito: 1h incomodava, "2x ao dia" basta) — não é hora fixa do
+// relógio, é só "não insiste de novo antes de 12h desde o último".
+const INTERVALO_LEMBRETE_APROVACAO_MS = 12 * 3600000;
 async function avisarAprovacaoPendenteSeNecessario(fila) {
     if (!ALERTA_TELEFONE || !sockAtual || !fila.length) return;
     const estado = lerEstado();
     const agora = Date.now();
-    if (estado.ultimoAlertaAprovacao && (agora - estado.ultimoAlertaAprovacao) < 3600000) return;
+    if (estado.ultimoAlertaAprovacao && (agora - estado.ultimoAlertaAprovacao) < INTERVALO_LEMBRETE_APROVACAO_MS) return;
     try {
         await enviarTexto(sockAtual, `${ALERTA_TELEFONE}@s.whatsapp.net`, `🔔 *Lembrete — aprovação manual ativa*\n\nTem categoria(s) esperando sua aprovação no painel:\n${formatarListaEnvios(fila)}\n\nAbra o painel e clique em "Agora" em cada card pra enviar.\nhttp://localhost:${PORTA_PAINEL}\n\n_Pra voltar ao envio automático, desligue "Aprovação manual" em Admin > Configurações._`);
         estado.ultimoAlertaAprovacao = agora;
