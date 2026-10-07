@@ -479,6 +479,10 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                 <div class="section-title-row"><h3 class="section-title">📱 Avisos de pendência por WhatsApp</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
                     <p class="helper-text" style="text-align:left;margin:0">Controla o robô de WhatsApp que roda separado (fora deste app, no computador configurado) — ele busca horário e dias aqui a cada checagem, não precisa mexer no computador pra ajustar. Cada categoria manda como uma mensagem SEPARADA, no próprio horário.</p>
+                    <div id="whatsapp-aprovacao-aviso" style="display:${isConfigOn(emailConfig.whatsapp_aprovacao_manual) ? 'flex' : 'none'};align-items:center;gap:0.6rem;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:0.7rem 0.9rem">
+                        <span style="font-size:1.1rem">🔒</span>
+                        <p style="margin:0;font-size:0.84rem;font-weight:700;color:#3730a3">Modo aprovação manual ATIVO — nenhuma pendência sai sozinha, precisa aprovar pelo painel do robô (botão "Agora" em cada card).</p>
+                    </div>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.7rem">
                         ${WHATSAPP_CATEGORIAS.map(({ key, label }) => `
                             <div class="form-group" style="margin:0">
@@ -1319,6 +1323,13 @@ export function bindAdminEvents(data) {
         });
         if (result.status === 'success') { showToast('Modo manutenção salvo.'); setSaving(false, btn); }
         else { showToast(result.message || 'Não foi possível salvar.', true); setSaving(false, btn); }
+    });
+
+    // Aviso "modo aprovação manual ATIVO" reage na hora (sem precisar salvar
+    // e recarregar) — só pra quem está configurando já ver o efeito.
+    document.getElementById('whatsapp-aprovacao-manual')?.addEventListener('change', (ev) => {
+        const aviso = document.getElementById('whatsapp-aprovacao-aviso');
+        if (aviso) aviso.style.display = ev.target.checked ? 'flex' : 'none';
     });
 
     // Pausa do robô de WhatsApp

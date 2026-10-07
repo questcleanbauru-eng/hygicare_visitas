@@ -23,7 +23,11 @@ echo Iniciando o robo de WhatsApp em segundo plano (sem janela)...
 wscript.exe "%~dp0iniciar-oculto.vbs"
 
 echo Abrindo o painel de status...
-timeout /t 3 >nul
+rem Espera a porta responder de verdade (em vez de um tempo fixo) — o robo
+rem as vezes demora mais que 3s pra subir (ex.: antivirus escaneando na
+rem primeira vez), e abrir o navegador cedo demais dava "nao e possivel
+rem acessar esse site" ate um F5 manual.
+powershell -NoProfile -Command "$t=0; while ($t -lt 30) { try { (New-Object Net.Sockets.TcpClient('localhost',3344)).Close(); break } catch { Start-Sleep -Milliseconds 500; $t++ } }"
 start http://localhost:3344
 
 echo Pronto — esta janela ja pode ser fechada, o robo continua rodando escondido.

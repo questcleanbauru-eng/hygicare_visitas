@@ -479,33 +479,39 @@ async function enviarCategoriaDoDia(sock, categoria, destinatarios) {
 // pendência, checado aqui dentro já que só esta função usa esse schedule),
 // com dedup PRÓPRIO (resumosEnviadosHoje): a pessoa pode já ter recebido
 // pendência hoje e ainda faltar o resumo, ou vice-versa.
+// Devolve { gerentes, manutencao } com a CONTAGEM de quem recebeu de
+// verdade em cada tipo — usado pelo checar() pra incluir o resumo no aviso
+// de "envio automático realizado" (ver avisarEnvioAutomaticoRealizado).
 async function enviarResumosDoDia(sock) {
+    const vazio = { gerentes: 0, manutencao: 0 };
     let gerentes = [];
     let manutencao = [];
     try {
         const r = await buscarResumos();
-        if (r.pausado) return;
-        if (!diaConfiguradoHoje(r.schedule.diasSemana) || !passouDoHorario(r.schedule.hora)) return;
+        if (r.pausado) return vazio;
+        if (!diaConfiguradoHoje(r.schedule.diasSemana) || !passouDoHorario(r.schedule.hora)) return vazio;
         gerentes = r.gerentes;
         manutencao = r.manutencao;
     } catch (err) {
         console.error('Falha ao buscar resumos:', err.message);
-        return;
+        return vazio;
     }
     const estado = lerEstado();
     const destinatarios = [
-        ...gerentes.filter((g) => !estaResumoEnviadoHoje(estado, g.telefone)).map((g) => ({ nome: g.nome, telefone: g.telefone, texto: montarMensagemResumoGerente(g) })),
-        ...manutencao.filter((m) => !estaResumoEnviadoHoje(estado, m.telefone)).map((m) => ({ nome: m.nome, telefone: m.telefone, texto: montarMensagemResumoManutencao(m) }))
+        ...gerentes.filter((g) => !estaResumoEnviadoHoje(estado, g.telefone)).map((g) => ({ nome: g.nome, telefone: g.telefone, tipo: 'gerente', texto: montarMensagemResumoGerente(g) })),
+        ...manutencao.filter((m) => !estaResumoEnviadoHoje(estado, m.telefone)).map((m) => ({ nome: m.nome, telefone: m.telefone, tipo: 'manutencao', texto: montarMensagemResumoManutencao(m) }))
     ];
-    if (!destinatarios.length) return;
+    if (!destinatarios.length) return vazio;
 
     console.log(`Enviando resumo diário pra ${destinatarios.length} pessoa(s)...`);
     const telefonesOk = [];
+    const enviados = { gerentes: 0, manutencao: 0 };
     for (const dest of destinatarios) {
         try {
             await sock.sendMessage(`${dest.telefone}@s.whatsapp.net`, { text: dest.texto });
             console.log(`  ✓ resumo: ${dest.nome} (${dest.telefone})`);
             telefonesOk.push(dest.telefone);
+            if (dest.tipo === 'gerente') enviados.gerentes++; else enviados.manutencao++;
             registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', tipo: 'resumo', quando: new Date().toISOString() });
         } catch (err) {
             console.error(`  ✗ resumo: ${dest.nome} (${dest.telefone}):`, err.message);
@@ -516,6 +522,7 @@ async function enviarResumosDoDia(sock) {
     }
     if (telefonesOk.length) marcarResumosEnviadosHoje(telefonesOk);
     console.log(`Resumo concluído: ${telefonesOk.length} ok, ${destinatarios.length - telefonesOk.length} falha(s).`);
+    return enviados;
 }
 
 // Busca pendências e atualiza o painel (prévia), sem nunca mandar nada —
@@ -1591,9 +1598,13 @@ async function avisarErroPersistenteSeNecessario(mensagemErro) {
 }
 
 // "Funil parado — 3 pessoa(s)" por linha — usado tanto no lembrete de
-// aprovação pendente quanto no aviso de envio automático abaixo.
-function formatarListaCategorias(fila) {
-    return fila.map((f) => `• ${CATEGORIA_DEFS[f.categoria]?.label || '🌙 Inatividade'} — ${f.pessoas} pessoa(s)`).join('\n');
+// aprovação pendente quanto no aviso de envio automático abaixo. Itens já
+// chegam com "label" pronto (categoria de pendência OU resumo diário).
+function formatarListaEnvios(fila) {
+    return fila.map((f) => `• ${f.label} — ${f.pessoas} pessoa(s)`).join('\n');
+}
+function labelCategoria(categoria) {
+    return CATEGORIA_DEFS[categoria]?.label || '🌙 Inatividade';
 }
 
 // Lembrete por WhatsApp (pro próprio ALERTA_TELEFONE) de que tem categoria(s)
@@ -1608,7 +1619,7 @@ async function avisarAprovacaoPendenteSeNecessario(fila) {
     if (estado.ultimoAlertaAprovacao && (agora - estado.ultimoAlertaAprovacao) < 3600000) return;
     try {
         await sockAtual.sendMessage(`${ALERTA_TELEFONE}@s.whatsapp.net`, {
-            text: `🔔 *Lembrete — aprovação manual ativa*\n\nTem categoria(s) esperando sua aprovação no painel:\n${formatarListaCategorias(fila)}\n\nAbra o painel e clique em "Agora" em cada card pra enviar.\nhttp://localhost:${PORTA_PAINEL}\n\n_Pra voltar ao envio automático, desligue "Aprovação manual" em Admin > Configurações._`
+            text: `🔔 *Lembrete — aprovação manual ativa*\n\nTem categoria(s) esperando sua aprovação no painel:\n${formatarListaEnvios(fila)}\n\nAbra o painel e clique em "Agora" em cada card pra enviar.\nhttp://localhost:${PORTA_PAINEL}\n\n_Pra voltar ao envio automático, desligue "Aprovação manual" em Admin > Configurações._`
         });
         estado.ultimoAlertaAprovacao = agora;
         salvarEstado(estado);
@@ -1627,7 +1638,7 @@ async function avisarEnvioAutomaticoRealizado(fila) {
     if (!ALERTA_TELEFONE || !sockAtual || !fila.length) return;
     try {
         await sockAtual.sendMessage(`${ALERTA_TELEFONE}@s.whatsapp.net`, {
-            text: `✅ *Envio automático realizado agora*\n\n${formatarListaCategorias(fila)}\n\nPainel: http://localhost:${PORTA_PAINEL}`
+            text: `✅ *Envio automático realizado agora*\n\n${formatarListaEnvios(fila)}\n\nPainel: http://localhost:${PORTA_PAINEL}`
         });
     } catch (err) {
         console.error('Falha ao mandar aviso de envio automático:', err.message);
@@ -1654,17 +1665,17 @@ const checar = async () => {
         // hora configurada pra ela.
         const { pendentesPorCategoria, schedule, pausado, aprovacaoManual } = await atualizarPrevia();
         if (sockAtual) {
+            // filaEnviada acumula TUDO que foi enviado de verdade nessa
+            // checagem (pendência + resumo) pra mandar um aviso só no fim —
+            // só informativo, não trava nada mesmo sem aprovação manual.
+            const filaAprovacao = [];
+            const filaEnviada = [];
             if (!diaConfiguradoHoje(schedule.diasSemana)) {
-                // dia da semana não configurado — nem pendência nem resumo saem hoje
+                // dia da semana não configurado — pendência não sai hoje (resumo tem schedule próprio, abaixo)
             } else if (!pausado) {
                 // Com aprovação manual ligada, NADA sai sozinho daqui — só
                 // acumula pra lembrar o admin (fila abaixo); enviarCategoriaDoDia
                 // só é chamado de verdade pelo botão "Agora" (rota /disparar).
-                // Sem aprovação manual, acumula o que FOI enviado de verdade
-                // (filaEnviada) pra avisar o admin depois — só informativo,
-                // não trava nada.
-                const filaAprovacao = [];
-                const filaEnviada = [];
                 for (const categoria of CATEGORIAS_PENDENCIA) {
                     if (schedule.ativos && schedule.ativos[categoria] === false) continue; // categoria desligada em Admin
                     const hora = schedule.horarios[categoria];
@@ -1675,16 +1686,18 @@ const checar = async () => {
                         filaAprovacao.push({ categoria, pessoas: pendentes.length });
                     } else {
                         const enviados = await enviarCategoriaDoDia(sockAtual, categoria, pendentes);
-                        if (enviados) filaEnviada.push({ categoria, pessoas: enviados });
+                        if (enviados) filaEnviada.push({ label: labelCategoria(categoria), pessoas: enviados });
                     }
                 }
                 if (aprovacaoManual && filaAprovacao.length) await avisarAprovacaoPendenteSeNecessario(filaAprovacao);
-                if (filaEnviada.length) await avisarEnvioAutomaticoRealizado(filaEnviada);
             }
             // Resumo diário tem horário/pausa PRÓPRIOS, checados dentro dele
             // (buscarResumos() tem seu próprio schedule) — independente da
-            // pausa de pendências acima.
-            await enviarResumosDoDia(sockAtual);
+            // pausa de pendências acima. Entra na MESMA filaEnviada/aviso.
+            const resumoEnviado = await enviarResumosDoDia(sockAtual);
+            if (resumoEnviado.gerentes) filaEnviada.push({ label: '📋 Resumo diário (gerentes)', pessoas: resumoEnviado.gerentes });
+            if (resumoEnviado.manutencao) filaEnviada.push({ label: '🛠️ Resumo Manutenção (Open/Close)', pessoas: resumoEnviado.manutencao });
+            if (filaEnviada.length) await avisarEnvioAutomaticoRealizado(filaEnviada);
         } else {
             console.log('Checagem adiada: WhatsApp ainda não está conectado.');
         }
