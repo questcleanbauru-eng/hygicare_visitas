@@ -76,15 +76,21 @@ export default async function handler(req, res) {
         // o Admin vira a única fonte de verdade pro agendamento de envio.
         const horarios = {};
         const ativos = {};
+        const diasPorCategoria = {};
         Object.keys(HORA_PADRAO_POR_CATEGORIA).forEach((cat) => {
             horarios[cat] = config[`whatsapp_hora_${cat}`] || HORA_PADRAO_POR_CATEGORIA[cat];
             // Liga/desliga por categoria, independente da pausa geral —
             // defaultEmailConfig já garante 'true' por padrão.
             ativos[cat] = isConfigOn(config[`whatsapp_ativo_${cat}`]);
+            // Dias da semana POR categoria (ex.: Funil só quarta) — por cima
+            // do diasSemana geral abaixo, que continua valendo como filtro
+            // amplo. defaultEmailConfig já garante '1,2,3,4,5' por padrão.
+            diasPorCategoria[cat] = String(config[`whatsapp_dias_${cat}`] || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d));
         });
         const schedule = {
             horarios,
             ativos,
+            diasPorCategoria,
             diasSemana: String(config.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d))
         };
         // Pedido de mensagem de teste (botão em Admin > Configurações) —

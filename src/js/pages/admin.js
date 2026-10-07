@@ -212,6 +212,10 @@ export async function renderAdminPage(options = {}) {
 
 function fillAdminContent(mainContent, data, emailConfig, options = {}) {
     const whatsappDiasAtivos = String(emailConfig.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d));
+    const whatsappDiasPorCategoria = {};
+    WHATSAPP_CATEGORIAS.forEach(({ key }) => {
+        whatsappDiasPorCategoria[key] = String(emailConfig[`whatsapp_dias_${key}`] || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d));
+    });
     const whatsappResumoManutencaoEmails = String(emailConfig.whatsapp_resumo_manutencao_emails || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
     mainContent.innerHTML = `
@@ -494,6 +498,10 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                                     </label>
                                 </label>
                                 <input type="time" id="whatsapp-hora-${key}" value="${escapeHtml(emailConfig[`whatsapp_hora_${key}`] || WHATSAPP_HORA_PADRAO[key])}">
+                                <div style="display:flex;gap:0.2rem;margin-top:0.35rem;flex-wrap:wrap">
+                                    ${WHATSAPP_DIAS_SEMANA.map(({ v, l }) => `
+                                        <button type="button" class="pill whatsapp-dia-cat-pill${whatsappDiasPorCategoria[key].includes(v) ? ' active' : ''}" data-categoria="${key}" data-dia="${v}" title="${l}" style="padding:2px 6px;font-size:10px">${l[0]}</button>`).join('')}
+                                </div>
                             </div>`).join('')}
                     </div>
                     <p class="helper-text" style="text-align:left;margin:0">Não é um limite rígido: se o computador ficar desligado na hora configurada, o robô manda assim que ligar de novo (mesmo depois), contanto que ainda seja o dia certo e já tenha passado do horário.</p>
@@ -1332,6 +1340,13 @@ export function bindAdminEvents(data) {
         if (aviso) aviso.style.display = ev.target.checked ? 'flex' : 'none';
     });
 
+    // Pílula de dia por categoria (ex.: Funil só quarta) — clique alterna
+    // ".active", igual outros ".pill" do app; a coleta de quais dias cada
+    // categoria tem marcado acontece só na hora de salvar, abaixo.
+    document.querySelectorAll('.whatsapp-dia-cat-pill').forEach((btn) => {
+        btn.addEventListener('click', () => btn.classList.toggle('active'));
+    });
+
     // Pausa do robô de WhatsApp
     document.getElementById('save-whatsapp-pendencias')?.addEventListener('click', async () => {
         const btn = document.getElementById('save-whatsapp-pendencias');
@@ -1342,15 +1357,19 @@ export function bindAdminEvents(data) {
         const diasContratoVencendo = Number(document.getElementById('whatsapp-dias-contrato-vencendo').value) || 30;
         const horarios = {};
         const ativos = {};
+        const diasPorCategoria = {};
         WHATSAPP_CATEGORIAS.forEach(({ key }) => {
             horarios[`whatsapp_hora_${key}`] = document.getElementById(`whatsapp-hora-${key}`).value || WHATSAPP_HORA_PADRAO[key];
             ativos[`whatsapp_ativo_${key}`] = document.querySelector(`.whatsapp-ativo-check[data-categoria="${key}"]`).checked ? 'true' : 'false';
+            const diasCat = Array.from(document.querySelectorAll(`.whatsapp-dia-cat-pill.active[data-categoria="${key}"]`)).map((p) => p.dataset.dia);
+            diasPorCategoria[`whatsapp_dias_${key}`] = diasCat.join(',');
         });
         setSaving(true, btn, 'Salvando...');
         const result = await saveEmailConfig({
             whatsapp_pendencias_pausado: document.getElementById('whatsapp-pendencias-pausado').checked ? 'true' : 'false',
             whatsapp_aprovacao_manual: document.getElementById('whatsapp-aprovacao-manual').checked ? 'true' : 'false',
             ...horarios,
+            ...diasPorCategoria,
             ...ativos,
             whatsapp_dias_semana: diasMarcados.join(','),
             whatsapp_dias_parado: String(diasParado),

@@ -336,7 +336,7 @@ async function buscarPendencias() {
     if (json.status !== 'success') throw new Error(json.message || 'Erro desconhecido na API.');
     // schedule sempre vem preenchido (mesmo pausado) — default aqui é só
     // uma rede de segurança caso a API esteja numa versão antiga.
-    const schedule = json.schedule || { horarios: {}, diasSemana: [1, 2, 3, 4, 5] };
+    const schedule = json.schedule || { horarios: {}, diasPorCategoria: {}, diasSemana: [1, 2, 3, 4, 5] };
     return { destinatarios: json.data || [], semTelefone: json.semTelefone || [], schedule, pausado: !!json.pausado, teste: json.teste || null, aprovacaoManual: !!json.aprovacaoManual };
 }
 
@@ -1742,6 +1742,12 @@ const checar = async () => {
                 // só é chamado de verdade pelo botão "Agora" (rota /disparar).
                 for (const categoria of CATEGORIAS_PENDENCIA) {
                     if (schedule.ativos && schedule.ativos[categoria] === false) continue; // categoria desligada em Admin
+                    // Dia da semana POR categoria (ex.: Funil só quarta) — por
+                    // cima do diaConfiguradoHoje(schedule.diasSemana) geral já
+                    // checado acima. Sem diasPorCategoria pra essa categoria
+                    // (API antiga), cai no dia geral — já validado, não filtra de novo.
+                    const diasCategoria = schedule.diasPorCategoria && schedule.diasPorCategoria[categoria];
+                    if (diasCategoria && !diaConfiguradoHoje(diasCategoria)) continue;
                     const hora = schedule.horarios[categoria];
                     if (!passouDoHorario(hora)) continue; // ainda não chegou a vez dessa categoria
                     const pendentes = pendentesPorCategoria[categoria];
