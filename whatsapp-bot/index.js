@@ -426,6 +426,38 @@ function montarMensagemResumoManutencao(m) {
 // HTTP) conseguirem mandar o teste sem precisar passar sock por todo lado.
 let sockAtual = null;
 
+// Cache do conteúdo de cada mensagem enviada, por key.id — o protocolo do
+// WhatsApp (Signal) às vezes pede RETRY de uma mensagem (ex.: sessão de
+// criptografia ainda sincronizando com o destinatário, comum logo após
+// parear/reconectar ou em rajada de envios) e o Baileys precisa conseguir
+// buscar o conteúdo original de volta pra reenviar; sem isso (getMessage
+// não informado pro makeWASocket), o retry falha calado e a mensagem fica
+// pra sempre como "Aguardando mensagem" no WhatsApp de quem recebeu — ela
+// NUNCA chega, mesmo aparecendo como enviada/lida aqui. Isso é a causa raiz
+// real do problema (não é falta de delay nem versão da lib). Cap simples
+// (500 entradas) pra não crescer sem limite num processo que fica dias no ar.
+const mensagensEnviadas = new Map();
+function lembrarMensagemEnviada(id, message) {
+    if (!id || !message) return;
+    mensagensEnviadas.set(id, message);
+    if (mensagensEnviadas.size > 500) {
+        const primeira = mensagensEnviadas.keys().next().value;
+        mensagensEnviadas.delete(primeira);
+    }
+}
+async function getMessage(key) {
+    return mensagensEnviadas.get(key.id);
+}
+
+// Envoltório único pra TODO envio de texto pelo robô — garante que o
+// conteúdo fica disponível pra getMessage acima (ver comentário). Usar isso
+// em vez de sock.sendMessage direto em qualquer lugar novo que mandar msg.
+async function enviarTexto(sock, jid, texto) {
+    const resultado = await sock.sendMessage(jid, { text: texto });
+    lembrarMensagemEnviada(resultado?.key?.id, resultado?.message);
+    return resultado;
+}
+
 // Botão "🧪 Enviar teste" em Admin > Configurações grava um pedido na
 // planilha e NUNCA é apagado de lá depois de enviado (fica só guardado como
 // "o último teste pedido"). Controla localmente qual pedido já processou
@@ -445,7 +477,7 @@ async function processarTesteSeNecessario(teste) {
     }
     const texto = `✅ *Teste do robô de avisos*\n\nSe você recebeu essa mensagem, está tudo funcionando certinho!\n_App de Visitas_`;
     try {
-        await sockAtual.sendMessage(`${teste.telefone}@s.whatsapp.net`, { text: texto });
+        await enviarTexto(sockAtual, `${teste.telefone}@s.whatsapp.net`, texto);
         console.log(`Teste enviado para ${teste.nome} (${teste.telefone}).`);
     } catch (err) {
         console.error('Falha ao enviar teste:', err.message);
@@ -465,7 +497,7 @@ async function enviarCategoriaDoDia(sock, categoria, destinatarios) {
         const jid = `${dest.telefone}@s.whatsapp.net`;
         const texto = montarMensagemCategoria(dest, categoria);
         try {
-            await sock.sendMessage(jid, { text: texto });
+            await enviarTexto(sock, jid, texto);
             console.log(`  ✓ [${categoria}] ${dest.nome} (${dest.telefone})`);
             telefonesOk.push(dest.telefone);
             registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', categoria, pendencias: contarItensCategoria(dest, categoria), quando: new Date().toISOString() });
@@ -529,7 +561,7 @@ async function enviarResumosDoDia(sock) {
     const enviados = { gerentes: 0, manutencao: 0 };
     for (const dest of destinatarios) {
         try {
-            await sock.sendMessage(`${dest.telefone}@s.whatsapp.net`, { text: dest.texto });
+            await enviarTexto(sock, `${dest.telefone}@s.whatsapp.net`, dest.texto);
             console.log(`  ✓ resumo: ${dest.nome} (${dest.telefone})`);
             telefonesOk.push(dest.telefone);
             if (dest.tipo === 'gerente') enviados.gerentes++; else enviados.manutencao++;
@@ -1589,10 +1621,10 @@ async function processarComandoRecebido(sock, msg) {
 
     if (texto === 'pausar') {
         pausarPessoa(telefone, conhecido.nome, 24);
-        await sock.sendMessage(jid, { text: `⏸️ Combinado, *${primeiroNome(conhecido.nome)}*! Você não recebe avisos de pendência pelas próximas 24h.\n\nPra voltar antes, é só mandar *voltar*.` });
+        await enviarTexto(sock, jid, `⏸️ Combinado, *${primeiroNome(conhecido.nome)}*! Você não recebe avisos de pendência pelas próximas 24h.\n\nPra voltar antes, é só mandar *voltar*.`);
     } else {
         reativarPessoa(telefone);
-        await sock.sendMessage(jid, { text: `▶️ Prontinho, *${primeiroNome(conhecido.nome)}*! Avisos de pendência reativados.` });
+        await enviarTexto(sock, jid, `▶️ Prontinho, *${primeiroNome(conhecido.nome)}*! Avisos de pendência reativados.`);
     }
 }
 
@@ -1600,7 +1632,7 @@ async function conectar() {
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
     const { version } = await fetchLatestBaileysVersion();
 
-    const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false });
+    const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false, getMessage });
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -1691,9 +1723,7 @@ async function avisarErroPersistenteSeNecessario(mensagemErro) {
     const agora = Date.now();
     if (estado.ultimoAlertaErro && (agora - estado.ultimoAlertaErro) < 3600000) return;
     try {
-        await sockAtual.sendMessage(`${ALERTA_TELEFONE}@s.whatsapp.net`, {
-            text: `⚠️ *Robô de WhatsApp com problema*\n\nFalhando há ${falhasConsecutivas}+ checagens seguidas:\n${mensagemErro}\n\nConfira o painel: http://localhost:${PORTA_PAINEL}`
-        });
+        await enviarTexto(sockAtual, `${ALERTA_TELEFONE}@s.whatsapp.net`, `⚠️ *Robô de WhatsApp com problema*\n\nFalhando há ${falhasConsecutivas}+ checagens seguidas:\n${mensagemErro}\n\nConfira o painel: http://localhost:${PORTA_PAINEL}`);
         estado.ultimoAlertaErro = agora;
         salvarEstado(estado);
     } catch (err) {
@@ -1722,9 +1752,7 @@ async function avisarAprovacaoPendenteSeNecessario(fila) {
     const agora = Date.now();
     if (estado.ultimoAlertaAprovacao && (agora - estado.ultimoAlertaAprovacao) < 3600000) return;
     try {
-        await sockAtual.sendMessage(`${ALERTA_TELEFONE}@s.whatsapp.net`, {
-            text: `🔔 *Lembrete — aprovação manual ativa*\n\nTem categoria(s) esperando sua aprovação no painel:\n${formatarListaEnvios(fila)}\n\nAbra o painel e clique em "Agora" em cada card pra enviar.\nhttp://localhost:${PORTA_PAINEL}\n\n_Pra voltar ao envio automático, desligue "Aprovação manual" em Admin > Configurações._`
-        });
+        await enviarTexto(sockAtual, `${ALERTA_TELEFONE}@s.whatsapp.net`, `🔔 *Lembrete — aprovação manual ativa*\n\nTem categoria(s) esperando sua aprovação no painel:\n${formatarListaEnvios(fila)}\n\nAbra o painel e clique em "Agora" em cada card pra enviar.\nhttp://localhost:${PORTA_PAINEL}\n\n_Pra voltar ao envio automático, desligue "Aprovação manual" em Admin > Configurações._`);
         estado.ultimoAlertaAprovacao = agora;
         salvarEstado(estado);
     } catch (err) {
@@ -1741,9 +1769,7 @@ async function avisarAprovacaoPendenteSeNecessario(fila) {
 async function avisarEnvioAutomaticoRealizado(fila) {
     if (!ALERTA_TELEFONE || !sockAtual || !fila.length) return;
     try {
-        await sockAtual.sendMessage(`${ALERTA_TELEFONE}@s.whatsapp.net`, {
-            text: `✅ *Envio automático realizado agora*\n\n${formatarListaEnvios(fila)}\n\nPainel: http://localhost:${PORTA_PAINEL}`
-        });
+        await enviarTexto(sockAtual, `${ALERTA_TELEFONE}@s.whatsapp.net`, `✅ *Envio automático realizado agora*\n\n${formatarListaEnvios(fila)}\n\nPainel: http://localhost:${PORTA_PAINEL}`);
     } catch (err) {
         console.error('Falha ao mandar aviso de envio automático:', err.message);
     }
