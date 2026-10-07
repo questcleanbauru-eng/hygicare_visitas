@@ -95,6 +95,10 @@ const painelStatus = {
     // Quem tem pendência mas não tem WhatsApp cadastrado — não recebe
     // nada, só aparece como aviso pro admin cadastrar o telefone.
     semTelefonePrevia: [],
+    // Prévia do resumo diário (gerentes + manutenção Open/Close) — schedule
+    // e dedup próprios, independentes da pendência acima (ver
+    // atualizarResumoPrevia).
+    resumoPrevia: null,
     historico: [],
     enviosHoje: 0,
     enviosSemana: 0
@@ -576,7 +580,29 @@ async function atualizarPrevia() {
 
     atualizarContadoresHistorico();
     await processarTesteSeNecessario(teste);
+    await atualizarResumoPrevia();
     return { destinatarios, pendentesPorCategoria, schedule, pausado, aprovacaoManual };
+}
+
+// Resumo diário (gerentes + manutenção Open/Close) nunca tinha prévia no
+// painel — só aparecia em "Últimos envios" DEPOIS de mandado, então não
+// dava pra saber quem ia receber nem se estava tudo certo antes da hora.
+// Mesma ideia da prévia de pendência acima, só que pro resumo (schedule e
+// dedup PRÓPRIOS, ver enviarResumosDoDia).
+async function atualizarResumoPrevia() {
+    try {
+        const { gerentes, manutencao, schedule, pausado } = await buscarResumos();
+        const estado = lerEstado();
+        const comStatus = (p) => ({ nome: p.nome, telefone: p.telefone, enviadoHoje: estaResumoEnviadoHoje(estado, p.telefone) });
+        painelStatus.resumoPrevia = {
+            schedule,
+            pausado,
+            gerentes: gerentes.map(comStatus),
+            manutencao: manutencao.map(comStatus)
+        };
+    } catch (err) {
+        console.error('Falha ao atualizar prévia do resumo:', err.message);
+    }
 }
 
 // ── Painel local (http://localhost:PORTA_PAINEL) ────────────────────────
@@ -781,6 +807,14 @@ function paginaPainel() {
       <button type="button" class="card-collapse-btn" id="btn-toggle-historico" aria-label="Mostrar/esconder últimos envios">▾</button>
     </div>
     <div id="historico-lista"></div>
+  </div>
+
+  <div class="card" id="resumo-card" style="display:none;margin-bottom:1.1rem">
+    <div class="card-head">
+      <span class="card-title">📋 Resumo diário</span>
+      <span class="kanban-count" id="resumo-card-count">0</span>
+    </div>
+    <div id="resumo-board"></div>
   </div>
 
   <div class="card" id="inatividade-card" style="display:none;margin-bottom:1.1rem">
@@ -1174,6 +1208,35 @@ function renderSemWhatsapp(s) {
   \`;
 }
 
+// Resumo diário não tem card no kanban (não é "pendência" por pessoa) —
+// mostra os dois grupos (gerentes / manutenção Open-Close) com status
+// "✓ enviado hoje" ou "vai receber às Xh", igual o resto do painel já faz.
+function renderResumoDiario(s) {
+  const card = document.getElementById('resumo-card');
+  const board = document.getElementById('resumo-board');
+  const r = s.resumoPrevia;
+  const total = r ? (r.gerentes.length + r.manutencao.length) : 0;
+  document.getElementById('resumo-card-count').textContent = String(total);
+  card.style.display = total ? '' : 'none';
+  if (!total) { board.innerHTML = ''; return; }
+
+  const hora = (r.schedule && r.schedule.hora) || '—';
+  const linha = (p) => \`
+    <div class="semwhats-row">
+      <span class="semwhats-nome">\${p.nome}</span>
+      <span class="semwhats-right">
+        \${p.enviadoHoje
+          ? '<span class="semwhats-pend" style="background:#dcfce7;color:#166534">✓ enviado hoje</span>'
+          : '<span class="semwhats-pend">vai receber às ' + hora + '</span>'}
+      </span>
+    </div>\`;
+  board.innerHTML = \`
+    \${r.pausado ? '<p class="semwhats-intro">⏸️ Resumo diário pausado em Admin &gt; Configurações.</p>' : ''}
+    \${r.gerentes.length ? '<p class="semwhats-intro" style="margin-top:0">👤 Gerentes (' + r.gerentes.length + ')</p>' + r.gerentes.map(linha).join('') : ''}
+    \${r.manutencao.length ? '<p class="semwhats-intro">🛠️ Manutenção — Open/Close (' + r.manutencao.length + ')</p>' + r.manutencao.map(linha).join('') : ''}
+  \`;
+}
+
 document.getElementById('semwhats-card').addEventListener('click', async (ev) => {
   const btnCopiar = ev.target.closest('[data-action="copiar-semwhats"]');
   if (btnCopiar) {
@@ -1275,6 +1338,7 @@ async function atualizar() {
     tickCountdown();
     renderKanban(s);
     renderHistorico(s);
+    renderResumoDiario(s);
     renderInatividade(s);
     renderSemWhatsapp(s);
   } catch (e) {
