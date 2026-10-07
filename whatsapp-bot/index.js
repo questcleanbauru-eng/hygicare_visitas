@@ -712,6 +712,7 @@ function paginaPainel() {
   .kanban-col.desligada { opacity: 0.55; }
   .kanban-desligada-tag { font-size: 0.64rem; font-weight: 800; text-transform: uppercase; color: #94a3b8; background: #f1f5f9; padding: 0.05rem 0.4rem; border-radius: 999px; margin-left: 0.3rem; }
   .kanban-col-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; padding: 0 0.1rem; }
+  .kanban-col-sub { font-size: 0.68rem; font-weight: 600; color: #94a3b8; padding: 0 0.1rem 0.4rem; }
   .kanban-count { flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; }
   .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
   .kanban-card { background: #fff; border: 1px solid #e5e9f0; border-radius: 10px; padding: 0.6rem 0.7rem; }
@@ -822,6 +823,7 @@ function paginaPainel() {
       <span class="card-title">⏰ Inatividade</span>
       <span class="kanban-count" id="inatividade-card-count">0</span>
     </div>
+    <div class="kanban-col-sub" id="inatividade-card-sub"></div>
     <div class="inatividade-grid" id="inatividade-board"></div>
   </div>
 
@@ -998,6 +1000,25 @@ function adminLink(email) {
   return APP_URL + (email ? ('?editUser=' + encodeURIComponent(email)) : '?goto=admin');
 }
 
+// "⏰ 08:45 · 📅 seg–sex" (ou dias soltos tipo "qua" se só tiver 1) embaixo
+// do título de cada coluna — prova visual de que o painel está seguindo o
+// horário/dias configurados em Admin, sem precisar esperar dias pra testar.
+const DIA_ABREV = { 0: 'dom', 1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex', 6: 'sáb' };
+function diasResumoTexto(dias) {
+  if (!dias || !dias.length) return 'nenhum dia (nunca envia sozinho)';
+  if (dias.length === 7) return 'todo dia';
+  const ordem = [1, 2, 3, 4, 5, 6, 0];
+  const ordenados = ordem.filter((d) => dias.includes(d));
+  const seq = [1, 2, 3, 4, 5];
+  if (ordenados.length === 5 && seq.every((d) => dias.includes(d))) return 'seg–sex';
+  return ordenados.map((d) => DIA_ABREV[d]).join(', ');
+}
+function subtituloCategoria(s, categoria) {
+  const hora = (s.schedule && s.schedule.horarios && s.schedule.horarios[categoria]) || '—';
+  const dias = s.schedule && s.schedule.diasPorCategoria && s.schedule.diasPorCategoria[categoria];
+  return '⏰ ' + hora + ' · 📅 ' + diasResumoTexto(dias);
+}
+
 function montarColunasKanban(s) {
   const todos = [
     ...(s.destinatariosPrevia || []).map((d) => Object.assign({ temTelefone: true }, d)),
@@ -1097,6 +1118,7 @@ function renderKanban(s) {
     return \`
     <div class="kanban-col \${c.classe} \${desligada ? 'desligada' : ''}">
       <div class="kanban-col-head"><span>\${c.label}\${desligada ? ' <span class="kanban-desligada-tag">desligada</span>' : ''}</span><span class="kanban-count">\${c.cards.length}</span></div>
+      <div class="kanban-col-sub">\${subtituloCategoria(s, c.key)}</div>
       <div class="kanban-cards">
         \${visiveis.length ? visiveis.map(kanbanCardHtml).join('') : '<p class="kanban-vazio">Nenhuma pendência</p>'}
         \${maisBotaoHtml(c.key, resto, expandido, c.cards.length)}
@@ -1154,6 +1176,7 @@ function renderInatividade(s) {
   const board = document.getElementById('inatividade-board');
   const cards = montarCardsInatividade(s);
   document.getElementById('inatividade-card-count').textContent = String(cards.length);
+  document.getElementById('inatividade-card-sub').textContent = subtituloCategoria(s, 'inatividade');
   card.style.display = cards.length ? '' : 'none';
   if (!cards.length) { board.innerHTML = ''; return; }
 
