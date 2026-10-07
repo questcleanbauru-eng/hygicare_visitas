@@ -39,7 +39,7 @@ const APP_URL = API_URL ? API_URL.replace(/\/api\/.*$/, '/') : '';
 // mesmo domínio/secret de API_URL, só troca o nome do endpoint.
 const RESUMO_API_URL = API_URL ? API_URL.replace(/\/api\/.*$/, '/api/resumo-whatsapp') : '';
 const INTERVALO_CHECAGEM_MIN = Number(process.env.INTERVALO_CHECAGEM_MIN || 5);
-const DELAY_ENTRE_ENVIOS_MS = Number(process.env.DELAY_ENTRE_ENVIOS_MS || 8000);
+const DELAY_ENTRE_ENVIOS_MS = Number(process.env.DELAY_ENTRE_ENVIOS_MS || 60000);
 const PORTA_PAINEL = Number(process.env.PORTA_PAINEL || 3344);
 // Opcional: número que recebe um alerta por WhatsApp quando o robô fica com
 // erro persistente (ex.: API fora do ar por várias checagens seguidas) —
@@ -82,6 +82,11 @@ const painelStatus = {
     ultimoErro: null,
     schedule: null,
     pausadoNoApp: false,
+    // Modo aprovação manual (Admin > Configurações) — enquanto true, a
+    // checagem automática NUNCA chama enviarCategoriaDoDia sozinha; só
+    // atualiza a prévia (igual sempre fez) pro admin mandar à mão pelos
+    // botões "Agora" de cada card.
+    aprovacaoManual: false,
     enviadoHoje: false,
     // Prévia: quem receberia SE o envio acontecesse agora — atualizado a
     // cada checagem (ou no botão "Verificar agora"), nunca dispara envio
@@ -108,6 +113,7 @@ function estadoVazio() {
         pausasIndividuais: {},
         ultimoTesteProcessado: 0,
         ultimoAlertaErro: null,
+        ultimoAlertaAprovacao: null,
         historico: []
     };
 }
@@ -143,6 +149,7 @@ function lerEstado() {
         // coincidência de milissegundos, deixar passar um teste de verdade.
         if (typeof parsed.ultimoTesteProcessado !== 'number') { parsed.ultimoTesteProcessado = Date.now(); migrado = true; }
         if (parsed.ultimoAlertaErro === undefined) { parsed.ultimoAlertaErro = null; migrado = true; }
+        if (parsed.ultimoAlertaAprovacao === undefined) { parsed.ultimoAlertaAprovacao = null; migrado = true; }
         if (migrado) salvarEstado(parsed);
         return parsed;
     } catch { return estadoVazio(); }
@@ -326,7 +333,7 @@ async function buscarPendencias() {
     // schedule sempre vem preenchido (mesmo pausado) — default aqui é só
     // uma rede de segurança caso a API esteja numa versão antiga.
     const schedule = json.schedule || { horarios: {}, diasSemana: [1, 2, 3, 4, 5] };
-    return { destinatarios: json.data || [], semTelefone: json.semTelefone || [], schedule, pausado: !!json.pausado, teste: json.teste || null };
+    return { destinatarios: json.data || [], semTelefone: json.semTelefone || [], schedule, pausado: !!json.pausado, teste: json.teste || null, aprovacaoManual: !!json.aprovacaoManual };
 }
 
 async function buscarResumos() {
@@ -519,9 +526,10 @@ async function atualizarPrevia() {
     const agora = Date.now();
     painelStatus.ultimaChecagem = new Date(agora).toISOString();
     painelStatus.proximaChecagemPrevista = new Date(agora + INTERVALO_CHECAGEM_MIN * 60 * 1000).toISOString();
-    const { destinatarios, semTelefone, schedule, pausado, teste } = await buscarPendencias();
+    const { destinatarios, semTelefone, schedule, pausado, teste, aprovacaoManual } = await buscarPendencias();
     painelStatus.schedule = schedule;
     painelStatus.pausadoNoApp = pausado;
+    painelStatus.aprovacaoManual = aprovacaoManual;
     const estado = lerEstado();
     // pausadoAte/enviadosPorCategoria vão junto na prévia pra cada card
     // (que já é por categoria) refletir o estado real daquela categoria
@@ -560,7 +568,7 @@ async function atualizarPrevia() {
 
     atualizarContadoresHistorico();
     await processarTesteSeNecessario(teste);
-    return { destinatarios, pendentesPorCategoria, schedule, pausado };
+    return { destinatarios, pendentesPorCategoria, schedule, pausado, aprovacaoManual };
 }
 
 // ── Painel local (http://localhost:PORTA_PAINEL) ────────────────────────
@@ -597,6 +605,7 @@ function paginaPainel() {
   .banner.warn { background: #fffbeb; border-color: #fde68a; }
   .banner.off { background: #fef2f2; border-color: #fecaca; }
   .banner.paused { background: #f1f5f9; border-color: #e2e8f0; }
+  .banner.manual { background: #eef2ff; border-color: #c7d2fe; }
   .banner-left { display: flex; align-items: flex-start; gap: 0.8rem; min-width: 0; }
   .banner-icon { font-size: 1.3rem; flex-shrink: 0; line-height: 1.35; }
   .banner-title { font-size: 1.05rem; font-weight: 800; margin: 0; }
@@ -605,6 +614,7 @@ function paginaPainel() {
   .banner.warn .banner-title, .banner.warn .banner-sub { color: #92400e; }
   .banner.off .banner-title, .banner.off .banner-sub { color: #991b1b; }
   .banner.paused .banner-title, .banner.paused .banner-sub { color: #475569; }
+  .banner.manual .banner-title, .banner.manual .banner-sub { color: #3730a3; }
   .banner-cta {
     flex-shrink: 0; width: auto; padding: 0.6rem 1.1rem; border-radius: 10px; font-size: 0.82rem; font-weight: 700;
     white-space: nowrap; background: #b45309; color: #fff; border: none; text-decoration: none; display: inline-flex; align-items: center;
@@ -863,6 +873,10 @@ function renderBanner(s) {
   } else if (!s.conectado) {
     classe = 'off'; icone = s.aguardandoQr ? '📷' : '🔴'; titulo = s.aguardandoQr ? 'Aguardando pareamento' : 'Desconectado';
     sub = s.aguardandoQr ? 'Escaneie o QR code abaixo pra conectar.' : 'O WhatsApp caiu — o robô tenta reconectar sozinho.';
+  } else if (s.aprovacaoManual) {
+    classe = 'manual'; icone = '🔒';
+    titulo = 'Modo aprovação manual';
+    sub = 'Nada sai sozinho — os cards abaixo continuam mostrando tudo, clique em "Agora" em cada um pra aprovar e enviar. Desligue em Admin &gt; Configurações quando confiar no envio automático.';
   } else if (total > 0 && semTel > 0) {
     classe = 'warn'; icone = '⚠️';
     titulo = 'Funcionando, mas ' + semTel + ' de ' + total + (total === 1 ? ' pessoa está' : ' pessoas estão') + ' sem WhatsApp';
@@ -1575,6 +1589,28 @@ async function avisarErroPersistenteSeNecessario(mensagemErro) {
     }
 }
 
+// Lembrete por WhatsApp (pro próprio ALERTA_TELEFONE) de que tem categoria(s)
+// esperando aprovação manual — só dispara enquanto whatsapp_aprovacao_manual
+// estiver ligado em Admin E tiver algo pendente. Debounced por 1h (mesmo
+// esquema de avisarErroPersistenteSeNecessario) pra não insistir a cada
+// checagem enquanto ninguém aprova.
+async function avisarAprovacaoPendenteSeNecessario(fila) {
+    if (!ALERTA_TELEFONE || !sockAtual || !fila.length) return;
+    const estado = lerEstado();
+    const agora = Date.now();
+    if (estado.ultimoAlertaAprovacao && (agora - estado.ultimoAlertaAprovacao) < 3600000) return;
+    const linhas = fila.map((f) => `• ${CATEGORIA_DEFS[f.categoria]?.label || '🌙 Inatividade'} — ${f.pessoas} pessoa(s)`).join('\n');
+    try {
+        await sockAtual.sendMessage(`${ALERTA_TELEFONE}@s.whatsapp.net`, {
+            text: `🔔 *Lembrete — aprovação manual ativa*\n\nTem categoria(s) esperando sua aprovação no painel:\n${linhas}\n\nAbra o painel e clique em "Agora" em cada card pra enviar.\nhttp://localhost:${PORTA_PAINEL}\n\n_Pra voltar ao envio automático, desligue "Aprovação manual" em Admin > Configurações._`
+        });
+        estado.ultimoAlertaAprovacao = agora;
+        salvarEstado(estado);
+    } catch (err) {
+        console.error('Falha ao mandar lembrete de aprovação pendente:', err.message);
+    }
+}
+
 // Sempre usa sockAtual (mantido certinho por connection.update acima) em vez
 // de fechar sobre um "sock" específico — assim, depois de uma reconexão,
 // nunca manda mensagem usando uma conexão antiga/morta.
@@ -1593,18 +1629,25 @@ const checar = async () => {
         // pendentesPorCategoria (quem ainda falta em CADA categoria) —
         // decide aqui, categoria por categoria, se já passou da própria
         // hora configurada pra ela.
-        const { pendentesPorCategoria, schedule, pausado } = await atualizarPrevia();
+        const { pendentesPorCategoria, schedule, pausado, aprovacaoManual } = await atualizarPrevia();
         if (sockAtual) {
             if (!diaConfiguradoHoje(schedule.diasSemana)) {
                 // dia da semana não configurado — nem pendência nem resumo saem hoje
             } else if (!pausado) {
+                // Com aprovação manual ligada, NADA sai sozinho daqui — só
+                // acumula pra lembrar o admin (fila abaixo); enviarCategoriaDoDia
+                // só é chamado de verdade pelo botão "Agora" (rota /disparar).
+                const filaAprovacao = [];
                 for (const categoria of CATEGORIAS_PENDENCIA) {
                     if (schedule.ativos && schedule.ativos[categoria] === false) continue; // categoria desligada em Admin
                     const hora = schedule.horarios[categoria];
                     if (!passouDoHorario(hora)) continue; // ainda não chegou a vez dessa categoria
                     const pendentes = pendentesPorCategoria[categoria];
-                    if (pendentes && pendentes.length) await enviarCategoriaDoDia(sockAtual, categoria, pendentes);
+                    if (!pendentes || !pendentes.length) continue;
+                    if (aprovacaoManual) filaAprovacao.push({ categoria, pessoas: pendentes.length });
+                    else await enviarCategoriaDoDia(sockAtual, categoria, pendentes);
                 }
+                if (aprovacaoManual && filaAprovacao.length) await avisarAprovacaoPendenteSeNecessario(filaAprovacao);
             }
             // Resumo diário tem horário/pausa PRÓPRIOS, checados dentro dele
             // (buscarResumos() tem seu próprio schedule) — independente da

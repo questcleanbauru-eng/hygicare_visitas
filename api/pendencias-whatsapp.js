@@ -92,9 +92,13 @@ export default async function handler(req, res) {
         // independente da pausa/janela (é só pra confirmar que chega).
         let teste = null;
         try { teste = JSON.parse(config.whatsapp_teste_pedido || 'null'); } catch { /* ignora valor inválido */ }
+        // Modo aprovação manual (ver Admin > Configurações) — devolvido
+        // sempre, igual pausado/schedule, pro robô local decidir se manda
+        // sozinho ou só deixa pronto pro admin clicar "Agora".
+        const aprovacaoManual = isConfigOn(config.whatsapp_aprovacao_manual);
 
         if (isConfigOn(config.whatsapp_pendencias_pausado)) {
-            res.status(200).json({ status: 'success', data: [], semTelefone: [], pausado: true, schedule, teste });
+            res.status(200).json({ status: 'success', data: [], semTelefone: [], pausado: true, schedule, teste, aprovacaoManual });
             return;
         }
 
@@ -239,7 +243,7 @@ export default async function handler(req, res) {
         const destinatarios = comPendencia.filter((d) => d.telefone);
         const semTelefone = comPendencia.filter((d) => !d.telefone).map(({ telefone, ...resto }) => resto);
 
-        res.status(200).json({ status: 'success', data: destinatarios, semTelefone, pausado: false, schedule, teste });
+        res.status(200).json({ status: 'success', data: destinatarios, semTelefone, pausado: false, schedule, teste, aprovacaoManual });
     } catch (error) {
         console.error('pendencias-whatsapp:', error);
         res.status(200).json({ status: 'error', message: error.message });

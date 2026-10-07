@@ -522,6 +522,11 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                         ⏸️ Pausar envio de pendências por WhatsApp
                     </label>
                     <p class="helper-text" style="text-align:left;margin:0">A pausa tem prioridade sobre horário/dias — útil pra férias ou feriado prolongado sem precisar mexer no resto.</p>
+                    <label style="display:flex;align-items:center;gap:0.6rem;font-size:0.87rem;font-weight:500;cursor:pointer">
+                        <input type="checkbox" id="whatsapp-aprovacao-manual" style="width:auto;accent-color:var(--primary)" ${isConfigOn(emailConfig.whatsapp_aprovacao_manual) ? 'checked' : ''}>
+                        🔒 Modo aprovação manual
+                    </label>
+                    <p class="helper-text" style="text-align:left;margin:0">Nada sai sozinho enquanto estiver ligado — o painel do robô continua mostrando tudo, mas cada envio precisa do botão "Agora" no card. Bom pra período de confiança; desligue quando quiser voltar ao envio automático.</p>
                     <button type="button" id="save-whatsapp-pendencias" class="primary-button" style="align-self:flex-start">Salvar</button>
 
                     <hr style="width:100%;border:none;border-top:1px solid var(--border);margin:0.2rem 0">
@@ -1333,6 +1338,7 @@ export function bindAdminEvents(data) {
         setSaving(true, btn, 'Salvando...');
         const result = await saveEmailConfig({
             whatsapp_pendencias_pausado: document.getElementById('whatsapp-pendencias-pausado').checked ? 'true' : 'false',
+            whatsapp_aprovacao_manual: document.getElementById('whatsapp-aprovacao-manual').checked ? 'true' : 'false',
             ...horarios,
             ...ativos,
             whatsapp_dias_semana: diasMarcados.join(','),
