@@ -55,6 +55,10 @@ export default async function handler(req, res) {
     try {
         const config = await readEmailConfig();
         const schedule = { hora: config.whatsapp_hora_resumo || '07:30', diasSemana: String(config.whatsapp_dias_semana || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d)) };
+        // Mesmo critério configurável usado no aviso de pendência por
+        // WhatsApp (Propostas/Funil parado) — reaproveitado aqui pro resumo
+        // do gerente trazer os dois também, não só Agendamentos.
+        const DIAS_PARADO = Number(config.whatsapp_dias_parado) || 30;
         if (isConfigOn(config.whatsapp_resumo_pausado)) {
             res.status(200).json({ status: 'success', pausado: true, schedule, gerentes: [], manutencao: [] });
             return;
@@ -91,7 +95,7 @@ export default async function handler(req, res) {
             if (!gerencia) continue; // sem gerência cadastrada, não dá pra saber o time
             const vendedoresDoTimeArr = ativos.filter((v) => String(v.Gerencia || '').trim() === gerencia);
             const vendedoresDoTime = new Set(vendedoresDoTimeArr.map((v) => String(v.NomeVendedor || '').trim()));
-            const resumo = await computeResumoDiario(null, { vendedores: vendedoresDoTime, gerencia });
+            const resumo = await computeResumoDiario(null, { vendedores: vendedoresDoTime, gerencia, diasParado: DIAS_PARADO });
 
             // Meta mensal de cada vendedor do time (só quem tem meta > 0
             // cadastrada aparece) — junta com a contagem de visitas do mês.
@@ -110,7 +114,7 @@ export default async function handler(req, res) {
                 if (ranking.length) semanal = { total: ranking.reduce((s, v) => s + v.total, 0), ranking };
             }
 
-            const hasAny = resumo.visitas.total || resumo.agendamentos.vencidosTotal || resumo.agendamentos.proximosTotal || resumo.relatorios.total || metas.length || semanal;
+            const hasAny = resumo.visitas.total || resumo.agendamentos.vencidosTotal || resumo.agendamentos.proximosTotal || resumo.relatorios.total || resumo.propostasParadas.total || resumo.funilParado.total || metas.length || semanal;
             if (!hasAny) continue; // dia parado pro time dele — não manda resumo vazio
             gerentesResumo.push({
                 nome: String(g.NomeVendedor || '').trim(),

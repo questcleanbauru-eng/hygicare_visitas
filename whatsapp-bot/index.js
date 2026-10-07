@@ -365,12 +365,29 @@ function montarMensagemResumoGerente(g) {
         : 'Nenhuma visita registrada.';
     partes.push(`📍 *Visitas* (${r.visitas.total})\n${visitasTxt}`);
 
+    // Cada linha nomeia o VENDEDOR dono do item (o gerente olha pelo time
+    // inteiro, não dá pra saber de quem é só pelo cliente) — pedido
+    // explícito, formato "modelo B" combinado antes de implementar.
     const agLinhas = [];
     if (r.agendamentos.vencidosTotal) {
-        agLinhas.push(`🔴 ${r.agendamentos.vencidosTotal} vencido(s):\n` + listaComLimite(r.agendamentos.vencidos, (a) => ({ titulo: a.cliente, detalhe: `venceu ${a.dataAgendada}` })));
+        const linhas = r.agendamentos.vencidos.map((a) => `• ${a.vendedor || 'Sem vendedor'} — ${a.cliente} (venceu ${a.diasAtraso === 0 ? 'hoje' : `há ${a.diasAtraso}d`})`).join('\n');
+        const resto = r.agendamentos.vencidosTotal > r.agendamentos.vencidos.length ? `\n_e mais ${r.agendamentos.vencidosTotal - r.agendamentos.vencidos.length}..._` : '';
+        agLinhas.push(`🔴 ${r.agendamentos.vencidosTotal} vencido(s):\n${linhas}${resto}`);
     }
     if (r.agendamentos.proximosTotal) agLinhas.push(`📅 ${r.agendamentos.proximosTotal} nos próximos 7 dias`);
     partes.push(`📌 *Agendamentos*\n${agLinhas.length ? agLinhas.join('\n') : 'Nenhum vencido ou próximo.'}`);
+
+    if (r.propostasParadas && r.propostasParadas.total) {
+        const linhas = r.propostasParadas.itens.map((p) => `• ${p.vendedor || 'Sem vendedor'} — ${p.cliente} (há ${p.dias}d)`).join('\n');
+        const resto = r.propostasParadas.total > r.propostasParadas.itens.length ? `\n_e mais ${r.propostasParadas.total - r.propostasParadas.itens.length}..._` : '';
+        partes.push(`📄 *Propostas paradas* (${r.propostasParadas.total})\n${linhas}${resto}`);
+    }
+
+    if (r.funilParado && r.funilParado.total) {
+        const linhas = r.funilParado.itens.map((f) => `• ${f.vendedor || 'Sem vendedor'} — ${f.cliente} (há ${f.dias}d)`).join('\n');
+        const resto = r.funilParado.total > r.funilParado.itens.length ? `\n_e mais ${r.funilParado.total - r.funilParado.itens.length}..._` : '';
+        partes.push(`📊 *Funil parado* (${r.funilParado.total})\n${linhas}${resto}`);
+    }
 
     if (r.relatorios.total) {
         partes.push(`🔧 *Relatórios criados* (${r.relatorios.total})\nAferição: ${r.relatorios['aferição']} · SPSP: ${r.relatorios.spsp} · Geral: ${r.relatorios.geral}`);
