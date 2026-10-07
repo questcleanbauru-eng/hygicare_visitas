@@ -471,6 +471,7 @@ async function enviarCategoriaDoDia(sock, categoria, destinatarios) {
         painelStatus.ultimoErro = `${falhas} de ${destinatarios.length} mensagem(ns) de "${label}" falharam ao enviar — vai tentar de novo na próxima checagem.`;
     }
     console.log(`[${categoria}] concluído: ${telefonesOk.length} ok, ${falhas} falha(s).`);
+    return telefonesOk.length;
 }
 
 // Resumo diário (gerente por time + manutenção pra quem está marcado em
@@ -1589,6 +1590,12 @@ async function avisarErroPersistenteSeNecessario(mensagemErro) {
     }
 }
 
+// "Funil parado — 3 pessoa(s)" por linha — usado tanto no lembrete de
+// aprovação pendente quanto no aviso de envio automático abaixo.
+function formatarListaCategorias(fila) {
+    return fila.map((f) => `• ${CATEGORIA_DEFS[f.categoria]?.label || '🌙 Inatividade'} — ${f.pessoas} pessoa(s)`).join('\n');
+}
+
 // Lembrete por WhatsApp (pro próprio ALERTA_TELEFONE) de que tem categoria(s)
 // esperando aprovação manual — só dispara enquanto whatsapp_aprovacao_manual
 // estiver ligado em Admin E tiver algo pendente. Debounced por 1h (mesmo
@@ -1599,15 +1606,31 @@ async function avisarAprovacaoPendenteSeNecessario(fila) {
     const estado = lerEstado();
     const agora = Date.now();
     if (estado.ultimoAlertaAprovacao && (agora - estado.ultimoAlertaAprovacao) < 3600000) return;
-    const linhas = fila.map((f) => `• ${CATEGORIA_DEFS[f.categoria]?.label || '🌙 Inatividade'} — ${f.pessoas} pessoa(s)`).join('\n');
     try {
         await sockAtual.sendMessage(`${ALERTA_TELEFONE}@s.whatsapp.net`, {
-            text: `🔔 *Lembrete — aprovação manual ativa*\n\nTem categoria(s) esperando sua aprovação no painel:\n${linhas}\n\nAbra o painel e clique em "Agora" em cada card pra enviar.\nhttp://localhost:${PORTA_PAINEL}\n\n_Pra voltar ao envio automático, desligue "Aprovação manual" em Admin > Configurações._`
+            text: `🔔 *Lembrete — aprovação manual ativa*\n\nTem categoria(s) esperando sua aprovação no painel:\n${formatarListaCategorias(fila)}\n\nAbra o painel e clique em "Agora" em cada card pra enviar.\nhttp://localhost:${PORTA_PAINEL}\n\n_Pra voltar ao envio automático, desligue "Aprovação manual" em Admin > Configurações._`
         });
         estado.ultimoAlertaAprovacao = agora;
         salvarEstado(estado);
     } catch (err) {
         console.error('Falha ao mandar lembrete de aprovação pendente:', err.message);
+    }
+}
+
+// Aviso por WhatsApp (pro próprio ALERTA_TELEFONE) de que o robô ACABOU de
+// mandar alguma categoria automaticamente — só informativo, não bloqueia
+// nem depende do modo aprovação manual (esse já tem o aviso acima, que É
+// uma pendência de ação; este aqui é só um "aconteceu agora"). Sem
+// debounce: só dispara quando teve envio de verdade, e cada categoria só
+// manda uma vez por dia (dedup de sempre), então não tem risco de repetir.
+async function avisarEnvioAutomaticoRealizado(fila) {
+    if (!ALERTA_TELEFONE || !sockAtual || !fila.length) return;
+    try {
+        await sockAtual.sendMessage(`${ALERTA_TELEFONE}@s.whatsapp.net`, {
+            text: `✅ *Envio automático realizado agora*\n\n${formatarListaCategorias(fila)}\n\nPainel: http://localhost:${PORTA_PAINEL}`
+        });
+    } catch (err) {
+        console.error('Falha ao mandar aviso de envio automático:', err.message);
     }
 }
 
@@ -1637,17 +1660,26 @@ const checar = async () => {
                 // Com aprovação manual ligada, NADA sai sozinho daqui — só
                 // acumula pra lembrar o admin (fila abaixo); enviarCategoriaDoDia
                 // só é chamado de verdade pelo botão "Agora" (rota /disparar).
+                // Sem aprovação manual, acumula o que FOI enviado de verdade
+                // (filaEnviada) pra avisar o admin depois — só informativo,
+                // não trava nada.
                 const filaAprovacao = [];
+                const filaEnviada = [];
                 for (const categoria of CATEGORIAS_PENDENCIA) {
                     if (schedule.ativos && schedule.ativos[categoria] === false) continue; // categoria desligada em Admin
                     const hora = schedule.horarios[categoria];
                     if (!passouDoHorario(hora)) continue; // ainda não chegou a vez dessa categoria
                     const pendentes = pendentesPorCategoria[categoria];
                     if (!pendentes || !pendentes.length) continue;
-                    if (aprovacaoManual) filaAprovacao.push({ categoria, pessoas: pendentes.length });
-                    else await enviarCategoriaDoDia(sockAtual, categoria, pendentes);
+                    if (aprovacaoManual) {
+                        filaAprovacao.push({ categoria, pessoas: pendentes.length });
+                    } else {
+                        const enviados = await enviarCategoriaDoDia(sockAtual, categoria, pendentes);
+                        if (enviados) filaEnviada.push({ categoria, pessoas: enviados });
+                    }
                 }
                 if (aprovacaoManual && filaAprovacao.length) await avisarAprovacaoPendenteSeNecessario(filaAprovacao);
+                if (filaEnviada.length) await avisarEnvioAutomaticoRealizado(filaEnviada);
             }
             // Resumo diário tem horário/pausa PRÓPRIOS, checados dentro dele
             // (buscarResumos() tem seu próprio schedule) — independente da
