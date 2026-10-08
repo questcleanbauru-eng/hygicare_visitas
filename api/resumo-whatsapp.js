@@ -1,6 +1,6 @@
-// Resumo diário (do dia anterior) por WhatsApp — dois tipos de destinatário:
-// 1. Gerentes: resumo igual ao que já existe no Início/e-mail, mas escopado
-//    só pro próprio time (ver computeResumoDiario com filtro).
+// Resumo por WhatsApp — dois tipos de destinatário, frequências diferentes:
+// 1. Gerentes: resumo SEMANAL (só às segundas) do próprio time, somando os
+//    7 dias anteriores — ver computeResumoDiario com filtro+diasRange:7.
 // 2. Quem está em whatsapp_resumo_manutencao_emails (Admin > Configurações):
 //    resumo de toda visita Open/Close Manutenção do dia anterior, empresa
 //    inteira (pedido específico: admin acompanhar manutenção sem precisar
@@ -18,12 +18,10 @@ function startOfDay(d) {
     return c;
 }
 
-// Visitas do mês corrente até ontem (hoje ainda não "fechou") por vendedor
-// — pra comparar com a meta cadastrada (Vendedores.MetaVisitasMes).
-// Visitas da semana passada (segunda a domingo anterior) por vendedor —
-// só computado às segundas (ver uso abaixo), pro resumo semanal do
-// gerente. Os dois reaproveitam a MESMA leitura de Visitas (raw) pra não
-// duplicar requisição à planilha.
+// Visitas do mês corrente até hoje por vendedor — pra comparar com a meta
+// cadastrada (Vendedores.MetaVisitasMes); é um acumulado vivo do mês, não
+// fechado como o resto do resumo (que agora é sempre sobre a semana
+// anterior, ver computeResumoDiario com diasRange).
 function contarVisitasPorVendedor(visitasRaw, desde, ate) {
     const porVendedor = {};
     visitasRaw.forEach((v) => {
@@ -76,54 +74,43 @@ export default async function handler(req, res) {
         const amanha = new Date(hoje); amanha.setDate(amanha.getDate() + 1);
         const visitasMesPorVendedor = contarVisitasPorVendedor(visitasRaw, inicioMes, amanha);
 
-        // Resumo semanal só faz sentido 1x por semana — calcula (semana
-        // passada completa: segunda a domingo anterior) só quando hoje é
-        // segunda, pra não ficar processando à toa nos outros dias. O robô
-        // decide mandar ou não olhando se "semanal" veio preenchido.
+        // Resumo do gerente só sai às segundas (ver bloco abaixo).
         const ehSegunda = hoje.getDay() === 1;
-        let semanaInicio = null, semanaFim = null;
-        if (ehSegunda) {
-            semanaFim = new Date(hoje); // exclusivo — até antes de hoje
-            semanaInicio = new Date(hoje); semanaInicio.setDate(semanaInicio.getDate() - 7);
-        }
 
         // ── Resumo por gerência, um por gerente com WhatsApp cadastrado ───
+        // Virou SEMANAL (pedido explícito: diário incomodava) — só roda às
+        // segundas, junto com o ranking semanal que já só existia nesse dia;
+        // Visitas/Relatórios agora somam os 7 dias anteriores (diasRange),
+        // não só "ontem" (que a maior parte da semana ficaria vazio/sem
+        // sentido num envio semanal). Manutenção (abaixo) NÃO muda — continua
+        // diária, é outro público (pedido era só "resumo pros gerentes").
         const gerentes = ativos.filter((v) => String(v.Perfil || '').trim().toLowerCase() === 'gerente' && String(v.TelefoneWhatsapp || '').trim());
         const gerentesResumo = [];
-        for (const g of gerentes) {
-            const gerencia = String(g.Gerencia || '').trim();
-            if (!gerencia) continue; // sem gerência cadastrada, não dá pra saber o time
-            const vendedoresDoTimeArr = ativos.filter((v) => String(v.Gerencia || '').trim() === gerencia);
-            const vendedoresDoTime = new Set(vendedoresDoTimeArr.map((v) => String(v.NomeVendedor || '').trim()));
-            const resumo = await computeResumoDiario(null, { vendedores: vendedoresDoTime, gerencia, diasParado: DIAS_PARADO });
+        if (ehSegunda) {
+            for (const g of gerentes) {
+                const gerencia = String(g.Gerencia || '').trim();
+                if (!gerencia) continue; // sem gerência cadastrada, não dá pra saber o time
+                const vendedoresDoTimeArr = ativos.filter((v) => String(v.Gerencia || '').trim() === gerencia);
+                const vendedoresDoTime = new Set(vendedoresDoTimeArr.map((v) => String(v.NomeVendedor || '').trim()));
+                const resumo = await computeResumoDiario(null, { vendedores: vendedoresDoTime, gerencia, diasParado: DIAS_PARADO, diasRange: 7 });
 
-            // Meta mensal de cada vendedor do time (só quem tem meta > 0
-            // cadastrada aparece) — junta com a contagem de visitas do mês.
-            const metas = vendedoresDoTimeArr
-                .map((v) => ({ nome: String(v.NomeVendedor || '').trim(), meta: Number(v.MetaVisitasMes) || 0 }))
-                .filter((v) => v.meta > 0)
-                .map((v) => ({ ...v, feitas: visitasMesPorVendedor[v.nome] || 0 }));
+                // Meta mensal de cada vendedor do time (só quem tem meta > 0
+                // cadastrada aparece) — junta com a contagem de visitas do mês.
+                const metas = vendedoresDoTimeArr
+                    .map((v) => ({ nome: String(v.NomeVendedor || '').trim(), meta: Number(v.MetaVisitasMes) || 0 }))
+                    .filter((v) => v.meta > 0)
+                    .map((v) => ({ ...v, feitas: visitasMesPorVendedor[v.nome] || 0 }));
 
-            let semanal = null;
-            if (ehSegunda) {
-                const porVendedorSemana = contarVisitasPorVendedor(visitasRaw, semanaInicio, semanaFim);
-                const ranking = vendedoresDoTimeArr
-                    .map((v) => ({ nome: String(v.NomeVendedor || '').trim(), total: porVendedorSemana[String(v.NomeVendedor || '').trim()] || 0 }))
-                    .filter((v) => v.total > 0)
-                    .sort((a, b) => b.total - a.total);
-                if (ranking.length) semanal = { total: ranking.reduce((s, v) => s + v.total, 0), ranking };
+                const hasAny = resumo.visitas.total || resumo.agendamentos.vencidosTotal || resumo.agendamentos.proximosTotal || resumo.relatorios.total || resumo.propostasParadas.total || resumo.funilParado.total || metas.length;
+                if (!hasAny) continue; // semana parada pro time dele — não manda resumo vazio
+                gerentesResumo.push({
+                    nome: String(g.NomeVendedor || '').trim(),
+                    telefone: String(g.TelefoneWhatsapp || '').trim(),
+                    email: String(g.EmailLogin || '').trim(),
+                    resumo,
+                    metas
+                });
             }
-
-            const hasAny = resumo.visitas.total || resumo.agendamentos.vencidosTotal || resumo.agendamentos.proximosTotal || resumo.relatorios.total || resumo.propostasParadas.total || resumo.funilParado.total || metas.length || semanal;
-            if (!hasAny) continue; // dia parado pro time dele — não manda resumo vazio
-            gerentesResumo.push({
-                nome: String(g.NomeVendedor || '').trim(),
-                telefone: String(g.TelefoneWhatsapp || '').trim(),
-                email: String(g.EmailLogin || '').trim(),
-                resumo,
-                metas,
-                semanal
-            });
         }
 
         // ── Resumo de manutenção (Open/Close), empresa inteira ────────────

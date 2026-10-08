@@ -349,21 +349,23 @@ async function buscarResumos() {
     return { gerentes: json.gerentes || [], manutencao: json.manutencao || [], pausado: !!json.pausado, schedule };
 }
 
-// Resumo do time do gerente — mesmas seções do resumo por e-mail (Início/
-// cron), só que condensado pra WhatsApp e sem link por item. "metas" (meta
-// mensal x visitas feitas) e "semanal" (ranking da semana passada, só às
-// segundas) são opcionais — vêm preenchidos pela API só quando fazem
-// sentido (ver api/resumo-whatsapp.js).
+// Resumo SEMANAL do time do gerente (só sai às segundas, somando os 7 dias
+// anteriores — ver api/resumo-whatsapp.js) — mesmas seções do resumo diário
+// por e-mail (Início/cron), só que condensado pra WhatsApp e sem link por
+// item. "metas" (meta mensal x visitas feitas) é opcional — só vem
+// preenchida quando algum vendedor do time tem meta cadastrada.
 function montarMensagemResumoGerente(g) {
     const r = g.resumo;
-    const partes = [`Olá, *${primeiroNome(g.nome)}*! 👋\n\n📋 *Resumo da sua equipe* — ${r.dataResumo}`];
+    const partes = [`Olá, *${primeiroNome(g.nome)}*! 👋\n\n📋 *Resumo semanal da sua equipe* — ${r.dataResumo}`];
 
-    // Contagem por vendedor é só "Nome — N", cabe numa linha só (o bloco de
-    // 2 linhas do listaComLimite é pra item com detalhe mais longo).
+    // Ranking da semana (porVendedor já vem ordenado por total desc) — era
+    // uma seção separada ("Semana passada") antes do resumo virar semanal;
+    // agora Visitas JÁ é a semana inteira, então os dois mostrariam o
+    // mesmo número duas vezes — mantido só este, com a posição (1º/2º).
     const visitasTxt = r.visitas.total
-        ? r.visitas.porVendedor.slice(0, 10).map((v) => `• ${v.nome} — ${v.total}`).join('\n')
+        ? r.visitas.porVendedor.slice(0, 10).map((v, i) => `${i + 1}º ${v.nome} — ${v.total}`).join('\n')
         : 'Nenhuma visita registrada.';
-    partes.push(`📍 *Visitas* (${r.visitas.total})\n${visitasTxt}`);
+    partes.push(`📍 *Visitas da semana* (${r.visitas.total})\n${visitasTxt}`);
 
     // Cada linha nomeia o VENDEDOR dono do item (o gerente olha pelo time
     // inteiro, não dá pra saber de quem é só pelo cliente) — pedido
@@ -396,11 +398,6 @@ function montarMensagemResumoGerente(g) {
     if (g.metas && g.metas.length) {
         const metaTxt = g.metas.map((m) => `• ${m.nome} — ${m.feitas}/${m.meta}${m.feitas >= m.meta ? ' ✅' : ''}`).join('\n');
         partes.push(`🎯 *Meta mensal*\n${metaTxt}`);
-    }
-
-    if (g.semanal) {
-        const rankTxt = g.semanal.ranking.slice(0, 10).map((v, i) => `${i + 1}º ${v.nome} — ${v.total}`).join('\n');
-        partes.push(`📅 *Semana passada* (${g.semanal.total} visitas)\n${rankTxt}`);
     }
 
     partes.push(`🔗 Acesse o app: ${APP_URL}`);

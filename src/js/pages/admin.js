@@ -542,7 +542,7 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                     <button type="button" id="save-whatsapp-pendencias" class="primary-button" style="align-self:flex-start">Salvar</button>
 
                     <hr style="width:100%;border:none;border-top:1px solid var(--border);margin:0.2rem 0">
-                    <p class="helper-text" style="text-align:left;margin:0"><strong>📋 Resumo diário por WhatsApp</strong> — gerente ativo com WhatsApp cadastrado recebe automaticamente o resumo do próprio time (visitas, agendamentos, relatórios do dia anterior, meta mensal, e ranking da semana às segundas); não precisa marcar ninguém. Usa os dias configurados acima.</p>
+                    <p class="helper-text" style="text-align:left;margin:0"><strong>📋 Resumo por WhatsApp</strong> — gerente ativo com WhatsApp cadastrado recebe automaticamente, toda <strong>segunda-feira</strong>, o resumo da semana anterior do próprio time (visitas, agendamentos, propostas/funil parado, relatórios, meta mensal); não precisa marcar ninguém, e não depende dos "Dias que envia" de cima (é sempre segunda). O resumo de manutenção (Open/Close) abaixo continua diário, nos dias configurados acima.</p>
                     <div class="form-group" style="margin:0;max-width:160px">
                         <label for="whatsapp-hora-resumo">Horário do resumo</label>
                         <input type="time" id="whatsapp-hora-resumo" value="${escapeHtml(emailConfig.whatsapp_hora_resumo || '07:30')}">
