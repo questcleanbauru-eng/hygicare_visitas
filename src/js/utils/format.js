@@ -30,6 +30,7 @@ export function normalizeVisit(visit) {
         teveDespesas: visit['TeveDespesas'] || visit.teveDespesas || '',
         valorDespesas: visit['ValorDespesas'] || visit.valorDespesas || '',
         funilVinculado: visit['FunilVinculado'] || visit.funilVinculado || '',
+        propostaVinculada: visit['PropostaVinculada'] || visit.propostaVinculada || '',
         _pending: !!visit._pending
     };
 }

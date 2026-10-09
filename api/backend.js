@@ -1,7 +1,7 @@
 import { checkRateLimit } from '../lib/common.js';
 import { readSession } from '../lib/security.js';
 import { handleLogin, handleForgotPassword, handleLoginWithPin, handleSetupPin, handleRemovePin, handleAdminSetPin } from '../lib/handlers/auth.js';
-import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit, handleLinkVisitaFunil } from '../lib/handlers/visits.js';
+import { handleGetVisits, handleGetVisitById, handleCreateVisit, handleUpdateVisit, handleDeleteVisit, handleLinkVisitaFunil, handleLinkVisitaProposta } from '../lib/handlers/visits.js';
 import { handleGetProposals, handleGetProposalById, handleCreateProposal, handleUpdateProposal, handleDeleteProposal, handleDeleteProposalBatch, handleMarkPropostaNaoDuplicado } from '../lib/handlers/proposals.js';
 import {
     handleGetFunil, handleGetFunilById, handleCreateFunil, handleUpdateFunil, handleDeleteFunil, handleDeleteFunilBatch, handleDebugFunilHeaders, handleMarkFunilNaoDuplicado
@@ -78,6 +78,7 @@ const HANDLERS = {
     updateVisit: handleUpdateVisit,
     deleteVisit: handleDeleteVisit,
     linkVisitaFunil: handleLinkVisitaFunil,
+    linkVisitaProposta: handleLinkVisitaProposta,
     getProposals: handleGetProposals,
     getProposalById: handleGetProposalById,
     createProposal: handleCreateProposal,
