@@ -563,7 +563,7 @@ export function fillFunilContent(mainContent, funil) {
                     ${linkedPropostas.map((p) => `
                         <div class="funil-linked-proposta-row">
                             <div class="funil-linked-proposta-main">
-                                <button type="button" class="section-link-button qe-linked-proposta-open" data-proposta-id="${escapeHtml(p.id)}">${escapeHtml(p.foco || 'Proposta')} · ${escapeHtml(p.status || '-')}</button>
+                                <button type="button" class="section-link-button qe-linked-proposta-open" data-proposta-id="${escapeHtml(p.id)}">${escapeHtml(p.foco || 'Proposta')} · ${escapeHtml(p.vendedor || '-')} · ${escapeHtml(p.status || '-')}</button>
                                 ${p.obs ? `<button type="button" class="qe-v2-obs-toggle" title="Ver comentário" aria-label="Ver comentário">💬</button>` : ''}
                             </div>
                             ${p.obs ? `<p class="funil-linked-proposta-obs" hidden>${escapeHtml(p.obs)}</p>` : ''}
@@ -577,7 +577,7 @@ export function fillFunilContent(mainContent, funil) {
                     ${linkedVisitas.map((v) => `
                         <div class="funil-linked-proposta-row">
                             <div class="funil-linked-proposta-main">
-                                <button type="button" class="section-link-button qe-linked-visita-open" data-visita-id="${escapeHtml(v.id)}">${escapeHtml(v.tipoVisita || 'Visita')} · ${escapeHtml(v.dataVisita || '-')}</button>
+                                <button type="button" class="section-link-button qe-linked-visita-open" data-visita-id="${escapeHtml(v.id)}">${escapeHtml(v.tipoVisita || 'Visita')} · ${escapeHtml(v.vendedorGerente || '-')} · ${escapeHtml(v.dataVisita || '-')}</button>
                                 ${v.observacao ? `<button type="button" class="qe-v2-obs-toggle" title="Ver observação" aria-label="Ver observação">💬</button>` : ''}
                             </div>
                             ${v.observacao ? `<p class="funil-linked-proposta-obs" hidden>${escapeHtml(v.observacao)}</p>` : ''}
@@ -1767,7 +1767,7 @@ export async function renderFunilDetailPage(id, _revalidated) {
             ${propostasLinkadas.length ? propostasLinkadas.map((p) => `
                 <div class="funil-linked-proposta-row" data-proposta-id="${escapeHtml(p.id)}">
                     <div class="funil-linked-proposta-main">
-                        <button type="button" class="section-link-button funil-linked-proposta-open" data-proposta-id="${escapeHtml(p.id)}">${escapeHtml(p.foco || 'Proposta')} · ${escapeHtml(p.status || '-')}</button>
+                        <button type="button" class="section-link-button funil-linked-proposta-open" data-proposta-id="${escapeHtml(p.id)}">${escapeHtml(p.foco || 'Proposta')} · ${escapeHtml(p.vendedor || '-')} · ${escapeHtml(p.status || '-')}</button>
                         <button type="button" class="mini-button mini-button-danger funil-linked-proposta-unlink" data-proposta-id="${escapeHtml(p.id)}">Desvincular</button>
                     </div>
                     ${p.obs ? `<p class="funil-linked-proposta-obs">${escapeHtml(p.obs)}</p>` : ''}
@@ -1782,7 +1782,7 @@ export async function renderFunilDetailPage(id, _revalidated) {
             ${visitasLinkadas.length ? visitasLinkadas.map((v) => `
                 <div class="funil-linked-proposta-row" data-visita-id="${escapeHtml(v.id)}">
                     <div class="funil-linked-proposta-main">
-                        <button type="button" class="section-link-button funil-linked-visita-open" data-visita-id="${escapeHtml(v.id)}">${escapeHtml(v.tipoVisita || 'Visita')} · ${escapeHtml(v.dataVisita || '-')}</button>
+                        <button type="button" class="section-link-button funil-linked-visita-open" data-visita-id="${escapeHtml(v.id)}">${escapeHtml(v.tipoVisita || 'Visita')} · ${escapeHtml(v.vendedorGerente || '-')} · ${escapeHtml(v.dataVisita || '-')}</button>
                         <button type="button" class="mini-button mini-button-danger funil-linked-visita-unlink" data-visita-id="${escapeHtml(v.id)}">Desvincular</button>
                     </div>
                     ${v.observacao ? `<p class="funil-linked-proposta-obs">${escapeHtml(v.observacao)}</p>` : ''}

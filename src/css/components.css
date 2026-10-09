@@ -2559,9 +2559,9 @@ input:disabled {
    no desktop por enquanto; no celular quem precisar ainda vincula pelo
    admin/computador. */
 #vincular-funil, #ver-funil-vinculado, #desvincular-funil,
-#vincular-proposta,
+#vincular-proposta, #vincular-visita,
 #qe-link-funil, #qe-ver-funil, #qe-desvincular-funil,
-#qe-link-proposta, #qe-ver-propostas {
+#qe-link-proposta, #qe-ver-propostas, #qe-link-visita, #qe-ver-visitas {
     display: none;
 }
 /* .funil-link-card já esconde tudo por dentro (inclusive a lista de
@@ -2577,11 +2577,11 @@ input:disabled {
 [data-camp-details] { display: none; }
 @media (min-width: 1024px) {
     #vincular-funil, #ver-funil-vinculado, #desvincular-funil,
-    #vincular-proposta {
+    #vincular-proposta, #vincular-visita {
         display: inline-flex;
     }
     #qe-link-funil, #qe-ver-funil, #qe-desvincular-funil,
-    #qe-link-proposta, #qe-ver-propostas {
+    #qe-link-proposta, #qe-ver-propostas, #qe-link-visita, #qe-ver-visitas {
         display: inline-flex;
     }
     .funil-link-card { display: block; }

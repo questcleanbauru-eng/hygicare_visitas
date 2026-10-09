@@ -108,6 +108,13 @@
     white-space: pre-line;
 }
 
+/* .funil-link-card (Detalhe do Funil) herda padding:0 de .detail-card —
+   sem isso, "Propostas/Visitas vinculadas" fica colado nas bordas do card,
+   diferente das linhas acima (Cliente, Vendedor...), que usam .detail-row
+   (já com padding horizontal). Carregado depois de components.css, então
+   vence o padding:0 de lá (mesma especificidade, ordem de carga decide). */
+.funil-link-card { padding: 0.75rem 0.85rem; }
+
 /* Funil Diversey — etiqueta de "acompanhar de perto" */
 .funil-diversey-tag {
     display: inline-block;
