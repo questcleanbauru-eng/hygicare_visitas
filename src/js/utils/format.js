@@ -29,6 +29,7 @@ export function normalizeVisit(visit) {
         longitude: visit['Longitude'] || visit.longitude || '',
         teveDespesas: visit['TeveDespesas'] || visit.teveDespesas || '',
         valorDespesas: visit['ValorDespesas'] || visit.valorDespesas || '',
+        funilVinculado: visit['FunilVinculado'] || visit.funilVinculado || '',
         _pending: !!visit._pending
     };
 }

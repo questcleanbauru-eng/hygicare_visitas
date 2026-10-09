@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyn
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
-    funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR, wireCurrencyInput, normalizeProposal,
+    funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR, wireCurrencyInput, normalizeProposal, normalizeVisit,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml, resolveNotifyOptions,
     scopeYearFilterFieldsHtml
@@ -16,7 +16,7 @@ import {
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
-import { ensurePropostasForDedup, propostaItemFor, propostaEmAlerta } from '../utils/funilLink.js';
+import { ensurePropostasForDedup, propostaItemFor, propostaEmAlerta, ensureVisitsForDedup } from '../utils/funilLink.js';
 import { openLinkPickerModal } from '../utils/linkPicker.js';
 import { downloadXLSX } from '../utils/xlsxWriter.js';
 
@@ -457,15 +457,20 @@ export function fillFunilContent(mainContent, funil) {
         const listaEquipamentos = (fd && fd.equipamentos) || [];
         const listaVendedores = (fd && fd.vendedores) || [];
         await ensurePropostasForDedup();
+        await ensureVisitsForDedup();
         if (String(qeSelectedId) !== String(id) || document.getElementById('qe-panel') !== panel) { return; }
-        // Uma oportunidade pode ter várias propostas vinculadas (ex.: mesmo
-        // cliente com proposta de limpeza, outra de sabonete...) — a lista
-        // completa (com Desvincular por item) fica no Detalhe, que tem
-        // espaço; aqui no painel compacto só um resumo com atalho.
+        // Uma oportunidade pode ter várias propostas (ou visitas) vinculadas
+        // (ex.: mesmo cliente com proposta de limpeza, outra de sabonete...)
+        // — a lista completa (com Desvincular por item) fica no Detalhe, que
+        // tem espaço; aqui no painel compacto só um resumo com atalho.
         const linkedPropostas = (state.proposals || [])
             .filter((px) => String(px.funilVinculado || px.FunilVinculado || '') === String(f.id))
             .map((px) => normalizeProposal(px));
         const linkedPropostasCount = linkedPropostas.length;
+        const linkedVisitas = (state.visits || [])
+            .filter((vx) => String(vx.funilVinculado || vx.FunilVinculado || '') === String(f.id))
+            .map((vx) => normalizeVisit(vx));
+        const linkedVisitasCount = linkedVisitas.length;
 
         const searchField = (label, id, value, placeholder = '', extraClass = '') => `
             <div class="form-group ${extraClass}"><label for="${id}">${label}</label>
@@ -492,7 +497,8 @@ export function fillFunilContent(mainContent, funil) {
                         <p class="helper-text qe-v2-meta">📍 ${escapeHtml(f.cidade || '-')} &nbsp;·&nbsp; 👤 ${escapeHtml(f.vendedor || '-')} &nbsp;·&nbsp; 📅 ${escapeHtml(f.data || f.atualizacao || '-')}</p>
                     </div>
                     <div class="qe-v2-header-actions">
-                        ${linkedPropostasCount > 0 ? `<button type="button" class="mini-button" id="qe-ver-propostas" title="Ver propostas vinculadas (abre o Detalhe)">🔗 ${linkedPropostasCount} proposta${linkedPropostasCount > 1 ? 's' : ''}</button>` : `<button type="button" class="mini-button" id="qe-link-proposta" title="Buscar e vincular a uma proposta já cadastrada">🔗 Vincular</button>`}
+                        ${linkedPropostasCount > 0 ? `<button type="button" class="mini-button" id="qe-ver-propostas" title="Ver propostas vinculadas (abre o Detalhe)">🔗 ${linkedPropostasCount} proposta${linkedPropostasCount > 1 ? 's' : ''}</button>` : `<button type="button" class="mini-button" id="qe-link-proposta" title="Buscar e vincular a uma proposta já cadastrada">🔗 Vincular proposta</button>`}
+                        ${linkedVisitasCount > 0 ? `<button type="button" class="mini-button" id="qe-ver-visitas" title="Ver visitas vinculadas (abre o Detalhe)">📋 ${linkedVisitasCount} visita${linkedVisitasCount > 1 ? 's' : ''}</button>` : `<button type="button" class="mini-button" id="qe-link-visita" title="Buscar e vincular a uma visita já registrada">📋 Vincular visita</button>`}
                         <button type="button" class="primary-button qe-v2-save-btn is-clean" id="qe-save" disabled>✓ Salvo</button>
                         <div class="qe-v2-menu-wrap">
                             <button type="button" class="qe-v2-menu-toggle" id="qe-menu-toggle" aria-label="Mais opções">⋮</button>
@@ -500,6 +506,7 @@ export function fillFunilContent(mainContent, funil) {
                                 <button type="button" id="qe-full">✏️ Editar tudo</button>
                                 ${f.funilDiversey === 'Sim' ? `<button type="button" id="qe-diversey-toggle">☆ Desmarcar Diversey</button>` : `<button type="button" id="qe-diversey-toggle">⭐ Marcar Diversey</button>`}
                                 ${linkedPropostasCount > 0 ? `<button type="button" id="qe-link-proposta-menu">🔗 Vincular outra proposta</button>` : ''}
+                                ${linkedVisitasCount > 0 ? `<button type="button" id="qe-link-visita-menu">📋 Vincular outra visita</button>` : ''}
                             </div>
                         </div>
                     </div>
@@ -560,6 +567,20 @@ export function fillFunilContent(mainContent, funil) {
                                 ${p.obs ? `<button type="button" class="qe-v2-obs-toggle" title="Ver comentário" aria-label="Ver comentário">💬</button>` : ''}
                             </div>
                             ${p.obs ? `<p class="funil-linked-proposta-obs" hidden>${escapeHtml(p.obs)}</p>` : ''}
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+
+                ${linkedVisitasCount > 0 ? `
+                <div class="qe-v2-section">
+                    <p class="qe-v2-section-title">Visitas vinculadas <span class="qe-v2-section-count">${linkedVisitasCount}</span></p>
+                    ${linkedVisitas.map((v) => `
+                        <div class="funil-linked-proposta-row">
+                            <div class="funil-linked-proposta-main">
+                                <button type="button" class="section-link-button qe-linked-visita-open" data-visita-id="${escapeHtml(v.id)}">${escapeHtml(v.tipoVisita || 'Visita')} · ${escapeHtml(v.dataVisita || '-')}</button>
+                                ${v.observacao ? `<button type="button" class="qe-v2-obs-toggle" title="Ver observação" aria-label="Ver observação">💬</button>` : ''}
+                            </div>
+                            ${v.observacao ? `<p class="funil-linked-proposta-obs" hidden>${escapeHtml(v.observacao)}</p>` : ''}
                         </div>
                     `).join('')}
                 </div>` : ''}
@@ -644,8 +665,14 @@ export function fillFunilContent(mainContent, funil) {
         panel.querySelector('#qe-link-proposta')?.addEventListener('click', () => openLinkPropostaModal(f, () => openFunilQuickPanel(f.id)));
         panel.querySelector('#qe-link-proposta-menu')?.addEventListener('click', () => openLinkPropostaModal(f, () => openFunilQuickPanel(f.id)));
         panel.querySelector('#qe-ver-propostas')?.addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
+        panel.querySelector('#qe-link-visita')?.addEventListener('click', () => openLinkVisitaModal(f, () => openFunilQuickPanel(f.id)));
+        panel.querySelector('#qe-link-visita-menu')?.addEventListener('click', () => openLinkVisitaModal(f, () => openFunilQuickPanel(f.id)));
+        panel.querySelector('#qe-ver-visitas')?.addEventListener('click', () => navigateTo('funil-detail', { id: f.id }));
         panel.querySelectorAll('.qe-linked-proposta-open').forEach((btn) => {
             btn.addEventListener('click', () => navigateTo('proposal-detail', { id: btn.dataset.propostaId }));
+        });
+        panel.querySelectorAll('.qe-linked-visita-open').forEach((btn) => {
+            btn.addEventListener('click', () => navigateTo('visit-detail', { id: btn.dataset.visitaId }));
         });
         // "💬" mostra/esconde o comentário da proposta vinculada — some por
         // padrão pra não empilhar texto de todas de uma vez (só o Foco/Status
@@ -1026,6 +1053,44 @@ function openLinkPropostaModal(f, onLinked) {
                 const i = (state.proposals || []).findIndex((x) => String(x.Id || x.id) === String(propostaId));
                 if (i >= 0) { state.proposals[i] = { ...state.proposals[i], FunilVinculado: f.id, funilVinculado: f.id }; saveCache('proposals', state.proposals); }
                 showToast('Vinculado à proposta.');
+                if (onLinked) onLinked(); else renderFunilDetailPage(f.id, true);
+            }
+        });
+    });
+}
+
+// Mesma ideia de openLinkPropostaModal acima, só que pra Visita — quem
+// guarda o vínculo aqui é a própria Visita (FunilVinculado, ver
+// handleLinkVisitaFunil em lib/handlers/visits.js), não o Funil.
+function openLinkVisitaModal(f, onLinked) {
+    ensureVisitsForDedup().then(() => {
+        const items = (state.visits || [])
+            .filter((v) => String(v.funilVinculado || v.FunilVinculado || '') !== String(f.id))
+            .map((v) => ({
+                id: String(v.id || v.ID || ''),
+                cliente: v.cliente || v.Cliente || '-',
+                tag: v.tipoVisita || v['Tipo da Visita'] || '',
+                cidade: v.cidade || v.Cidade || '',
+                data: v.dataVisita || v['Data da Visita'] || '',
+                hint: String(v.observacao || v['Observação'] || '')
+            })).filter((it) => it.id);
+
+        openLinkPickerModal({
+            eyebrow: `Funil · ${f.cliente || 'Cliente'}`,
+            title: 'Vincular a uma visita',
+            contextText: `Vinculando à oportunidade do Funil de ${f.cliente || 'cliente'}${f.data ? ' · ' + f.data : ''}${f.vendedor ? ' · ' + f.vendedor : ''}${f.cidade ? ' · ' + f.cidade : ''}`,
+            searchPlaceholder: 'Buscar por cliente, cidade ou tipo...',
+            confirmLabel: 'Vincular visita selecionada',
+            emptyNoun: 'visita',
+            currentCliente: f.cliente,
+            items,
+            onConfirm: async (visitaId) => {
+                const r = await callAPI('linkVisitaFunil', { id: visitaId, funilVinculado: f.id, user: state.currentUser })
+                    .catch((e) => ({ status: 'error', message: e.message }));
+                if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível vincular.', true); return; }
+                const i = (state.visits || []).findIndex((x) => String(x.ID || x.id) === String(visitaId));
+                if (i >= 0) { state.visits[i] = { ...state.visits[i], FunilVinculado: f.id, funilVinculado: f.id }; saveCache('visits_all', state.visits); }
+                showToast('Vinculado à visita.');
                 if (onLinked) onLinked(); else renderFunilDetailPage(f.id, true);
             }
         });
@@ -1611,13 +1676,18 @@ export async function renderFunilDetailPage(id, _revalidated) {
 
     const f = result.funil;
     state.currentFunil = f;
-    // Uma oportunidade pode ter várias Propostas vinculadas (mesmo cliente,
-    // focos diferentes: limpeza, sabonete, papel...) — a Proposta é quem
-    // guarda o vínculo (funilVinculado); aqui só filtra quem aponta pra cá.
+    // Uma oportunidade pode ter várias Propostas (ou Visitas) vinculadas
+    // (mesmo cliente, focos diferentes: limpeza, sabonete, papel...) — quem
+    // guarda o vínculo é a própria Proposta/Visita (funilVinculado); aqui só
+    // filtra quem aponta pra cá.
     await ensurePropostasForDedup();
+    await ensureVisitsForDedup();
     const propostasLinkadas = (state.proposals || [])
         .filter((p) => String(p.funilVinculado || p.FunilVinculado || '') === String(f.id))
         .map((p) => normalizeProposal(p));
+    const visitasLinkadas = (state.visits || [])
+        .filter((v) => String(v.funilVinculado || v.FunilVinculado || '') === String(f.id))
+        .map((v) => normalizeVisit(v));
 
     // Veio do cache local? Revalida na planilha em 2º plano (uma vez) — o
     // sync incremental não traz edições feitas direto no Google Sheets, e
@@ -1704,6 +1774,21 @@ export async function renderFunilDetailPage(id, _revalidated) {
                 </div>
             `).join('') : `<p class="helper-text" style="margin:0.5rem 0 0;text-align:left">Nenhuma proposta vinculada ainda.</p>`}
         </div>
+        <div class="card detail-card funil-link-card">
+            <div class="funil-readonly-row">
+                <span>Visitas vinculadas${visitasLinkadas.length ? ` (${visitasLinkadas.length})` : ''}</span>
+                <button type="button" class="mini-button" id="vincular-visita">📋 Vincular a uma Visita</button>
+            </div>
+            ${visitasLinkadas.length ? visitasLinkadas.map((v) => `
+                <div class="funil-linked-proposta-row" data-visita-id="${escapeHtml(v.id)}">
+                    <div class="funil-linked-proposta-main">
+                        <button type="button" class="section-link-button funil-linked-visita-open" data-visita-id="${escapeHtml(v.id)}">${escapeHtml(v.tipoVisita || 'Visita')} · ${escapeHtml(v.dataVisita || '-')}</button>
+                        <button type="button" class="mini-button mini-button-danger funil-linked-visita-unlink" data-visita-id="${escapeHtml(v.id)}">Desvincular</button>
+                    </div>
+                    ${v.observacao ? `<p class="funil-linked-proposta-obs">${escapeHtml(v.observacao)}</p>` : ''}
+                </div>
+            `).join('') : `<p class="helper-text" style="margin:0.5rem 0 0;text-align:left">Nenhuma visita vinculada ainda.</p>`}
+        </div>
     `;
 
     document.querySelectorAll('#back-funil').forEach((el) => el.addEventListener('click', () => {
@@ -1755,6 +1840,22 @@ export async function renderFunilDetailPage(id, _revalidated) {
             if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível desvincular.', true); btn.disabled = false; return; }
             const i = (state.proposals || []).findIndex((x) => String(x.Id || x.id) === String(propostaId));
             if (i >= 0) { state.proposals[i] = { ...state.proposals[i], FunilVinculado: '', funilVinculado: '' }; saveCache('proposals', state.proposals); }
+            showToast('Vínculo removido.');
+            renderFunilDetailPage(f.id, true);
+        });
+    });
+    document.getElementById('vincular-visita')?.addEventListener('click', () => openLinkVisitaModal(f, () => renderFunilDetailPage(f.id, true)));
+    document.querySelectorAll('.funil-linked-visita-open').forEach((btn) => {
+        btn.addEventListener('click', () => navigateTo('visit-detail', { id: btn.dataset.visitaId }));
+    });
+    document.querySelectorAll('.funil-linked-visita-unlink').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            const visitaId = btn.dataset.visitaId;
+            const r = await callAPI('linkVisitaFunil', { id: visitaId, funilVinculado: '', user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+            if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível desvincular.', true); btn.disabled = false; return; }
+            const i = (state.visits || []).findIndex((x) => String(x.ID || x.id) === String(visitaId));
+            if (i >= 0) { state.visits[i] = { ...state.visits[i], FunilVinculado: '', funilVinculado: '' }; saveCache('visits_all', state.visits); }
             showToast('Vínculo removido.');
             renderFunilDetailPage(f.id, true);
         });

@@ -55,3 +55,15 @@ export function propostaItemFor(cliente, foco) {
 export function propostaEmAlerta(item) {
     return /PERDID/i.test(String((item && (item.status || item.Status)) || ''));
 }
+
+// Mesma ideia de ensurePropostasForDedup, pro Funil poder vincular/listar
+// Visitas (ver handleLinkVisitaFunil, lib/handlers/visits.js) sem depender
+// de já ter passado pela tela de Visitas antes.
+export async function ensureVisitsForDedup() {
+    if (Array.isArray(state.visits) && state.visits.length) return;
+    try {
+        const { getVisits } = await import('../pages/visits.js');
+        const r = await getVisits(0);
+        if (r && r.status === 'success') state.visits = r.visits || state.visits || [];
+    } catch (e) { /* best-effort */ }
+}
