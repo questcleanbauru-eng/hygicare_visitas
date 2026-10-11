@@ -1044,6 +1044,7 @@ export async function renderCampanhasPage() {
                     <strong id="camp-sel-count">${campSelectedIds.size} selecionada(s)</strong>
                     <button type="button" class="mini-button" id="camp-sel-all">Marcar todas</button>
                     <button type="button" class="mini-button" id="camp-sel-none">Limpar</button>
+                    <button type="button" class="mini-button" id="camp-sel-tocar" ${campSelectedIds.size ? '' : 'disabled'} title="Encerrar uma campanha não edita a Proposta/Funil em si — isso marca cada item como atualizado hoje, pra sumir da tela de pendências">✅ Marcar Proposta/Funil como atualizadas</button>
                     <button type="button" class="mini-button mini-button-danger" id="camp-sel-delete" ${campSelectedIds.size ? '' : 'disabled'}>🗑️ Excluir selecionadas</button>
                 </div>` : ''}
               <div class="camp-list">${[...campanhasFiltradas]
@@ -1174,6 +1175,8 @@ export async function renderCampanhasPage() {
         if (count) count.textContent = `${campSelectedIds.size} selecionada(s)`;
         const del = document.getElementById('camp-sel-delete');
         if (del) del.disabled = campSelectedIds.size === 0;
+        const tocar = document.getElementById('camp-sel-tocar');
+        if (tocar) tocar.disabled = campSelectedIds.size === 0;
     };
     main.querySelectorAll('[data-camp-select]').forEach((el) => el.addEventListener('change', (e) => {
         const id = String(el.dataset.campSelect);
@@ -1199,6 +1202,21 @@ export async function renderCampanhasPage() {
     document.getElementById('camp-sel-none')?.addEventListener('click', () => {
         campSelectedIds.clear();
         renderCampanhasPage();
+    });
+    document.getElementById('camp-sel-tocar')?.addEventListener('click', async (e) => {
+        const ids = Array.from(campSelectedIds);
+        if (!ids.length) return;
+        if (!confirm(`Marcar a Proposta/Funil de cada item das ${ids.length} campanha(s) selecionada(s) como "atualizado hoje"? Isso NÃO muda status nem comentário, só a data — e tira esses itens da tela de pendências dos vendedores/gerentes.`)) return;
+        const btn = e.currentTarget;
+        setSaving(true, btn, 'Marcando...');
+        const rr = await callAPI('tocarItensCampanhaBatch', { ids, user: state.currentUser }).catch((err) => ({ status: 'error', message: err.message }));
+        if (rr && rr.status === 'success') {
+            showToast(`${rr.tocados} item(ns) marcado(s) como atualizado(s)${rr.ignorados ? ` (${rr.ignorados} ignorado(s) — visita/manutenção/relatório não tem Proposta/Funil, ou fora do seu alcance)` : ''}.`);
+            setSaving(false, btn);
+        } else {
+            showToast((rr && rr.message) || 'Não foi possível marcar.', true);
+            setSaving(false, btn);
+        }
     });
     document.getElementById('camp-sel-delete')?.addEventListener('click', async (e) => {
         const ids = Array.from(campSelectedIds);
