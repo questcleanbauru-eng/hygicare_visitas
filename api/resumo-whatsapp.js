@@ -34,6 +34,22 @@ function contarVisitasPorVendedor(visitasRaw, desde, ate) {
     return porVendedor;
 }
 
+// O resumo de Manutenção só roda nos "Dias que envia" (ex.: Seg-Sex) e por
+// padrão computeResumoDiario olha só "ontem" — se o robô não roda fim de
+// semana, um Open/Close feito no sábado nunca aparece em lugar nenhum
+// (domingo não roda; segunda olha só pra domingo, vazio). Acha quantos
+// dias pra trás cobrir até o último dia QUE RODA antes de hoje, pra
+// segunda varrer sábado+domingo junto — em dia normal (ontem já é dia
+// configurado) devolve 1, sem mudar nada do comportamento de sempre.
+function diasParaCobrirAteUltimoDiaConfigurado(diasSemana, hoje) {
+    if (!Array.isArray(diasSemana) || !diasSemana.length) return 1;
+    for (let gap = 1; gap < 14; gap++) {
+        const d = new Date(hoje.getTime() - gap * 86400000);
+        if (diasSemana.includes(d.getDay())) return gap;
+    }
+    return 1;
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
         res.status(405).json({ status: 'error', message: 'Method not allowed.' });
@@ -118,7 +134,8 @@ export default async function handler(req, res) {
             .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
         let manutencaoResumo = [];
         if (emailsManutencao.length) {
-            const resumoGeral = await computeResumoDiario();
+            const diasRange = diasParaCobrirAteUltimoDiaConfigurado(schedule.diasSemana, hoje);
+            const resumoGeral = await computeResumoDiario(null, { diasRange });
             if (resumoGeral.visitas.manutencao.length) {
                 const destinatarios = ativos.filter((v) => emailsManutencao.includes(String(v.EmailLogin || '').trim().toLowerCase()) && String(v.TelefoneWhatsapp || '').trim());
                 manutencaoResumo = destinatarios.map((v) => ({

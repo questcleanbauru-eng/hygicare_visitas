@@ -597,11 +597,20 @@ async function atualizarPrevia() {
     painelStatus.destinatariosPrevia = destinatarios.map((d) => {
         const p = estado.pausasIndividuais[d.telefone];
         const enviadosPorCategoria = {};
-        CATEGORIAS_PENDENCIA.forEach((cat) => { enviadosPorCategoria[cat] = estaEnviadoHoje(estado, cat, d.telefone); });
+        // Texto exato que SERIA mandado em cada categoria — mesma função
+        // usada no envio de verdade (montarMensagemCategoria), só pra
+        // mostrar no hover do card no painel (pedido explícito: ver o que
+        // vai ser enviado antes de clicar "Agora").
+        const mensagensPreview = {};
+        CATEGORIAS_PENDENCIA.forEach((cat) => {
+            enviadosPorCategoria[cat] = estaEnviadoHoje(estado, cat, d.telefone);
+            if (contarItensCategoria(d, cat) > 0) mensagensPreview[cat] = montarMensagemCategoria(d, cat);
+        });
         return {
             ...d,
             pausadoAte: (p && new Date(p.ate).getTime() > Date.now()) ? p.ate : null,
-            enviadosPorCategoria
+            enviadosPorCategoria,
+            mensagensPreview
         };
     });
     painelStatus.semTelefonePrevia = semTelefone;
@@ -762,6 +771,7 @@ function paginaPainel() {
   .kanban-count { flex-shrink: 0; background: #e2e8f0; color: #475569; font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; }
   .kanban-cards { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
   .kanban-card { background: #fff; border: 1px solid #e5e9f0; border-radius: 10px; padding: 0.6rem 0.7rem; }
+  .kanban-card[title] { cursor: help; }
   .kanban-card.recebe { border-color: #86efac; background: #f0fdf4; }
   .kanban-card.ja-enviado { border-color: #bfdbfe; background: #eff6ff; }
   .kanban-card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; }
@@ -1082,7 +1092,8 @@ function montarColunasKanban(s) {
           jaEnviadoHoje: !!(d.enviadosPorCategoria && d.enviadosPorCategoria[key]),
           count: itens.length, badge: contagem(itens.length),
           detalhe: detalhe(itens[0]) + (itens.length > 1 ? ' +' + (itens.length - 1) : ''),
-          dias: diasValor
+          dias: diasValor,
+          mensagemPreview: (d.mensagensPreview && d.mensagensPreview[key]) || ''
         };
       })
       .sort((a, b) => b.count - a.count)
@@ -1102,9 +1113,18 @@ function montarCardsInatividade(s) {
     .map((d) => ({
       categoria: 'inatividade', nome: d.nome, temTelefone: d.temTelefone, telefone: d.telefone, pausadoAte: d.pausadoAte || null,
       jaEnviadoHoje: !!(d.enviadosPorCategoria && d.enviadosPorCategoria.inatividade),
-      count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null
+      count: d.diasSemAtividade, badge: 'há ' + d.diasSemAtividade + ' dias', detalhe: '', dias: null,
+      mensagemPreview: (d.mensagensPreview && d.mensagensPreview.inatividade) || ''
     }))
     .sort((a, b) => b.count - a.count);
+}
+
+// Só pro atributo title (hover) abaixo — o resto do card já interpola
+// nome/detalhe sem escapar (sempre foi assim nesse painel local), mas um
+// "\\"" dentro do texto da mensagem (ex.: observação com aspas) quebraria
+// a tag se fosse direto num atributo, diferente de ir solto no HTML.
+function escapeAttr(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 function kanbanCardHtml(card) {
@@ -1122,8 +1142,9 @@ function kanbanCardHtml(card) {
     else if (card.jaEnviadoHoje) statusHtml = '<span class="enviado">✓ já enviado hoje</span>';
     else statusHtml = '<span class="ok">✓ vai receber</span>';
   }
+  const previewAttr = card.mensagemPreview ? \` title="\${escapeAttr(card.mensagemPreview)}"\` : '';
   return \`
-    <div class="kanban-card \${card.temTelefone ? 'recebe' : ''} \${card.jaEnviadoHoje ? 'ja-enviado' : ''}">
+    <div class="kanban-card \${card.temTelefone ? 'recebe' : ''} \${card.jaEnviadoHoje ? 'ja-enviado' : ''}"\${previewAttr}>
       <div class="kanban-card-top">
         <span class="kanban-card-nome">\${card.nome}</span>
         <span class="kanban-card-badge \${card.temTelefone ? '' : 'warn'}">\${card.badge}</span>
