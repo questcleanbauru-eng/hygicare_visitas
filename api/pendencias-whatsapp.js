@@ -165,10 +165,17 @@ export default async function handler(req, res) {
         // faz sentido cobrar atualização de algo que está assim por decisão,
         // não por esquecimento (era a maior fonte de ruído: casos reais
         // chegando a 800+ dias "parados" eram todos RETOMAR).
+        // CONCLUIDO/PERDIDO também ficam de fora — mesmo critério já usado
+        // na tela de Notificações (handleGetPendenciasPorVendedor,
+        // dashboard.js). "Ativo" sozinho não bastava: só um admin edita esse
+        // campo manualmente, então uma oportunidade ganha/perdida por um
+        // vendedor (sem mexer em "Ativo") continuava sendo cobrada por
+        // WhatsApp meses depois, mesmo já tendo um desfecho.
         const funilPorVendedor = {};
         funil.forEach((f) => {
             if (String(f.ativo || '').trim().toLowerCase() !== 'sim') return;
-            if (String(f.status || '').trim().toUpperCase() === 'RETOMAR') return;
+            const statusUp = String(f.status || '').trim().toUpperCase();
+            if (statusUp === 'RETOMAR' || statusUp === 'CONCLUIDO' || statusUp === 'PERDIDO') return;
             const dias = diasEntre(today, f.atualizacao || f.data);
             if (dias === null || dias <= DIAS_PARADO) return;
             const nome = String(f.vendedor || '').trim();
