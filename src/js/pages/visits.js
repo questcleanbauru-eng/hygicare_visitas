@@ -718,7 +718,7 @@ export function fillVisitsContent(container, visits) {
             { key: 'cliente', label: 'Nome do Cliente' },
             { key: 'tipoVisita', label: 'Tipo da Visita' },
             { key: 'teveDespesas', label: 'Teve Despesas' },
-            { key: 'valorDespesas', label: 'Valor R$' }
+            { key: 'valorDespesas', label: 'Valor R$', type: 'currency' }
         ], 'Visitas');
     });
 

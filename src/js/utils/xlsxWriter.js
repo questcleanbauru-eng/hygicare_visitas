@@ -115,10 +115,16 @@ function buildSheetXml(headers, rows) {
     const cols = `<cols>${headers.map((_, i) => `<col min="${i + 1}" max="${i + 1}" width="24" customWidth="1"/>`).join('')}</cols>`;
     // Célula de data: valor é { date: <nº de série> } (ver downloadXLSX) —
     // vira número de verdade com o estilo 1 (formato dd/mm/aaaa, registrado
-    // em xl/styles.xml), não texto. Tudo o mais continua string crua/inline.
+    // em xl/styles.xml), não texto. Célula de moeda: { num: <número> },
+    // estilo 2 (formato "R$ "#,##0.00) — mesma ideia, número de verdade
+    // (soma/fórmula funcionam), só exibido como moeda. Tudo o mais continua
+    // string crua/inline.
     const cell = (col, r, value) => {
         if (value && typeof value === 'object' && typeof value.date === 'number') {
             return `<c r="${colLetter(col)}${r}" s="1"><v>${value.date}</v></c>`;
+        }
+        if (value && typeof value === 'object' && typeof value.num === 'number') {
+            return `<c r="${colLetter(col)}${r}" s="2"><v>${value.num}</v></c>`;
         }
         return `<c r="${colLetter(col)}${r}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
     };
@@ -142,13 +148,19 @@ export function downloadXLSX(data, filename, columns, sheetName) {
     const headers = columns.map((c) => c.label);
     // Coluna marcada type:'date' (valor "dd/mm/aaaa") vira nº de série do
     // Excel ({date: n}, lido por buildSheetXml/cell) — célula numérica de
-    // verdade com formato de data, em vez de texto cru. Se não bater o
-    // formato esperado (vazio, etc.), cai pra texto normal igual antes.
+    // verdade com formato de data, em vez de texto cru. type:'currency'
+    // (valor "1.234,56", "R$ 60", vazio...) vira número puro ({num: n}) —
+    // sem isso o Excel não deixa somar a coluna, só concatenar texto. Se
+    // não bater o formato esperado, cai pra texto normal igual antes.
     const rows = (data || []).map((row) => columns.map((c) => {
         const raw = row[c.key] ?? '';
         if (c.type === 'date') {
             const serial = parseDisplayDateToSerial(raw);
             if (serial !== null) { return { date: serial }; }
+        }
+        if (c.type === 'currency' && String(raw).trim() !== '') {
+            const n = Number(String(raw).replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.'));
+            if (!isNaN(n)) { return { num: n }; }
         }
         return raw;
     }));
@@ -189,20 +201,23 @@ export function downloadXLSX(data, filename, columns, sheetName) {
                 `</Relationships>`
         },
         {
-            // numFmtId 164 = primeiro slot "custom" livre (0-163 são
-            // reservados/built-in do Excel). cellXfs índice 1 (s="1" na
-            // célula) é o único estilo não-default usado — data dd/mm/aaaa.
+            // numFmtId 164/165 = primeiros slots "custom" livres (0-163 são
+            // reservados/built-in do Excel). cellXfs índice 1 (s="1") = data
+            // dd/mm/aaaa; índice 2 (s="2") = moeda "R$ "#,##0.00 (número de
+            // verdade, soma funciona — símbolos #,##0.00 seguem o separador
+            // do Excel do usuário, por isso vira "R$ 1.234,56" no pt-BR).
             name: 'xl/styles.xml',
             content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
                 `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-                `<numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts>` +
+                `<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="&quot;R$ &quot;#,##0.00"/></numFmts>` +
                 `<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>` +
                 `<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>` +
                 `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
                 `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-                `<cellXfs count="2">` +
+                `<cellXfs count="3">` +
                 `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
                 `<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
+                `<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
                 `</cellXfs>` +
                 `</styleSheet>`
         },
