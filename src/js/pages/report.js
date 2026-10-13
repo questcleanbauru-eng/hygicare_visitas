@@ -993,7 +993,7 @@ function renderReportFunilBody(mainContent, allFunil, isAdmGer) {
             { key: 'cliente', label: 'Cliente' }, { key: 'cidade', label: 'Cidade' }, { key: 'status', label: 'Status' },
             { key: 'ativo', label: 'Ativo' }, { key: 'foco', label: 'Foco' }, { key: 'atuacao', label: 'Atuação' },
             { key: 'aplicacao', label: 'Aplicação' }, { key: 'equipamentos', label: 'Equipamentos' },
-            { key: 'vlMensal', label: 'Vl Mensal (R$)' }, { key: 'forecast', label: 'Forecast ponderado (R$)' },
+            { key: 'vlMensal', label: 'Vl Mensal (R$)', type: 'currency' }, { key: 'forecast', label: 'Forecast ponderado (R$)', type: 'currency' },
             { key: 'atualizacao', label: 'Última atualização', type: 'date' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
             { key: 'conclusao', label: 'Conclusão prevista', type: 'date' }, { key: 'motivoPerda', label: 'Motivo da perda' }
         ], 'Funil');

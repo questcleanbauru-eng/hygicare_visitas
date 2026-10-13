@@ -158,8 +158,15 @@ export function downloadXLSX(data, filename, columns, sheetName) {
             const serial = parseDisplayDateToSerial(raw);
             if (serial !== null) { return { date: serial }; }
         }
-        if (c.type === 'currency' && String(raw).trim() !== '') {
-            const n = Number(String(raw).replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.'));
+        if (c.type === 'currency') {
+            // Alguns relatórios já mandam número pronto (ex.: report.js faz
+            // parseCurrencyBR/Math.round antes de chegar aqui) — nesse caso
+            // usa direto. Texto solto ("200,74", "R$ 1.500,00"...) aplica o
+            // parser BR (ponto = milhar, vírgula = decimal); number.toString()
+            // teria ponto como DECIMAL e quebraria se reaproveitasse o mesmo
+            // replace de texto, por isso os dois casos são tratados separado.
+            const n = typeof raw === 'number' ? raw
+                : (String(raw).trim() !== '' ? Number(String(raw).replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.')) : NaN);
             if (!isNaN(n)) { return { num: n }; }
         }
         return raw;
