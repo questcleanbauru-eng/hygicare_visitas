@@ -1925,17 +1925,17 @@ export async function renderManutencaoFormPage(record, options) {
                 <canvas id="mnt-signature-tecnico" class="signature-pad"></canvas>
                 <div class="signature-pad-actions"><button type="button" class="mini-button" id="mnt-signature-tecnico-clear">Limpar assinatura</button></div>
             </div>
-            ${isBiopet ? `
             <div class="form-row-pair">
                 <div class="form-group">
                     <label for="mnt-cliente-assinante-nome">Nome de quem assina (Cliente)</label>
                     <input type="text" id="mnt-cliente-assinante-nome" value="${escapeHtml(m.clienteAssinanteNome || '')}" placeholder="Nome completo">
+                    <p class="field-helper-text">Em branco, usa o responsável cadastrado do cliente (se tiver).</p>
                 </div>
                 <div class="form-group">
                     <label for="mnt-cliente-assinante-funcao">Cargo/Função</label>
                     <input type="text" id="mnt-cliente-assinante-funcao" value="${escapeHtml(m.clienteAssinanteFuncao || '')}" placeholder="Ex.: Gerente de Compras">
                 </div>
-            </div>` : ''}
+            </div>
             <div class="form-group full-width">
                 <label>Assinatura do Cliente</label>
                 <canvas id="mnt-signature-cliente" class="signature-pad"></canvas>
@@ -2130,8 +2130,8 @@ export async function renderManutencaoFormPage(record, options) {
             tipoManutencao: isBiopet ? (document.getElementById('mnt-tipo-mnt')?.value || '') : '',
             itensTabela: (!isGeral && itensContainer) ? collectItens(itensContainer) : [],
             observacao: document.getElementById('mnt-observacao')?.value || '',
-            clienteAssinanteNome: isBiopet ? (document.getElementById('mnt-cliente-assinante-nome')?.value.trim() || '') : '',
-            clienteAssinanteFuncao: isBiopet ? (document.getElementById('mnt-cliente-assinante-funcao')?.value.trim() || '') : ''
+            clienteAssinanteNome: document.getElementById('mnt-cliente-assinante-nome')?.value.trim() || '',
+            clienteAssinanteFuncao: document.getElementById('mnt-cliente-assinante-funcao')?.value.trim() || ''
         });
         const scheduleDraftSave = debounce(() => {
             const data = collectDraftData();
@@ -2153,10 +2153,8 @@ export async function renderManutencaoFormPage(record, options) {
                 document.getElementById('mnt-tipo-mnt').value = d.tipoManutencao;
                 document.querySelectorAll('.radio-pill[data-tipo-mnt]').forEach((b) => b.classList.toggle('is-checked', b.dataset.tipoMnt === d.tipoManutencao));
             }
-            if (isBiopet) {
-                document.getElementById('mnt-cliente-assinante-nome').value = d.clienteAssinanteNome || '';
-                document.getElementById('mnt-cliente-assinante-funcao').value = d.clienteAssinanteFuncao || '';
-            }
+            document.getElementById('mnt-cliente-assinante-nome').value = d.clienteAssinanteNome || '';
+            document.getElementById('mnt-cliente-assinante-funcao').value = d.clienteAssinanteFuncao || '';
             if (!isGeral && itensContainer && d.itensTabela && d.itensTabela.length) {
                 itensContainer.innerHTML = d.itensTabela.map((i) => itemRowHtml(i, isBiopet)).join('');
                 bindItemRowRemove(itensContainer);
@@ -2226,14 +2224,22 @@ export async function renderManutencaoFormPage(record, options) {
             }
         };
 
+        // Sem nome digitado, usa o responsável/contato já cadastrado do
+        // cliente (Base de Clientes) em vez de ficar em branco — pedido
+        // explícito. Só entra como fallback; digitar um nome aqui sempre
+        // vence o cadastro (ex.: outra pessoa assinou dessa vez).
+        const assinanteNomeVal = document.getElementById('mnt-cliente-assinante-nome').value.trim();
+        const clienteMatchAssinatura = clientes.find((c) => String(c.nome || '').trim().toLowerCase() === clienteVal.trim().toLowerCase());
+        const assinanteNomeFinal = assinanteNomeVal || (clienteMatchAssinatura && clienteMatchAssinatura.contato) || '';
+
         const payload = {
             cliente: clienteVal, cidade: cidadeVal, tecnico: tecnicoVal,
             observacao: observacaoVal,
             itensTabela: isGeral ? '[]' : JSON.stringify(collectItens(itensContainer)),
             tipoRelatorio: isBiopet ? 'biopet' : isGeral ? 'geral' : '',
             tipoManutencao: isBiopet ? (document.getElementById('mnt-tipo-mnt')?.value || 'Aferição') : '',
-            clienteAssinanteNome: isBiopet ? document.getElementById('mnt-cliente-assinante-nome').value.trim() : '',
-            clienteAssinanteFuncao: isBiopet ? document.getElementById('mnt-cliente-assinante-funcao').value.trim() : '',
+            clienteAssinanteNome: assinanteNomeFinal,
+            clienteAssinanteFuncao: document.getElementById('mnt-cliente-assinante-funcao').value.trim(),
             fotos: fotoIds.slice(),
             // Sempre manda o que está no canvas agora (mesmo vazio) — assim
             // clicar em "Limpar" numa edição realmente apaga a assinatura
