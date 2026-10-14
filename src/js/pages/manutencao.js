@@ -168,8 +168,9 @@ function combinarRelatorios(manut, tecnicos) {
 }
 
 // SPSP = Rel. Técnico (aba própria, relatorioTecnico.js). Dentro de
-// "Manutencoes" tem dois modelos: Aferição (com a tabela de vazão) e Geral
-// (mesmos campos, sem a tabela) — distinguidos por m.tipoRelatorio.
+// "Manutencoes" tem quatro modelos — Aferição (com a tabela de vazão,
+// tipoRelatorio vazio), Geral, BIOPET e Carta de Visita (acesso restrito) —
+// distinguidos por m.tipoRelatorio.
 const tipoLabel = (m) => (m._tipo === 'tecnico' ? 'SPSP' : m.tipoRelatorio === 'geral' ? 'Geral' : m.tipoRelatorio === 'biopet' ? 'BIOPET' : m.tipoRelatorio === 'carta' ? 'Carta de Visita' : 'Aferição');
 const tipoBadgeClass = (m) => (m._tipo === 'tecnico' ? 'tecnico' : m.tipoRelatorio === 'geral' ? 'geral' : m.tipoRelatorio === 'biopet' ? 'biopet' : m.tipoRelatorio === 'carta' ? 'carta' : 'manutencao');
 const tipoIcon = (m) => (m._tipo === 'tecnico' ? '📋' : m.tipoRelatorio === 'geral' ? '📄' : m.tipoRelatorio === 'biopet' ? '🧪' : m.tipoRelatorio === 'carta' ? '✉️' : '🔧');
@@ -279,6 +280,7 @@ export function fillManutencaoContent(mainContent, itens) {
             <span class="mnt-legenda-item">🔧 <strong>Rel. de Aferição</strong> → com tabela de vazão</span>
             <span class="mnt-legenda-item">📄 <strong>Rel. Geral</strong> → sem tabela de aferição</span>
             <span class="mnt-legenda-item">🧪 <strong>Rel. BIOPET</strong> → inspeção de concentração</span>
+            ${state.canRelatorioEspecial ? `<span class="mnt-legenda-item">✉️ <strong>Carta de Visita</strong> → acesso restrito</span>` : ''}
         </p>
         <div class="search-bar-wrapper">
             <div class="search-bar-input-group">
@@ -302,6 +304,8 @@ export function fillManutencaoContent(mainContent, itens) {
                         <option value="tecnico">SPSP</option>
                         <option value="manutencao">Aferição</option>
                         <option value="geral">Geral</option>
+                        <option value="biopet">BIOPET</option>
+                        ${state.canRelatorioEspecial ? `<option value="carta">Carta de Visita</option>` : ''}
                     </select>
                 </div>
                 ${multiCheckFilterFieldHtml('Cidade', 'mnt-cidade', 'Todas')}
@@ -338,9 +342,8 @@ export function fillManutencaoContent(mainContent, itens) {
 
         const filtered = normalized.filter((m) => {
             const matchSearch  = !search || [m.cliente, m.cidade, m.tecnico].some((v) => String(v || '').toLowerCase().includes(search));
-            const matchTipo    = !tipo || (tipo === 'geral' ? (m._tipo === 'manutencao' && m.tipoRelatorio === 'geral')
-                : tipo === 'manutencao' ? (m._tipo === 'manutencao' && m.tipoRelatorio !== 'geral')
-                : m._tipo === tipo);
+            const matchTipo    = !tipo || (tipo === 'tecnico' ? m._tipo === 'tecnico'
+                : m._tipo === 'manutencao' && (tipo === 'manutencao' ? !m.tipoRelatorio : m.tipoRelatorio === tipo));
             const matchCidade  = !cidade.length || cidade.includes(m.cidade);
             const matchTecnico = !tecnico.length || tecnico.includes(m.tecnico);
             return matchSearch && matchTipo && matchCidade && matchTecnico;
@@ -2202,7 +2205,11 @@ export async function renderManutencaoFormPage(record, options) {
                 cliente: clienteVal,
                 contato: (match && match.contato) || '',
                 cidade: cidadeVal || (match && match.cidade) || '',
-                areaAtuacao: (match && match.areaAtuacao) || '',
+                // Backend de Visitas exige Área de Atuação; se o cliente não
+                // tem isso cadastrado, usa um valor padrão em vez de deixar
+                // a visita automática falhar por causa de um campo que não
+                // tem nada a ver com o relatório de manutenção em si.
+                areaAtuacao: (match && match.areaAtuacao) || 'Manutenção',
                 potencialCliente: '',
                 tipoVisita: 'Manutenção',
                 tiposVisita: ['Manutenção'],

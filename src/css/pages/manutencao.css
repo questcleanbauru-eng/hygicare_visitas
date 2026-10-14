@@ -112,6 +112,9 @@
     transition: background-color 0.15s;
 }
 .mnt-modal-close:hover { background: var(--border); }
+@media (max-width: 639px) {
+    .mnt-modal-close { width: 40px; height: 40px; }
+}
 
 .mnt-modelos-modal {
     display: flex;
@@ -190,6 +193,9 @@
     cursor: pointer;
 }
 .mnt-modelo-menu-toggle:hover { background: var(--bg); }
+@media (max-width: 639px) {
+    .mnt-modelo-menu-toggle { width: 40px; height: 40px; }
+}
 .mnt-modelo-menu {
     display: none;
     position: absolute;
@@ -250,12 +256,12 @@
 .mnt-item-remove { grid-area: remove; }
 
 .mnt-item-row input, .mnt-item-row select {
-    min-height: 40px;
+    min-height: 44px;
     min-width: 0;
 }
 
 .mnt-item-remove {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0;
 }
 
@@ -276,24 +282,25 @@
     color: var(--text-muted-strong);
 }
 
-/* Abaixo de 640px os 4 campos não cabem numa linha só sem espremer —
-   agrupa em card 2x2 com o botão remover virando um ícone redondo no
-   canto, em vez de tentar forçar tudo numa linha horizontal. */
+/* Abaixo de 640px os 4 campos não cabem numa linha só sem espremer — cada
+   linha vira um card com os 4 campos empilhados (1 por linha) em vez de
+   dividir a largura em 2-3 colunas, que deixava cada campo estreito demais
+   pra digitar/ler confortavelmente no celular. */
 @media (max-width: 639px) {
-    /* Cada linha vira um card próprio com os 4 campos 2x2 — um rótulo de
-       coluna só faria sentido em cima de uma linha horizontal, então some
-       aqui (o placeholder de cada campo já identifica ele dentro do card). */
+    /* Cada linha vira um card próprio com os campos empilhados — um rótulo
+       de coluna só faria sentido em cima de uma linha horizontal, então
+       some aqui (o placeholder de cada campo já identifica ele dentro do
+       card). */
     .mnt-item-row-header { display: none; }
 
-    /* Equipamento numa linha só pra si (nomes tipo "TOTAL MIX-Tron/LAV.
-       CARRINHOS *" não cabem dividindo a largura com Produto — cortava o
-       texto). Produto/Diluição/Aferido são bem mais curtos, cabem 3 por
-       linha embaixo. */
     .mnt-item-row {
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: 1fr;
         grid-template-areas:
-            "equip equip equip"
-            "prod dil aferido";
+            "equip"
+            "prod"
+            "dil"
+            "aferido";
+        gap: 0.45rem;
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         padding: 2.1rem 0.6rem 0.6rem;
@@ -305,8 +312,8 @@
         position: absolute;
         top: 0.5rem;
         right: 0.5rem;
-        width: 30px;
-        min-height: 30px;
+        width: 40px;
+        min-height: 40px;
         border-radius: 50%;
     }
 }
@@ -360,6 +367,14 @@
     font-size: 0.72rem;
     line-height: 22px;
     cursor: pointer;
+}
+@media (max-width: 639px) {
+    .mnt-foto-del {
+        width: 28px;
+        height: 28px;
+        line-height: 28px;
+        font-size: 0.8rem;
+    }
 }
 .mnt-foto-add { display: inline-block; cursor: pointer; }
 .mnt-foto-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
@@ -1222,6 +1237,14 @@
     line-height: 1;
     cursor: pointer;
     padding: 0 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+}
+@media (max-width: 639px) {
+    .mnt-carta-x { min-width: 40px; min-height: 40px; }
 }
 .mnt-carta-check { display: flex !important; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer; }
 .mnt-carta-check input { width: auto; }
