@@ -1317,6 +1317,8 @@ export async function renderCalendarPage(options) {
     // fica assim (aberta/fechada) enquanto navega entre meses/filtros na
     // mesma visita à tela, mas volta a nascer oculta na próxima vez.
     let legendVisible = false;
+    // Mesmo padrão do legendVisible — oculto por padrão.
+    let atrasadosVisible = false;
 
     const render = () => {
         const firstDay  = new Date(viewYear, viewMonth, 1);
@@ -1437,14 +1439,20 @@ export async function renderCalendarPage(options) {
         const filterChipsHtml = filterOptions.map((opt) =>
             `<button type="button" class="pill${activeFilter === opt.key ? ' active' : ''}" data-cal-filter="${opt.key}">${opt.label}</button>`
         ).join('');
+        // Botão à parte dos chips de filtro (não é exclusivo com eles, é um
+        // show/hide) — só aparece quando tem algo atrasado de outro mês pra
+        // mostrar; nasce fechado toda vez que a tela abre, igual a legenda.
+        const atrasadosToggleHtml = atrasadosOutroMes.length
+            ? `<button type="button" class="pill${atrasadosVisible ? ' active' : ''}" id="cal-atrasados-toggle" style="border-color:var(--danger-border);${atrasadosVisible ? 'background:var(--danger);color:#fff' : 'color:var(--danger)'}">⚠️ Atrasados (${atrasadosOutroMes.length})</button>`
+            : '';
 
         mainContent.innerHTML = `
             <div class="page-header">
                 <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas, Funil e Retornos</p></div>
                 <button type="button" class="primary-btn" id="cal-new-agendamento">+ Agendar</button>
             </div>
-            <div class="pill-row">${filterChipsHtml}</div>
-            ${atrasadosOutroMes.length ? `
+            <div class="pill-row">${filterChipsHtml}${atrasadosToggleHtml}</div>
+            ${atrasadosVisible && atrasadosOutroMes.length ? `
             <div class="card" id="cal-atrasados-section" style="margin-bottom:0.75rem;border-left:3px solid var(--danger)">
                 <div class="visit-month-header"><h3>⚠️ Retornos atrasados (outros meses)</h3><span>${atrasadosOutroMes.length}</span></div>
                 <div class="visits-list">${atrasadosOutroMes.map((a) => agendamentoCardHtml(a, { showDate: true })).join('')}</div>
@@ -1475,9 +1483,13 @@ export async function renderCalendarPage(options) {
         `;
 
         renderAgendamentosSection();
-        if (atrasadosOutroMes.length) {
+        if (atrasadosVisible && atrasadosOutroMes.length) {
             bindAgendamentoRowActions(document.getElementById('cal-atrasados-section'), atrasadosOutroMes, { onMutated: render });
         }
+        document.getElementById('cal-atrasados-toggle')?.addEventListener('click', () => {
+            atrasadosVisible = !atrasadosVisible;
+            render();
+        });
 
         document.getElementById('cal-legend-toggle').addEventListener('click', () => {
             legendVisible = !legendVisible;
