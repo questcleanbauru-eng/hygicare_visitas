@@ -1340,6 +1340,22 @@ export async function renderCalendarPage(options) {
             ? agendamentos.filter((a) => a.campanhaOrigemId)
             : agendamentos;
 
+        // Retornos vencidos de OUTRO mês que não o exibido — sem isso, um
+        // retorno atrasado de setembro fica invisível ao abrir a Agenda em
+        // outubro (a lista "Retornos agendados" abaixo só mostra o mês em
+        // tela), mesmo aparecendo como "Atrasado" na Home. Exclui o mês em
+        // tela de propósito, pra não duplicar o card que já aparece lá embaixo.
+        const hojeZero = new Date(); hojeZero.setHours(0, 0, 0, 0);
+        const atrasadosOutroMes = showRetornos
+            ? agendamentosParaGrade
+                .filter((a) => {
+                    const d = parseDisplayDate(a.dataAgendada);
+                    if (!d || d >= hojeZero) return false;
+                    return d.getFullYear() !== viewYear || d.getMonth() !== viewMonth;
+                })
+                .sort((a, b) => (parseDisplayDate(a.dataAgendada)?.getTime() || 0) - (parseDisplayDate(b.dataAgendada)?.getTime() || 0))
+            : [];
+
         if (showVisitas) visits.forEach((v) => {
             const d = parseDisplayDate(v.dataVisita);
             if (!d || d.getFullYear() !== viewYear || d.getMonth() !== viewMonth) { return; }
@@ -1428,6 +1444,11 @@ export async function renderCalendarPage(options) {
                 <button type="button" class="primary-btn" id="cal-new-agendamento">+ Agendar</button>
             </div>
             <div class="pill-row">${filterChipsHtml}</div>
+            ${atrasadosOutroMes.length ? `
+            <div class="card" id="cal-atrasados-section" style="margin-bottom:0.75rem;border-left:3px solid var(--danger)">
+                <div class="visit-month-header"><h3>⚠️ Retornos atrasados (outros meses)</h3><span>${atrasadosOutroMes.length}</span></div>
+                <div class="visits-list">${atrasadosOutroMes.map((a) => agendamentoCardHtml(a, { showDate: true })).join('')}</div>
+            </div>` : ''}
             <div class="card cal-card">
                 <div class="cal-nav">
                     <button type="button" class="mini-button" id="cal-prev">&#8592;</button>
@@ -1454,6 +1475,9 @@ export async function renderCalendarPage(options) {
         `;
 
         renderAgendamentosSection();
+        if (atrasadosOutroMes.length) {
+            bindAgendamentoRowActions(document.getElementById('cal-atrasados-section'), atrasadosOutroMes, { onMutated: render });
+        }
 
         document.getElementById('cal-legend-toggle').addEventListener('click', () => {
             legendVisible = !legendVisible;
