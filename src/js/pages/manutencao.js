@@ -2211,8 +2211,8 @@ export async function renderManutencaoFormPage(record, options) {
                 // tem nada a ver com o relatório de manutenção em si.
                 areaAtuacao: (match && match.areaAtuacao) || 'Manutenção',
                 potencialCliente: '',
-                tipoVisita: 'Manutenção',
-                tiposVisita: ['Manutenção'],
+                tipoVisita: 'Close Manutenção',
+                tiposVisita: ['Close Manutenção'],
                 veiculo: 'Particular',
                 observacao: `Visita gerada automaticamente pelo Relatório de Manutenção${reportId ? ' Nº ' + reportId : ''}.`,
                 clienteId: (match && match.id) || '',
