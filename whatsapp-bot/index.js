@@ -491,12 +491,27 @@ async function enviarCategoriaDoDia(sock, categoria, destinatarios) {
     const telefonesOk = [];
     let falhas = 0;
     for (const dest of destinatarios) {
+        // sockAtual trocou (reconexão no meio do lote) — essa conexão já
+        // está morta/sendo substituída. Pára aqui em vez de insistir pra
+        // quem falta: quem já recebeu já foi marcado (linha abaixo, por
+        // pessoa), e quem não recebeu ainda entra limpo na próxima checagem
+        // com o sockAtual novo, sem arriscar reenviar pra quem a msg já
+        // saiu mas a confirmação se perdeu na queda.
+        if (sock !== sockAtual) {
+            console.log(`[${categoria}] conexão trocou no meio do envio — parando aqui, o resto fica pra próxima checagem.`);
+            break;
+        }
         const jid = `${dest.telefone}@s.whatsapp.net`;
         const texto = montarMensagemCategoria(dest, categoria);
         try {
             await enviarTexto(sock, jid, texto);
             console.log(`  ✓ [${categoria}] ${dest.nome} (${dest.telefone})`);
             telefonesOk.push(dest.telefone);
+            // Marca JÁ (por pessoa), não só no fim do lote — se o robô cair/
+            // reiniciar no meio de uma lista grande, quem já recebeu não é
+            // esquecido e reenviado de novo quando o robô voltar.
+            marcarEnviadosHoje(categoria, [dest.telefone]);
+            painelStatus.ultimoEnvio = new Date().toISOString();
             registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', categoria, pendencias: contarItensCategoria(dest, categoria), quando: new Date().toISOString() });
         } catch (err) {
             console.error(`  ✗ [${categoria}] ${dest.nome} (${dest.telefone}):`, err.message);
@@ -507,14 +522,6 @@ async function enviarCategoriaDoDia(sock, categoria, destinatarios) {
         // em massa (gatilho comum de bloqueio).
         const jitter = DELAY_ENTRE_ENVIOS_MS * 0.5 * Math.random();
         await sleep(DELAY_ENTRE_ENVIOS_MS + jitter);
-    }
-    // Marca como "enviado hoje" (nessa categoria) só quem realmente recebeu
-    // — quem falhou (ex.: conexão ainda instabilizando logo após parear)
-    // continua fora da lista e entra de novo na próxima checagem, em vez de
-    // ficar esquecido até o dia seguinte.
-    if (telefonesOk.length) {
-        marcarEnviadosHoje(categoria, telefonesOk);
-        painelStatus.ultimoEnvio = new Date().toISOString();
     }
     if (falhas > 0) {
         const label = CATEGORIA_DEFS[categoria]?.label || categoria;
@@ -557,11 +564,22 @@ async function enviarResumosDoDia(sock) {
     const telefonesOk = [];
     const enviados = { gerentes: 0, manutencao: 0 };
     for (const dest of destinatarios) {
+        // Mesma trava de enviarCategoriaDoDia: conexão trocou (reconexão no
+        // meio do lote) — pára aqui, quem já recebeu já foi marcado por
+        // pessoa (abaixo) e o resto entra limpo na próxima checagem.
+        if (sock !== sockAtual) {
+            console.log('[resumo] conexão trocou no meio do envio — parando aqui, o resto fica pra próxima checagem.');
+            break;
+        }
         try {
             await enviarTexto(sock, `${dest.telefone}@s.whatsapp.net`, dest.texto);
             console.log(`  ✓ resumo: ${dest.nome} (${dest.telefone})`);
             telefonesOk.push(dest.telefone);
             if (dest.tipo === 'gerente') enviados.gerentes++; else enviados.manutencao++;
+            // Marca JÁ (por pessoa) — ver mesmo comentário em
+            // enviarCategoriaDoDia: evita reenviar pra quem já recebeu se o
+            // robô cair/reiniciar no meio da lista.
+            marcarResumosEnviadosHoje([dest.telefone]);
             registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', tipo: 'resumo', quando: new Date().toISOString() });
         } catch (err) {
             console.error(`  ✗ resumo: ${dest.nome} (${dest.telefone}):`, err.message);
@@ -570,7 +588,6 @@ async function enviarResumosDoDia(sock) {
         const jitter = DELAY_ENTRE_ENVIOS_MS * 0.5 * Math.random();
         await sleep(DELAY_ENTRE_ENVIOS_MS + jitter);
     }
-    if (telefonesOk.length) marcarResumosEnviadosHoje(telefonesOk);
     console.log(`Resumo concluído: ${telefonesOk.length} ok, ${destinatarios.length - telefonesOk.length} falha(s).`);
     return enviados;
 }
