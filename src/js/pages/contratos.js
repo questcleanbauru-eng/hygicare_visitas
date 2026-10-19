@@ -134,14 +134,20 @@ export function fillContratosContent(mainContent, contratos) {
         const isQeSelected = (c) => qe && String(c.id) === String(qeSelectedId);
         // showPauseBtn só true na listagem normal (fora da Edição rápida) —
         // em modo qe o toggle já fica no painel, ao lado de Salvar; duplicar
-        // aqui também seria clutter sem motivo.
+        // aqui também seria clutter sem motivo. O ícone fica FORA do botão
+        // do card (irmão, não filho) — mesmo esquema do ícone de Funil nos
+        // cards de Visita (.visit-card-wrap/.visit-card-actions): um botão
+        // dentro de outro botão quebra o layout (o navegador fecha o botão
+        // de fora cedo demais e o de dentro "vaza" pra fora do card).
         const alertCardHtml = (c, { showPauseBtn = false } = {}) => `
-            <button type="button" class="alert-card${c.pausado === 'Sim' ? '' : ' critical'}${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.5rem;display:block">
-                <div class="title">${escapeHtml(c.cliente || 'Cliente não informado')}</div>
-                <div class="sub">${escapeHtml([c.vendedor, c.cidade, c.fim ? 'Fim: ' + c.fim : ''].filter(Boolean).join(' · '))}</div>
-                <div class="warn">${c.pausado === 'Sim' ? '⏸️ Pausado — em análise' : `⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)`}${anexoWarn(c)}</div>
-                ${showPauseBtn ? `<div style="margin-top:0.5rem"><button type="button" class="mini-button" data-contrato-pausar="${escapeHtml(c.id)}">${c.pausado === 'Sim' ? '▶️ Retomar' : '⏸️ Pausar'}</button></div>` : ''}
-            </button>`;
+            <div class="ct-card-wrap${showPauseBtn ? ' has-actions' : ''}">
+                <button type="button" class="alert-card${c.pausado === 'Sim' ? '' : ' critical'}${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer">
+                    <div class="title">${escapeHtml(c.cliente || 'Cliente não informado')}</div>
+                    <div class="sub">${escapeHtml([c.vendedor, c.cidade, c.fim ? 'Fim: ' + c.fim : ''].filter(Boolean).join(' · '))}</div>
+                    <div class="warn">${c.pausado === 'Sim' ? '⏸️ Pausado — em análise' : `⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)`}${anexoWarn(c)}</div>
+                </button>
+                ${showPauseBtn ? `<div class="ct-card-actions"><button type="button" class="ct-pause-btn${c.pausado === 'Sim' ? ' is-paused' : ''}" data-contrato-pausar="${escapeHtml(c.id)}" title="${c.pausado === 'Sim' ? 'Retomar cobrança de vencimento' : 'Pausar cobrança de vencimento'}" aria-label="${c.pausado === 'Sim' ? 'Retomar' : 'Pausar'}">${c.pausado === 'Sim' ? '▶️' : '⏸️'}</button></div>` : ''}
+            </div>`;
         const simpleCardHtml = (c) => `
             <button type="button" class="card${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.6rem">
                 <div class="item-body">
