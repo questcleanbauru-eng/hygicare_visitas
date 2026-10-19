@@ -132,11 +132,15 @@ export function fillContratosContent(mainContent, contratos) {
         // tela já redesenhada.
         const anexoWarn = (c) => !anexoUrl(c) ? ' · falta anexar contrato' : '';
         const isQeSelected = (c) => qe && String(c.id) === String(qeSelectedId);
-        const alertCardHtml = (c) => `
+        // showPauseBtn só true na listagem normal (fora da Edição rápida) —
+        // em modo qe o toggle já fica no painel, ao lado de Salvar; duplicar
+        // aqui também seria clutter sem motivo.
+        const alertCardHtml = (c, { showPauseBtn = false } = {}) => `
             <button type="button" class="alert-card${c.pausado === 'Sim' ? '' : ' critical'}${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.5rem;display:block">
                 <div class="title">${escapeHtml(c.cliente || 'Cliente não informado')}</div>
                 <div class="sub">${escapeHtml([c.vendedor, c.cidade, c.fim ? 'Fim: ' + c.fim : ''].filter(Boolean).join(' · '))}</div>
                 <div class="warn">${c.pausado === 'Sim' ? '⏸️ Pausado — em análise' : `⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)`}${anexoWarn(c)}</div>
+                ${showPauseBtn ? `<div style="margin-top:0.5rem"><button type="button" class="mini-button" data-contrato-pausar="${escapeHtml(c.id)}">${c.pausado === 'Sim' ? '▶️ Retomar' : '⏸️ Pausar'}</button></div>` : ''}
             </button>`;
         const simpleCardHtml = (c) => `
             <button type="button" class="card${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.6rem">
@@ -165,7 +169,7 @@ export function fillContratosContent(mainContent, contratos) {
             const vencidos = sorted.filter((c) => c.vencido);
             const emDia = sorted.filter((c) => !c.vencido);
             container.innerHTML = `
-                ${vencidos.length ? `<p class="section-label">Vencidos</p>${vencidos.map(alertCardHtml).join('')}` : ''}
+                ${vencidos.length ? `<p class="section-label">Vencidos</p>${vencidos.map((c) => alertCardHtml(c, { showPauseBtn: true })).join('')}` : ''}
                 ${emDia.length ? `<p class="section-label">Em dia</p>${emDia.map(simpleCardHtml).join('')}` : ''}
             `;
         }
@@ -178,6 +182,35 @@ export function fillContratosContent(mainContent, contratos) {
                     openContratoQuickPanel(qeSelectedId);
                 } else {
                     navigateTo('contrato-detail', { id: btn.dataset.contratoId });
+                }
+            });
+        });
+        // Pausar/retomar direto na listagem (fora da Edição rápida) — sem
+        // precisar abrir o contrato pra isso.
+        container.querySelectorAll('[data-contrato-pausar]').forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.contratoPausar;
+                const item = normalized.find((x) => String(x.id) === String(id));
+                if (!item) return;
+                const novoPausado = item.pausado === 'Sim' ? 'Nao' : 'Sim';
+                setSaving(true, btn, '');
+                try {
+                    const r = await attemptOrQueue('updateContrato', { id, pausado: novoPausado, user: state.currentUser }, { entity: 'contratos', tempId: String(id) });
+                    if (r && (r.status === 'success' || r.status === 'queued')) {
+                        saveCache('contratos', null);
+                        item.pausado = novoPausado;
+                        const idx = (state.contratos || []).findIndex((x) => String(x.id || x.Id) === String(id));
+                        if (idx >= 0) state.contratos[idx] = r.contrato || { ...state.contratos[idx], pausado: novoPausado, Pausado: novoPausado };
+                        showToast(novoPausado === 'Sim' ? 'Contrato pausado.' : 'Contrato retomado.');
+                        renderFiltered();
+                    } else {
+                        showToast((r && r.message) || 'Não foi possível salvar.', true);
+                        setSaving(false, btn);
+                    }
+                } catch (err) {
+                    showToast('Erro ao salvar. Tente de novo.', true);
+                    setSaving(false, btn);
                 }
             });
         });
@@ -210,6 +243,7 @@ export function fillContratosContent(mainContent, contratos) {
                         <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([c.cidade, c.vendedor].filter(Boolean).join(' · '))}</p>
                     </div>
                     <div class="qe-panel-header-actions">
+                        <button type="button" class="mini-button" id="qe-ct-pausar" title="Enquanto pausado, não cobra o vendedor sobre vencimento desse contrato">${c.pausado === 'Sim' ? '▶️ Retomar' : '⏸️ Pausar'}</button>
                         <button type="submit" class="primary-button" id="qe-ct-save">Salvar</button>
                     </div>
                 </div>
@@ -260,14 +294,6 @@ export function fillContratosContent(mainContent, contratos) {
                     </div>
                 </div>
                 <div class="form-group full-width">
-                    <label>⏸️ Pausado</label>
-                    <div class="radio-group">
-                        <label class="radio-pill"><input type="radio" name="qe-ct-pausado" value="Sim" ${c.pausado === 'Sim' ? 'checked' : ''}><span>Sim</span></label>
-                        <label class="radio-pill"><input type="radio" name="qe-ct-pausado" value="Nao" ${c.pausado !== 'Sim' ? 'checked' : ''}><span>Não</span></label>
-                    </div>
-                    <p class="field-helper-text">Enquanto pausado, não cobra o vendedor sobre vencimento desse contrato — use enquanto estiver revisando/completando o cadastro.</p>
-                </div>
-                <div class="form-group full-width">
                     <label for="qe-ct-obs">Observações</label>
                     <textarea id="qe-ct-obs" rows="3">${escapeHtml(c.obs || '')}</textarea>
                 </div>
@@ -285,6 +311,31 @@ export function fillContratosContent(mainContent, contratos) {
             </div>`;
 
         initializeSearchableInput({ input: document.getElementById('qe-ct-cidade'), menu: document.getElementById('qe-ct-cidade-menu'), items: cidades, allowFreeText: true });
+
+        // Toggle instantâneo, fora do form de Salvar — não espera a pessoa
+        // preencher/revisar o resto pra parar de cobrar o vendedor.
+        document.getElementById('qe-ct-pausar')?.addEventListener('click', async () => {
+            const btn = document.getElementById('qe-ct-pausar');
+            const novoPausado = c.pausado === 'Sim' ? 'Nao' : 'Sim';
+            setSaving(true, btn, '');
+            try {
+                const r = await attemptOrQueue('updateContrato', { id: c.id, pausado: novoPausado, user: state.currentUser }, { entity: 'contratos', tempId: String(c.id) });
+                if (r && (r.status === 'success' || r.status === 'queued')) {
+                    saveCache('contratos', null);
+                    c.pausado = novoPausado;
+                    const idx = (state.contratos || []).findIndex((x) => String(x.id || x.Id) === String(c.id));
+                    if (idx >= 0) state.contratos[idx] = r.contrato || { ...state.contratos[idx], pausado: novoPausado, Pausado: novoPausado };
+                    showToast(novoPausado === 'Sim' ? 'Contrato pausado.' : 'Contrato retomado.');
+                    renderFiltered();
+                } else {
+                    showToast((r && r.message) || 'Não foi possível salvar.', true);
+                    setSaving(false, btn);
+                }
+            } catch (e) {
+                showToast('Erro ao salvar. Tente de novo.', true);
+                setSaving(false, btn);
+            }
+        });
 
         const anexoInput = document.getElementById('qe-ct-anexo');
         const anexoStatus = document.getElementById('qe-ct-anexo-status');
@@ -324,7 +375,6 @@ export function fillContratosContent(mainContent, contratos) {
                 ativo: document.querySelector('input[name="qe-ct-ativo"]:checked')?.value || 'Sim',
                 assinado: document.querySelector('input[name="qe-ct-assinado"]:checked')?.value || 'Nao',
                 enviarAviso: document.querySelector('input[name="qe-ct-aviso"]:checked')?.value || 'Sim',
-                pausado: document.querySelector('input[name="qe-ct-pausado"]:checked')?.value || 'Nao',
                 obs: document.getElementById('qe-ct-obs').value.trim(),
                 anexo: document.getElementById('qe-ct-anexo').value.trim(),
                 user: state.currentUser
