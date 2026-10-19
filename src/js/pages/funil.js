@@ -342,12 +342,14 @@ export function fillFunilContent(mainContent, funil) {
             return;
         }
 
-        // Ordem da lista: último enviado/atualizado primeiro — prioriza
-        // Atualização (o que de fato mudou por último) e só cai pra Data
-        // (criação) quando não tem atualização registrada ainda.
+        // Ordem da lista: mais recente CRIADO primeiro — prioriza Data
+        // (criação) e só cai pra Atualização quando não tem Data registrada
+        // ainda (pedido explícito: antes priorizava Atualização, e um
+        // registro antigo só atualizado agora pulava pro topo do próprio
+        // mês mesmo tendo sido criado faz tempo).
         const sorted = [...filtered].sort((a, b) => {
-            const da = parseDisplayDate(a.atualizacao) || parseDisplayDate(a.data);
-            const db = parseDisplayDate(b.atualizacao) || parseDisplayDate(b.data);
+            const da = parseDisplayDate(a.data) || parseDisplayDate(a.atualizacao);
+            const db = parseDisplayDate(b.data) || parseDisplayDate(b.atualizacao);
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         });
         _funilCampanhaList = sorted.map((f) => ({ id: f.id, cliente: f.cliente, cidade: f.cidade, extra: [f.foco, f.atuacao].filter(Boolean).join(' · '), funilDiversey: f.funilDiversey === 'Sim' }));
