@@ -74,6 +74,8 @@ export function normalizeContrato(contrato) {
     // em vez de mostrar o erro cru pro usuário.
     const rawAviso = String(c.EnviarAviso || c.enviarAviso || '').trim().toLowerCase();
     const enviarAviso = ['nao', 'não', 'no'].includes(rawAviso) ? 'Não' : 'Sim';
+    const rawPausado = String(c.Pausado || c.pausado || '').trim().toLowerCase();
+    const pausado = ['sim', 'yes'].includes(rawPausado) ? 'Sim' : 'Nao';
     return {
         id: String(c.Id || c.ID || c.id || ''),
         ativo: c.Ativo || c.ativo || 'Sim',
@@ -87,6 +89,7 @@ export function normalizeContrato(contrato) {
         anexo: c.Anexo || c.anexo || '',
         enviarAviso,
         obs: c.Obs || c.obs || '',
+        pausado,
         diasRestantes,
         vencido: diasRestantes !== null && diasRestantes < 0,
         venceEmBreve: diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 30,

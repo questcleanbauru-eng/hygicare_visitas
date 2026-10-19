@@ -133,10 +133,10 @@ export function fillContratosContent(mainContent, contratos) {
         const anexoWarn = (c) => !anexoUrl(c) ? ' · falta anexar contrato' : '';
         const isQeSelected = (c) => qe && String(c.id) === String(qeSelectedId);
         const alertCardHtml = (c) => `
-            <button type="button" class="alert-card critical${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.5rem;display:block">
+            <button type="button" class="alert-card${c.pausado === 'Sim' ? '' : ' critical'}${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.5rem;display:block">
                 <div class="title">${escapeHtml(c.cliente || 'Cliente não informado')}</div>
                 <div class="sub">${escapeHtml([c.vendedor, c.cidade, c.fim ? 'Fim: ' + c.fim : ''].filter(Boolean).join(' · '))}</div>
-                <div class="warn">⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)${anexoWarn(c)}</div>
+                <div class="warn">${c.pausado === 'Sim' ? '⏸️ Pausado — em análise' : `⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)`}${anexoWarn(c)}</div>
             </button>`;
         const simpleCardHtml = (c) => `
             <button type="button" class="card${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.6rem">
@@ -260,6 +260,14 @@ export function fillContratosContent(mainContent, contratos) {
                     </div>
                 </div>
                 <div class="form-group full-width">
+                    <label>⏸️ Pausado</label>
+                    <div class="radio-group">
+                        <label class="radio-pill"><input type="radio" name="qe-ct-pausado" value="Sim" ${c.pausado === 'Sim' ? 'checked' : ''}><span>Sim</span></label>
+                        <label class="radio-pill"><input type="radio" name="qe-ct-pausado" value="Nao" ${c.pausado !== 'Sim' ? 'checked' : ''}><span>Não</span></label>
+                    </div>
+                    <p class="field-helper-text">Enquanto pausado, não cobra o vendedor sobre vencimento desse contrato — use enquanto estiver revisando/completando o cadastro.</p>
+                </div>
+                <div class="form-group full-width">
                     <label for="qe-ct-obs">Observações</label>
                     <textarea id="qe-ct-obs" rows="3">${escapeHtml(c.obs || '')}</textarea>
                 </div>
@@ -316,6 +324,7 @@ export function fillContratosContent(mainContent, contratos) {
                 ativo: document.querySelector('input[name="qe-ct-ativo"]:checked')?.value || 'Sim',
                 assinado: document.querySelector('input[name="qe-ct-assinado"]:checked')?.value || 'Nao',
                 enviarAviso: document.querySelector('input[name="qe-ct-aviso"]:checked')?.value || 'Sim',
+                pausado: document.querySelector('input[name="qe-ct-pausado"]:checked')?.value || 'Nao',
                 obs: document.getElementById('qe-ct-obs').value.trim(),
                 anexo: document.getElementById('qe-ct-anexo').value.trim(),
                 user: state.currentUser
@@ -471,7 +480,11 @@ export async function renderContratoDetailPage(id) {
                 ${state.canDelete ? `<button type="button" class="mini-button mini-button-icon mini-button-danger" id="delete-contrato" aria-label="Apagar" title="Apagar">${actionIcon('trash')}</button>` : ''}
             </div>
         </div>
-        ${contrato.vencido ? `
+        ${contrato.pausado === 'Sim' ? `
+        <div class="alert-banner">
+            <span aria-hidden="true" style="flex-shrink:0">⏸️</span>
+            Pausado — em análise pelo admin. Não está cobrando o vendedor sobre vencimento enquanto isso.
+        </div>` : contrato.vencido ? `
         <div class="alert-banner">
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Este contrato está vencido.
@@ -490,6 +503,7 @@ export async function renderContratoDetailPage(id) {
             ${renderDetailRow('Início', contrato.inicio || '-')}
             ${renderDetailRow('Fim', contrato.fim || '-')}
             ${renderDetailRow('Enviar Aviso de vencimento', contrato.enviarAviso)}
+            ${renderDetailRow('⏸️ Pausado', contrato.pausado === 'Sim' ? 'Sim' : 'Não')}
             <div class="detail-row">
                 <span class="detail-label">PDF do contrato</span>
                 <span class="detail-value">
@@ -605,6 +619,14 @@ export async function renderContratoFormPage(contrato) {
                 </div>
             </div>
             <div class="form-group full-width">
+                <label>⏸️ Pausado</label>
+                <div class="radio-group">
+                    <label class="radio-pill"><input type="radio" name="ctf-pausado" value="Sim" ${normalized.pausado === 'Sim' ? 'checked' : ''}><span>Sim</span></label>
+                    <label class="radio-pill"><input type="radio" name="ctf-pausado" value="Nao" ${normalized.pausado !== 'Sim' ? 'checked' : ''}><span>Não</span></label>
+                </div>
+                <p class="field-helper-text">Enquanto pausado, não cobra o vendedor sobre vencimento desse contrato — use enquanto estiver revisando/completando o cadastro.</p>
+            </div>
+            <div class="form-group full-width">
                 <label for="ctf-obs">Observações</label>
                 <textarea id="ctf-obs" rows="4">${escapeHtml(normalized.obs || '')}</textarea>
             </div>
@@ -697,6 +719,7 @@ export async function renderContratoFormPage(contrato) {
             fim: document.getElementById('ctf-fim').value || '',
             assinado: document.querySelector('input[name="ctf-assinado"]:checked')?.value || 'Nao',
             enviarAviso: document.querySelector('input[name="ctf-aviso"]:checked')?.value || 'Sim',
+            pausado: document.querySelector('input[name="ctf-pausado"]:checked')?.value || 'Nao',
             obs: document.getElementById('ctf-obs').value.trim(),
             anexo: document.getElementById('ctf-anexo').value.trim(),
             user: state.currentUser

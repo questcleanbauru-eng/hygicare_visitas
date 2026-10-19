@@ -217,6 +217,7 @@ export default async function handler(req, res) {
         contratos.forEach((c) => {
             if (String(c.ativo || '').trim().toLowerCase() === 'nao') return;
             if (String(c.enviarAviso || '').trim().toLowerCase() === 'nao') return; // opt-out por contrato
+            if (String(c.pausado || '').trim().toLowerCase() === 'sim') return; // admin revisando o cadastro — não cobra o vendedor enquanto isso
             const fim = parseDate(c.fim);
             if (!fim) return;
             const diasRestantes = Math.round((fim.getTime() - today.getTime()) / 86400000);
