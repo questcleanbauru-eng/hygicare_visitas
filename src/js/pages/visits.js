@@ -916,14 +916,35 @@ export async function renderCalendarPage(options) {
     const FUNIL_COLOR    = '#22c55e';
     const AGENDAMENTO_COLOR = '#a855f7';
 
+    // Modo seleção (bulk) dos retornos — "Selecionar" nas seções de Retornos
+    // atrasados/do mês deixa marcar vários e concluir todos de uma vez, sem
+    // o "deseja registrar a visita?" de cada um (ver concluirSelecionados).
+    // Uma flag só pras duas seções: ativar numa já ativa a outra também.
+    let selecaoAtiva = false;
+    const selecionados = new Set();
+
     // Reaproveitado tanto pelo painel do dia clicado quanto pela lista
     // "todos os agendamentos" sempre visível abaixo do calendário — só a
     // fonte da lista (dia vs. tudo) muda entre os dois usos.
-    const agendamentoCardHtml = (a, { showDate = false } = {}) => {
+    const agendamentoCardHtml = (a, { showDate = false, selectMode = false } = {}) => {
         const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
         const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
         const diasCor = dias < 0 ? 'erro' : dias <= 1 ? 'apresentacao' : 'preventiva';
         const icon = a.campanhaOrigemId ? '🔗' : '📌';
+        if (selectMode) {
+            const checked = selecionados.has(String(a.id));
+            return `
+            <label class="card ag-select-row${checked ? ' is-selected' : ''}" data-agendamento-id="${escapeHtml(a.id)}">
+                <input type="checkbox" class="ag-select-checkbox" data-ag-select="${escapeHtml(a.id)}" ${checked ? 'checked' : ''}>
+                <span class="ag-select-body">
+                    <span class="item-top">
+                        <span class="item-name">${icon} ${escapeHtml(a.cliente || '-')}</span>
+                        ${showDate ? `<span class="status-tag ${diasCor}">${diasLabel}</span>` : ''}
+                    </span>
+                    <span class="item-meta">${escapeHtml([a.campanhaOrigemId && a.vendedor ? `👤 ${a.vendedor}` : '', a.cidade, showDate ? a.dataAgendada : '', a.observacao].filter(Boolean).join(' · ')) || '-'}</span>
+                </span>
+            </label>`;
+        }
         return `
         <div class="card" data-agendamento-id="${escapeHtml(a.id)}" style="margin-bottom:0.4rem">
             <div class="item-top">
@@ -956,6 +977,73 @@ export async function renderCalendarPage(options) {
             </div>
         </div>`;
     };
+
+    // Liga os checkboxes de um trecho renderizado em selectMode — chamado
+    // depois de injetar o HTML, tanto na seção de Atrasados quanto na do
+    // mês. Muda só o Set + a própria linha/contador (nunca um render()
+    // inteiro por marcação, senão cada clique redesenharia o calendário).
+    const bindAgendamentoSelectCheckboxes = (container) => {
+        container.querySelectorAll('[data-ag-select]').forEach((cb) => {
+            cb.addEventListener('change', () => {
+                const id = String(cb.dataset.agSelect);
+                if (cb.checked) selecionados.add(id); else selecionados.delete(id);
+                cb.closest('.ag-select-row')?.classList.toggle('is-selected', cb.checked);
+                const count = document.getElementById('ag-sel-count');
+                if (count) count.textContent = `${selecionados.size} selecionado(s)`;
+                const btn = document.getElementById('ag-sel-concluir');
+                if (btn) btn.disabled = selecionados.size === 0;
+            });
+        });
+    };
+
+    // Barra fixa (contador + ações) que aparece logo abaixo dos chips de
+    // filtro assim que o modo seleção liga, em vez de uma barra por seção —
+    // os selecionados podem vir tanto de Atrasados quanto do mês em tela.
+    const renderSelBar = () => {
+        const el = document.getElementById('ag-sel-bar-container');
+        if (!el) return;
+        if (!selecaoAtiva) { el.innerHTML = ''; return; }
+        el.innerHTML = `
+            <div class="card ag-sel-bar">
+                <strong id="ag-sel-count">${selecionados.size} selecionado(s)</strong>
+                <div class="ag-sel-bar-actions">
+                    <button type="button" class="mini-button" id="ag-sel-concluir" ${selecionados.size ? '' : 'disabled'}>✅ Concluir selecionados</button>
+                    <button type="button" class="text-link" id="ag-sel-cancelar">Cancelar seleção</button>
+                </div>
+            </div>`;
+        document.getElementById('ag-sel-concluir').addEventListener('click', concluirSelecionados);
+        document.getElementById('ag-sel-cancelar').addEventListener('click', () => {
+            selecaoAtiva = false;
+            selecionados.clear();
+            render();
+        });
+    };
+
+    // Conclui em lote SEM o "deseja registrar a visita agora?" de cada um
+    // (ver data-ag-done em bindAgendamentoRowActions) — pedido explícito:
+    // limpar vários retornos atrasados de uma vez não deve abrir N prompts.
+    async function concluirSelecionados() {
+        const ids = Array.from(selecionados);
+        if (!ids.length) return;
+        if (!confirm(`Concluir ${ids.length} retorno(s) sem registrar visita? Essa ação não pode ser desfeita.`)) return;
+        const btn = document.getElementById('ag-sel-concluir');
+        setSaving(true, btn, 'Concluindo...');
+        let ok = 0, falhas = 0;
+        for (const id of ids) {
+            const r = await callAPI('updateAgendamento', { id, status: 'Concluido', user: state.currentUser }).catch(() => null);
+            if (r && r.status === 'success') {
+                ok++;
+                const found = state.agendamentos.find((item) => String(item.id) === id);
+                if (found) found.status = 'Concluido';
+            } else {
+                falhas++;
+            }
+        }
+        selecionados.clear();
+        selecaoAtiva = false;
+        showToast(falhas ? `${ok} concluído(s), ${falhas} falharam.` : `${ok} retorno(s) concluído(s).`, !!falhas);
+        render();
+    }
 
     // Overlay avulso (não fica embutido no card) de propósito: o mesmo
     // agendamento pode estar renderizado 2x na tela ao mesmo tempo (painel
@@ -1296,10 +1384,22 @@ export async function renderCalendarPage(options) {
         }
 
         sectionEl.innerHTML = `
-            <div class="visit-month-header"><h3>📌 Retornos agendados — ${escapeHtml(monthLabelCap)}</h3><span>${pending.length} pendente(s)</span></div>
-            <div class="visits-list">${pending.map((a) => agendamentoCardHtml(a, { showDate: true })).join('')}</div>
+            <div class="visit-month-header">
+                <h3>📌 Retornos agendados — ${escapeHtml(monthLabelCap)}</h3>
+                <span>${pending.length} pendente(s) · <span class="text-link" role="button" tabindex="0" id="ag-mes-sel-toggle">${selecaoAtiva ? 'Cancelar seleção' : '☑️ Selecionar'}</span></span>
+            </div>
+            <div class="visits-list">${pending.map((a) => agendamentoCardHtml(a, { showDate: true, selectMode: selecaoAtiva })).join('')}</div>
         `;
-        bindAgendamentoRowActions(sectionEl, pending, { onMutated: renderAgendamentosSection });
+        document.getElementById('ag-mes-sel-toggle')?.addEventListener('click', () => {
+            selecaoAtiva = !selecaoAtiva;
+            if (!selecaoAtiva) selecionados.clear();
+            render();
+        });
+        if (selecaoAtiva) {
+            bindAgendamentoSelectCheckboxes(sectionEl);
+        } else {
+            bindAgendamentoRowActions(sectionEl, pending, { onMutated: renderAgendamentosSection });
+        }
     };
 
     // Agenda reaberta vindo de "Voltar" num card de visita/proposta/funil
@@ -1452,10 +1552,14 @@ export async function renderCalendarPage(options) {
                 <button type="button" class="primary-btn" id="cal-new-agendamento">+ Agendar</button>
             </div>
             <div class="pill-row">${filterChipsHtml}${atrasadosToggleHtml}</div>
+            <div id="ag-sel-bar-container"></div>
             ${atrasadosVisible && atrasadosOutroMes.length ? `
             <div class="card" id="cal-atrasados-section" style="margin-bottom:0.75rem;border-left:3px solid var(--danger)">
-                <div class="visit-month-header"><h3>⚠️ Retornos atrasados (outros meses)</h3><span>${atrasadosOutroMes.length}</span></div>
-                <div class="visits-list">${atrasadosOutroMes.map((a) => agendamentoCardHtml(a, { showDate: true })).join('')}</div>
+                <div class="visit-month-header">
+                    <h3>⚠️ Retornos atrasados (outros meses)</h3>
+                    <span>${atrasadosOutroMes.length} · <span class="text-link" role="button" tabindex="0" id="ag-atrasados-sel-toggle">${selecaoAtiva ? 'Cancelar seleção' : '☑️ Selecionar'}</span></span>
+                </div>
+                <div class="visits-list">${atrasadosOutroMes.map((a) => agendamentoCardHtml(a, { showDate: true, selectMode: selecaoAtiva })).join('')}</div>
             </div>` : ''}
             <div class="card cal-card">
                 <div class="cal-nav">
@@ -1484,12 +1588,23 @@ export async function renderCalendarPage(options) {
 
         renderAgendamentosSection();
         if (atrasadosVisible && atrasadosOutroMes.length) {
-            bindAgendamentoRowActions(document.getElementById('cal-atrasados-section'), atrasadosOutroMes, { onMutated: render });
+            const atrasadosSectionEl = document.getElementById('cal-atrasados-section');
+            if (selecaoAtiva) {
+                bindAgendamentoSelectCheckboxes(atrasadosSectionEl);
+            } else {
+                bindAgendamentoRowActions(atrasadosSectionEl, atrasadosOutroMes, { onMutated: render });
+            }
         }
         document.getElementById('cal-atrasados-toggle')?.addEventListener('click', () => {
             atrasadosVisible = !atrasadosVisible;
             render();
         });
+        document.getElementById('ag-atrasados-sel-toggle')?.addEventListener('click', () => {
+            selecaoAtiva = !selecaoAtiva;
+            if (!selecaoAtiva) selecionados.clear();
+            render();
+        });
+        renderSelBar();
 
         document.getElementById('cal-legend-toggle').addEventListener('click', () => {
             legendVisible = !legendVisible;
