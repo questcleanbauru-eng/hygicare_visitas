@@ -83,9 +83,14 @@ algum motivo.
 
 Pra deixar sempre ativo, não precisa fazer nada especial — ele já roda em
 segundo plano sem depender de nenhuma janela aberta (só o computador
-ligado). Se quiser que suba sozinho ao ligar o Windows, dá pra colocar um
-atalho do `iniciar.bat` na pasta de Inicialização do Windows — não
-obrigatório.
+ligado).
+
+Já tem um atalho pro `iniciar.bat` na pasta de Inicialização do Windows
+(`shell:startup`, acessível colando isso na barra de endereço do
+Explorador), então o robô sobe sozinho (escondido + abre o painel) assim
+que você faz login no Windows — não precisa mais abrir manualmente todo
+dia. Pra desativar isso, é só apagar o atalho "Robô WhatsApp - App de
+Visitas" de lá.
 
 ## ⚠️ Sobre o risco
 
