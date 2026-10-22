@@ -1308,6 +1308,11 @@ input[type="datetime-local"]::-webkit-date-and-time-value {
 
 .searchable-select-menu.visible { display: flex; }
 
+/* Flip pra cima (wireMultiCheckFilter, dom.js) quando não cabe embaixo —
+   ex.: "Notificar outros usuários" sendo o último campo antes do botão
+   Salvar, onde o menu pra baixo ficava sobrepondo o botão. */
+.searchable-select-menu.opens-up { top: auto; bottom: calc(100% + 0.4rem); }
+
 .searchable-select-option {
     width: 100%;
     border: none;

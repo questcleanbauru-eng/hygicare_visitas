@@ -331,8 +331,17 @@ export function wireMultiCheckFilter({ triggerId, inputId, menuId, options, empt
     };
     trigger.addEventListener('click', () => {
         const opening = !menu.classList.contains('visible');
+        if (opening) {
+            renderMenu();
+            // Abre pra cima quando não cabe embaixo — ex.: "Notificar outros
+            // usuários" é o último campo antes do botão Salvar em alguns
+            // formulários (Funil/Proposta/Visita), e o menu (fixo embaixo do
+            // campo) acabava sobrepondo o botão. 230px cobre o max-height
+            // (210px) do menu + a margem de 0.4rem acima dele.
+            const rect = trigger.getBoundingClientRect();
+            menu.classList.toggle('opens-up', (window.innerHeight - rect.bottom) < 230);
+        }
         menu.classList.toggle('visible', opening);
-        if (opening) renderMenu();
     });
     addDocumentClickListener((event) => {
         if (!menu.contains(event.target) && event.target !== trigger) menu.classList.remove('visible');
