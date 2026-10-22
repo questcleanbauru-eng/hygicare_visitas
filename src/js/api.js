@@ -142,7 +142,20 @@ export async function _callAPIRaw(action, payload = {}) {
             signal: controller.signal
         });
     } catch (e) {
-        if (e.name === 'AbortError') throw new Error('A operação demorou demais e foi cancelada. Tente novamente.');
+        if (e.name === 'AbortError') {
+            // Isso NÃO significa que o servidor não recebeu/processou — só que
+            // o navegador desistiu de esperar a resposta. Sem isNetworkError
+            // aqui, attemptOrQueue não enfileirava isso (só captura erro de
+            // rede de verdade), e a pessoa via "demorou, tente de novo" e
+            // clicava Salvar outra vez — se a 1ª tentativa tinha de fato ido
+            // pro servidor (só a resposta que demorou), isso criava um
+            // registro duplicado. Marcando como erro de rede, cai na mesma
+            // fila com idempotencyKey — a retentativa automática reusa o
+            // mesmo id, e o backend já sabe detectar e não duplicar.
+            const timeoutError = new Error('A operação demorou demais e foi cancelada. Tente novamente.');
+            timeoutError.isNetworkError = true;
+            throw timeoutError;
+        }
         e.isNetworkError = true;
         throw e;
     } finally {
