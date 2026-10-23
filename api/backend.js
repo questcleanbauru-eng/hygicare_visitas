@@ -51,6 +51,9 @@ import {
 import { handleGetResumoDiario, handleTestResumoDiario } from '../lib/handlers/resumo.js';
 import { handleTestLembreteAgendamento } from '../lib/handlers/lembretesAgendamento.js';
 import { handleTestLembreteClientes } from '../lib/handlers/lembreteClientes.js';
+import {
+    handleGetLembretesAdmin, handleCreateLembreteAdmin, handleUpdateLembreteAdmin, handleDeleteLembreteAdmin
+} from '../lib/handlers/lembretesAdmin.js';
 
 function parseBody(req) {
     if (!req.body) return {};
@@ -181,6 +184,10 @@ const HANDLERS = {
     testResumoDiario: handleTestResumoDiario,
     testLembreteAgendamento: handleTestLembreteAgendamento,
     testLembreteClientes: handleTestLembreteClientes,
+    getLembretesAdmin: handleGetLembretesAdmin,
+    createLembreteAdmin: handleCreateLembreteAdmin,
+    updateLembreteAdmin: handleUpdateLembreteAdmin,
+    deleteLembreteAdmin: handleDeleteLembreteAdmin,
     ping: async () => ({ status: 'ok' })
 };
 

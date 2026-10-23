@@ -86,7 +86,7 @@ export function warmListCaches() {
 
 export const _inflight = new Map();
 
-export const _READ_ACTIONS = new Set(['getVisits','getProposals','getFunil','getDashboardData','getConfigVersion','getFormData','getAdminData','getEmailConfig','getContratos','getAgendamentos']);
+export const _READ_ACTIONS = new Set(['getVisits','getProposals','getFunil','getDashboardData','getConfigVersion','getFormData','getAdminData','getEmailConfig','getContratos','getAgendamentos','getLembretesAdmin']);
 
 
 export async function callAPI(action, payload = {}) {

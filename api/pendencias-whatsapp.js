@@ -18,6 +18,7 @@ import { normalizeProposalRow } from '../lib/handlers/proposals.js';
 import { readFunilRows } from '../lib/handlers/funil.js';
 import { readCampanhaRows } from '../lib/handlers/campanhas.js';
 import { readContratoRows } from '../lib/handlers/contratos.js';
+import { readLembretesAdminRows } from '../lib/handlers/lembretesAdmin.js';
 import { nowInSaoPaulo } from '../lib/handlers/resumo.js';
 import { readEmailConfig } from '../lib/handlers/config.js';
 
@@ -32,7 +33,8 @@ const HORA_PADRAO_POR_CATEGORIA = {
     funil: '09:00',
     campanhas: '09:30',
     inatividade: '10:00',
-    contratos: '10:30'
+    contratos: '10:30',
+    lembretes: '11:00'
 };
 
 const RESUMO_USER = { profile: 'admin', name: '', email: '', gerencia: '' };
@@ -118,14 +120,15 @@ export default async function handler(req, res) {
         const DIAS_CONTRATO_VENCENDO = Number(config.whatsapp_dias_contrato_vencendo) || 30;
 
         const today = startOfDay(nowInSaoPaulo());
-        const [vendedores, agendamentos, propostasRaw, funil, campanhas, visitasRaw, contratos] = await Promise.all([
+        const [vendedores, agendamentos, propostasRaw, funil, campanhas, visitasRaw, contratos, lembretes] = await Promise.all([
             withCache('vendedores_all_wa', 60, () => getSheetObjects('Vendedores')),
             readAgendamentoRows(RESUMO_USER),
             withCache('propostas_sheet_raw', 60, () => getSheetObjects('Propostas')),
             readFunilRows(RESUMO_USER, 0),
             readCampanhaRows(RESUMO_USER),
             withCache('visitas_sheet_raw', 60, () => getSheetObjects('Visitas')),
-            readContratoRows(RESUMO_USER)
+            readContratoRows(RESUMO_USER),
+            readLembretesAdminRows(RESUMO_USER)
         ]);
         const propostas = propostasRaw.map(normalizeProposalRow);
 
@@ -231,6 +234,26 @@ export default async function handler(req, res) {
             });
         });
 
+        // ── Lembretes administrativos (não é retorno de cliente — Bruno
+        // cobrando o time administrativo de algo, ex.: "mandar nota fiscal",
+        // "comprar tal coisa") ──────────────────────────────────────────────
+        const lembretesPorVendedor = {};
+        lembretes.forEach((l) => {
+            if (l.status !== 'Pendente') return;
+            const d = parseDate(l.dataAlvo);
+            if (!d || d > today) return; // só cobra a partir do dia (não antes)
+            const diasAtraso = Math.round((today.getTime() - d.getTime()) / 86400000);
+            (l.destinatarios || []).forEach((nomeDest) => {
+                const nome = String(nomeDest || '').trim();
+                if (!nome) return;
+                (lembretesPorVendedor[nome] = lembretesPorVendedor[nome] || []).push({
+                    texto: l.texto || 'Lembrete',
+                    dataAlvo: l.dataAlvo,
+                    diasAtraso
+                });
+            });
+        });
+
         const comPendencia = vendedores
             .filter((v) => String(v.Ativo || '').trim().toLowerCase() !== 'nao')
             .map((v) => {
@@ -246,10 +269,11 @@ export default async function handler(req, res) {
                     funil: funilPorVendedor[nome] || [],
                     campanhas: campanhasPorVendedor[nome] || [],
                     contratos: contratosPorVendedor[nome] || [],
+                    lembretes: lembretesPorVendedor[nome] || [],
                     diasSemAtividade: inatividadePorVendedor[nome] || null
                 };
             })
-            .filter((d) => d.agendamentos.length || d.propostas.length || d.funil.length || d.campanhas.length || d.contratos.length || d.diasSemAtividade);
+            .filter((d) => d.agendamentos.length || d.propostas.length || d.funil.length || d.campanhas.length || d.contratos.length || d.lembretes.length || d.diasSemAtividade);
 
         // Só quem tem telefone recebe de verdade; quem tem pendência mas
         // não cadastrou WhatsApp aparece à parte (semTelefone) — o painel

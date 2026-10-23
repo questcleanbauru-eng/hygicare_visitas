@@ -27,11 +27,12 @@ const WHATSAPP_CATEGORIAS = [
     { key: 'funil', label: '📊 Funil' },
     { key: 'campanhas', label: '📣 Campanhas' },
     { key: 'inatividade', label: '⏰ Inatividade' },
-    { key: 'contratos', label: '📑 Contratos' }
+    { key: 'contratos', label: '📑 Contratos' },
+    { key: 'lembretes', label: '📌 Lembretes' }
 ];
 const WHATSAPP_HORA_PADRAO = {
     agendamentos: '08:00', propostas: '08:30', funil: '09:00',
-    campanhas: '09:30', inatividade: '10:00', contratos: '10:30'
+    campanhas: '09:30', inatividade: '10:00', contratos: '10:30', lembretes: '11:00'
 };
 
 // A API do Sheets pode devolver "TRUE" (maiúsculo) em vez do "true" que o
@@ -100,7 +101,8 @@ const TELAS_CONTROLAVEIS = [
     { id: 'funil', label: 'Funil' },
     { id: 'contratos', label: 'Contratos' },
     { id: 'manutencao', label: 'Manutenção' },
-    { id: 'report', label: 'Relatório' }
+    { id: 'report', label: 'Relatório' },
+    { id: 'lembretes', label: 'Lembretes' }
 ];
 
 function renderTelasFieldHtml(telasBloqueadas) {

@@ -108,7 +108,7 @@ const painelStatus = {
 // CATEGORIA_DEFS mais abaixo) — "inatividade" não tem uma lista de itens
 // (é um fato só, "há N dias sem visita"), mas entra na mesma mecânica de
 // agendamento/envio/dedup que as outras.
-const CATEGORIAS_PENDENCIA = ['agendamentos', 'propostas', 'funil', 'campanhas', 'inatividade', 'contratos'];
+const CATEGORIAS_PENDENCIA = ['agendamentos', 'propostas', 'funil', 'campanhas', 'inatividade', 'contratos', 'lembretes'];
 
 function estadoVazio() {
     return {
@@ -302,7 +302,8 @@ const CATEGORIA_DEFS = {
     propostas: { label: '📄 Propostas paradas', itens: (d) => d.propostas, formatar: (p) => ({ titulo: p.cliente, detalhe: `sem atualização há ${p.diasParada}d` }), limite: 10 },
     funil: { label: '📊 Funil parado', itens: (d) => d.funil, formatar: (f) => ({ titulo: f.cliente, detalhe: `sem atualização há ${f.diasParado}d` }), limite: 5 },
     campanhas: { label: '📣 Campanhas aguardando resposta', itens: (d) => d.campanhas, formatar: (c) => ({ titulo: c.titulo, detalhe: `${c.pendentes} cliente(s) pendente(s)`, link: c.link }), limite: 10 },
-    contratos: { label: '📑 Contratos vencendo', itens: (d) => d.contratos, formatar: (c) => ({ titulo: c.cliente, detalhe: c.diasRestantes < 0 ? `venceu há ${-c.diasRestantes}d` : (c.diasRestantes === 0 ? 'vence hoje' : `vence em ${c.diasRestantes}d (${c.fim})`) }), limite: 10 }
+    contratos: { label: '📑 Contratos vencendo', itens: (d) => d.contratos, formatar: (c) => ({ titulo: c.cliente, detalhe: c.diasRestantes < 0 ? `venceu há ${-c.diasRestantes}d` : (c.diasRestantes === 0 ? 'vence hoje' : `vence em ${c.diasRestantes}d (${c.fim})`) }), limite: 10 },
+    lembretes: { label: '📌 Lembretes administrativos', itens: (d) => d.lembretes, formatar: (l) => ({ titulo: l.texto, detalhe: l.diasAtraso > 0 ? `desde ${l.dataAlvo} (${l.diasAtraso}d atrás)` : 'é hoje' }), limite: 10 }
 };
 
 function contarItensCategoria(dest, categoria) {
@@ -781,6 +782,7 @@ function paginaPainel() {
   .kanban-col.c-funil { border-left-color: #3b82f6; }
   .kanban-col.c-campanhas { border-left-color: #f97316; }
   .kanban-col.c-contratos { border-left-color: #0d9488; }
+  .kanban-col.c-lembretes { border-left-color: #eab308; }
   .kanban-col.desligada { opacity: 0.55; }
   .kanban-desligada-tag { font-size: 0.64rem; font-weight: 800; text-transform: uppercase; color: #94a3b8; background: #f1f5f9; padding: 0.05rem 0.4rem; border-radius: 999px; margin-left: 0.3rem; }
   .kanban-col-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #475569; padding: 0 0.1rem; }
@@ -1020,8 +1022,8 @@ function renderBanner(s) {
   \`;
 }
 
-const CATEGORIA_LABEL_CURTO = { agendamentos: 'Agend', propostas: 'Prop', funil: 'Funil', campanhas: 'Camp', inatividade: 'Inativ', contratos: 'Contr' };
-const CATEGORIA_LABEL_COMPLETO = { agendamentos: 'Agendamentos', propostas: 'Propostas', funil: 'Funil', campanhas: 'Campanhas', inatividade: 'Inatividade', contratos: 'Contratos' };
+const CATEGORIA_LABEL_CURTO = { agendamentos: 'Agend', propostas: 'Prop', funil: 'Funil', campanhas: 'Camp', inatividade: 'Inativ', contratos: 'Contr', lembretes: 'Lembr' };
+const CATEGORIA_LABEL_COMPLETO = { agendamentos: 'Agendamentos', propostas: 'Propostas', funil: 'Funil', campanhas: 'Campanhas', inatividade: 'Inatividade', contratos: 'Contratos', lembretes: 'Lembretes administrativos' };
 
 function renderStatusStrip(s) {
   const dotClasse = s.conectado ? '' : (s.aguardandoQr ? 'warn' : 'off');
@@ -1060,7 +1062,8 @@ const KANBAN_DEFS = [
   { key: 'propostas', classe: 'c-propostas', label: '📄 Propostas', getItens: (d) => d.propostas, detalhe: (p) => p.cliente, contagem: (n) => n + (n === 1 ? ' proposta' : ' propostas') },
   { key: 'funil', classe: 'c-funil', label: '📊 Funil', getItens: (d) => d.funil, detalhe: (f) => f.cliente, contagem: (n) => n + (n === 1 ? ' cliente' : ' clientes') },
   { key: 'campanhas', classe: 'c-campanhas', label: '📣 Campanhas', getItens: (d) => d.campanhas, detalhe: (c) => c.titulo, contagem: (n) => n + (n === 1 ? ' campanha' : ' campanhas') },
-  { key: 'contratos', classe: 'c-contratos', label: '📑 Contratos', getItens: (d) => d.contratos, detalhe: (c) => c.cliente, contagem: (n) => n + (n === 1 ? ' contrato' : ' contratos') }
+  { key: 'contratos', classe: 'c-contratos', label: '📑 Contratos', getItens: (d) => d.contratos, detalhe: (c) => c.cliente, contagem: (n) => n + (n === 1 ? ' contrato' : ' contratos') },
+  { key: 'lembretes', classe: 'c-lembretes', label: '📌 Lembretes', getItens: (d) => d.lembretes, detalhe: (l) => l.texto, contagem: (n) => n + (n === 1 ? ' lembrete' : ' lembretes'), dias: (l) => l.diasAtraso }
 ];
 const LIMITE_CARDS_COLUNA = 5;
 const LIMITE_LINHAS_SEM_WHATSAPP = 7;
@@ -1299,7 +1302,7 @@ function renderSemWhatsapp(s) {
     <button type="button" class="kanban-mais" style="text-align:left;padding:0 0 0.5rem" data-action="copiar-semwhats">📋 Copiar lista de nomes</button>
     <div class="semwhats-rows">
       \${visiveis.map((d) => {
-        const totalPend = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.diasSemAtividade ? 1 : 0);
+        const totalPend = (d.agendamentos?.length || 0) + (d.propostas?.length || 0) + (d.funil?.length || 0) + (d.campanhas?.length || 0) + (d.lembretes?.length || 0) + (d.diasSemAtividade ? 1 : 0);
         return \`
         <div class="semwhats-row">
           <span class="semwhats-nome">\${d.nome}</span>

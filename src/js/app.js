@@ -17,6 +17,7 @@ const PAGE_TO_NAV_ID = {
     proposals: 'proposals', 'proposal-detail': 'proposals', 'proposal-new': 'proposals', 'proposal-edit': 'proposals',
     funil: 'funil', 'funil-detail': 'funil', 'funil-new': 'funil', 'funil-edit': 'funil',
     contratos: 'contratos', 'contrato-detail': 'contratos', 'contrato-new': 'contratos', 'contrato-edit': 'contratos',
+    lembretes: 'lembretes',
     manutencao: 'manutencao', 'manutencao-detail': 'manutencao', 'manutencao-new': 'manutencao', 'manutencao-edit': 'manutencao',
     'relatorio-tecnico': 'manutencao', 'relatorio-tecnico-detail': 'manutencao', 'relatorio-tecnico-new': 'manutencao', 'relatorio-tecnico-edit': 'manutencao',
     report: 'report'
@@ -36,6 +37,7 @@ export const state = {
     currentFunil: null,
     contratos: [],
     currentContrato: null,
+    lembretesAdmin: [],
     manutencoes: [],
     currentManutencao: null,
     agendamentos: [],
@@ -391,6 +393,9 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
             break;
         case 'contrato-edit':
             await (await import('./pages/contratos.js')).renderContratoFormPage(options.contrato || state.currentContrato);
+            break;
+        case 'lembretes':
+            await (await import('./pages/lembretes.js')).renderLembretesPage();
             break;
         case 'manutencao':
             await (await import('./pages/manutencao.js')).renderManutencaoPage();
