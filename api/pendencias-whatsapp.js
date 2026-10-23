@@ -236,20 +236,25 @@ export default async function handler(req, res) {
 
         // ── Lembretes administrativos (não é retorno de cliente — Bruno
         // cobrando o time administrativo de algo, ex.: "mandar nota fiscal",
-        // "comprar tal coisa") ──────────────────────────────────────────────
+        // "comprar tal coisa") — pedido explícito: cobra TODO DIA desde a
+        // criação até a data marcada (e continua cobrando se passar da data
+        // e ainda não tiver sido concluído), ao contrário de Agendamentos/
+        // Contratos (que só entram perto de vencer ou depois de vencidos).
+        // diasRestantes negativo = ainda falta (conta regressiva); 0 = hoje;
+        // positivo = já passou da data e segue pendente.
         const lembretesPorVendedor = {};
         lembretes.forEach((l) => {
             if (l.status !== 'Pendente') return;
             const d = parseDate(l.dataAlvo);
-            if (!d || d > today) return; // só cobra a partir do dia (não antes)
-            const diasAtraso = Math.round((today.getTime() - d.getTime()) / 86400000);
+            if (!d) return;
+            const diasRestantes = Math.round((today.getTime() - d.getTime()) / 86400000);
             (l.destinatarios || []).forEach((nomeDest) => {
                 const nome = String(nomeDest || '').trim();
                 if (!nome) return;
                 (lembretesPorVendedor[nome] = lembretesPorVendedor[nome] || []).push({
                     texto: l.texto || 'Lembrete',
                     dataAlvo: l.dataAlvo,
-                    diasAtraso
+                    diasRestantes
                 });
             });
         });

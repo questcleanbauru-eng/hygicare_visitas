@@ -303,7 +303,7 @@ const CATEGORIA_DEFS = {
     funil: { label: '📊 Funil parado', itens: (d) => d.funil, formatar: (f) => ({ titulo: f.cliente, detalhe: `sem atualização há ${f.diasParado}d` }), limite: 5 },
     campanhas: { label: '📣 Campanhas aguardando resposta', itens: (d) => d.campanhas, formatar: (c) => ({ titulo: c.titulo, detalhe: `${c.pendentes} cliente(s) pendente(s)`, link: c.link }), limite: 10 },
     contratos: { label: '📑 Contratos vencendo', itens: (d) => d.contratos, formatar: (c) => ({ titulo: c.cliente, detalhe: c.diasRestantes < 0 ? `venceu há ${-c.diasRestantes}d` : (c.diasRestantes === 0 ? 'vence hoje' : `vence em ${c.diasRestantes}d (${c.fim})`) }), limite: 10 },
-    lembretes: { label: '📌 Lembretes administrativos', itens: (d) => d.lembretes, formatar: (l) => ({ titulo: l.texto, detalhe: l.diasAtraso > 0 ? `desde ${l.dataAlvo} (${l.diasAtraso}d atrás)` : 'é hoje' }), limite: 10 }
+    lembretes: { label: '📌 Lembretes administrativos', itens: (d) => d.lembretes, formatar: (l) => ({ titulo: l.texto, detalhe: l.diasRestantes < 0 ? `faltam ${-l.diasRestantes}d (até ${l.dataAlvo})` : l.diasRestantes === 0 ? `é hoje! (${l.dataAlvo})` : `venceu ${l.dataAlvo} (${l.diasRestantes}d atrás) — ainda pendente` }), limite: 10 }
 };
 
 function contarItensCategoria(dest, categoria) {
@@ -1063,7 +1063,9 @@ const KANBAN_DEFS = [
   { key: 'funil', classe: 'c-funil', label: '📊 Funil', getItens: (d) => d.funil, detalhe: (f) => f.cliente, contagem: (n) => n + (n === 1 ? ' cliente' : ' clientes') },
   { key: 'campanhas', classe: 'c-campanhas', label: '📣 Campanhas', getItens: (d) => d.campanhas, detalhe: (c) => c.titulo, contagem: (n) => n + (n === 1 ? ' campanha' : ' campanhas') },
   { key: 'contratos', classe: 'c-contratos', label: '📑 Contratos', getItens: (d) => d.contratos, detalhe: (c) => c.cliente, contagem: (n) => n + (n === 1 ? ' contrato' : ' contratos') },
-  { key: 'lembretes', classe: 'c-lembretes', label: '📌 Lembretes', getItens: (d) => d.lembretes, detalhe: (l) => l.texto, contagem: (n) => n + (n === 1 ? ' lembrete' : ' lembretes'), dias: (l) => l.diasAtraso }
+  // Sem "dias" (o badge do kanban é fixo "há Xd" — não cabe numa contagem
+  // regressiva que também pode estar no futuro, tipo "faltam 3d").
+  { key: 'lembretes', classe: 'c-lembretes', label: '📌 Lembretes', getItens: (d) => d.lembretes, detalhe: (l) => l.texto, contagem: (n) => n + (n === 1 ? ' lembrete' : ' lembretes') }
 ];
 const LIMITE_CARDS_COLUNA = 5;
 const LIMITE_LINHAS_SEM_WHATSAPP = 7;
