@@ -1689,6 +1689,9 @@ export async function renderCalendarPage(options) {
                                 const _st = _fi.status || _fi.Status || '';
                                 return `<button class="visit-funil-btn is-in-funil${_alerta ? ' is-alert' : ''}" type="button" data-funil-id="${escapeHtml(String(_fi.id || _fi.Id || ''))}" title="No Funil${_st ? ' (' + _st + ')' : ''} — abrir" aria-label="Cliente já está no Funil de Vendas">${_alerta ? '⚠️' : '✅'}</button>`;
                             })();
+                            const sinalizarBtnHtml = state.canCreateProposalFunil
+                                ? `<button class="visit-sinalizar-btn${v.sinalizadaVinculo ? ' is-flagged' : ''}" type="button" data-sinalizar-id="${escapeHtml(v.id)}" title="${v.sinalizadaVinculo ? 'Sinalizada — some da lista de pendências do Início quando você desmarcar' : 'Sinalizar: preciso incluir essa visita em Proposta/Funil depois'}" aria-label="Sinalizar para vincular depois">🚩</button>`
+                                : '';
                             return `
                         <div class="visit-card-wrap">
                             <button type="button" class="visit-card" data-visit-id="${escapeHtml(v.id)}" style="border-left:4px solid ${typeColorMap[v.tipoVisita] || '#3b82f6'}">
@@ -1702,7 +1705,7 @@ export async function renderCalendarPage(options) {
                                     ${isAdminOrGerenteUser() && v.vendedorGerente ? `<span>· ${escapeHtml(v.vendedorGerente)}</span>` : ''}
                                 </div>
                             </button>
-                            ${funilBtnHtml ? `<div class="visit-card-actions">${funilBtnHtml}</div>` : ''}
+                            ${funilBtnHtml || sinalizarBtnHtml ? `<div class="visit-card-actions">${funilBtnHtml}${sinalizarBtnHtml}</div>` : ''}
                         </div>`;
                         }).join('')}
                         ${dayProposals.map((p) => `
@@ -1753,6 +1756,29 @@ export async function renderCalendarPage(options) {
                         state.funilPrefill = { cliente: btn.dataset.cliente || '', cidade: btn.dataset.cidade || '', foco: btn.dataset.foco || '', atuacao: btn.dataset.atuacao || '' };
                         state.funilCreateReturnTo = { page: 'calendar', options: { openDay: day, openMonth: viewMonth, openYear: viewYear, filter: activeFilter } };
                         navigateTo('funil-new');
+                    });
+                });
+                panel.querySelectorAll('[data-sinalizar-id]').forEach((btn) => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (btn.disabled) return;
+                        const id = btn.dataset.sinalizarId;
+                        const ligar = !btn.classList.contains('is-flagged');
+                        btn.disabled = true;
+                        const result = await callAPI('toggleSinalizarVisita', { id, sinalizada: ligar, user: state.currentUser }).catch((err) => ({ status: 'error', message: err.message }));
+                        btn.disabled = false;
+                        if (!result || result.status !== 'success') {
+                            showToast((result && result.message) || 'Não foi possível atualizar a sinalização.', true);
+                            return;
+                        }
+                        const sinalizadaVinculo = result.sinalizadaVinculo || '';
+                        const raw = (state.visits || []).find((x) => String(x.ID || x.id) === String(id));
+                        if (raw) { raw.SinalizadaVinculo = sinalizadaVinculo; saveCache('visits', state.visits); }
+                        const dv = (dayVisits || []).find((x) => String(x.id) === String(id));
+                        if (dv) dv.sinalizadaVinculo = sinalizadaVinculo;
+                        btn.classList.toggle('is-flagged', !!sinalizadaVinculo);
+                        btn.title = sinalizadaVinculo ? 'Sinalizada — some da lista de pendências do Início quando você desmarcar' : 'Sinalizar: preciso incluir essa visita em Proposta/Funil depois';
+                        showToast(sinalizadaVinculo ? 'Visita sinalizada — vai aparecer na lista de pendências do Início.' : 'Sinalização removida.');
                     });
                 });
                 bindAgendamentoRowActions(panel, dayAgendamentos, { onMutated: renderAgendamentosSection });

@@ -534,7 +534,8 @@ export function fillProposalsContent(mainContent, proposals) {
         // própria Visita (propostaVinculada), mesmo padrão de Visita↔Funil.
         const linkedVisitas = (state.visits || [])
             .filter((vx) => String(vx.propostaVinculada || vx.PropostaVinculada || '') === String(p.id))
-            .map((vx) => normalizeVisit(vx));
+            .map((vx) => normalizeVisit(vx))
+            .sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0));
         const linkedVisitasCount = linkedVisitas.length;
 
         const searchField = (label, fieldId, value, items, extraClass = '') => `
@@ -1125,7 +1126,8 @@ export async function renderProposalDetailPage(id) {
     await ensureVisitsForDedup();
     const visitasLinkadas = (state.visits || [])
         .filter((v) => String(v.propostaVinculada || v.PropostaVinculada || '') === String(proposal.id))
-        .map((v) => normalizeVisit(v));
+        .map((v) => normalizeVisit(v))
+        .sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0));
 
     // Anterior/Próxima seguem a ordem da última lista renderizada
     // (state.proposalsNavOrder) — só aparece quando esta proposta faz parte

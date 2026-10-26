@@ -471,7 +471,8 @@ export function fillFunilContent(mainContent, funil) {
         const linkedPropostasCount = linkedPropostas.length;
         const linkedVisitas = (state.visits || [])
             .filter((vx) => String(vx.funilVinculado || vx.FunilVinculado || '') === String(f.id))
-            .map((vx) => normalizeVisit(vx));
+            .map((vx) => normalizeVisit(vx))
+            .sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0));
         const linkedVisitasCount = linkedVisitas.length;
 
         const searchField = (label, id, value, placeholder = '', extraClass = '') => `
@@ -1689,7 +1690,8 @@ export async function renderFunilDetailPage(id, _revalidated) {
         .map((p) => normalizeProposal(p));
     const visitasLinkadas = (state.visits || [])
         .filter((v) => String(v.funilVinculado || v.FunilVinculado || '') === String(f.id))
-        .map((v) => normalizeVisit(v));
+        .map((v) => normalizeVisit(v))
+        .sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0));
 
     // Veio do cache local? Revalida na planilha em 2º plano (uma vez) — o
     // sync incremental não traz edições feitas direto no Google Sheets, e
