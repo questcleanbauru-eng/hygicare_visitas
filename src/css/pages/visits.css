@@ -60,7 +60,7 @@
 
 .visit-card-wrap .visit-card {
     flex: 1;
-    padding-right: 6.2rem;
+    padding-right: 8rem;
 }
 
 .visit-card-actions {
@@ -94,6 +94,51 @@
 .visit-funil-btn.is-in-funil:hover { background: #dcfce7; }
 .visit-funil-btn.is-alert { color: #b91c1c; }
 .visit-funil-btn.is-alert:hover { background: #fee2e2; }
+
+/* "📅" — Agendar retorno / Criar lembrete, mesmo padrão visual do menu "⋮"
+   de Edição rápida do Funil (qe-v2-menu em components.css). */
+.visit-agenda-menu-wrap { position: relative; display: flex; }
+.visit-agenda-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0.4rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    transition: background 0.15s, color 0.15s;
+}
+.visit-agenda-toggle:hover { background: #e0e7ff; color: var(--primary); }
+.visit-agenda-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    z-index: 5;
+    min-width: 170px;
+    overflow: hidden;
+}
+.visit-agenda-menu.is-open { display: block; }
+.visit-agenda-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.45rem 0.7rem;
+    border: none;
+    background: none;
+    font-size: 0.76rem;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--text);
+}
+.visit-agenda-menu button:hover { background: var(--bg); }
 .visit-sinalizar-btn.is-flagged { color: var(--warning); opacity: 1; }
 .visit-sinalizar-btn.is-flagged:hover { background: var(--warning-bg); }
 .visit-sinalizar-btn:not(.is-flagged) { opacity: 0.55; }

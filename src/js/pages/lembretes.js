@@ -230,7 +230,7 @@ async function atualizarStatusLembrete(id, status, btn) {
     }
 }
 
-async function openCreateLembreteModal() {
+export async function openCreateLembreteModal(prefillTexto) {
     const formDataResult = await ensureFormData();
     const vendedoresAll = (formDataResult.data && formDataResult.data.vendedores) || [];
     const notifyOptions = resolveNotifyOptions(vendedoresAll, state.currentUser);
@@ -249,7 +249,7 @@ async function openCreateLembreteModal() {
             <div class="newag-modal-body">
                 <div class="form-group full-width">
                     <label for="lembrete-texto">Lembrete *</label>
-                    <textarea id="lembrete-texto" rows="2" placeholder="Ex.: Comprar etiquetas, Enviar nota fiscal da Unimed"></textarea>
+                    <textarea id="lembrete-texto" rows="2" placeholder="Ex.: Comprar etiquetas, Enviar nota fiscal da Unimed">${escapeHtml(prefillTexto || '')}</textarea>
                 </div>
                 <div class="form-group full-width">
                     <label for="lembrete-data">Data *</label>

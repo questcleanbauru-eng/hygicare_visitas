@@ -381,6 +381,13 @@ export function fillVisitsContent(container, visits) {
                                     return `<button class="visit-funil-btn is-in-funil${_alerta ? ' is-alert' : ''}" type="button" data-funil-id="${escapeHtml(String(_fi.id || _fi.Id || ''))}" title="No Funil${_st ? ' (' + _st + ')' : ''} — abrir" aria-label="Cliente já está no Funil de Vendas">${_alerta ? '⚠️' : '✅'}</button>`;
                                 })() : ''}
                                 ${state.canCreateProposalFunil ? `<button class="visit-sinalizar-btn${visit.sinalizadaVinculo ? ' is-flagged' : ''}" type="button" data-sinalizar-id="${escapeHtml(visit.id)}" title="${visit.sinalizadaVinculo ? 'Sinalizada — some da lista de pendências do Início quando você desmarcar' : 'Sinalizar: preciso incluir essa visita em Proposta/Funil depois'}" aria-label="Sinalizar para vincular depois">🚩</button>` : ''}
+                                <div class="visit-agenda-menu-wrap">
+                                    <button class="visit-agenda-toggle" type="button" data-agenda-toggle="${escapeHtml(visit.id)}" title="Agendar retorno ou criar lembrete" aria-label="Agendar retorno ou criar lembrete">📅</button>
+                                    <div class="visit-agenda-menu">
+                                        <button type="button" data-agenda-retorno="${escapeHtml(visit.id)}">📅 Agendar retorno</button>
+                                        ${String(state.currentUser?.profile || '').toLowerCase() === 'admin' ? `<button type="button" data-agenda-lembrete="${escapeHtml(visit.id)}">⏰ Criar lembrete</button>` : ''}
+                                    </div>
+                                </div>
                                 <button class="visit-share-btn" type="button" data-share-id="${escapeHtml(visit.id)}" title="Compartilhar" aria-label="Compartilhar visita">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                                 </button>
@@ -453,6 +460,41 @@ export function fillVisitsContent(container, visits) {
                 btn.classList.toggle('is-flagged', !!sinalizadaVinculo);
                 btn.title = sinalizadaVinculo ? 'Sinalizada — some da lista de pendências do Início quando você desmarcar' : 'Sinalizar: preciso incluir essa visita em Proposta/Funil depois';
                 showToast(sinalizadaVinculo ? 'Visita sinalizada — vai aparecer na lista de pendências do Início.' : 'Sinalização removida.');
+            });
+        });
+        visitsListContainer.querySelectorAll('[data-agenda-toggle]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const menu = btn.nextElementSibling;
+                if (!menu) return;
+                const wasOpen = menu.classList.contains('is-open');
+                visitsListContainer.querySelectorAll('.visit-agenda-menu.is-open').forEach((m) => m.classList.remove('is-open'));
+                if (wasOpen) return;
+                menu.classList.add('is-open');
+                const onOutside = (ev) => {
+                    if (!menu.contains(ev.target) && ev.target !== btn) {
+                        menu.classList.remove('is-open');
+                        document.removeEventListener('click', onOutside);
+                    }
+                };
+                document.addEventListener('click', onOutside);
+            });
+        });
+        visitsListContainer.querySelectorAll('[data-agenda-retorno]').forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                btn.closest('.visit-agenda-menu')?.classList.remove('is-open');
+                const v = normalizedVisits.find((x) => String(x.id) === String(btn.dataset.agendaRetorno));
+                if (v) await showScheduleReturnModal(v);
+            });
+        });
+        visitsListContainer.querySelectorAll('[data-agenda-lembrete]').forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                btn.closest('.visit-agenda-menu')?.classList.remove('is-open');
+                const v = normalizedVisits.find((x) => String(x.id) === String(btn.dataset.agendaLembrete));
+                const { openCreateLembreteModal } = await import('./lembretes.js');
+                openCreateLembreteModal(v ? `Acompanhar visita de ${v.cliente || 'cliente'} (${v.dataVisita || ''})`.trim() : '');
             });
         });
 
