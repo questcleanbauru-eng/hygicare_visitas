@@ -409,6 +409,8 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                     <hr style="width:100%;border:none;border-top:1px solid var(--border);margin:0.15rem 0">
                     <p class="helper-text" style="text-align:left;margin:0">Campanha aberta com prazo, criada ANTES desse recurso existir, não ganhou agendamento automático — rode uma vez pra cobrir as que já estavam abertas (pode rodar de novo sem duplicar).</p>
                     <button type="button" id="backfill-agendamentos-campanha" class="secondary-button" style="align-self:flex-start">🔗 Aplicar às campanhas já abertas</button>
+                    <p class="helper-text" style="text-align:left;margin:0.4rem 0 0">Campanha concluída (todo item respondido) ANTES do prazo continuava cobrando quem já tinha respondido tudo — rode uma vez pra fechar os lembretes que ficaram presos nas campanhas já concluídas (pode rodar de novo sem problema).</p>
+                    <button type="button" id="close-agendamentos-campanha-concluida" class="secondary-button" style="align-self:flex-start">🔒 Fechar lembretes de campanhas já concluídas</button>
                 </div>
             </div>
             <div class="admin-section" style="margin-bottom:1.25rem">
@@ -1226,6 +1228,15 @@ export function bindAdminEvents(data) {
         setSaving(false, btn);
         if (result.status === 'success') { showToast(result.message); }
         else { showToast(result.message || 'Não foi possível aplicar.', true); }
+    });
+
+    document.getElementById('close-agendamentos-campanha-concluida')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget;
+        setSaving(true, btn, 'Fechando...');
+        const result = await callAPI('closeAgendamentosCampanhasConcluidas', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+        setSaving(false, btn);
+        if (result.status === 'success') { showToast(result.message); }
+        else { showToast(result.message || 'Não foi possível fechar.', true); }
     });
 
     document.getElementById('save-lembrete-clientes')?.addEventListener('click', async () => {

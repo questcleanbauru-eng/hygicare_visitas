@@ -8,7 +8,7 @@ import {
 } from '../lib/handlers/funil.js';
 import {
     handleCriarCampanha, handleGetCampanha, handleResponderCampanhaItem, handleGetCampanhas, handleDeleteCampanha, handleDeleteCampanhaBatch,
-    handleBackfillAgendamentosCampanha, handleEncerrarCampanha, handleUpdateCampanhaItemRespondidoEm, handleUpdateCampanhaPrazo, handleTocarItensCampanhaBatch
+    handleBackfillAgendamentosCampanha, handleCloseAgendamentosCampanhasConcluidas, handleEncerrarCampanha, handleUpdateCampanhaItemRespondidoEm, handleUpdateCampanhaPrazo, handleTocarItensCampanhaBatch
 } from '../lib/handlers/campanhas.js';
 import {
     handleGetContratos, handleGetContratoById, handleCreateContrato, handleUpdateContrato, handleDeleteContrato,
@@ -107,6 +107,7 @@ const HANDLERS = {
     deleteCampanhaBatch: handleDeleteCampanhaBatch,
     tocarItensCampanhaBatch: handleTocarItensCampanhaBatch,
     backfillAgendamentosCampanha: handleBackfillAgendamentosCampanha,
+    closeAgendamentosCampanhasConcluidas: handleCloseAgendamentosCampanhasConcluidas,
     debugFunilHeaders: handleDebugFunilHeaders,
     getContratos: handleGetContratos,
     getContratoById: handleGetContratoById,
