@@ -5,7 +5,7 @@ import {
     renderNavigation, updateHeaderUI, initSidebarToggle, initSidebarTooltip, initBottomNavAutoHide
 } from './utils/ui.js';
 import { renderLoginPage, renderForgotPasswordPage } from './pages/auth.js';
-import { renderDashboard, fillDashboard, loadResumoDiarioCard } from './pages/dashboard.js';
+import { renderDashboard, fillDashboard, loadResumoDiarioCard, loadVisitasSinalizadasCard } from './pages/dashboard.js';
 import { showToast } from './utils/dom.js';
 
 // Mapeia cada página pro id de nav controlável (Admin → editar usuário →
@@ -111,6 +111,17 @@ function peekAdminEditUser() {
     try { return new URLSearchParams(window.location.search || '').get('editUser') || null; } catch (e) { return null; }
 }
 
+// Deep-link genérico usado pelo clique em notificação push quando o app
+// estava fechado (cold start — ver sw.js): ?goto=<page>&gid=<id> cai direto
+// na página/registro certo (ex.: visit-detail de uma visita específica),
+// em vez de abrir sempre o Início.
+function peekGenericGoto() {
+    try { return new URLSearchParams(window.location.search || '').get('goto') || null; } catch (e) { return null; }
+}
+function peekGenericGotoId() {
+    try { return new URLSearchParams(window.location.search || '').get('gid') || null; } catch (e) { return null; }
+}
+
 export function consumeDeepLink() {
     const id = peekCampanhaId();
     if (id) {
@@ -121,6 +132,12 @@ export function consumeDeepLink() {
     if (editUserEmail || peekAdminGoto()) {
         try { window.history.replaceState({}, '', '/'); } catch (e) {}
         return { page: 'admin', options: editUserEmail ? { editUserEmail } : {} };
+    }
+    const gotoPage = peekGenericGoto();
+    if (gotoPage) {
+        const gid = peekGenericGotoId();
+        try { window.history.replaceState({}, '', '/'); } catch (e) {}
+        return { page: gotoPage, options: gid ? { id: gid } : {} };
     }
     return null;
 }
@@ -232,6 +249,7 @@ export function initTabVisibilitySync() {
                     // ficava com o resumo de dias atrás numa aba aberta por muito
                     // tempo sem navegação de verdade.
                     loadResumoDiarioCard();
+                    loadVisitasSinalizadasCard();
                 }
             }).catch(function() {});
         } else if (state.currentPage === 'visits') {

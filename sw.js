@@ -44,13 +44,17 @@ self.addEventListener('notificationclick', (event) => {
     const params = (event.notification.data && event.notification.data.params) || undefined;
     // "Cold start" (app fechado, nenhum client aberto pro postMessage pegar)
     // caía sempre em openWindow('./') puro — perdia completamente qual
-    // campanha era, e o app abria na Dashboard normal (ou em qualquer outra
-    // página que tivesse restaurado). campanha-preencher é a única página
-    // com forma de URL própria (?c=<id>, ver peekCampanhaId em app.js), então
-    // é a única que dá pra recuperar aqui sem o postMessage.
+    // registro era (ex.: visita X), e o app abria sempre na Dashboard.
+    // campanha-preencher usa sua própria forma de URL (?c=<id>, ver
+    // peekCampanhaId em app.js); as demais páginas usam o esquema genérico
+    // ?goto=<page>&gid=<id> (ver peekGenericGoto/peekGenericGotoId em app.js).
     const coldStartUrl = (page === 'campanha-preencher' && params && params.id)
         ? './?c=' + encodeURIComponent(params.id)
-        : './';
+        : (params && params.id)
+            ? './?goto=' + encodeURIComponent(page) + '&gid=' + encodeURIComponent(params.id)
+            : (page && page !== 'dashboard')
+                ? './?goto=' + encodeURIComponent(page)
+                : './';
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             const client = clientList.find((c) => 'focus' in c);

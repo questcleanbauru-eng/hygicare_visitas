@@ -2665,6 +2665,7 @@ export async function renderVisitDetailPage(id) {
             <h2>Detalhes da Visita</h2>
             <div class="header-actions-group">
                 ${visit.cliente ? `<button type="button" class="mini-button mini-button-icon" id="visit-c360" aria-label="Cliente 360°" title="Ver histórico completo do cliente">${actionIcon('user')}</button>` : ''}
+                ${state.canCreateProposalFunil ? `<button type="button" class="mini-button${visit.sinalizadaVinculo ? ' is-flagged' : ''}" id="toggle-sinalizar-visita" title="${visit.sinalizadaVinculo ? 'Sinalizada — some da lista de pendências do Início quando você desmarcar' : 'Sinalizar: preciso incluir essa visita em Proposta/Funil depois'}">${visit.sinalizadaVinculo ? '🚩 Sinalizada' : '🚩 Sinalizar p/ vincular'}</button>` : ''}
                 <button type="button" class="mini-button" id="edit-visit">Editar</button>
                 <button type="button" class="mini-button" id="duplicate-visit" title="Nova visita com os mesmos dados">Duplicar</button>
                 <button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="share-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
@@ -2757,6 +2758,24 @@ export async function renderVisitDetailPage(id) {
     });
 
     document.getElementById('visit-c360')?.addEventListener('click', () => navigateTo('cliente-360', { cliente: visit.cliente }));
+
+    document.getElementById('toggle-sinalizar-visita')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget;
+        const ligar = !visit.sinalizadaVinculo;
+        setSaving(true, btn, ligar ? 'Sinalizando...' : 'Desmarcando...');
+        const result = await callAPI('toggleSinalizarVisita', { id: visit.id, sinalizada: ligar, user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+        setSaving(false, btn);
+        if (!result || result.status !== 'success') {
+            showToast((result && result.message) || 'Não foi possível atualizar a sinalização.', true);
+            return;
+        }
+        visit.sinalizadaVinculo = result.sinalizadaVinculo || '';
+        state.currentVisit = visit;
+        btn.classList.toggle('is-flagged', !!visit.sinalizadaVinculo);
+        btn.textContent = visit.sinalizadaVinculo ? '🚩 Sinalizada' : '🚩 Sinalizar p/ vincular';
+        btn.title = visit.sinalizadaVinculo ? 'Sinalizada — some da lista de pendências do Início quando você desmarcar' : 'Sinalizar: preciso incluir essa visita em Proposta/Funil depois';
+        showToast(visit.sinalizadaVinculo ? 'Visita sinalizada — vai aparecer na lista de pendências do Início.' : 'Sinalização removida.');
+    });
 }
 
 

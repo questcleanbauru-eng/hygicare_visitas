@@ -49,6 +49,7 @@ export function fillDashboard(mainContent, data, user) {
         </div>
 
         ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<div id="resumo-diario-card"></div>' : ''}
+        ${state.canCreateProposalFunil ? '<div id="visitas-sinalizadas-card"></div>' : ''}
 
         <!-- Ações rápidas -->
         <div class="dash-actions-bar">
@@ -593,6 +594,39 @@ export async function loadResumoDiarioCard() {
     });
 }
 
+// Card "Visitas sinalizadas para vincular" — pedido pra quando o vendedor
+// sinaliza uma visita pelo celular (onde o Vincular a Proposta/Funil fica
+// escondido, ver components.css) e precisa de um jeito de achar essas
+// visitas de novo ao abrir o computador. Diferente do Resumo de ontem, não
+// tem "Visto": fica visível até a própria visita ser desmarcada (ver
+// toggle-sinalizar-visita em visits.js), já que é uma pendência de verdade,
+// não um resumo do dia.
+export async function loadVisitasSinalizadasCard() {
+    const container = document.getElementById('visitas-sinalizadas-card');
+    if (!container) return;
+    const result = await callAPI('getVisitasSinalizadas', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+    if (document.getElementById('visitas-sinalizadas-card') !== container) return;
+    if (!result || result.status !== 'success' || !result.visitas || !result.visitas.length) {
+        container.remove();
+        return;
+    }
+    const rows = result.visitas.map((v) => {
+        const badges = [v.jaNoFunil ? '✅ já no Funil' : '', v.jaEmProposta ? '✅ já em Proposta' : ''].filter(Boolean).join(' · ');
+        const texto = [v.cliente || 'Cliente', v.vendedorGerente, v.dataVisita].filter(Boolean).join(' · ') + (badges ? ` (${badges})` : '');
+        return `<button type="button" class="resumo-diario-row" data-id="${escapeHtml(v.id)}">${escapeHtml(texto)}</button>`;
+    }).join('');
+    container.innerHTML = `
+        <div class="card resumo-diario-card">
+            <div class="section-title-row">
+                <h3 style="font-size:0.88rem;font-weight:700;margin:0">🚩 Visitas sinalizadas p/ vincular (${result.visitas.length})</h3>
+            </div>
+            <div class="resumo-diario-list">${rows}</div>
+        </div>`;
+    container.querySelectorAll('[data-id]').forEach((btn) => {
+        btn.addEventListener('click', () => navigateTo('visit-detail', { id: btn.dataset.id }));
+    });
+}
+
 export async function renderDashboard() {
     const mainContent = document.getElementById('main-content');
     const cached = loadCache('dashboard');
@@ -613,6 +647,7 @@ export async function renderDashboard() {
         // reescreve mainContent.innerHTML do zero, o que apagaria o card se
         // ele já tivesse sido preenchido antes (ver #resumo-diario-card).
         loadResumoDiarioCard();
+        loadVisitasSinalizadasCard();
     } else if (!cached && result.status !== 'success') {
         // Sem cache e a busca falhou — mostrar erro real, não um dashboard
         // "zerado" a partir de state.visits/proposals vazios, que passaria

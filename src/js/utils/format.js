@@ -31,6 +31,7 @@ export function normalizeVisit(visit) {
         valorDespesas: visit['ValorDespesas'] || visit.valorDespesas || '',
         funilVinculado: visit['FunilVinculado'] || visit.funilVinculado || '',
         propostaVinculada: visit['PropostaVinculada'] || visit.propostaVinculada || '',
+        sinalizadaVinculo: visit['SinalizadaVinculo'] || visit.sinalizadaVinculo || '',
         _pending: !!visit._pending
     };
 }

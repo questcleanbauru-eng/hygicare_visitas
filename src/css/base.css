@@ -656,6 +656,8 @@ main {
 .mini-button-whatsapp:hover { background-color: #bbf7d0; }
 .mini-button-danger { color: var(--danger); background-color: var(--danger-bg); border-color: var(--danger-border); }
 .mini-button-danger:hover { background-color: var(--danger-border); }
+.mini-button.is-flagged { color: var(--warning); background-color: var(--warning-bg); border-color: var(--warning-border); }
+.mini-button.is-flagged:hover { background-color: var(--warning-border); }
 
 .header-actions-group { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.4rem; }
 
