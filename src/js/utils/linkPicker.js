@@ -45,7 +45,8 @@ function highlight(text, query) {
  *   emptyNoun: string,             // "proposta" / "oportunidade do Funil"
  *   currentCliente: string,        // pro agrupamento "mesmo nome" antes de digitar
  *   items: [{ id, cliente, tag, cidade, data }],
- *   onConfirm: (id) => void
+ *   multiSelect: boolean,          // true: pode marcar vários antes de confirmar (checkbox em vez de troca)
+ *   onConfirm: (id) => void        // multiSelect true: recebe um array de ids em vez de um id só
  * }
  */
 export function openLinkPickerModal(config) {
@@ -87,9 +88,22 @@ export function openLinkPickerModal(config) {
     const sortBtn = overlay.querySelector('#lkp-sort');
     const confirmBtn = overlay.querySelector('#lkp-confirm');
 
-    let selectedId = null;
+    const selectedIds = new Set();
     let sortMode = 'recentes'; // 'recentes' | 'az'
     const currentClienteKey = String(config.currentCliente || '').trim().toLowerCase();
+    const multi = !!config.multiSelect;
+
+    // Confirma só pelo tamanho de selectedIds (não por "ainda está nos
+    // resultados filtrados") — senão, no multiSelect, trocar a busca depois
+    // de já ter marcado alguns itens desmarcaria o botão de confirmar
+    // mesmo com itens válidos selecionados (só fora da visão atual).
+    function updateConfirmState() {
+        confirmBtn.disabled = selectedIds.size === 0;
+        const n = selectedIds.size;
+        confirmBtn.textContent = (multi && n > 1)
+            ? `Vincular ${n} ${config.emptyNoun || 'itens'}s selecionadas`
+            : (config.confirmLabel || 'Vincular');
+    }
 
     const dataMs = (it) => {
         const dias = calculateDaysFromDisplayDate(it.data);
@@ -116,7 +130,10 @@ export function openLinkPickerModal(config) {
                     <p>Nenhuma ${escapeHtml(config.emptyNoun)} encontrada${q ? ` para "${escapeHtml(searchInput.value.trim())}"` : ''}.</p>
                     <p class="lkp-empty-hint">Tente buscar por outro nome ou cidade.</p>
                 </div>`;
-            confirmBtn.disabled = true;
+            // Não força disabled aqui: no multiSelect, uma busca sem resultado
+            // novo não pode invalidar seleções já marcadas (só fora da visão
+            // atual) — ver updateConfirmState.
+            updateConfirmState();
             return;
         }
 
@@ -135,7 +152,8 @@ export function openLinkPickerModal(config) {
         const itemHtml = (it) => {
             const rel = relativeLabel(it.data);
             return `
-            <button type="button" class="lkp-item${String(it.id) === String(selectedId) ? ' is-selected' : ''}" data-id="${escapeHtml(String(it.id))}" ${it.hint ? `title="${escapeHtml(it.hint)}"` : ''}>
+            <button type="button" class="lkp-item${selectedIds.has(String(it.id)) ? ' is-selected' : ''}" data-id="${escapeHtml(String(it.id))}" ${it.hint ? `title="${escapeHtml(it.hint)}"` : ''}>
+                ${multi ? `<span class="lkp-check" aria-hidden="true">✓</span>` : ''}
                 <span class="lkp-avatar">${escapeHtml(initials(it.cliente))}</span>
                 <span class="lkp-item-body">
                     <span class="lkp-item-name">${highlight(it.cliente || 'Cliente', searchInput.value.trim())}</span>
@@ -155,12 +173,19 @@ export function openLinkPickerModal(config) {
 
         resultsEl.querySelectorAll('.lkp-item').forEach((btn) => {
             btn.addEventListener('click', () => {
-                selectedId = btn.dataset.id;
-                resultsEl.querySelectorAll('.lkp-item').forEach((x) => x.classList.toggle('is-selected', x === btn));
-                confirmBtn.disabled = false;
+                const id = btn.dataset.id;
+                if (multi) {
+                    if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+                    btn.classList.toggle('is-selected', selectedIds.has(id));
+                } else {
+                    selectedIds.clear();
+                    selectedIds.add(id);
+                    resultsEl.querySelectorAll('.lkp-item').forEach((x) => x.classList.toggle('is-selected', x === btn));
+                }
+                updateConfirmState();
             });
         });
-        confirmBtn.disabled = !filtered.some((it) => String(it.id) === String(selectedId));
+        updateConfirmState();
     }
 
     searchInput.addEventListener('input', render);
@@ -170,9 +195,9 @@ export function openLinkPickerModal(config) {
         render();
     });
     confirmBtn.addEventListener('click', () => {
-        if (!selectedId) return;
+        if (!selectedIds.size) return;
         close();
-        config.onConfirm(selectedId);
+        config.onConfirm(multi ? Array.from(selectedIds) : Array.from(selectedIds)[0]);
     });
 
     render();

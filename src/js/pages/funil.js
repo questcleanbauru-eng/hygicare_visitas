@@ -1087,13 +1087,23 @@ function openLinkVisitaModal(f, onLinked) {
             emptyNoun: 'visita',
             currentCliente: f.cliente,
             items,
-            onConfirm: async (visitaId) => {
-                const r = await callAPI('linkVisitaFunil', { id: visitaId, funilVinculado: f.id, user: state.currentUser })
-                    .catch((e) => ({ status: 'error', message: e.message }));
-                if (!r || r.status !== 'success') { showToast((r && r.message) || 'Não foi possível vincular.', true); return; }
-                const i = (state.visits || []).findIndex((x) => String(x.ID || x.id) === String(visitaId));
-                if (i >= 0) { state.visits[i] = { ...state.visits[i], FunilVinculado: f.id, funilVinculado: f.id }; saveCache('visits_all', state.visits); }
-                showToast('Vinculado à visita.');
+            multiSelect: true,
+            onConfirm: async (visitaIds) => {
+                // Uma de cada vez (não Promise.all) — mesma cautela de sempre
+                // com escrita no Sheets, pra não arriscar corrida entre linhas.
+                let ok = 0, falhas = 0;
+                for (const visitaId of visitaIds) {
+                    const r = await callAPI('linkVisitaFunil', { id: visitaId, funilVinculado: f.id, user: state.currentUser })
+                        .catch((e) => ({ status: 'error', message: e.message }));
+                    if (!r || r.status !== 'success') { falhas++; continue; }
+                    ok++;
+                    const i = (state.visits || []).findIndex((x) => String(x.ID || x.id) === String(visitaId));
+                    if (i >= 0) { state.visits[i] = { ...state.visits[i], FunilVinculado: f.id, funilVinculado: f.id }; }
+                }
+                if (ok) saveCache('visits_all', state.visits);
+                if (ok && !falhas) showToast(ok > 1 ? `${ok} visitas vinculadas.` : 'Vinculado à visita.');
+                else if (ok && falhas) showToast(`${ok} vinculada(s), ${falhas} falharam.`, true);
+                else showToast('Não foi possível vincular.', true);
                 if (onLinked) onLinked(); else renderFunilDetailPage(f.id, true);
             }
         });

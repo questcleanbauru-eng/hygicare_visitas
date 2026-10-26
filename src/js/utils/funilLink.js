@@ -8,9 +8,13 @@ import { state } from '../app.js';
 const _key = (name) => String(name || '').trim().toLowerCase();
 
 // Carrega o Funil uma vez (best-effort) só pra essa checagem. Se falhar,
-// quem chamou segue funcionando como se não houvesse match.
+// quem chamou segue funcionando como se não houvesse match. Exige escopo
+// "all" pelo mesmo motivo de ensureVisitsForDedup logo abaixo — senão uma
+// visita a Funil anterior (carregando só os últimos 90 dias) deixava a
+// busca de Vincular a uma Proposta/o dedup de ✅/⚠️ sem ver oportunidades
+// mais antigas.
 export async function ensureFunilForDedup() {
-    if (Array.isArray(state.funil) && state.funil.length) return;
+    if (Array.isArray(state.funil) && state.funil.length && state.funilScope === 'all') return;
     try {
         const { getFunil } = await import('../pages/funil.js');
         const r = await getFunil(0);
@@ -33,9 +37,10 @@ export function funilEmAlerta(item) {
 
 // Reverso: "essa oportunidade do Funil já tem Proposta?" — mesmo critério
 // de match (cliente + foco), usado no Funil pra indicar visualmente quando
-// já existe uma proposta em andamento pra aquele cliente/foco.
+// já existe uma proposta em andamento pra aquele cliente/foco. Mesmo motivo
+// de exigir escopo "all" que ensureFunilForDedup/ensureVisitsForDedup.
 export async function ensurePropostasForDedup() {
-    if (Array.isArray(state.proposals) && state.proposals.length) return;
+    if (Array.isArray(state.proposals) && state.proposals.length && state.proposalsScope === 'all') return;
     try {
         const { getProposals } = await import('../pages/proposals.js');
         const r = await getProposals(0);
@@ -58,9 +63,13 @@ export function propostaEmAlerta(item) {
 
 // Mesma ideia de ensurePropostasForDedup, pro Funil poder vincular/listar
 // Visitas (ver handleLinkVisitaFunil, lib/handlers/visits.js) sem depender
-// de já ter passado pela tela de Visitas antes.
+// de já ter passado pela tela de Visitas antes. Exige o escopo "all" (não só
+// "não vazio") — se o usuário já tinha aberto Visitas antes (carregando só
+// os últimos 90 dias, o padrão de lá), state.visits ficava "preenchido" só
+// com esse recorte, e a busca de Vincular a uma Visita silenciosamente nunca
+// encontrava visitas mais antigas que isso.
 export async function ensureVisitsForDedup() {
-    if (Array.isArray(state.visits) && state.visits.length) return;
+    if (Array.isArray(state.visits) && state.visits.length && state.visitsScope === 'all') return;
     try {
         const { getVisits } = await import('../pages/visits.js');
         const r = await getVisits(0);

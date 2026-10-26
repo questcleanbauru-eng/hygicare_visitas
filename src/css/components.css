@@ -2758,6 +2758,21 @@ input:disabled {
 }
 .lkp-item:hover { background: #eef2fe; }
 .lkp-item.is-selected { background: #eef2fe; border-color: #2f5fe0; }
+.lkp-check {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid #c7cdd6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    color: transparent;
+    background: #fff;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.lkp-item.is-selected .lkp-check { background: #2f5fe0; border-color: #2f5fe0; color: #fff; }
 .lkp-avatar {
     flex-shrink: 0;
     width: 34px;
