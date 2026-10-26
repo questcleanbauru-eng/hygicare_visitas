@@ -15,6 +15,7 @@ import { initPullToRefresh, ensureStyles } from '../utils/ui.js';
 function statusLabel(l) {
     if (l.status === 'Concluido') return 'Concluído';
     if (l.status === 'Cancelado') return 'Cancelado';
+    if (l.status === 'Encerrado') return 'Encerrado';
     const d = parseDisplayDateLocal(l.dataAlvo);
     if (d) {
         const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
@@ -26,11 +27,35 @@ function statusLabel(l) {
 
 function statusClass(l) {
     if (l.status === 'Concluido') return 'pedido';
-    if (l.status === 'Cancelado') return 'erro';
+    if (l.status === 'Cancelado' || l.status === 'Encerrado') return 'erro';
     const label = statusLabel(l);
     if (label === 'Atrasado') return 'erro';
     if (label === 'Hoje') return 'apresentacao';
     return 'preventiva';
+}
+
+// Rótulo curto da frequência, pro badge do card — "" quando não repete
+// (card fica sem badge nenhum).
+const RECORRENCIA_LABELS = { diaria: 'Diária', semanal: 'Semanal', mensal: 'Mensal', anual: 'Anual' };
+function recorrenciaBadgeHtml(l) {
+    if (!l.recorrencia || l.recorrencia === 'nenhuma') return '';
+    let texto = RECORRENCIA_LABELS[l.recorrencia];
+    if (!texto && l.recorrencia === 'personalizada') {
+        const cfg = l.recorrenciaConfig || {};
+        texto = cfg.intervalo ? `A cada ${cfg.intervalo} ${cfg.unidade || 'dias'}` : 'Personalizada';
+    }
+    if (!texto) texto = l.recorrencia;
+    return `<span class="status-tag preventiva" title="Repete">🔁 ${escapeHtml(texto)}</span>`;
+}
+
+function terminoBadgeHtml(l) {
+    if (l.terminoTipo === 'data' && l.terminoData) {
+        return `<span class="status-tag pedido" title="Encerra sozinho nessa data">⏹️ Até ${escapeHtml(l.terminoData)}</span>`;
+    }
+    if (l.terminoTipo === 'ocorrencias' && l.terminoOcorrencias) {
+        return `<span class="status-tag pedido" title="Para depois dessa quantidade de vezes">⏹️ ${l.ocorrenciaNumero || 1}/${l.terminoOcorrencias}x</span>`;
+    }
+    return '';
 }
 
 function parseDisplayDateLocal(value) {
@@ -90,7 +115,6 @@ async function refreshLembretes() {
 }
 
 function lembreteCardHtml(l, { isAdmin, podeAgir }) {
-    const badgeRecorrencia = l.recorrencia === 'mensal' ? '<span class="status-tag preventiva" title="Repete todo mês">🔁 Mensal</span>' : '';
     const acoes = [];
     if (podeAgir && l.status === 'Pendente') {
         acoes.push(`<button type="button" class="text-link" data-lembrete-concluir="${escapeHtml(l.id)}">✅ Concluir</button>`);
@@ -105,7 +129,7 @@ function lembreteCardHtml(l, { isAdmin, podeAgir }) {
                 <span class="item-name">${escapeHtml(l.texto || '-')}</span>
                 <span class="status-tag ${statusClass(l)}">${statusLabel(l)}</span>
             </div>
-            <div class="item-meta">${escapeHtml(['📅 ' + (l.dataAlvo || '-'), '👤 ' + (l.destinatarios || []).join(', ')].filter(Boolean).join(' · '))} ${badgeRecorrencia}</div>
+            <div class="item-meta">${escapeHtml(['📅 ' + (l.dataAlvo || '-'), '👤 ' + (l.destinatarios || []).join(', ')].filter(Boolean).join(' · '))} ${recorrenciaBadgeHtml(l)} ${terminoBadgeHtml(l)}</div>
             ${acoes.length ? `<div style="display:flex;gap:0.9rem;margin-top:0.5rem;flex-wrap:wrap">${acoes.join('')}</div>` : ''}
         </div>`;
 }
@@ -165,7 +189,7 @@ function fillLembretesContent(mainContent, lembretes) {
     });
     mainContent.querySelectorAll('[data-lembrete-cancelar]').forEach((btn) => {
         btn.addEventListener('click', () => {
-            if (!confirm('Cancelar este lembrete? Se for mensal, a série para aqui (não gera o próximo mês).')) return;
+            if (!confirm('Cancelar este lembrete? Se ele repete, a série para aqui (não gera a próxima ocorrência).')) return;
             atualizarStatusLembrete(btn.dataset.lembreteCancelar, 'Cancelado', btn);
         });
     });
@@ -196,7 +220,7 @@ async function atualizarStatusLembrete(id, status, btn) {
         if (r.proximo) state.lembretesAdmin.push(r.proximo);
         saveCache('lembretesAdmin', state.lembretesAdmin);
         showToast(status === 'Concluido'
-            ? (r.proximo ? 'Lembrete concluído — próximo mês já agendado.' : 'Lembrete concluído.')
+            ? (r.proximo ? 'Lembrete concluído — próxima ocorrência já agendada.' : 'Lembrete concluído.')
             : 'Lembrete cancelado.');
         const mainContent = document.getElementById('main-content');
         if (mainContent) fillLembretesContent(mainContent, state.lembretesAdmin);
@@ -232,11 +256,68 @@ async function openCreateLembreteModal() {
                     <input type="date" id="lembrete-data" value="${defaultDate.toISOString().slice(0, 10)}">
                 </div>
                 <div class="form-group full-width">
+                    <label for="lembrete-frequencia">Frequência</label>
+                    <select id="lembrete-frequencia">
+                        <option value="nenhuma">Não repete</option>
+                        <option value="diaria">Diária</option>
+                        <option value="semanal">Semanal</option>
+                        <option value="mensal">Mensal (mesmo dia da data acima)</option>
+                        <option value="anual">Anual (mesmo dia/mês da data acima)</option>
+                        <option value="personalizada">Personalizada</option>
+                    </select>
+                </div>
+                <div class="form-group full-width" id="lembrete-freq-diaria" hidden>
                     <label class="newag-repetir-row">
-                        <input type="checkbox" id="lembrete-mensal" style="width:auto;min-height:0">
-                        🔁 Repetir todo mês
+                        <input type="checkbox" id="lembrete-dias-uteis" style="width:auto;min-height:0">
+                        Só em dias úteis (pula sábado/domingo)
                     </label>
-                    <p class="helper-text" style="text-align:left;margin:0.2rem 0 0">Ao concluir, o próximo mês já é criado sozinho — cancelar em vez de concluir encerra a série.</p>
+                </div>
+                <div class="form-group full-width" id="lembrete-freq-semanal" hidden>
+                    <label>Em quais dias da semana</label>
+                    <div class="radio-group" style="flex-wrap:wrap">
+                        ${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d, i) => `
+                            <label class="radio-pill"><input type="checkbox" class="lembrete-dia-semana" value="${i}"><span>${d}</span></label>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="form-group full-width" id="lembrete-freq-personalizada" hidden>
+                    <label for="lembrete-intervalo">A cada</label>
+                    <div style="display:flex;gap:0.5rem;align-items:center">
+                        <input type="number" id="lembrete-intervalo" min="1" value="1" style="max-width:90px">
+                        <select id="lembrete-unidade">
+                            <option value="dias">dias</option>
+                            <option value="semanas">semanas</option>
+                            <option value="meses">meses</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group full-width" id="lembrete-freq-fds" hidden>
+                    <label for="lembrete-ajuste-fds">Se a próxima cair num fim de semana</label>
+                    <select id="lembrete-ajuste-fds">
+                        <option value="manter">Manter mesmo assim</option>
+                        <option value="adiar">Adiar pro próximo dia útil</option>
+                        <option value="antecipar">Antecipar pro dia útil anterior</option>
+                    </select>
+                </div>
+                <div class="form-group full-width" id="lembrete-freq-help" hidden>
+                    <p class="helper-text" style="text-align:left;margin:0">Ao concluir, a próxima ocorrência já é criada sozinha — cancelar em vez de concluir encerra a série.</p>
+                </div>
+                <div class="form-group full-width">
+                    <label>Termina</label>
+                    <div class="radio-group" style="flex-wrap:wrap">
+                        <label class="radio-pill"><input type="radio" name="lembrete-termino" value="nunca" checked><span>Nunca</span></label>
+                        <label class="radio-pill"><input type="radio" name="lembrete-termino" value="data"><span>Numa data</span></label>
+                        <label class="radio-pill" id="lembrete-termino-ocorrencias-opt" hidden><input type="radio" name="lembrete-termino" value="ocorrencias"><span>Depois de X vezes</span></label>
+                    </div>
+                    <p class="helper-text" style="text-align:left;margin:0.2rem 0 0">"Numa data" encerra o lembrete sozinho quando chegar o dia — sem precisar Concluir/Cancelar na mão.</p>
+                </div>
+                <div class="form-group full-width" id="lembrete-termino-data-group" hidden>
+                    <label for="lembrete-termino-data">Até quando</label>
+                    <input type="date" id="lembrete-termino-data">
+                </div>
+                <div class="form-group full-width" id="lembrete-termino-ocorrencias-group" hidden>
+                    <label for="lembrete-termino-ocorrencias">Depois de quantas vezes</label>
+                    <input type="number" id="lembrete-termino-ocorrencias" min="1" value="3">
                 </div>
                 ${multiCheckFilterFieldHtml('Destinatário(s) *', 'lembrete-destinatarios')}
             </div>
@@ -257,6 +338,31 @@ async function openCreateLembreteModal() {
     overlay.querySelector('#lembrete-close').addEventListener('click', close);
     overlay.querySelector('#lembrete-cancel').addEventListener('click', close);
 
+    // Mostra só os campos que fazem sentido pra frequência escolhida — e
+    // "depois de X vezes" só existe fazendo sentido pra quem repete (um
+    // lembrete que não repete não tem "quantas vezes").
+    const atualizarVisibilidadeFrequencia = () => {
+        const freq = overlay.querySelector('#lembrete-frequencia').value;
+        overlay.querySelector('#lembrete-freq-diaria').hidden = freq !== 'diaria';
+        overlay.querySelector('#lembrete-freq-semanal').hidden = freq !== 'semanal';
+        overlay.querySelector('#lembrete-freq-personalizada').hidden = freq !== 'personalizada';
+        overlay.querySelector('#lembrete-freq-fds').hidden = (freq === 'nenhuma' || freq === 'diaria');
+        overlay.querySelector('#lembrete-freq-help').hidden = freq === 'nenhuma';
+        const ocorrenciasOpt = overlay.querySelector('#lembrete-termino-ocorrencias-opt');
+        ocorrenciasOpt.hidden = freq === 'nenhuma';
+        if (freq === 'nenhuma' && overlay.querySelector('input[name="lembrete-termino"][value="ocorrencias"]').checked) {
+            overlay.querySelector('input[name="lembrete-termino"][value="nunca"]').checked = true;
+            atualizarVisibilidadeTermino();
+        }
+    };
+    const atualizarVisibilidadeTermino = () => {
+        const tipo = overlay.querySelector('input[name="lembrete-termino"]:checked')?.value || 'nunca';
+        overlay.querySelector('#lembrete-termino-data-group').hidden = tipo !== 'data';
+        overlay.querySelector('#lembrete-termino-ocorrencias-group').hidden = tipo !== 'ocorrencias';
+    };
+    overlay.querySelector('#lembrete-frequencia').addEventListener('change', atualizarVisibilidadeFrequencia);
+    overlay.querySelectorAll('input[name="lembrete-termino"]').forEach((el) => el.addEventListener('change', atualizarVisibilidadeTermino));
+
     overlay.querySelector('#lembrete-save').addEventListener('click', async () => {
         const btn = overlay.querySelector('#lembrete-save');
         const texto = overlay.querySelector('#lembrete-texto').value.trim();
@@ -265,11 +371,39 @@ async function openCreateLembreteModal() {
         if (!texto) { showToast('Escreva o lembrete.', true); return; }
         if (!dataVal) { showToast('Informe a data.', true); return; }
         if (!destinatariosVal.length) { showToast('Escolha quem deve receber.', true); return; }
-        const recorrencia = overlay.querySelector('#lembrete-mensal').checked ? 'mensal' : '';
+
+        const recorrencia = overlay.querySelector('#lembrete-frequencia').value;
+        const recorrenciaConfig = {};
+        if (recorrencia === 'diaria') {
+            recorrenciaConfig.apenasUteis = overlay.querySelector('#lembrete-dias-uteis').checked;
+        } else if (recorrencia === 'semanal') {
+            recorrenciaConfig.dias = Array.from(overlay.querySelectorAll('.lembrete-dia-semana:checked')).map((el) => Number(el.value));
+            if (!recorrenciaConfig.dias.length) { showToast('Escolha pelo menos um dia da semana.', true); return; }
+        } else if (recorrencia === 'personalizada') {
+            recorrenciaConfig.intervalo = Number(overlay.querySelector('#lembrete-intervalo').value) || 1;
+            recorrenciaConfig.unidade = overlay.querySelector('#lembrete-unidade').value;
+        }
+        if (recorrencia !== 'nenhuma') {
+            recorrenciaConfig.ajusteFimDeSemana = overlay.querySelector('#lembrete-ajuste-fds').value;
+        }
+
+        const terminoTipo = overlay.querySelector('input[name="lembrete-termino"]:checked')?.value || 'nunca';
+        let terminoData = '';
+        let terminoOcorrencias;
+        if (terminoTipo === 'data') {
+            terminoData = overlay.querySelector('#lembrete-termino-data').value;
+            if (!terminoData) { showToast('Informe até quando.', true); return; }
+        } else if (terminoTipo === 'ocorrencias') {
+            terminoOcorrencias = Number(overlay.querySelector('#lembrete-termino-ocorrencias').value);
+            if (!terminoOcorrencias) { showToast('Informe depois de quantas vezes parar.', true); return; }
+        }
 
         setSaving(true, btn, 'Salvando...');
         const r = await callAPI('createLembreteAdmin', {
-            texto, dataAlvo: dataVal, destinatarios: destinatariosVal, recorrencia, user: state.currentUser
+            texto, dataAlvo: dataVal, destinatarios: destinatariosVal,
+            recorrencia, recorrenciaConfig,
+            terminoTipo, terminoData, terminoOcorrencias,
+            user: state.currentUser
         }).catch((e) => ({ status: 'error', message: e.message }));
         if (r && r.status === 'success') {
             state.lembretesAdmin = [r.lembrete, ...(state.lembretesAdmin || [])];

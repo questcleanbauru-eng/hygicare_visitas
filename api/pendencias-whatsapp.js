@@ -18,7 +18,7 @@ import { normalizeProposalRow } from '../lib/handlers/proposals.js';
 import { readFunilRows } from '../lib/handlers/funil.js';
 import { readCampanhaRows } from '../lib/handlers/campanhas.js';
 import { readContratoRows } from '../lib/handlers/contratos.js';
-import { readLembretesAdminRows } from '../lib/handlers/lembretesAdmin.js';
+import { readLembretesAdminRows, autoEncerrarLembretesVencidos } from '../lib/handlers/lembretesAdmin.js';
 import { nowInSaoPaulo } from '../lib/handlers/resumo.js';
 import { readEmailConfig } from '../lib/handlers/config.js';
 
@@ -120,6 +120,12 @@ export default async function handler(req, res) {
         const DIAS_CONTRATO_VENCENDO = Number(config.whatsapp_dias_contrato_vencendo) || 30;
 
         const today = startOfDay(nowInSaoPaulo());
+
+        // Antes de ler os lembretes, fecha sozinho quem já bateu o "Término
+        // numa data" (pedido explícito) — sem isso o lembrete continuaria
+        // "Pendente" e cobrando mesmo depois do dia marcado pra parar.
+        await autoEncerrarLembretesVencidos();
+
         const [vendedores, agendamentos, propostasRaw, funil, campanhas, visitasRaw, contratos, lembretes] = await Promise.all([
             withCache('vendedores_all_wa', 60, () => getSheetObjects('Vendedores')),
             readAgendamentoRows(RESUMO_USER),
@@ -241,12 +247,19 @@ export default async function handler(req, res) {
         // e ainda não tiver sido concluído), ao contrário de Agendamentos/
         // Contratos (que só entram perto de vencer ou depois de vencidos).
         // diasRestantes negativo = ainda falta (conta regressiva); 0 = hoje;
-        // positivo = já passou da data e segue pendente.
+        // positivo = já passou da data e segue pendente. "Semanal" só cobra
+        // nos dias da semana escolhidos; "diária só dias úteis" pula fim de
+        // semana — as demais frequências (mensal/anual/personalizada/
+        // nenhuma) cobram todo dia enquanto pendente, como já era.
+        const diaSemanaHoje = today.getDay();
         const lembretesPorVendedor = {};
         lembretes.forEach((l) => {
             if (l.status !== 'Pendente') return;
             const d = parseDate(l.dataAlvo);
             if (!d) return;
+            const cfg = l.recorrenciaConfig || {};
+            if (l.recorrencia === 'semanal' && Array.isArray(cfg.dias) && cfg.dias.length && !cfg.dias.includes(diaSemanaHoje)) return;
+            if (l.recorrencia === 'diaria' && cfg.apenasUteis && (diaSemanaHoje === 0 || diaSemanaHoje === 6)) return;
             const diasRestantes = Math.round((today.getTime() - d.getTime()) / 86400000);
             (l.destinatarios || []).forEach((nomeDest) => {
                 const nome = String(nomeDest || '').trim();
