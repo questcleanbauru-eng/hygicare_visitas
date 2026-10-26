@@ -60,7 +60,7 @@
 
 .visit-card-wrap .visit-card {
     flex: 1;
-    padding-right: 4.4rem;
+    padding-right: 6.2rem;
 }
 
 .visit-card-actions {
@@ -75,7 +75,8 @@
 }
 
 .visit-share-btn,
-.visit-funil-btn {
+.visit-funil-btn,
+.visit-sinalizar-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -89,10 +90,13 @@
     transition: background 0.15s, color 0.15s;
 }
 
-.visit-share-btn:hover, .visit-funil-btn:hover { background: #e0e7ff; color: var(--primary); }
+.visit-share-btn:hover, .visit-funil-btn:hover, .visit-sinalizar-btn:hover { background: #e0e7ff; color: var(--primary); }
 .visit-funil-btn.is-in-funil:hover { background: #dcfce7; }
 .visit-funil-btn.is-alert { color: #b91c1c; }
 .visit-funil-btn.is-alert:hover { background: #fee2e2; }
+.visit-sinalizar-btn.is-flagged { color: var(--warning); opacity: 1; }
+.visit-sinalizar-btn.is-flagged:hover { background: var(--warning-bg); }
+.visit-sinalizar-btn:not(.is-flagged) { opacity: 0.55; }
 
 .visit-card {
     background-color: var(--surface);
