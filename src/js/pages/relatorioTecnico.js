@@ -875,15 +875,23 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
             showToast(r.status === 'queued' ? 'Sem conexão — salvo e será enviado depois.' : 'Relatório criado.');
             // Veio de uma Campanha de Relatório Técnico — confirma a resposta
             // só agora que o relatório de verdade foi criado (ver
-            // handleResponderCampanhaItem, tipo 'relatoriotecnico').
+            // handleResponderCampanhaItem, tipo 'relatoriotecnico'). O
+            // relatório em si já está salvo (não bloqueia a navegação por
+            // causa disso), mas o resultado precisa ser CONFERIDO — antes só
+            // tinha um try/catch sem checar o status da resposta, então uma
+            // falha aqui (ex.: campanha encerrada bem nesse meio-tempo)
+            // deixava a campanha "vendo" o item como não respondido pra
+            // sempre, cobrando o vendedor via WhatsApp por algo que ele já
+            // tinha preenchido, sem nenhum aviso.
             if (r.status === 'success' && options && options.campanhaId && options.itemId) {
-                try {
-                    await attemptOrQueue('responderCampanhaItem', {
-                        campanhaId: options.campanhaId, itemId: options.itemId,
-                        relatorioTecnicoId: r.relatorio && (r.relatorio.id || r.relatorio.Id),
-                        user: state.currentUser
-                    });
-                } catch (e) { /* relatório já foi salvo, não bloqueia por isso */ }
+                const respostaCampanha = await attemptOrQueue('responderCampanhaItem', {
+                    campanhaId: options.campanhaId, itemId: options.itemId,
+                    relatorioTecnicoId: r.relatorio && (r.relatorio.id || r.relatorio.Id),
+                    user: state.currentUser
+                }).catch((e) => ({ status: 'error', message: e.message }));
+                if (!respostaCampanha || (respostaCampanha.status !== 'success' && respostaCampanha.status !== 'queued')) {
+                    showToast(`Relatório salvo, mas não consegui confirmar na campanha: ${(respostaCampanha && respostaCampanha.message) || 'erro desconhecido'}. Avise o admin.`, true);
+                }
             }
             navigateTo('relatorio-tecnico');
         } else {

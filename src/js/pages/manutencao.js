@@ -2282,15 +2282,25 @@ export async function renderManutencaoFormPage(record, options) {
                 // o aviso dela sobrescreve e fica visível.
                 await gerarVisitaFromManutencao(result.manutencao && result.manutencao.id);
                 // Veio de uma Campanha de Relatório de Manutenção — confirma a
-                // resposta só agora que o relatório de verdade foi criado.
+                // resposta só agora que o relatório de verdade foi criado. O
+                // relatório em si já está salvo (não bloqueia a navegação por
+                // causa disso), mas o resultado precisa ser CONFERIDO — antes
+                // só tinha um try/catch em volta sem checar o status da
+                // resposta (sucesso ou erro, nunca lia); se essa confirmação
+                // falhasse (ex.: a campanha foi encerrada bem nesse meio-
+                // tempo), a campanha continuava "vendo" o item como não
+                // respondido pra sempre, cobrando o vendedor via WhatsApp por
+                // algo que ele já tinha preenchido, sem nenhum aviso de que
+                // precisava repetir ou avisar o admin.
                 if (options && options.campanhaId && options.itemId) {
-                    try {
-                        await attemptOrQueue('responderCampanhaItem', {
-                            campanhaId: options.campanhaId, itemId: options.itemId,
-                            manutencaoId: result.manutencao && result.manutencao.id,
-                            user: state.currentUser
-                        });
-                    } catch (e) { /* relatório já foi salvo, não bloqueia por isso */ }
+                    const respostaCampanha = await attemptOrQueue('responderCampanhaItem', {
+                        campanhaId: options.campanhaId, itemId: options.itemId,
+                        manutencaoId: result.manutencao && result.manutencao.id,
+                        user: state.currentUser
+                    }).catch((e) => ({ status: 'error', message: e.message }));
+                    if (!respostaCampanha || (respostaCampanha.status !== 'success' && respostaCampanha.status !== 'queued')) {
+                        showToast(`Relatório salvo, mas não consegui confirmar na campanha: ${(respostaCampanha && respostaCampanha.message) || 'erro desconhecido'}. Avise o admin.`, true);
+                    }
                 }
                 navigateTo('manutencao');
             } else if (result && result.status === 'queued') {
