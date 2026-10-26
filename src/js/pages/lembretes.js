@@ -306,10 +306,10 @@ async function openCreateLembreteModal() {
                     <label>Termina</label>
                     <div class="radio-group" style="flex-wrap:wrap">
                         <label class="radio-pill"><input type="radio" name="lembrete-termino" value="nunca" checked><span>Nunca</span></label>
-                        <label class="radio-pill"><input type="radio" name="lembrete-termino" value="data"><span>Numa data</span></label>
+                        <label class="radio-pill"><input type="radio" name="lembrete-termino" value="data"><span id="lembrete-termino-data-opt-label">Numa data</span></label>
                         <label class="radio-pill" id="lembrete-termino-ocorrencias-opt" hidden><input type="radio" name="lembrete-termino" value="ocorrencias"><span>Depois de X vezes</span></label>
                     </div>
-                    <p class="helper-text" style="text-align:left;margin:0.2rem 0 0">"Numa data" encerra o lembrete sozinho quando chegar o dia — sem precisar Concluir/Cancelar na mão.</p>
+                    <p class="helper-text" style="text-align:left;margin:0.2rem 0 0" id="lembrete-termino-help"></p>
                 </div>
                 <div class="form-group full-width" id="lembrete-termino-data-group" hidden>
                     <label for="lembrete-termino-data">Até quando</label>
@@ -338,6 +338,14 @@ async function openCreateLembreteModal() {
     overlay.querySelector('#lembrete-close').addEventListener('click', close);
     overlay.querySelector('#lembrete-cancel').addEventListener('click', close);
 
+    // "dd/mm/aaaa" a partir do value (aaaa-mm-dd) de um <input type="date">
+    // — só pra mostrar de volta no rótulo "Nessa data (dd/mm/aaaa)" abaixo.
+    const formatarDataBr = (isoVal) => {
+        if (!isoVal) return '';
+        const [y, m, d] = isoVal.split('-');
+        return `${d}/${m}/${y}`;
+    };
+
     // Mostra só os campos que fazem sentido pra frequência escolhida — e
     // "depois de X vezes" só existe fazendo sentido pra quem repete (um
     // lembrete que não repete não tem "quantas vezes").
@@ -352,16 +360,32 @@ async function openCreateLembreteModal() {
         ocorrenciasOpt.hidden = freq === 'nenhuma';
         if (freq === 'nenhuma' && overlay.querySelector('input[name="lembrete-termino"][value="ocorrencias"]').checked) {
             overlay.querySelector('input[name="lembrete-termino"][value="nunca"]').checked = true;
-            atualizarVisibilidadeTermino();
         }
+        atualizarVisibilidadeTermino();
     };
+    // Sem repetir, a única data que existe é a de cima ("Data") — pedir
+    // "Até quando" de novo, separado, era confuso e redundante (a pessoa
+    // preenchia a mesma data duas vezes). "Nessa data" agora reaproveita a
+    // Data já escolhida direto, sem campo novo; só quando REPETE é que faz
+    // sentido ter um "Até quando" de verdade, mais pra frente que a 1ª data.
     const atualizarVisibilidadeTermino = () => {
+        const freq = overlay.querySelector('#lembrete-frequencia').value;
+        const dataVal = overlay.querySelector('#lembrete-data').value;
         const tipo = overlay.querySelector('input[name="lembrete-termino"]:checked')?.value || 'nunca';
-        overlay.querySelector('#lembrete-termino-data-group').hidden = tipo !== 'data';
+        const semRepetir = freq === 'nenhuma';
+        overlay.querySelector('#lembrete-termino-data-opt-label').textContent = semRepetir
+            ? `Nessa data${dataVal ? ' (' + formatarDataBr(dataVal) + ')' : ''}`
+            : 'Numa data';
+        overlay.querySelector('#lembrete-termino-help').textContent = semRepetir
+            ? '"Nessa data" encerra o lembrete sozinho no dia marcado acima (Data) — sem precisar Concluir/Cancelar na mão. "Nunca" fica pendente até alguém concluir ou cancelar.'
+            : '"Numa data" para a série de gerar novas ocorrências a partir desse dia (diferente da Data acima, que é só a 1ª). "Nunca" repete pra sempre até alguém cancelar.';
+        overlay.querySelector('#lembrete-termino-data-group').hidden = !(tipo === 'data' && !semRepetir);
         overlay.querySelector('#lembrete-termino-ocorrencias-group').hidden = tipo !== 'ocorrencias';
     };
     overlay.querySelector('#lembrete-frequencia').addEventListener('change', atualizarVisibilidadeFrequencia);
+    overlay.querySelector('#lembrete-data').addEventListener('change', atualizarVisibilidadeTermino);
     overlay.querySelectorAll('input[name="lembrete-termino"]').forEach((el) => el.addEventListener('change', atualizarVisibilidadeTermino));
+    atualizarVisibilidadeTermino();
 
     overlay.querySelector('#lembrete-save').addEventListener('click', async () => {
         const btn = overlay.querySelector('#lembrete-save');
@@ -391,7 +415,9 @@ async function openCreateLembreteModal() {
         let terminoData = '';
         let terminoOcorrencias;
         if (terminoTipo === 'data') {
-            terminoData = overlay.querySelector('#lembrete-termino-data').value;
+            // Sem repetir, não existe campo "Até quando" separado na tela
+            // (reaproveita a própria Data) — ver atualizarVisibilidadeTermino.
+            terminoData = recorrencia === 'nenhuma' ? dataVal : overlay.querySelector('#lembrete-termino-data').value;
             if (!terminoData) { showToast('Informe até quando.', true); return; }
         } else if (terminoTipo === 'ocorrencias') {
             terminoOcorrencias = Number(overlay.querySelector('#lembrete-termino-ocorrencias').value);
