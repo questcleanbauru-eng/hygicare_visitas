@@ -1668,11 +1668,31 @@ async function processarComandoRecebido(sock, msg) {
     }
 }
 
+// Reconexão com backoff crescente (2s, 4s, 8s... até 30s) em vez de tentar
+// de novo na hora — log real mostrou "Conexão caiu" se repetindo 8x
+// seguidas sem NADA no meio (nenhum QR, nenhuma troca com o WhatsApp),
+// martelando reconexão a cada poucos milissegundos durante uma instabilidade
+// de internet de verdade. Isso não só desperdiça tentativas: cada reconexão
+// recria a sessão do Signal (churn), e sessão recriada toda hora é
+// exatamente o que deixa mensagem "Aguardando" no WhatsApp de quem recebe
+// (desincroniza o estado de criptografia). Reseta a zero assim que a
+// conexão fica de pé de verdade (connection === 'open').
+let tentativasReconexaoSeguidas = 0;
+let timeoutReconexao = null;
+
 async function conectar() {
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
     const { version } = await fetchLatestBaileysVersion();
 
-    const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false, getMessage });
+    // shouldSyncHistoryMessage:false — esse robô não mostra/usa histórico de
+    // conversa nenhum (só manda avisos e lê "pausar"/"voltar"), mas por
+    // padrão o Baileys tenta sincronizar histórico a cada reconexão mesmo
+    // assim. No log real isso aparecia como milhares de "failed to decrypt
+    // message" (quase todos de mensagens antigas do próprio robô,
+    // "fromMe":true) — ruído inofensivo em si, mas que soma à instabilidade
+    // da sessão a cada reconexão. Sem necessidade nenhuma de histórico aqui,
+    // desligar isso de vez é estritamente melhor.
+    const sock = makeWASocket({ version, auth: state, logger, printQRInTerminal: false, getMessage, shouldSyncHistoryMessage: () => false });
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -1699,10 +1719,14 @@ async function conectar() {
             sockAtual = null;
             const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
             const deveReconectar = statusCode !== DisconnectReason.loggedOut;
-            console.log('Conexão caiu.', deveReconectar ? 'Reconectando...' : 'Sessão encerrada — apague a pasta auth_info/ e rode de novo pra reparear.');
             if (deveReconectar) {
-                conectar();
+                tentativasReconexaoSeguidas++;
+                const atrasoMs = Math.min(2000 * (2 ** (tentativasReconexaoSeguidas - 1)), 30000);
+                console.log(`Conexão caiu. Tentando de novo em ${Math.round(atrasoMs / 1000)}s... (tentativa ${tentativasReconexaoSeguidas})`);
+                clearTimeout(timeoutReconexao);
+                timeoutReconexao = setTimeout(conectar, atrasoMs);
             } else {
+                console.log('Conexão caiu. Sessão encerrada — apague a pasta auth_info/ e rode de novo pra reparear.');
                 // Sessão encerrada de verdade (ex.: aparelho removido pelo
                 // celular) — reconectar com a MESMA credencial só repetiria
                 // o mesmo erro pra sempre. Fica parado e visível no painel
@@ -1710,6 +1734,7 @@ async function conectar() {
                 painelStatus.sessaoEncerrada = true;
             }
         } else if (connection === 'open') {
+            tentativasReconexaoSeguidas = 0;
             sockAtual = sock;
             painelStatus.conectado = true;
             painelStatus.aguardandoQr = false;
@@ -1739,6 +1764,11 @@ async function desconectar() {
 // (apagar auth_info/) quando a sessão é encerrada, só que com um clique no
 // painel em vez de mexer em pasta/terminal.
 async function reparear() {
+    // Cancela um backoff pendente de antes — senão o reconectar() daqui
+    // embaixo e o do timeout antigo (ainda contando) podiam disparar quase
+    // juntos, conectando duas vezes à toa.
+    clearTimeout(timeoutReconexao);
+    tentativasReconexaoSeguidas = 0;
     try { rmSync(AUTH_DIR, { recursive: true, force: true }); } catch (err) { console.error('Falha ao apagar auth_info/:', err.message); }
     painelStatus.sessaoEncerrada = false;
     painelStatus.conectado = false;
