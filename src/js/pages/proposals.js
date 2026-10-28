@@ -15,7 +15,7 @@ import {
 } from '../utils/dom.js';
 import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
-import { ensureFunilForDedup, funilItemFor as funilItemForProposta, funilEmAlerta, ensureVisitsForDedup } from '../utils/funilLink.js';
+import { ensureFunilForDedup, funilItemFor as funilItemForProposta, funilEmAlerta, ensureVisitsForDedup, fetchTudoFunil, fetchTudoVisitas } from '../utils/funilLink.js';
 import { openLinkPickerModal } from '../utils/linkPicker.js';
 import { downloadXLSX } from '../utils/xlsxWriter.js';
 
@@ -996,7 +996,7 @@ export async function renderProposalsPage() {
 // app não acha sozinho. Espelha openLinkPropostaModal (funil.js).
 function openLinkFunilModal(proposal, onLinked) {
     ensureFunilForDedup().then(() => {
-        const items = (state.funil || []).map((f) => {
+        const buildItems = () => (state.funil || []).map((f) => {
             const foco = f.foco || f.Foco || '';
             const aplicacao = f.aplicacao || f.Aplicacao || '';
             // Foco e Aplicação às vezes têm o mesmo valor — sem dedupe a tag
@@ -1021,7 +1021,9 @@ function openLinkFunilModal(proposal, onLinked) {
             confirmLabel: 'Vincular oportunidade selecionada',
             emptyNoun: 'oportunidade do Funil',
             currentCliente: proposal.cliente,
-            items,
+            items: buildItems(),
+            loadMoreLabel: '🔄 Carregar histórico completo do Funil',
+            onLoadMore: async () => { await fetchTudoFunil(); return buildItems(); },
             onConfirm: async (funilId) => {
                 const r = await callAPI('updateProposal', { id: proposal.id, funilVinculado: funilId, user: state.currentUser })
                     .catch((e) => ({ status: 'error', message: e.message }));
@@ -1042,7 +1044,7 @@ function openLinkFunilModal(proposal, onLinked) {
 // handleLinkVisitaProposta em lib/handlers/visits.js), não a Proposta.
 function openLinkVisitaModal(proposal, onLinked) {
     ensureVisitsForDedup().then(() => {
-        const items = (state.visits || [])
+        const buildItems = () => (state.visits || [])
             .filter((v) => String(v.propostaVinculada || v.PropostaVinculada || '') !== String(proposal.id))
             .map((v) => ({
                 id: String(v.id || v.ID || ''),
@@ -1061,8 +1063,10 @@ function openLinkVisitaModal(proposal, onLinked) {
             confirmLabel: 'Vincular visita selecionada',
             emptyNoun: 'visita',
             currentCliente: proposal.cliente,
-            items,
+            items: buildItems(),
             multiSelect: true,
+            loadMoreLabel: '🔄 Carregar histórico completo de visitas',
+            onLoadMore: async () => { await fetchTudoVisitas(); return buildItems(); },
             onConfirm: async (visitaIds) => {
                 // Uma de cada vez (não Promise.all) — mesma cautela de sempre
                 // com escrita no Sheets, pra não arriscar corrida entre linhas.

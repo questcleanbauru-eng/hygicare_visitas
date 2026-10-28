@@ -2821,6 +2821,24 @@ input:disabled {
 .lkp-empty-icon { font-size: 1.8rem; display: block; margin-bottom: 0.5rem; }
 .lkp-empty p { margin: 0.2rem 0; font-size: 0.85rem; }
 .lkp-empty-hint { color: #8a93a0; font-size: 0.78rem; }
+.lkp-loadmore {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    border: 1px dashed #c7cdd6;
+    border-radius: 10px;
+    background: none;
+    color: #2f5fe0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+.lkp-loadmore:hover { background: #eef2fe; border-color: #2f5fe0; }
+.lkp-loadmore:disabled { color: #8a93a0; cursor: default; background: none; border-color: #e3e7ee; }
 .lkp-footer {
     display: flex;
     justify-content: flex-end;

@@ -46,7 +46,9 @@ function highlight(text, query) {
  *   currentCliente: string,        // pro agrupamento "mesmo nome" antes de digitar
  *   items: [{ id, cliente, tag, cidade, data }],
  *   multiSelect: boolean,          // true: pode marcar vários antes de confirmar (checkbox em vez de troca)
- *   onConfirm: (id) => void        // multiSelect true: recebe um array de ids em vez de um id só
+ *   onConfirm: (id) => void,       // multiSelect true: recebe um array de ids em vez de um id só
+ *   loadMoreLabel: string,         // "🔄 Carregar histórico completo..." — só aparece se onLoadMore existir
+ *   onLoadMore: async () => items  // busca o restante e retorna a lista COMPLETA de items (substitui config.items)
  * }
  */
 export function openLinkPickerModal(config) {
@@ -70,6 +72,8 @@ export function openLinkPickerModal(config) {
                 <button type="button" class="lkp-sort-btn" id="lkp-sort">Ordenar: mais recentes</button>
             </div>
             <div class="lkp-results" id="lkp-results"></div>
+            ${config.onLoadMore ? `
+            <button type="button" class="lkp-loadmore" id="lkp-loadmore">${escapeHtml(config.loadMoreLabel || 'Carregar mais')}</button>` : ''}
             <div class="lkp-footer">
                 <button type="button" class="secondary-button" id="lkp-cancel">Cancelar</button>
                 <button type="button" class="primary-button" id="lkp-confirm" disabled>${escapeHtml(config.confirmLabel || 'Vincular')}</button>
@@ -198,6 +202,16 @@ export function openLinkPickerModal(config) {
         if (!selectedIds.size) return;
         close();
         config.onConfirm(multi ? Array.from(selectedIds) : Array.from(selectedIds)[0]);
+    });
+
+    const loadMoreBtn = overlay.querySelector('#lkp-loadmore');
+    loadMoreBtn?.addEventListener('click', async () => {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'Carregando...';
+        const novos = await config.onLoadMore().catch(() => null);
+        if (Array.isArray(novos)) config.items = novos;
+        loadMoreBtn.remove();
+        render();
     });
 
     render();
