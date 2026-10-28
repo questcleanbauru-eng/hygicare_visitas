@@ -720,11 +720,15 @@ main {
     }
 }
 
-/* Botões só-ícone (Cliente 360°, WhatsApp, Apagar, PDF...): 44x44 quadrado. */
+/* Botões só-ícone (Cliente 360°, WhatsApp, Apagar, PDF...): 44x44 quadrado.
+   font-size maior só entra em jogo pros que usam emoji como ícone (🚩 ⭐) —
+   sem isso ficavam pequenos perto dos ícones SVG de 16px ao lado; os SVGs
+   não são afetados porque seu tamanho vem de width/height, não de em. */
 .mini-button-icon {
     min-width: 44px;
     padding-left: 0.4rem;
     padding-right: 0.4rem;
+    font-size: 1.05rem;
 }
 
 /* Cabeçalho de detalhe em telas estreitas: em vez de espremer o grupo de

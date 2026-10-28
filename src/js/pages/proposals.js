@@ -1175,7 +1175,7 @@ export async function renderProposalDetailPage(id) {
                 ${proposal.cliente && state.canCreateProposalFunil ? (funilDoCliente
                     ? `<button type="button" class="mini-button ${funilAlerta ? 'mini-button-danger' : ''}" id="proposal-in-funil" title="Já no Funil${funilStatusTxt ? ' (' + funilStatusTxt + ')' : ''} — abrir">${actionIcon(funilAlerta ? 'alert' : 'check', 15)} No Funil${funilAlerta && funilStatusTxt ? ' · ' + funilStatusTxt : ''}</button>`
                     : `<button type="button" class="mini-button" id="proposal-to-funil" title="Adicionar este cliente ao Funil de Vendas">${actionIcon('funnel', 15)} Ao Funil</button>`) : ''}
-                <button type="button" class="mini-button" id="edit-proposal">Editar</button>
+                <button type="button" class="mini-button mini-button-icon" id="edit-proposal" aria-label="Editar" title="Editar">${actionIcon('edit')}</button>
                 <button type="button" class="mini-button mini-button-icon mini-button-whatsapp" id="share-proposal-whatsapp" aria-label="Compartilhar no WhatsApp" title="Compartilhar no WhatsApp">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 </button>
