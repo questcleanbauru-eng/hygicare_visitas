@@ -597,10 +597,11 @@ export async function loadResumoDiarioCard() {
 // Card "Visitas sinalizadas para vincular" — pedido pra quando o vendedor
 // sinaliza uma visita pelo celular (onde o Vincular a Proposta/Funil fica
 // escondido, ver components.css) e precisa de um jeito de achar essas
-// visitas de novo ao abrir o computador. Diferente do Resumo de ontem, não
-// tem "Visto": fica visível até a própria visita ser desmarcada (ver
-// toggle-sinalizar-visita em visits.js), já que é uma pendência de verdade,
-// não um resumo do dia.
+// visitas de novo ao abrir o computador. Some sozinha assim que a visita
+// ganha um vínculo com Funil ou Proposta (ver linkVisitaCampo/
+// handleGetVisitasSinalizadas em lib/handlers/visits.js) — sem isso, uma
+// visita já vinculada continuava "cobrando" aqui até alguém lembrar de
+// desmarcar o 🚩 manualmente.
 export async function loadVisitasSinalizadasCard() {
     const container = document.getElementById('visitas-sinalizadas-card');
     if (!container) return;
@@ -611,8 +612,7 @@ export async function loadVisitasSinalizadasCard() {
         return;
     }
     const rows = result.visitas.map((v) => {
-        const badges = [v.jaNoFunil ? '✅ já no Funil' : '', v.jaEmProposta ? '✅ já em Proposta' : ''].filter(Boolean).join(' · ');
-        const texto = [v.cliente || 'Cliente', v.vendedorGerente, v.dataVisita].filter(Boolean).join(' · ') + (badges ? ` (${badges})` : '');
+        const texto = [v.cliente || 'Cliente', v.vendedorGerente, v.dataVisita].filter(Boolean).join(' · ');
         return `<button type="button" class="resumo-diario-row" data-id="${escapeHtml(v.id)}">${escapeHtml(texto)}</button>`;
     }).join('');
     container.innerHTML = `
