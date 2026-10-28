@@ -3005,7 +3005,7 @@ input:disabled {
 .qe-v2-menu button:hover { background: var(--bg); }
 
 .qe-v2-type-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
-.qe-v2-type-row select { width: auto; min-width: 80px; }
+.qe-v2-type-row select { width: auto; min-width: 80px; max-width: 150px; }
 .qe-v2-type-row select.is-active { border-color: var(--ink); font-weight: 700; color: var(--text); }
 /* .qe-status-btn é global (também usado fora da edição rápida, em
    campanhas.js) — escopado aqui dentro pra não puxar aquele uso junto.
@@ -3097,20 +3097,24 @@ input:disabled {
     padding: 0 0.4rem;
     font-size: 0.64rem;
 }
-/* auto-fit (não um número fixo de colunas): o painel é a coluna inteira
-   restante ao lado da lista (.qe-layout, ver mais abaixo), então a largura
-   real varia bastante conforme o monitor — isso aproveita o espaço lateral
-   sem precisar de breakpoint por página. Só existe em telas ≥1024px. */
-.qe-v2-grid-2, .qe-v2-grid-3 {
+/* Número de colunas FIXO (não auto-fit): com auto-fit, a mesma lista de
+   campos quebrava em quantidades de coluna diferentes conforme a largura do
+   painel variava (monitor, zoom...), e campos como "Potencial"/"Vendedor"
+   acabavam sozinhos numa linha, esticados e vazios. Fixo é previsível — os
+   campos de cada tela (ver visits.js/funil.js/proposals.js) são sempre os
+   mesmos e já vêm na ordem que fecha a grade certinho, sem sobra. */
+.qe-v2-grid-2 {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 0.35rem;
-    margin-bottom: 0.35rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.55rem 0.7rem;
+    margin-bottom: 0.4rem;
 }
-/* Campos que costumam ter texto longo (nome de cliente, e-mail) — ocupam 2
-   colunas da grade em vez de 1, senão cortam visualmente num painel mais
-   estreito (a grade em si já é auto-fit/responsiva, isso só evita que ESSES
-   campos específicos fiquem apertados demais quando sobra pouca largura). */
+.qe-v2-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.55rem 0.7rem;
+    margin-bottom: 0.4rem;
+}
 .qe-v2-field-wide { grid-column: span 2; }
 
 .qe-v2-chip-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }

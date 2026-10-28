@@ -614,12 +614,12 @@ export function fillProposalsContent(mainContent, proposals) {
                 </div>
 
                 <div class="qe-v2-section">
-                    <div class="qe-v2-grid-3">
-                        ${plainField('Cliente', 'qe-cliente', p.cliente, 'text', 'qe-v2-field-wide')}
+                    <div class="qe-v2-grid-2">
+                        ${plainField('Cliente', 'qe-cliente', p.cliente)}
                         ${searchField('Cidade', 'qe-cidade', p.cidade, listaCidades)}
                         ${plainField('Gerência', 'qe-gerencia', p.gerencia)}
-                        ${plainField('Vendedor', 'qe-vendedor', p.vendedor, 'text', 'qe-v2-field-wide')}
-                        ${plainField('E-mail', 'qe-email', p.email, 'email', 'qe-v2-field-wide')}
+                        ${plainField('Vendedor', 'qe-vendedor', p.vendedor)}
+                        ${plainField('E-mail', 'qe-email', p.email, 'email')}
                     </div>
                 </div>
 

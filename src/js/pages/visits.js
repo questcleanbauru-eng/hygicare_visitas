@@ -600,13 +600,13 @@ export function fillVisitsContent(container, visits) {
                 </div>` : ''}
 
                 <div class="qe-v2-section">
-                    <div class="qe-v2-grid-3">
-                        ${plainField('Cliente', 'qe-cliente', v.cliente, 'text', 'qe-v2-field-wide')}
+                    <div class="qe-v2-grid-2">
+                        ${plainField('Cliente', 'qe-cliente', v.cliente)}
                         ${plainField('Contato', 'qe-contato', v.contato)}
                         ${searchField('Cidade', 'qe-cidade', v.cidade, listaCidades)}
                         ${searchField('Atuação', 'qe-area', v.areaAtuacao, listaAreas)}
-                        <div class="form-group qe-v2-field-wide"><label for="qe-potencial">Potencial</label><select id="qe-potencial">${renderSimpleOptions(listaPotenciais, v.potencialCliente)}</select></div>
-                        ${searchField('Vendedor', 'qe-vendedor', v.vendedorGerente, listaVendedores.map((x) => x.nome), 'qe-v2-field-wide')}
+                        <div class="form-group"><label for="qe-potencial">Potencial</label><select id="qe-potencial">${renderSimpleOptions(listaPotenciais, v.potencialCliente)}</select></div>
+                        ${searchField('Vendedor', 'qe-vendedor', v.vendedorGerente, listaVendedores.map((x) => x.nome))}
                     </div>
                 </div>
 

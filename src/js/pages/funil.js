@@ -538,16 +538,16 @@ export function fillFunilContent(mainContent, funil) {
                 </div>
 
                 <div class="qe-v2-section">
-                    <div class="qe-v2-grid-3">
-                        ${plainField('Cliente', 'qe-cliente', f.cliente, 'text', '', 'qe-v2-field-wide')}
+                    <div class="qe-v2-grid-2">
+                        ${plainField('Cliente', 'qe-cliente', f.cliente)}
                         ${searchField('Cidade', 'qe-cidade', f.cidade)}
                         ${plainField('Gerência', 'qe-gerencia', f.gerencia)}
-                        ${searchField('Vendedor', 'qe-vendedor', f.vendedor, '', 'qe-v2-field-wide')}
+                        ${searchField('Vendedor', 'qe-vendedor', f.vendedor)}
                     </div>
                 </div>
 
                 <div class="qe-v2-section">
-                    <div class="qe-v2-grid-3">
+                    <div class="qe-v2-grid-2">
                         ${searchField('Foco', 'qe-foco', f.foco)}
                         ${searchField('Atuação', 'qe-atuacao', f.atuacao)}
                         ${searchField('Aplicação', 'qe-aplicacao', f.aplicacao)}
