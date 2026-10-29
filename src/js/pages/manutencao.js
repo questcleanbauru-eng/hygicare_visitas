@@ -1015,7 +1015,21 @@ function renderCartaDetailPage(mainContent, m) {
     document.getElementById('print-manutencao').addEventListener('click', () => {
         const sanitize = (s) => String(s || '').replace(/[\\/:*?"<>|]/g, '-').trim();
         const originalTitle = document.title;
-        document.title = `Carta de Visita - ${sanitize(m.cliente)} - ${sanitize(d.documentoData)}`;
+        // Nome do arquivo no "Salvar como PDF" vem do <title> no momento do
+        // print — mas o Edge às vezes ignora isso e "adivinha" um nome lendo
+        // o conteúdo da página (inclusive dado da unidade/cidade), de forma
+        // inconsistente. Em vez de depender disso, já monta aqui o mesmo
+        // padrão rico que o Edge tentava adivinhar, só que de forma
+        // confiável — a partir dos dados reais da carta.
+        const ruaUnidade = String(d.endereco || '').split(',')[0].replace(/^(Rua|Av\.?|Avenida|Alameda|Al\.)\s+/i, '').trim();
+        const partes = [
+            'Relatório de Visita',
+            sanitize(m.cliente),
+            sanitize(d.documentoData),
+            ruaUnidade ? `Unidade ${sanitize(ruaUnidade)}` : '',
+            sanitize(m.cidade)
+        ].filter(Boolean);
+        document.title = partes.join(' - ');
         const restoreTitle = () => { document.title = originalTitle; window.removeEventListener('afterprint', restoreTitle); };
         window.addEventListener('afterprint', restoreTitle);
         // Já põe a margem zero aqui — o Safari do iPhone nem sempre dispara
