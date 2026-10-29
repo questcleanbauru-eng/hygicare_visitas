@@ -434,7 +434,24 @@ let sockAtual = null;
 // NUNCA chega, mesmo aparecendo como enviada/lida aqui. Isso é a causa raiz
 // real do problema (não é falta de delay nem versão da lib). Cap simples
 // (500 entradas) pra não crescer sem limite num processo que fica dias no ar.
-const mensagensEnviadas = new Map();
+//
+// Persistido em disco (não só em memória): o robô reconecta/reinicia com
+// frequência (queda de conexão, PC reiniciando, "Parar robô" no painel), e
+// se o pedido de retry chegar DEPOIS de um restart, um Map só-em-memória já
+// nasce vazio de novo — exatamente o mesmo buraco de não ter getMessage
+// nenhum, só que limitado à janela entre o envio e o restart. Recarrega do
+// disco ao iniciar pra cobrir esse caso.
+const MENSAGENS_CACHE_FILE = join(__dirname, 'mensagens-enviadas.json');
+function carregarMensagensEnviadas() {
+    if (!existsSync(MENSAGENS_CACHE_FILE)) return new Map();
+    try {
+        const parsed = JSON.parse(readFileSync(MENSAGENS_CACHE_FILE, 'utf-8'));
+        return new Map(Array.isArray(parsed) ? parsed : []);
+    } catch (e) {
+        return new Map();
+    }
+}
+const mensagensEnviadas = carregarMensagensEnviadas();
 function lembrarMensagemEnviada(id, message) {
     if (!id || !message) return;
     mensagensEnviadas.set(id, message);
@@ -442,6 +459,7 @@ function lembrarMensagemEnviada(id, message) {
         const primeira = mensagensEnviadas.keys().next().value;
         mensagensEnviadas.delete(primeira);
     }
+    try { writeFileSync(MENSAGENS_CACHE_FILE, JSON.stringify(Array.from(mensagensEnviadas.entries()))); } catch (e) { /* não crítico */ }
 }
 async function getMessage(key) {
     return mensagensEnviadas.get(key.id);
