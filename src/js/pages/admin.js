@@ -1502,6 +1502,13 @@ const IMPORT_ENTIDADES = {
 function ctlegacyNorm(s) {
     return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim().replace(/\s+/g, ' ');
 }
+// Mesma regra de contratos.js (anexoUrl): só conta como "já tem anexo" um
+// link http(s) de verdade — valor cru de uma importação antiga quebrada
+// (ex.: "CONTRATOS_CLIENTES_Files_/xxx.pdf") não é link nenhum e entra como
+// "pronto" igual um contrato sem nada.
+function ctlegacyTemAnexoValido(appRow) {
+    return /^https?:\/\//i.test(String((appRow && appRow.anexo) || '').trim());
+}
 function ctlegacyParseDate(v) {
     if (!v) return null;
     const s = String(v);
@@ -1547,7 +1554,7 @@ function bindContratosLegacyImport() {
             if (!candidatos.length) return { legacy, status: 'semMatch' };
             if (candidatos.length === 1) {
                 const appRow = candidatos[0];
-                return { legacy, appRow, status: appRow.anexo ? 'jaTemAnexo' : 'pronto' };
+                return { legacy, appRow, status: ctlegacyTemAnexoValido(appRow) ? 'jaTemAnexo' : 'pronto' };
             }
             // Mais de um contrato do mesmo cliente — desempata por cidade, e
             // some ainda ambíguo deixa o admin escolher na hora de conferir.
@@ -1555,7 +1562,7 @@ function bindContratosLegacyImport() {
             const pool = porCidade.length ? porCidade : candidatos;
             if (pool.length === 1) {
                 const appRow = pool[0];
-                return { legacy, appRow, status: appRow.anexo ? 'jaTemAnexo' : 'pronto' };
+                return { legacy, appRow, status: ctlegacyTemAnexoValido(appRow) ? 'jaTemAnexo' : 'pronto' };
             }
             const legacyDate = ctlegacyParseDate(legacy.data);
             const ordenados = [...pool].sort((a, b) => {
@@ -1593,7 +1600,7 @@ function bindContratosLegacyImport() {
                             <span style="min-width:220px">${escapeHtml(p.legacy.cliente)} <span class="helper-text">(${escapeHtml(p.legacy.cidade || '')}, ${escapeHtml(String(p.legacy.data || '').slice(0, 10))})</span></span>
                             <select class="ctlegacy-ambiguo-sel" data-idx="${plan.indexOf(p)}">
                                 <option value="">— pular —</option>
-                                ${p.candidatos.map((c) => `<option value="${escapeHtml(c.id)}">Linha cadastrada — ${escapeHtml(c.cidade || '—')} — ${escapeHtml(c.data || '—')}${c.anexo ? ' (já tem anexo)' : ''}</option>`).join('')}
+                                ${p.candidatos.map((c) => `<option value="${escapeHtml(c.id)}">Linha cadastrada — ${escapeHtml(c.cidade || '—')} — ${escapeHtml(c.data || '—')}${ctlegacyTemAnexoValido(c) ? ' (já tem anexo)' : ''}</option>`).join('')}
                             </select>
                         </div>
                     `).join('')}
@@ -1621,7 +1628,7 @@ function bindContratosLegacyImport() {
                 const escolhido = item.candidatos.find((c) => String(c.id) === sel.value);
                 if (escolhido) {
                     item.appRow = escolhido;
-                    item.status = escolhido.anexo ? 'jaTemAnexo' : 'pronto';
+                    item.status = ctlegacyTemAnexoValido(escolhido) ? 'jaTemAnexo' : 'pronto';
                 } else {
                     item.appRow = null;
                     item.status = 'ambiguo';
