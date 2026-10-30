@@ -12,7 +12,7 @@ import {
 } from '../lib/handlers/campanhas.js';
 import {
     handleGetContratos, handleGetContratoById, handleCreateContrato, handleUpdateContrato, handleDeleteContrato,
-    handleUploadContratoPdf
+    handleUploadContratoPdf, handleGetContratosLegacyData
 } from '../lib/handlers/contratos.js';
 import {
     handleGetAgendamentos, handleCreateAgendamento, handleUpdateAgendamento, handleDeleteAgendamento
@@ -117,6 +117,7 @@ const HANDLERS = {
     uploadContratoPdf: handleUploadContratoPdf,
     updateContrato: handleUpdateContrato,
     deleteContrato: handleDeleteContrato,
+    getContratosLegacyData: handleGetContratosLegacyData,
     getAgendamentos: handleGetAgendamentos,
     createAgendamento: handleCreateAgendamento,
     notifyRegistroCriado: handleNotifyRegistroCriado,

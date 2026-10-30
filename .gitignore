@@ -10,3 +10,9 @@ hygicare-visitas-*.json
 .env
 .env.*
 
+.env*.local
+
+# Arquivos locais da migração de anexos de Contratos (base antiga) — dados
+# de cliente, não vão pro repositório.
+CONTRATOS_CLIENTES_Files_/
+RELATÓRIO DE VISITA*.xlsx

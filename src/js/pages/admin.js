@@ -618,6 +618,19 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                 </div>
             </div>
             <div class="admin-section">
+                <div class="section-title-row"><h3 class="section-title">Importar anexos de Contratos (base antiga)</h3></div>
+                <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.85rem">
+                    <p class="helper-text" style="text-align:left;margin:0">
+                        Casa os contratos com PDF/Word da base antiga (AppSheet) com os contratos já
+                        cadastrados aqui — pelo nome do Cliente (+ Cidade/Data quando tem mais de um
+                        contrato igual) — e anexa o arquivo de cada um. Nada é enviado até você conferir
+                        e confirmar.
+                    </p>
+                    <button type="button" id="ctlegacy-conferir" class="primary-button" style="align-self:flex-start">Conferir correspondências</button>
+                    <div id="ctlegacy-resultado"></div>
+                </div>
+            </div>
+            <div class="admin-section">
                 <div class="section-title-row"><h3 class="section-title">Ocultar CNPJ/CPF na Base de Clientes</h3></div>
                 <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:0.6rem">
                     <p class="helper-text" style="text-align:left;margin:0">
@@ -1417,6 +1430,7 @@ export function bindAdminEvents(data) {
     });
 
     bindImportarTab();
+    bindContratosLegacyImport();
 }
 
 // Botão 🔔 na linha do usuário (Admin → Usuários) — manda uma notificação
@@ -1478,6 +1492,211 @@ const IMPORT_ENTIDADES = {
     'funil': { action: 'importFunilLegacy', extra: {}, label: 'registro' },
     'clientes': { action: 'importClientesLegacy', extra: {}, label: 'cliente' }
 };
+
+// Migração pontual: casa os contratos da base antiga (AppSheet) com os já
+// cadastrados aqui (por Cliente, desempatando por Cidade/Data quando tem
+// mais de um contrato do mesmo cliente) e deixa o admin conferir tudo antes
+// de escolher a pasta com os arquivos baixados e confirmar o envio.
+// Sem uso depois que essa migração for concluída — pode remover esse bloco
+// inteiro (e handleGetContratosLegacyData/lib/data/contratos-legacy.js).
+function ctlegacyNorm(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim().replace(/\s+/g, ' ');
+}
+function ctlegacyParseDate(v) {
+    if (!v) return null;
+    const s = String(v);
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    return null;
+}
+function bindContratosLegacyImport() {
+    const conferirBtn = document.getElementById('ctlegacy-conferir');
+    const resultado = document.getElementById('ctlegacy-resultado');
+    if (!conferirBtn || !resultado) return;
+
+    // Cada item: { legacy, appRow, candidatos?, status, fileFound }
+    let plan = [];
+
+    conferirBtn.addEventListener('click', async () => {
+        setSaving(true, conferirBtn, 'Conferindo...');
+        resultado.innerHTML = '';
+        const [legacyRes, appRes] = await Promise.all([
+            callAPI('getContratosLegacyData', { user: state.currentUser }),
+            callAPI('getContratos', { user: state.currentUser })
+        ]);
+        setSaving(false, conferirBtn);
+        if (legacyRes.status !== 'success' || appRes.status !== 'success') {
+            resultado.innerHTML = `<p class="error-message">${escapeHtml((legacyRes.message || appRes.message) || 'Erro ao carregar os dados.')}</p>`;
+            return;
+        }
+
+        const legacyRows = legacyRes.contratos || [];
+        const appRows = appRes.contratos || [];
+        const byCliente = new Map();
+        appRows.forEach((row) => {
+            const k = ctlegacyNorm(row.cliente);
+            if (!k) return;
+            if (!byCliente.has(k)) byCliente.set(k, []);
+            byCliente.get(k).push(row);
+        });
+
+        plan = legacyRows.map((legacy) => {
+            const candidatos = byCliente.get(ctlegacyNorm(legacy.cliente)) || [];
+            if (!candidatos.length) return { legacy, status: 'semMatch' };
+            if (candidatos.length === 1) {
+                const appRow = candidatos[0];
+                return { legacy, appRow, status: appRow.anexo ? 'jaTemAnexo' : 'pronto' };
+            }
+            // Mais de um contrato do mesmo cliente — desempata por cidade, e
+            // some ainda ambíguo deixa o admin escolher na hora de conferir.
+            const porCidade = candidatos.filter((c) => ctlegacyNorm(c.cidade) === ctlegacyNorm(legacy.cidade));
+            const pool = porCidade.length ? porCidade : candidatos;
+            if (pool.length === 1) {
+                const appRow = pool[0];
+                return { legacy, appRow, status: appRow.anexo ? 'jaTemAnexo' : 'pronto' };
+            }
+            const legacyDate = ctlegacyParseDate(legacy.data);
+            const ordenados = [...pool].sort((a, b) => {
+                const da = ctlegacyParseDate(a.data), db = ctlegacyParseDate(b.data);
+                const diffA = da && legacyDate ? Math.abs(da - legacyDate) : Infinity;
+                const diffB = db && legacyDate ? Math.abs(db - legacyDate) : Infinity;
+                return diffA - diffB;
+            });
+            return { legacy, status: 'ambiguo', candidatos: ordenados };
+        });
+
+        renderCtlegacyPlan();
+    });
+
+    function countBy(status) { return plan.filter((p) => p.status === status).length; }
+
+    function renderCtlegacyPlan() {
+        const prontos = countBy('pronto');
+        const jaTem = countBy('jaTemAnexo');
+        const semMatch = plan.filter((p) => p.status === 'semMatch');
+        const ambiguos = plan.filter((p) => p.status === 'ambiguo');
+
+        resultado.innerHTML = `
+            <div class="card" style="padding:0.9rem;margin-top:0.85rem;background:var(--bg)">
+                <p style="margin:0 0 0.3rem">✅ <strong>${prontos}</strong> contrato(s) casaram certinho — prontos pra procurar o arquivo</p>
+                <p style="margin:0 0 0.3rem">⚠️ <strong>${jaTem}</strong> já têm anexo no app — não serão sobrescritos</p>
+                <p style="margin:0 0 0.3rem">❓ <strong>${semMatch.length}</strong> sem contrato correspondente cadastrado</p>
+                <p style="margin:0">🔀 <strong>${ambiguos.length}</strong> ambíguo(s) — mais de um contrato do mesmo cliente, escolha abaixo</p>
+            </div>
+            ${ambiguos.length ? `
+                <div class="card" style="padding:0.9rem;margin-top:0.75rem">
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">Escolha a qual contrato cadastrado cada um se refere (ou deixe "— pular —"):</p>
+                    ${ambiguos.map((p, i) => `
+                        <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem">
+                            <span style="min-width:220px">${escapeHtml(p.legacy.cliente)} <span class="helper-text">(${escapeHtml(p.legacy.cidade || '')}, ${escapeHtml(String(p.legacy.data || '').slice(0, 10))})</span></span>
+                            <select class="ctlegacy-ambiguo-sel" data-idx="${plan.indexOf(p)}">
+                                <option value="">— pular —</option>
+                                ${p.candidatos.map((c) => `<option value="${escapeHtml(c.id)}">Linha cadastrada — ${escapeHtml(c.cidade || '—')} — ${escapeHtml(c.data || '—')}${c.anexo ? ' (já tem anexo)' : ''}</option>`).join('')}
+                            </select>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+            ${semMatch.length ? `
+                <div class="card" style="padding:0.9rem;margin-top:0.75rem">
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.4rem">Sem contrato correspondente no app (não cadastrado, ou nome diferente):</p>
+                    <p style="margin:0;font-size:0.85rem">${semMatch.map((p) => escapeHtml(p.legacy.cliente)).join(' · ')}</p>
+                </div>
+            ` : ''}
+            <div class="card" style="padding:0.9rem;margin-top:0.75rem;display:flex;flex-direction:column;gap:0.7rem">
+                <p class="helper-text" style="text-align:left;margin:0">Agora escolha a pasta <strong>CONTRATOS_CLIENTES_Files_</strong> que você baixou (os arquivos são achados pelo nome, não importa onde você salvou a pasta):</p>
+                <input type="file" id="ctlegacy-pasta" webkitdirectory multiple>
+                <div id="ctlegacy-arquivos-status" class="helper-text" style="text-align:left"></div>
+                <button type="button" id="ctlegacy-enviar" class="primary-button" style="align-self:flex-start" disabled>Enviar anexos</button>
+                <div id="ctlegacy-envio-log" style="font-size:0.82rem"></div>
+            </div>
+        `;
+
+        resultado.querySelectorAll('.ctlegacy-ambiguo-sel').forEach((sel) => {
+            sel.addEventListener('change', () => {
+                const idx = Number(sel.dataset.idx);
+                const item = plan[idx];
+                const escolhido = item.candidatos.find((c) => String(c.id) === sel.value);
+                if (escolhido) {
+                    item.appRow = escolhido;
+                    item.status = escolhido.anexo ? 'jaTemAnexo' : 'pronto';
+                } else {
+                    item.appRow = null;
+                    item.status = 'ambiguo';
+                }
+                atualizarArquivos(lastFileMap);
+            });
+        });
+
+        let lastFileMap = null;
+        const pastaInput = document.getElementById('ctlegacy-pasta');
+        const arquivosStatus = document.getElementById('ctlegacy-arquivos-status');
+        const enviarBtn = document.getElementById('ctlegacy-enviar');
+
+        function basename(p) { return String(p || '').split('/').pop(); }
+
+        function atualizarArquivos(fileMap) {
+            lastFileMap = fileMap;
+            if (!fileMap) return;
+            let prontosComArquivo = 0;
+            plan.forEach((p) => {
+                if (p.status !== 'pronto') { p.file = null; return; }
+                const f = fileMap.get(basename(p.legacy.anexo));
+                p.file = f || null;
+                if (f) prontosComArquivo++;
+            });
+            const semArquivo = plan.filter((p) => p.status === 'pronto' && !p.file).length;
+            arquivosStatus.textContent = `${fileMap.size} arquivo(s) na pasta — ${prontosComArquivo} encontrado(s) pros contratos prontos${semArquivo ? `, ${semArquivo} contrato(s) sem o arquivo nessa pasta` : ''}.`;
+            enviarBtn.disabled = prontosComArquivo === 0;
+            enviarBtn.textContent = prontosComArquivo ? `Enviar ${prontosComArquivo} anexo(s)` : 'Enviar anexos';
+        }
+
+        pastaInput?.addEventListener('change', () => {
+            const files = Array.from(pastaInput.files || []);
+            const map = new Map();
+            files.forEach((f) => map.set(f.name, f));
+            atualizarArquivos(map);
+        });
+
+        enviarBtn?.addEventListener('click', async () => {
+            const fila = plan.filter((p) => p.status === 'pronto' && p.file);
+            if (!fila.length) return;
+            setSaving(true, enviarBtn, 'Enviando...');
+            const log = document.getElementById('ctlegacy-envio-log');
+            let ok = 0, fail = 0;
+            for (const item of fila) {
+                const linha = document.createElement('div');
+                linha.textContent = `${item.legacy.cliente} — enviando...`;
+                log.prepend(linha);
+                try {
+                    if (item.file.size > 4 * 1024 * 1024) throw new Error('arquivo maior que 4 MB');
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        const fr = new FileReader();
+                        fr.onload = () => resolve(fr.result);
+                        fr.onerror = () => reject(new Error('falha ao ler o arquivo'));
+                        fr.readAsDataURL(item.file);
+                    });
+                    const up = await callAPI('uploadContratoPdf', { pdf: dataUrl, cliente: item.legacy.cliente, user: state.currentUser });
+                    if (up.status !== 'success' || !up.anexo) throw new Error(up.message || 'falha ao subir o arquivo');
+                    const upd = await callAPI('updateContrato', { id: item.appRow.id, anexo: up.anexo, user: state.currentUser });
+                    if (upd.status !== 'success') throw new Error(upd.message || 'falha ao salvar o anexo');
+                    linha.textContent = `✅ ${item.legacy.cliente}`;
+                    ok++;
+                } catch (e) {
+                    linha.textContent = `❌ ${item.legacy.cliente} — ${e.message || 'erro'}`;
+                    fail++;
+                }
+            }
+            setSaving(false, enviarBtn);
+            enviarBtn.disabled = true;
+            enviarBtn.textContent = 'Concluído';
+            showToast(`${ok} anexado(s)${fail ? `, ${fail} falharam` : ''}.`, fail > 0 && ok === 0);
+            saveCache('contratos', null);
+        });
+    }
+}
 
 function bindImportarTab() {
     document.getElementById('admin-hide-cnpj-btn')?.addEventListener('click', async (e) => {

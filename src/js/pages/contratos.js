@@ -304,11 +304,11 @@ export function fillContratosContent(mainContent, contratos) {
                     <textarea id="qe-ct-obs" rows="3">${escapeHtml(c.obs || '')}</textarea>
                 </div>
                 <div class="form-group full-width">
-                    <label>PDF do contrato</label>
+                    <label>PDF ou Word do contrato</label>
                     <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
-                        <label class="mini-button" for="qe-ct-anexo-file" style="cursor:pointer">📎 Enviar PDF</label>
-                        <input type="file" id="qe-ct-anexo-file" accept="application/pdf" hidden>
-                        <span id="qe-ct-anexo-status" class="helper-text">${anexoUrl(c) ? '✅ PDF anexado' : 'Nenhum PDF ainda'}</span>
+                        <label class="mini-button" for="qe-ct-anexo-file" style="cursor:pointer">📎 Enviar arquivo</label>
+                        <input type="file" id="qe-ct-anexo-file" accept="application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+                        <span id="qe-ct-anexo-status" class="helper-text">${anexoUrl(c) ? '✅ Anexado' : 'Nenhum anexo ainda'}</span>
                         ${anexoUrl(c) ? '<button type="button" class="mini-button" id="qe-ct-anexo-open">Ver</button>' : ''}
                     </div>
                     <input type="url" id="qe-ct-anexo" value="${escapeHtml(c.anexo || '')}" placeholder="…ou cole aqui um link do Drive" style="margin-top:0.4rem">
@@ -352,9 +352,9 @@ export function fillContratosContent(mainContent, contratos) {
             const file = ev.target.files && ev.target.files[0];
             ev.target.value = '';
             if (!file) return;
-            if (file.type !== 'application/pdf') { showToast('Selecione um arquivo PDF.', true); return; }
-            if (file.size > 4 * 1024 * 1024) { showToast('PDF muito grande (máx. ~4 MB).', true); return; }
-            anexoStatus.textContent = 'Enviando PDF...';
+            if (!/^(application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/.test(file.type)) { showToast('Selecione um arquivo PDF ou Word.', true); return; }
+            if (file.size > 4 * 1024 * 1024) { showToast('Arquivo muito grande (máx. ~4 MB).', true); return; }
+            anexoStatus.textContent = 'Enviando...';
             try {
                 const dataUrl = await new Promise((resolve, reject) => {
                     const fr = new FileReader();
@@ -363,9 +363,9 @@ export function fillContratosContent(mainContent, contratos) {
                     fr.readAsDataURL(file);
                 });
                 const r = await callAPI('uploadContratoPdf', { pdf: dataUrl, cliente: document.getElementById('qe-ct-cliente').value.trim(), user: state.currentUser });
-                if (r && r.status === 'success' && r.anexo) { anexoInput.value = r.anexo; anexoStatus.textContent = '✅ PDF anexado'; }
-                else { anexoStatus.textContent = 'Nenhum PDF ainda'; showToast((r && r.message) || 'Não foi possível enviar o PDF.', true); }
-            } catch (e) { anexoStatus.textContent = 'Nenhum PDF ainda'; showToast(e.message || 'Falha ao enviar o PDF.', true); }
+                if (r && r.status === 'success' && r.anexo) { anexoInput.value = r.anexo; anexoStatus.textContent = '✅ Anexado'; }
+                else { anexoStatus.textContent = 'Nenhum anexo ainda'; showToast((r && r.message) || 'Não foi possível enviar o arquivo.', true); }
+            } catch (e) { anexoStatus.textContent = 'Nenhum anexo ainda'; showToast(e.message || 'Falha ao enviar o arquivo.', true); }
         });
 
         document.getElementById('qe-ct-form').addEventListener('submit', async (ev) => {
@@ -687,11 +687,11 @@ export async function renderContratoFormPage(contrato) {
                 <textarea id="ctf-obs" rows="4">${escapeHtml(normalized.obs || '')}</textarea>
             </div>
             <div class="form-group full-width">
-                <label for="ctf-anexo">PDF do contrato</label>
+                <label for="ctf-anexo">PDF ou Word do contrato</label>
                 <div class="ctf-anexo-row" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
-                    <label class="mini-button ctf-anexo-upload" for="ctf-anexo-file" style="cursor:pointer">📎 Enviar PDF</label>
-                    <input type="file" id="ctf-anexo-file" accept="application/pdf" hidden>
-                    <span id="ctf-anexo-status" class="helper-text">${anexoUrl(normalized) ? '✅ PDF anexado' : 'Nenhum PDF ainda'}</span>
+                    <label class="mini-button ctf-anexo-upload" for="ctf-anexo-file" style="cursor:pointer">📎 Enviar arquivo</label>
+                    <input type="file" id="ctf-anexo-file" accept="application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+                    <span id="ctf-anexo-status" class="helper-text">${anexoUrl(normalized) ? '✅ Anexado' : 'Nenhum anexo ainda'}</span>
                     ${anexoUrl(normalized) ? '<button type="button" class="mini-button" id="ctf-anexo-open">Ver</button>' : ''}
                 </div>
                 <input type="url" id="ctf-anexo" value="${escapeHtml(normalized.anexo || '')}" placeholder="…ou cole aqui um link do Drive" style="margin-top:0.4rem">
@@ -734,9 +734,9 @@ export async function renderContratoFormPage(contrato) {
         const file = anexoFile.files && anexoFile.files[0];
         anexoFile.value = '';
         if (!file) return;
-        if (file.type !== 'application/pdf') { showToast('Selecione um arquivo PDF.', true); return; }
-        if (file.size > 4 * 1024 * 1024) { showToast('PDF muito grande (máx. ~4 MB). Comprima o arquivo e tente de novo.', true); return; }
-        anexoStatus.textContent = 'Enviando PDF...';
+        if (!/^(application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/.test(file.type)) { showToast('Selecione um arquivo PDF ou Word.', true); return; }
+        if (file.size > 4 * 1024 * 1024) { showToast('Arquivo muito grande (máx. ~4 MB). Comprima o arquivo e tente de novo.', true); return; }
+        anexoStatus.textContent = 'Enviando...';
         try {
             const dataUrl = await new Promise((resolve, reject) => {
                 const fr = new FileReader();
@@ -751,14 +751,14 @@ export async function renderContratoFormPage(contrato) {
             });
             if (r && r.status === 'success' && r.anexo) {
                 anexoInput.value = r.anexo;
-                anexoStatus.textContent = '✅ PDF anexado';
+                anexoStatus.textContent = '✅ Anexado';
             } else {
-                anexoStatus.textContent = 'Nenhum PDF ainda';
-                showToast((r && r.message) || 'Não foi possível enviar o PDF.', true);
+                anexoStatus.textContent = 'Nenhum anexo ainda';
+                showToast((r && r.message) || 'Não foi possível enviar o arquivo.', true);
             }
         } catch (e) {
-            anexoStatus.textContent = 'Nenhum PDF ainda';
-            showToast(e.message || 'Falha ao enviar o PDF.', true);
+            anexoStatus.textContent = 'Nenhum anexo ainda';
+            showToast(e.message || 'Falha ao enviar o arquivo.', true);
         }
     });
 
