@@ -1541,6 +1541,16 @@ function bindContratosLegacyImport() {
 
         const legacyRows = legacyRes.contratos || [];
         const appRows = appRes.contratos || [];
+        // O ID da base antiga é o mesmo texto que abre o nome do arquivo
+        // (ex.: "6247ba12.ANEXO.113201.pdf" → id "6247ba12") — se uma
+        // importação anterior preservou esse Id na planilha atual, casar por
+        // Id é muito mais confiável que por nome de cliente (sem ambiguidade
+        // nenhuma). Só cai pro nome quando não acha por Id.
+        const byId = new Map();
+        appRows.forEach((row) => {
+            const k = String(row.id || '').trim().toLowerCase();
+            if (k) byId.set(k, row);
+        });
         const byCliente = new Map();
         appRows.forEach((row) => {
             const k = ctlegacyNorm(row.cliente);
@@ -1549,21 +1559,18 @@ function bindContratosLegacyImport() {
             byCliente.get(k).push(row);
         });
 
-        plan = legacyRows.map((legacy) => {
+        // Resolve só pelo nome (+ cidade/data pra desempatar) — é exatamente
+        // a lógica que rodava ANTES do casamento por Id existir, usada aqui
+        // só pra comparar com o resultado por Id e flagrar quando os dois
+        // discordam (sinal de que o envio anterior, feito só por nome, pode
+        // ter anexado no contrato errado).
+        function resolverPorNome(legacy) {
             const candidatos = byCliente.get(ctlegacyNorm(legacy.cliente)) || [];
-            if (!candidatos.length) return { legacy, status: 'semMatch' };
-            if (candidatos.length === 1) {
-                const appRow = candidatos[0];
-                return { legacy, appRow, status: ctlegacyTemAnexoValido(appRow) ? 'jaTemAnexo' : 'pronto' };
-            }
-            // Mais de um contrato do mesmo cliente — desempata por cidade, e
-            // some ainda ambíguo deixa o admin escolher na hora de conferir.
+            if (!candidatos.length) return { tipo: 'nenhum' };
+            if (candidatos.length === 1) return { tipo: 'match', appRow: candidatos[0] };
             const porCidade = candidatos.filter((c) => ctlegacyNorm(c.cidade) === ctlegacyNorm(legacy.cidade));
             const pool = porCidade.length ? porCidade : candidatos;
-            if (pool.length === 1) {
-                const appRow = pool[0];
-                return { legacy, appRow, status: ctlegacyTemAnexoValido(appRow) ? 'jaTemAnexo' : 'pronto' };
-            }
+            if (pool.length === 1) return { tipo: 'match', appRow: pool[0] };
             const legacyDate = ctlegacyParseDate(legacy.data);
             const ordenados = [...pool].sort((a, b) => {
                 const da = ctlegacyParseDate(a.data), db = ctlegacyParseDate(b.data);
@@ -1571,7 +1578,27 @@ function bindContratosLegacyImport() {
                 const diffB = db && legacyDate ? Math.abs(db - legacyDate) : Infinity;
                 return diffA - diffB;
             });
-            return { legacy, status: 'ambiguo', candidatos: ordenados };
+            return { tipo: 'ambiguo', candidatos: ordenados };
+        }
+
+        plan = legacyRows.map((legacy) => {
+            const porId = byId.get(String(legacy.id || '').trim().toLowerCase());
+            const resNome = resolverPorNome(legacy);
+            const appRowPorNome = resNome.tipo === 'match' ? resNome.appRow : null;
+            const conflito = !!(porId && appRowPorNome && String(porId.id) !== String(appRowPorNome.id));
+
+            if (porId) {
+                return {
+                    legacy, appRow: porId, matchedBy: 'id', conflito,
+                    conflitoNomeApontava: conflito ? appRowPorNome : null,
+                    status: ctlegacyTemAnexoValido(porId) ? 'jaTemAnexo' : 'pronto'
+                };
+            }
+            if (appRowPorNome) {
+                return { legacy, appRow: appRowPorNome, matchedBy: 'nome', status: ctlegacyTemAnexoValido(appRowPorNome) ? 'jaTemAnexo' : 'pronto' };
+            }
+            if (resNome.tipo === 'ambiguo') return { legacy, status: 'ambiguo', candidatos: resNome.candidatos };
+            return { legacy, status: 'semMatch' };
         });
 
         renderCtlegacyPlan();
@@ -1584,6 +1611,9 @@ function bindContratosLegacyImport() {
         const jaTem = countBy('jaTemAnexo');
         const semMatch = plan.filter((p) => p.status === 'semMatch');
         const ambiguos = plan.filter((p) => p.status === 'ambiguo');
+        const porId = plan.filter((p) => p.matchedBy === 'id').length;
+        const porNome = plan.filter((p) => p.matchedBy === 'nome').length;
+        const conflitos = plan.filter((p) => p.conflito);
 
         resultado.innerHTML = `
             <div class="card" style="padding:0.9rem;margin-top:0.85rem;background:var(--bg)">
@@ -1591,7 +1621,25 @@ function bindContratosLegacyImport() {
                 <p style="margin:0 0 0.3rem">⚠️ <strong>${jaTem}</strong> já têm anexo no app — não serão sobrescritos</p>
                 <p style="margin:0 0 0.3rem">❓ <strong>${semMatch.length}</strong> sem contrato correspondente cadastrado</p>
                 <p style="margin:0">🔀 <strong>${ambiguos.length}</strong> ambíguo(s) — mais de um contrato do mesmo cliente, escolha abaixo</p>
+                <p class="helper-text" style="text-align:left;margin:0.5rem 0 0">Casamento: ${porId} pelo Id da base antiga (mais confiável), ${porNome} só pelo nome do cliente.</p>
             </div>
+            ${conflitos.length ? `
+                <div class="card" style="padding:0.9rem;margin-top:0.75rem;border:1px solid var(--danger, #c0392b)">
+                    <p style="margin:0 0 0.6rem"><strong>🚨 ${conflitos.length} possível(is) anexo(s) no contrato errado</strong></p>
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">
+                        O Id da base antiga aponta pra um contrato cadastrado diferente do que o nome do cliente
+                        apontaria — se você já mandou o anexo desse cliente antes dessa melhoria, pode ter ido
+                        pro contrato errado (o da coluna "nome apontava"). Confira os dois.
+                    </p>
+                    ${conflitos.map((p) => `
+                        <div style="margin-bottom:0.6rem;padding-bottom:0.6rem;border-bottom:1px solid var(--border-color,#e5e5e5)">
+                            <strong>${escapeHtml(p.legacy.cliente)}</strong> <span class="helper-text">(${escapeHtml(p.legacy.cidade || '')})</span><br>
+                            <span class="helper-text">✓ Pelo Id (correto): linha ${escapeHtml(p.appRow.id)} — ${ctlegacyTemAnexoValido(p.appRow) ? 'já tem anexo' : 'SEM anexo ainda'}</span><br>
+                            <span class="helper-text">✗ Pelo nome (apontava): linha ${escapeHtml(p.conflitoNomeApontava.id)} — ${ctlegacyTemAnexoValido(p.conflitoNomeApontava) ? 'tem anexo (confira se é esse mesmo)' : 'sem anexo'}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
             ${ambiguos.length ? `
                 <div class="card" style="padding:0.9rem;margin-top:0.75rem">
                     <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">Escolha a qual contrato cadastrado cada um se refere (ou deixe "— pular —"):</p>
