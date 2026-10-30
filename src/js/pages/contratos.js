@@ -71,6 +71,30 @@ export function fillContratosContent(mainContent, contratos) {
                 </div>
                 ${multiCheckFilterFieldHtml('Cidade', 'ct-cidade', 'Todas')}
                 ${isAdmGer ? multiCheckFilterFieldHtml('Vendedor', 'ct-vendor') : ''}
+                <div class="form-group">
+                    <label for="ct-anexo">${filterLabelHtml('Anexo')}</label>
+                    <select id="ct-anexo">
+                        <option value="">Todos</option>
+                        <option value="tem">Tem anexo</option>
+                        <option value="falta">Falta anexar</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ct-assinado">${filterLabelHtml('Assinado')}</label>
+                    <select id="ct-assinado">
+                        <option value="">Todos</option>
+                        <option value="Sim">Sim</option>
+                        <option value="Nao">Não</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ct-pausado">${filterLabelHtml('Pausado')}</label>
+                    <select id="ct-pausado">
+                        <option value="">Todos</option>
+                        <option value="Sim">Sim</option>
+                        <option value="Nao">Não</option>
+                    </select>
+                </div>
             </div>
         </div>
         <div id="contratos-list-container"></div>
@@ -93,6 +117,9 @@ export function fillContratosContent(mainContent, contratos) {
         const situacao = document.getElementById('ct-situacao')?.value || '';
         const cidade   = (document.getElementById('ct-cidade')?.value || '').split(',').filter(Boolean);
         const vendor   = (document.getElementById('ct-vendor')?.value || '').split(',').filter(Boolean);
+        const anexoF   = document.getElementById('ct-anexo')?.value || '';
+        const assinadoF = document.getElementById('ct-assinado')?.value || '';
+        const pausadoF = document.getElementById('ct-pausado')?.value || '';
 
         const filtered = normalized.filter((c) => {
             const matchSearch = !search || [c.cliente, c.cidade, c.vendedor].some((v) => String(v || '').toLowerCase().includes(search));
@@ -102,7 +129,12 @@ export function fillContratosContent(mainContent, contratos) {
                 || (situacao === 'vencido' && c.vencido)
                 || (situacao === 'vence-breve' && c.venceEmBreve)
                 || (situacao === 'ativo' && !c.vencido && !c.venceEmBreve);
-            return matchSearch && matchCidade && matchVendor && matchSituacao;
+            const matchAnexo = !anexoF
+                || (anexoF === 'tem' && !!anexoUrl(c))
+                || (anexoF === 'falta' && !anexoUrl(c));
+            const matchAssinado = !assinadoF || (assinadoF === 'Sim' ? c.assinado === 'Sim' : c.assinado !== 'Sim');
+            const matchPausado = !pausadoF || c.pausado === pausadoF;
+            return matchSearch && matchCidade && matchVendor && matchSituacao && matchAnexo && matchAssinado && matchPausado;
         });
 
         const container = document.getElementById('contratos-list-container');
@@ -416,7 +448,7 @@ export function fillContratosContent(mainContent, contratos) {
         wireMultiCheckFilter({ triggerId: 'ct-vendor-trigger', inputId: 'ct-vendor', menuId: 'ct-vendor-menu', options: availableVendors });
     }
 
-    const _ctFilterIds = ['ct-search', 'ct-situacao', 'ct-cidade', 'ct-vendor'];
+    const _ctFilterIds = ['ct-search', 'ct-situacao', 'ct-cidade', 'ct-vendor', 'ct-anexo', 'ct-assinado', 'ct-pausado'];
     const _ctTextFilterIds = new Set(['ct-search']);
     const _debouncedFilter = debounce(renderFiltered, 250);
     _ctFilterIds.forEach((id) => {
