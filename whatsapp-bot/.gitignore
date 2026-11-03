@@ -5,3 +5,5 @@ mensagens-enviadas.json
 .env
 bot.pid
 robo.log
+robo.log.old
+vigia.log

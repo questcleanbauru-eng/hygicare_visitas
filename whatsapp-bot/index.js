@@ -18,7 +18,7 @@ import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createServer } from 'node:http';
-import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, WAMessageStatus } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import qrcodeTerminal from 'qrcode-terminal';
@@ -234,6 +234,27 @@ function reativarPessoa(telefone) {
 function registrarHistorico(entry) {
     const estado = lerEstado();
     estado.historico = [entry, ...estado.historico].slice(0, 30);
+    salvarEstado(estado);
+}
+
+// "ok" no histórico (acima) só quer dizer "o WhatsApp aceitou pra entregar"
+// — não que chegou de verdade no celular de quem recebeu. O protocolo manda
+// um "messages.update" depois com o status real (entregue/lida), e aqui a
+// gente casa isso de volta com o registro certo pelo msgId guardado na hora
+// do envio (ver enviarCategoriaDoDia/enviarResumosDoDia) e atualiza o mesmo
+// registro em vez de criar um novo — assim o painel reflete a confirmação
+// real, não só "aceito pelo servidor". Só mexe em registros dos últimos 30
+// (os únicos guardados) — confirmação de um envio mais antigo que isso é
+// ignorada, sem problema (ninguém mais olha pra ele no painel mesmo).
+function atualizarEntregaHistorico(msgId, entrega) {
+    if (!msgId) return;
+    const estado = lerEstado();
+    const item = estado.historico.find((h) => h.msgId === msgId);
+    if (!item || item.entrega === entrega) return;
+    // READ (lida) nunca regride pra DELIVERY_ACK — o WhatsApp às vezes manda
+    // os updates fora de ordem; uma vez lida, fica lida.
+    if (item.entrega === 'lida') return;
+    item.entrega = entrega;
     salvarEstado(estado);
 }
 
@@ -547,7 +568,7 @@ async function enviarCategoriaDoDia(sock, categoria, destinatarios) {
         const jid = `${dest.telefone}@s.whatsapp.net`;
         const texto = montarMensagemCategoria(dest, categoria);
         try {
-            await enviarTexto(sock, jid, texto);
+            const resultado = await enviarTexto(sock, jid, texto);
             console.log(`  ✓ [${categoria}] ${dest.nome} (${dest.telefone})`);
             telefonesOk.push(dest.telefone);
             // Marca JÁ (por pessoa), não só no fim do lote — se o robô cair/
@@ -555,7 +576,9 @@ async function enviarCategoriaDoDia(sock, categoria, destinatarios) {
             // esquecido e reenviado de novo quando o robô voltar.
             marcarEnviadosHoje(categoria, [dest.telefone]);
             painelStatus.ultimoEnvio = new Date().toISOString();
-            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', categoria, pendencias: contarItensCategoria(dest, categoria), quando: new Date().toISOString() });
+            // msgId guardado pra bater com o "messages.update" (confirmação
+            // de entrega/leitura de verdade) — ver registrarEntregaMensagens.
+            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', categoria, pendencias: contarItensCategoria(dest, categoria), quando: new Date().toISOString(), msgId: resultado?.key?.id || null });
         } catch (err) {
             console.error(`  ✗ [${categoria}] ${dest.nome} (${dest.telefone}):`, err.message);
             falhas++;
@@ -620,7 +643,7 @@ async function enviarResumosDoDia(sock) {
             break;
         }
         try {
-            await enviarTexto(sock, `${dest.telefone}@s.whatsapp.net`, dest.texto);
+            const resultado = await enviarTexto(sock, `${dest.telefone}@s.whatsapp.net`, dest.texto);
             console.log(`  ✓ resumo: ${dest.nome} (${dest.telefone})`);
             telefonesOk.push(dest.telefone);
             if (dest.tipo === 'gerente') enviados.gerentes++; else enviados.manutencao++;
@@ -628,7 +651,7 @@ async function enviarResumosDoDia(sock) {
             // enviarCategoriaDoDia: evita reenviar pra quem já recebeu se o
             // robô cair/reiniciar no meio da lista.
             marcarResumosEnviadosHoje([dest.telefone]);
-            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', tipo: 'resumo', quando: new Date().toISOString() });
+            registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'ok', tipo: 'resumo', quando: new Date().toISOString(), msgId: resultado?.key?.id || null });
         } catch (err) {
             console.error(`  ✗ resumo: ${dest.nome} (${dest.telefone}):`, err.message);
             registrarHistorico({ nome: dest.nome, telefone: dest.telefone, status: 'erro', tipo: 'resumo', detalhe: err.message, quando: new Date().toISOString() });
@@ -881,6 +904,10 @@ function paginaPainel() {
   .hist-icon { flex-shrink: 0; width: 20px; height: 20px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; }
   .hist-icon.ok { background: #dcfce7; color: #16a34a; }
   .hist-icon.erro { background: #fee2e2; color: #dc2626; }
+  .hist-icon.pendente { background: #f1f5f9; color: #64748b; font-size: 0.6rem; }
+  .hist-icon.entregue { background: #dcfce7; color: #16a34a; font-size: 0.6rem; }
+  .hist-icon.lida { background: #dbeafe; color: #1d4ed8; font-size: 0.6rem; }
+  .hist-icon.entrega-erro { background: #fef3c7; color: #92400e; }
   .hist-nome { font-size: 0.85rem; font-weight: 600; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hist-nome .det { color: #64748b; font-weight: 400; }
   .hist-nome .det.err { color: #dc2626; }
@@ -1451,19 +1478,36 @@ function aplicarColapsoHistorico(colapsado) {
   });
 })();
 
+// "ok" só quer dizer que o WhatsApp aceitou mandar — entregaTexto() mostra
+// a confirmação real (entregue/lida) quando ela já chegou (ver
+// atualizarEntregaHistorico no servidor); enquanto não chega, fica "enviado
+// (aguardando confirmação)" mesmo — não é erro, só ainda não confirmou.
+function entregaInfo(h) {
+  if (h.status !== 'ok') return null;
+  if (h.entrega === 'lida') return { icone: '✓✓', classe: 'lida', texto: 'lida' };
+  if (h.entrega === 'entregue') return { icone: '✓✓', classe: 'entregue', texto: 'entregue' };
+  if (h.entrega === 'erro') return { icone: '⚠', classe: 'entrega-erro', texto: 'não chegou no destino' };
+  return { icone: '✓', classe: 'pendente', texto: 'enviado — aguardando confirmação' };
+}
 function renderHistorico(s) {
   const el = document.getElementById('historico-lista');
   const hist = s.historico || [];
   if (!hist.length) { el.innerHTML = '<p class="vazio">Nenhum envio ainda.</p>'; return; }
-  el.innerHTML = hist.map((h) => \`
+  el.innerHTML = hist.map((h) => {
+    const entrega = entregaInfo(h);
+    const icone = h.status === 'erro' ? '✕' : (entrega ? entrega.icone : (h.tipo === 'resumo' ? '📋' : '✓'));
+    const classeIcone = h.status === 'erro' ? 'erro' : (entrega ? entrega.classe : h.status);
+    const tituloEntrega = entrega ? \` title="\${entrega.texto}"\` : '';
+    return \`
     <div class="hist-item">
       <div class="hist-left">
-        <span class="hist-icon \${h.status}">\${h.tipo === 'resumo' ? '📋' : (h.status === 'ok' ? '✓' : '✕')}</span>
+        <span class="hist-icon \${classeIcone}"\${tituloEntrega}>\${icone}</span>
         <span class="hist-nome">\${h.nome} <span class="det \${h.status === 'erro' ? 'err' : ''}">· \${h.status === 'erro' ? ('falhou (' + (h.detalhe || 'erro') + ')') : (h.tipo === 'resumo' ? 'resumo diário' : (h.pendencias + ' pendência' + (h.pendencias === 1 ? '' : 's')))}</span></span>
       </div>
       <span class="hist-quando">\${formatRelativo(h.quando)}</span>
     </div>
-  \`).join('');
+  \`;
+  }).join('');
 }
 
 function formatCountdown(ms) {
@@ -1749,6 +1793,21 @@ async function conectar() {
         if (type !== 'notify') return;
         for (const msg of messages) {
             processarComandoRecebido(sock, msg).catch((err) => console.error('Falha ao processar comando recebido:', err.message));
+        }
+    });
+
+    // Confirmação real de entrega/leitura das mensagens que O ROBÔ mandou
+    // (fromMe) — ver atualizarEntregaHistorico. Ignora qualquer update sem
+    // status (ex.: edição de mensagem, reação) ou de mensagem que não é
+    // nossa.
+    sock.ev.on('messages.update', (updates) => {
+        for (const { key, update } of updates) {
+            if (!key?.fromMe || update.status === undefined || update.status === null) continue;
+            const entrega = update.status >= WAMessageStatus.READ ? 'lida'
+                : update.status >= WAMessageStatus.DELIVERY_ACK ? 'entregue'
+                : update.status === WAMessageStatus.ERROR ? 'erro'
+                : null;
+            if (entrega) atualizarEntregaHistorico(key.id, entrega);
         }
     });
 
