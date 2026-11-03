@@ -711,8 +711,10 @@ async function atualizarPrevia() {
 // dedup PRÓPRIOS, ver enviarResumosDoDia).
 async function atualizarResumoPrevia() {
     try {
-        const { gerentes, manutencao, schedule, pausado } = await buscarResumos();
         const estado = lerEstado();
+        // Mesma "desde" do envio de verdade (enviarResumosDoDia) — senão a
+        // prévia do painel mostra uma janela diferente da que vai sair.
+        const { gerentes, manutencao, schedule, pausado } = await buscarResumos(estado.ultimaDataCobertaManutencao);
         const comStatus = (p) => ({ nome: p.nome, telefone: p.telefone, enviadoHoje: estaResumoEnviadoHoje(estado, p.telefone) });
         painelStatus.resumoPrevia = {
             schedule,
