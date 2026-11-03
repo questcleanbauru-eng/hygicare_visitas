@@ -50,6 +50,17 @@ function diasParaCobrirAteUltimoDiaConfigurado(diasSemana, hoje) {
     return 1;
 }
 
+// "desde" vem do robô local, no formato ISO (yyyy-mm-dd) que ele já usa pra
+// controle de data (hojeChaveLocal() em whatsapp-bot/index.js) — formato
+// diferente do resto do app (dd/mm/aaaa, parseDate importado acima), por
+// isso um parser próprio em vez de reaproveitar aquele.
+function parseIsoDate(value) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return isNaN(d) ? null : d;
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
         res.status(405).json({ status: 'error', message: 'Method not allowed.' });
@@ -134,7 +145,22 @@ export default async function handler(req, res) {
             .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
         let manutencaoResumo = [];
         if (emailsManutencao.length) {
-            const diasRange = diasParaCobrirAteUltimoDiaConfigurado(schedule.diasSemana, hoje);
+            // "desde" é o último dia que o robô local CONFIRMA ter coberto de
+            // verdade (ele só avança essa marca depois de checar com sucesso
+            // — ver marcarDataCobertaManutencao em whatsapp-bot/index.js).
+            // Cobrir a partir dali (em vez de só adivinhar pelo padrão de
+            // dias da semana) fecha um buraco real: se o robô ficar OFFLINE
+            // num dia que deveria rodar (computador desligado, feriado,
+            // queda de internet — não só fim de semana), o cálculo por "dia
+            // da semana configurado" não tem como saber que aquele dia foi
+            // pulado, e o Open/Close dele some pra sempre. Com "desde", some
+            // dias faltando é só questão de cobrir tudo na próxima checagem
+            // que rodar de verdade. Sem "desde" (1ª execução, ou estado local
+            // apagado), cai no cálculo antigo por dia da semana.
+            const desde = parseIsoDate(req.query.desde);
+            const diasRange = (desde && desde < hoje)
+                ? Math.min(30, Math.round((hoje.getTime() - desde.getTime()) / 86400000))
+                : diasParaCobrirAteUltimoDiaConfigurado(schedule.diasSemana, hoje);
             const resumoGeral = await computeResumoDiario(null, { diasRange });
             if (resumoGeral.visitas.manutencao.length) {
                 const destinatarios = ativos.filter((v) => emailsManutencao.includes(String(v.EmailLogin || '').trim().toLowerCase()) && String(v.TelefoneWhatsapp || '').trim());

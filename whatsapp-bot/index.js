@@ -118,6 +118,13 @@ function estadoVazio() {
         ultimoTesteProcessado: 0,
         ultimoAlertaErro: null,
         ultimoAlertaAprovacao: null,
+        // Último dia (yyyy-mm-dd, ver hojeChaveLocal) que o resumo de
+        // Manutenção (Open/Close) CONFIRMA ter coberto — manda pra API em
+        // "desde" (ver buscarResumos/marcarDataCobertaManutencao) pra ela
+        // saber a partir de quando somar, em vez de adivinhar pelo padrão de
+        // dias da semana. Vazio = ainda sem marca (1ª execução), API cai no
+        // cálculo antigo.
+        ultimaDataCobertaManutencao: '',
         historico: []
     };
 }
@@ -154,6 +161,7 @@ function lerEstado() {
         if (typeof parsed.ultimoTesteProcessado !== 'number') { parsed.ultimoTesteProcessado = Date.now(); migrado = true; }
         if (parsed.ultimoAlertaErro === undefined) { parsed.ultimoAlertaErro = null; migrado = true; }
         if (parsed.ultimoAlertaAprovacao === undefined) { parsed.ultimoAlertaAprovacao = null; migrado = true; }
+        if (typeof parsed.ultimaDataCobertaManutencao !== 'string') { parsed.ultimaDataCobertaManutencao = ''; migrado = true; }
         if (migrado) salvarEstado(parsed);
         return parsed;
     } catch { return estadoVazio(); }
@@ -186,6 +194,19 @@ function marcarResumosEnviadosHoje(telefones) {
     const estado = lerEstado();
     if (estado.resumosEnviadosHoje.data !== hojeChaveLocal()) estado.resumosEnviadosHoje = { data: hojeChaveLocal(), telefones: [] };
     telefones.forEach((t) => { if (!estado.resumosEnviadosHoje.telefones.includes(t)) estado.resumosEnviadosHoje.telefones.push(t); });
+    salvarEstado(estado);
+}
+
+// Avança a marca de "até quando o resumo de Manutenção já está coberto" —
+// chamada só depois de um dia CONFIGURADO, com a hora JÁ passada e a API
+// tendo respondido com sucesso (ver enviarResumosDoDia), mesmo quando não
+// tinha ninguém pra avisar naquele dia (nada acontecer também é cobertura,
+// não falha). Enquanto o robô ficar offline num dia que devia rodar, essa
+// marca simplesmente não avança — na volta, a API (ver api/resumo-
+// whatsapp.js) cobre tudo que ficou pra trás de uma vez, sem perder nada.
+function marcarDataCobertaManutencao(data) {
+    const estado = lerEstado();
+    estado.ultimaDataCobertaManutencao = data;
     salvarEstado(estado);
 }
 
@@ -341,8 +362,11 @@ async function buscarPendencias() {
     return { destinatarios: json.data || [], semTelefone: json.semTelefone || [], schedule, pausado: !!json.pausado, teste: json.teste || null, aprovacaoManual: !!json.aprovacaoManual };
 }
 
-async function buscarResumos() {
-    const res = await fetch(RESUMO_API_URL, { headers: { Authorization: `Bearer ${API_SECRET}` } });
+async function buscarResumos(desde) {
+    // "desde" (yyyy-mm-dd) diz pra API até quando o resumo de Manutenção já
+    // está coberto de verdade — ver marcarDataCobertaManutencao.
+    const url = desde ? `${RESUMO_API_URL}?desde=${encodeURIComponent(desde)}` : RESUMO_API_URL;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${API_SECRET}` } });
     if (!res.ok) throw new Error(`API de resumo respondeu ${res.status}`);
     const json = await res.json();
     if (json.status !== 'success') throw new Error(json.message || 'Erro desconhecido na API de resumo.');
@@ -563,11 +587,16 @@ async function enviarResumosDoDia(sock) {
     let gerentes = [];
     let manutencao = [];
     try {
-        const r = await buscarResumos();
+        const r = await buscarResumos(lerEstado().ultimaDataCobertaManutencao);
         if (r.pausado) return vazio;
         if (!diaConfiguradoHoje(r.schedule.diasSemana) || !passouDoHorario(r.schedule.hora)) return vazio;
         gerentes = r.gerentes;
         manutencao = r.manutencao;
+        // Chegou até aqui com dia configurado, hora já passada e a API
+        // respondendo certinho — hoje já está coberto, MESMO sem ninguém
+        // pra avisar (nada ter acontecido também conta como coberto, não é
+        // falha). Ver marcarDataCobertaManutencao.
+        marcarDataCobertaManutencao(hojeChaveLocal());
     } catch (err) {
         console.error('Falha ao buscar resumos:', err.message);
         return vazio;
