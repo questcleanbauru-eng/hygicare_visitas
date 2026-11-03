@@ -515,8 +515,8 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                             <input type="number" id="whatsapp-dias-parado" min="1" value="${escapeHtml(String(emailConfig.whatsapp_dias_parado || '30'))}"> <span class="helper-text" style="display:inline">dias sem atualização</span>
                         </div>
                         <div class="form-group">
-                            <label for="whatsapp-dias-inatividade">"Sem atividade" após</label>
-                            <input type="number" id="whatsapp-dias-inatividade" min="1" value="${escapeHtml(String(emailConfig.whatsapp_dias_inatividade || '60'))}"> <span class="helper-text" style="display:inline">dias sem visita/prospecção</span>
+                            <label for="whatsapp-limite-inatividade-dias">"Sem atividade" após</label>
+                            <input type="number" id="whatsapp-limite-inatividade-dias" min="1" value="${escapeHtml(String(emailConfig.whatsapp_limite_inatividade_dias || '60'))}"> <span class="helper-text" style="display:inline">dias sem visita/prospecção</span>
                         </div>
                         <div class="form-group">
                             <label for="whatsapp-dias-contrato-vencendo">Contrato "vencendo" com</label>
@@ -1379,7 +1379,7 @@ export function bindAdminEvents(data) {
         const diasMarcados = Array.from(document.querySelectorAll('.whatsapp-dia-check:checked')).map((c) => c.value);
         if (!diasMarcados.length) { showToast('Marque pelo menos um dia da semana.', true); return; }
         const diasParado = Number(document.getElementById('whatsapp-dias-parado').value) || 30;
-        const diasInatividade = Number(document.getElementById('whatsapp-dias-inatividade').value) || 60;
+        const limiteInatividadeDias = Number(document.getElementById('whatsapp-limite-inatividade-dias').value) || 60;
         const diasContratoVencendo = Number(document.getElementById('whatsapp-dias-contrato-vencendo').value) || 30;
         const horarios = {};
         const ativos = {};
@@ -1399,7 +1399,7 @@ export function bindAdminEvents(data) {
             ...ativos,
             whatsapp_dias_semana: diasMarcados.join(','),
             whatsapp_dias_parado: String(diasParado),
-            whatsapp_dias_inatividade: String(diasInatividade),
+            whatsapp_limite_inatividade_dias: String(limiteInatividadeDias),
             whatsapp_dias_contrato_vencendo: String(diasContratoVencendo)
         });
         if (result.status === 'success') { showToast('Preferência salva.'); setSaving(false, btn); }

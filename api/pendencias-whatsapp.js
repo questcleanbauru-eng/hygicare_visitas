@@ -87,7 +87,12 @@ export default async function handler(req, res) {
             // Dias da semana POR categoria (ex.: Funil só quarta) — por cima
             // do diasSemana geral abaixo, que continua valendo como filtro
             // amplo. defaultEmailConfig já garante '1,2,3,4,5' por padrão.
-            diasPorCategoria[cat] = String(config[`whatsapp_dias_${cat}`] || '1,2,3,4,5').split(',').map((d) => Number(d.trim())).filter((d) => !Number.isNaN(d));
+            // Só aceita 0-6 (dia da semana de verdade) — uma proteção extra
+            // pro bug acima (chave com valor fora da faixa, tipo "60", não
+            // deixa a categoria presa pra sempre: cai no padrão Seg-Sex em
+            // vez de nunca bater com nenhum dia).
+            const diasValidos = String(config[`whatsapp_dias_${cat}`] || '').split(',').map((d) => Number(d.trim())).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+            diasPorCategoria[cat] = diasValidos.length ? diasValidos : [1, 2, 3, 4, 5];
         });
         const schedule = {
             horarios,
@@ -114,7 +119,7 @@ export default async function handler(req, res) {
         // Relatório de Propostas/Funil e no Resumo Diário, só que agora
         // ajustável sem precisar editar código.
         const DIAS_PARADO = Number(config.whatsapp_dias_parado) || 30;
-        const DIAS_INATIVIDADE = Number(config.whatsapp_dias_inatividade) || 60;
+        const DIAS_INATIVIDADE = Number(config.whatsapp_limite_inatividade_dias) || 60;
         // Quantos dias ANTES do fim do contrato já conta como "vencendo" —
         // igual 0 (ou contrato já vencido de verdade) também entra.
         const DIAS_CONTRATO_VENCENDO = Number(config.whatsapp_dias_contrato_vencendo) || 30;
