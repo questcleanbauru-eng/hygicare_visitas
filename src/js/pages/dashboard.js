@@ -1,23 +1,9 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, calculateDaysFromDisplayDate, visitTypeClass, parseDisplayDate } from '../utils/format.js';
-import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, refreshNotificacoesBadge, checkOverdueNotification, checkClientesPrincipaisNotification, hasInstallPrompt, consumeInstallPrompt, NAV_ICON_SVG } from '../utils/ui.js';
+import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, refreshNotificacoesBadge, checkOverdueNotification, checkClientesPrincipaisNotification, hasInstallPrompt, consumeInstallPrompt, NAV_ICON_SVG, useClassicInicio, setClassicInicio, resetNavCache, renderNavigation } from '../utils/ui.js';
 import { showSuccessPopup, showToast, setSaving } from '../utils/dom.js';
 import { isPushSupported, isAppInstalled, isIOS, enablePush } from '../utils/push.js';
-
-// Início "central" (grade de atalho pras telas, com número rápido por
-// tela) — pedido do Bruno, mas NUNCA substituindo o Início clássico de
-// vez: fica por conta de cada vendedor/gerente escolher, individualmente,
-// qual dos dois prefere (ver .inicio-view-toggle em renderAcessarSection).
-// Guardado por aparelho (localStorage), não por conta — se alguém usa o
-// app em mais de um aparelho, escolhe em cada um.
-const INICIO_CLASSICO_KEY = 'apv_inicio_classico';
-function useClassicInicio() {
-    try { return localStorage.getItem(INICIO_CLASSICO_KEY) === '1'; } catch (e) { return false; }
-}
-function setClassicInicio(value) {
-    try { localStorage.setItem(INICIO_CLASSICO_KEY, value ? '1' : '0'); } catch (e) { /* sem localStorage, não tem persistência mesmo */ }
-}
 
 // Texto curto de "o que essa tela faz" pro botão (i) de cada card — pedido
 // explícito: ajudar vendedor/gerente novo a entender a navegação sem
@@ -127,118 +113,15 @@ function renderAcessarSection(data, user) {
         <div class="acessar-grid">${tiles.join('')}</div>`;
 }
 
-export function fillDashboard(mainContent, data, user) {
-    const sevenDaysAgo    = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const recentVisits    = (data.recentVisits || []).map(normalizeVisit)
-        .filter((v) => { const d = parseDisplayDate(v.dataVisita); return d && d >= sevenDaysAgo; })
-        .sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0));
-    const recentProposals = (data.recentProposals || []).map(normalizeProposal)
-        .filter((p) => p.atrasada)
-        .sort((a, b) => (b.diasAtraso || 0) - (a.diasAtraso || 0));
-    const recentFunil     = (data.recentFunil || [])
-        .sort((a, b) => (b.diasAtualizacao || calculateDaysFromDisplayDate(b.atualizacao || b.data || ''))
-            - (a.diasAtualizacao || calculateDaysFromDisplayDate(a.atualizacao || a.data || '')));
-
-    // Cache overdue counts for notification dot
-    state.overdueProposals = data.overdueProposals || 0;
-    state.overdueFunil     = data.overdueFunil || 0;
-    checkOverdueNotification(state.overdueProposals, state.overdueFunil);
-    checkClientesPrincipaisNotification(data.clientesPrincipaisPendentes);
-
-    const isAdminOrGerente = ['admin','gerente'].includes((user.profile || '').toLowerCase());
-
-    const todayStr = (() => { const d = new Date(); return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear(); })();
-    const todayVisits = recentVisits.filter((v) => v.dataVisita === todayStr);
-
-    mainContent.innerHTML = `
-        <div class="page-header page-header-hero" style="margin-bottom:0.6rem">
-            <div>
-                <h2>Início</h2>
-                <p class="page-subtitle" style="margin:0.1rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>
-            </div>
-        </div>
-
-        <p class="inicio-view-toggle">${useClassicInicio()
-            ? 'Está no Início clássico. <button type="button" id="inicio-toggle-view">Experimentar o novo Início →</button>'
-            : 'Prefere o Início de antes? <button type="button" id="inicio-toggle-view">Voltar pro Início clássico →</button>'}</p>
-
-        <div class="card push-banner" id="push-banner" hidden>
-            <div class="push-banner-text">
-                <strong class="push-banner-title"></strong>
-                <p class="helper-text push-banner-desc" style="margin:0.2rem 0 0"></p>
-            </div>
-            <div class="push-banner-actions">
-                <button type="button" class="mini-button" id="push-banner-dismiss">Agora não</button>
-                <button type="button" class="primary-button" id="push-banner-install" style="width:auto" hidden>Instalar app</button>
-                <button type="button" class="primary-button" id="push-banner-enable" style="width:auto" hidden>Ativar notificações</button>
-            </div>
-        </div>
-
-        ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<div id="resumo-diario-card"></div>' : ''}
-        ${state.canCreateProposalFunil ? '<div id="visitas-sinalizadas-card"></div>' : ''}
-
-        <!-- Ações rápidas -->
-        <div class="dash-actions-bar">
-            <button type="button" class="text-link" id="qa-new-visit">📋 Nova Visita</button>
-            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
-            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
-            ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<button type="button" class="text-link" id="qa-resumo-diario">📋 Resumo de ontem</button>' : ''}
-        </div>
-
-        <!-- Hoje -->
-        <div class="dash-today-card">
-            <div class="section-title-row">
-                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📅 Hoje</h3>
-                <button class="section-link-button" id="go-agenda">Ver agenda completa →</button>
-            </div>
-            ${todayVisits.length === 0
-                ? '<p class="helper-text">Nenhuma visita registrada hoje ainda.</p>'
-                : renderRecentItems(todayVisits, '')}
-        </div>
-
-        ${(data.proximosAgendamentos && data.proximosAgendamentos.length > 0) ? `
-        <div class="dash-today-card" style="margin-top:0.5rem">
-            <div class="section-title-row">
-                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📌 Próximos retornos</h3>
-                <button class="section-link-button" id="go-agenda-retornos">Ver agenda →</button>
-            </div>
-            <div class="recent-list">
-                ${data.proximosAgendamentos.map((a) => {
-                    const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
-                    const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
-                    const diasCor = dias < 0 ? 'erro' : dias <= 1 ? 'apresentacao' : 'preventiva';
-                    return `<div class="recent-item recent-item-proposal">
-                        <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
-                            <strong style="font-size:0.85rem">${escapeHtml(a.cliente || '-')}</strong>
-                            <span class="helper-text" style="margin:0">${escapeHtml(a.cidade || '-')}</span>
-                        </div>
-                        <span class="status-tag ${diasCor}">${diasLabel}</span>
-                    </div>`;
-                }).join('')}
-            </div>
-        </div>` : ''}
-
-        ${(data.clientesPrincipaisPendentes && data.clientesPrincipaisPendentes.length > 0) ? `
-        <div class="dash-today-card dash-cp-card dash-cp-collapsed" id="dash-cp-card" style="margin-top:0.5rem">
-            <button type="button" class="dash-cp-toggle" id="dash-cp-toggle" aria-expanded="false" aria-controls="dash-cp-body">
-                <span class="dash-cp-title">⭐ Clientes principais sem relatório este mês</span>
-                <span class="dash-cp-count" aria-label="${data.clientesPrincipaisPendentes.length} pendente(s)">${data.clientesPrincipaisPendentes.length}</span>
-                <span class="dash-cp-chevron" aria-hidden="true">▾</span>
-            </button>
-            <div class="recent-list" id="dash-cp-body">
-                ${data.clientesPrincipaisPendentes.map((c) => `
-                    <div class="recent-item recent-item-proposal">
-                        <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
-                            <strong style="font-size:0.85rem;overflow-wrap:break-word">${escapeHtml(c.cliente)}</strong>
-                        </div>
-                        <button type="button" class="mini-button dash-cp-report-btn" data-cliente="${escapeHtml(c.cliente)}">Fazer relatório</button>
-                    </div>
-                `).join('')}
-            </div>
-        </div>` : ''}
-
-        ${!useClassicInicio() ? renderAcessarSection(data, user) : ''}
-
+// "Visão geral" — métricas + gráfico de 7 dias + ranking da equipe +
+// atividade recente. Morava no Início; a pedido do Bruno, mudou pro
+// Relatório (ver pages/report.js → renderReportPage), que é de onde ela é
+// chamada agora. Só continua aparecendo no Início pra quem está no Início
+// clássico (ver useClassicInicio em fillDashboard) — pra essas pessoas
+// nada muda, é a mesma tela de sempre.
+export function renderVisaoGeralSection(data, user, recentProposals, recentVisits, recentFunil) {
+    const isAdminOrGerente = ['admin', 'gerente'].includes((user.profile || '').toLowerCase());
+    return `
         <!-- Métricas -->
         <div class="section-title-row" style="margin-top:0.4rem">
             <p class="dash-section-heading" style="margin:0">Visão geral</p>
@@ -411,20 +294,30 @@ export function fillDashboard(mainContent, data, user) {
                 }
             </div>
             <button type="button" class="section-link-button dash-activity-more" id="go-activity">Ver tudo →</button>
-        </div>
-    `;
+        </div>`;
+}
 
-    document.getElementById('go-agenda').addEventListener('click',    () => navigateTo('calendar'));
-    document.getElementById('go-agenda-retornos')?.addEventListener('click', () => navigateTo('calendar', { filter: 'retornos' }));
-    document.getElementById('inicio-toggle-view')?.addEventListener('click', () => {
-        setClassicInicio(!useClassicInicio());
-        renderDashboard();
+// Liga os cliques da Visão Geral (cards de métrica, radar, abas da
+// Atividade recente) — chamado tanto pelo Início (fillDashboard, só quando
+// useClassicInicio) quanto pelo Relatório (renderReportPage), que é quem
+// desenhou renderVisaoGeralSection acima. querySelectorAll com 0 resultado
+// não quebra nada, mas go-activity é pego por id — por isso o `?.` nele.
+export function wireVisaoGeralEvents(container, recentProposals, recentFunil) {
+    container.querySelectorAll('.metric-card[data-nav]').forEach((el) => {
+        el.addEventListener('click', () => {
+            const nav = el.dataset.nav;
+            if (nav === 'proposals' || nav === 'funil') {
+                state.navLoadAll = nav;
+            }
+            navigateTo(nav);
+        });
     });
+    container.querySelector('#radar-prospeccao-card')?.addEventListener('click', () => navigateTo('radar', { tab: 'meus-clientes' }));
+    container.querySelector('#radar-carteira-card')?.addEventListener('click', () => navigateTo('radar', { tab: 'meus-clientes' }));
 
-    // Abas da "Atividade recente" — troca de painel sem recarregar nada.
     let activeAct = 'visits';
-    const actTabs  = mainContent.querySelectorAll('.dash-activity-tab');
-    const actPanes = mainContent.querySelectorAll('.dash-activity-pane');
+    const actTabs  = container.querySelectorAll('.dash-activity-tab');
+    const actPanes = container.querySelectorAll('.dash-activity-pane');
     actTabs.forEach((tab) => tab.addEventListener('click', () => {
         activeAct = tab.dataset.act;
         actTabs.forEach((t) => t.classList.toggle('is-active', t === tab));
@@ -434,11 +327,140 @@ export function fillDashboard(mainContent, data, user) {
             p.hidden = !on;
         });
     }));
-    document.getElementById('go-activity').addEventListener('click', () => {
+    container.querySelector('#go-activity')?.addEventListener('click', () => {
         if (activeAct === 'visits') { navigateTo('visits'); return; }
         state.navLoadAll = activeAct;
         navigateTo(activeAct);
     });
+}
+
+export function fillDashboard(mainContent, data, user) {
+    const sevenDaysAgo    = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentVisits    = (data.recentVisits || []).map(normalizeVisit)
+        .filter((v) => { const d = parseDisplayDate(v.dataVisita); return d && d >= sevenDaysAgo; })
+        .sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0));
+    const recentProposals = (data.recentProposals || []).map(normalizeProposal)
+        .filter((p) => p.atrasada)
+        .sort((a, b) => (b.diasAtraso || 0) - (a.diasAtraso || 0));
+    const recentFunil     = (data.recentFunil || [])
+        .sort((a, b) => (b.diasAtualizacao || calculateDaysFromDisplayDate(b.atualizacao || b.data || ''))
+            - (a.diasAtualizacao || calculateDaysFromDisplayDate(a.atualizacao || a.data || '')));
+
+    // Cache overdue counts for notification dot
+    state.overdueProposals = data.overdueProposals || 0;
+    state.overdueFunil     = data.overdueFunil || 0;
+    checkOverdueNotification(state.overdueProposals, state.overdueFunil);
+    checkClientesPrincipaisNotification(data.clientesPrincipaisPendentes);
+
+    const isAdminOrGerente = ['admin','gerente'].includes((user.profile || '').toLowerCase());
+
+    const todayStr = (() => { const d = new Date(); return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear(); })();
+    const todayVisits = recentVisits.filter((v) => v.dataVisita === todayStr);
+
+    mainContent.innerHTML = `
+        <div class="page-header page-header-hero" style="margin-bottom:0.6rem">
+            <div>
+                <h2>Início</h2>
+                <p class="page-subtitle" style="margin:0.1rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>
+            </div>
+        </div>
+
+        <p class="inicio-view-toggle">${useClassicInicio()
+            ? 'Está no Início clássico. <button type="button" id="inicio-toggle-view">Experimentar o novo Início →</button>'
+            : 'Prefere o Início de antes? <button type="button" id="inicio-toggle-view">Voltar pro Início clássico →</button>'}</p>
+
+        <div class="card push-banner" id="push-banner" hidden>
+            <div class="push-banner-text">
+                <strong class="push-banner-title"></strong>
+                <p class="helper-text push-banner-desc" style="margin:0.2rem 0 0"></p>
+            </div>
+            <div class="push-banner-actions">
+                <button type="button" class="mini-button" id="push-banner-dismiss">Agora não</button>
+                <button type="button" class="primary-button" id="push-banner-install" style="width:auto" hidden>Instalar app</button>
+                <button type="button" class="primary-button" id="push-banner-enable" style="width:auto" hidden>Ativar notificações</button>
+            </div>
+        </div>
+
+        ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<div id="resumo-diario-card"></div>' : ''}
+        ${state.canCreateProposalFunil ? '<div id="visitas-sinalizadas-card"></div>' : ''}
+
+        <!-- Ações rápidas -->
+        <div class="dash-actions-bar">
+            <button type="button" class="text-link" id="qa-new-visit">📋 Nova Visita</button>
+            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
+            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
+            ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<button type="button" class="text-link" id="qa-resumo-diario">📋 Resumo de ontem</button>' : ''}
+        </div>
+
+        <!-- Hoje -->
+        <div class="dash-today-card">
+            <div class="section-title-row">
+                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📅 Hoje</h3>
+                <button class="section-link-button" id="go-agenda">Ver agenda completa →</button>
+            </div>
+            ${todayVisits.length === 0
+                ? '<p class="helper-text">Nenhuma visita registrada hoje ainda.</p>'
+                : renderRecentItems(todayVisits, '')}
+        </div>
+
+        ${(data.proximosAgendamentos && data.proximosAgendamentos.length > 0) ? `
+        <div class="dash-today-card" style="margin-top:0.5rem">
+            <div class="section-title-row">
+                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📌 Próximos retornos</h3>
+                <button class="section-link-button" id="go-agenda-retornos">Ver agenda →</button>
+            </div>
+            <div class="recent-list">
+                ${data.proximosAgendamentos.map((a) => {
+                    const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
+                    const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
+                    const diasCor = dias < 0 ? 'erro' : dias <= 1 ? 'apresentacao' : 'preventiva';
+                    return `<div class="recent-item recent-item-proposal">
+                        <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
+                            <strong style="font-size:0.85rem">${escapeHtml(a.cliente || '-')}</strong>
+                            <span class="helper-text" style="margin:0">${escapeHtml(a.cidade || '-')}</span>
+                        </div>
+                        <span class="status-tag ${diasCor}">${diasLabel}</span>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>` : ''}
+
+        ${(data.clientesPrincipaisPendentes && data.clientesPrincipaisPendentes.length > 0) ? `
+        <div class="dash-today-card dash-cp-card dash-cp-collapsed" id="dash-cp-card" style="margin-top:0.5rem">
+            <button type="button" class="dash-cp-toggle" id="dash-cp-toggle" aria-expanded="false" aria-controls="dash-cp-body">
+                <span class="dash-cp-title">⭐ Clientes principais sem relatório este mês</span>
+                <span class="dash-cp-count" aria-label="${data.clientesPrincipaisPendentes.length} pendente(s)">${data.clientesPrincipaisPendentes.length}</span>
+                <span class="dash-cp-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="recent-list" id="dash-cp-body">
+                ${data.clientesPrincipaisPendentes.map((c) => `
+                    <div class="recent-item recent-item-proposal">
+                        <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
+                            <strong style="font-size:0.85rem;overflow-wrap:break-word">${escapeHtml(c.cliente)}</strong>
+                        </div>
+                        <button type="button" class="mini-button dash-cp-report-btn" data-cliente="${escapeHtml(c.cliente)}">Fazer relatório</button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>` : ''}
+
+        ${!useClassicInicio() ? renderAcessarSection(data, user) : ''}
+
+        ${useClassicInicio() ? renderVisaoGeralSection(data, user, recentProposals, recentVisits, recentFunil) : ''}
+    `;
+
+    document.getElementById('go-agenda').addEventListener('click',    () => navigateTo('calendar'));
+    document.getElementById('go-agenda-retornos')?.addEventListener('click', () => navigateTo('calendar', { filter: 'retornos' }));
+    document.getElementById('inicio-toggle-view')?.addEventListener('click', () => {
+        setClassicInicio(!useClassicInicio());
+        // A troca também muda a barra de baixo (só "Início" no Início novo,
+        // ver renderNavigation) — sem isso ela só atualizaria na próxima
+        // navegação/login, deixando a barra "atrasada" em relação à tela.
+        resetNavCache();
+        renderNavigation();
+        renderDashboard();
+    });
+    if (useClassicInicio()) { wireVisaoGeralEvents(mainContent, recentProposals, recentFunil); }
 
     document.getElementById('qa-new-visit').addEventListener('click',     () => navigateTo('visit-new'));
     document.getElementById('qa-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
@@ -450,17 +472,6 @@ export function fillDashboard(mainContent, data, user) {
             navigateTo(el.dataset.nav);
         });
     });
-    mainContent.querySelectorAll('.metric-card[data-nav]').forEach((el) => {
-        el.addEventListener('click', () => {
-            const nav = el.dataset.nav;
-            if (nav === 'proposals' || nav === 'funil') {
-                state.navLoadAll = nav;
-            }
-            navigateTo(nav);
-        });
-    });
-    document.getElementById('radar-prospeccao-card')?.addEventListener('click', () => navigateTo('radar', { tab: 'meus-clientes' }));
-    document.getElementById('radar-carteira-card')?.addEventListener('click', () => navigateTo('radar', { tab: 'meus-clientes' }));
     mainContent.querySelectorAll('.dash-cp-report-btn').forEach((btn) => {
         btn.addEventListener('click', () => navigateTo('manutencao-new', { prefillCliente: btn.dataset.cliente }));
     });

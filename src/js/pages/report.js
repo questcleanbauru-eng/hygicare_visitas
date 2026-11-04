@@ -3,6 +3,8 @@ import { escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDa
 import { loadingState, showToast, initializeSearchableInput } from '../utils/dom.js';
 import { ensureStyles, renderBreadcrumb } from '../utils/ui.js';
 import { downloadXLSX } from '../utils/xlsxWriter.js';
+import { loadCache, getDashboardData } from '../api.js';
+import { renderVisaoGeralSection, wireVisaoGeralEvents } from './dashboard.js';
 
 function formatMoney(value) {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -246,6 +248,7 @@ export async function renderReportPage() {
         <div class="page-header">
             <div><h2>Relatórios</h2><p class="page-subtitle">Escolha o que quer ver</p></div>
         </div>
+        <div id="report-visao-geral"></div>
         <div class="report-hub-grid">
             <button type="button" class="card report-hub-card" id="hub-visitas">
                 <strong>📋 Visitas</strong>
@@ -264,6 +267,38 @@ export async function renderReportPage() {
     document.getElementById('hub-visitas').addEventListener('click', () => navigateTo('report-visitas'));
     document.getElementById('hub-propostas').addEventListener('click', () => navigateTo('report-propostas'));
     document.getElementById('hub-funil').addEventListener('click', () => navigateTo('report-funil'));
+    loadVisaoGeralIntoReport(mainContent);
+}
+
+// "Visão geral" (métricas, gráfico de 7 dias, ranking da equipe, atividade
+// recente) morava no Início — a pedido do Bruno, mudou pra cá. Reaproveita
+// o mesmo rascunho/dado fresco do Início (cache primeiro, depois busca de
+// verdade — ver renderDashboard em pages/dashboard.js) em vez de duplicar a
+// lógica de busca, só que desenhando dentro do slot #report-visao-geral.
+function loadVisaoGeralIntoReport(mainContent) {
+    const user = state.currentUser;
+    const paint = (data) => {
+        if (document.getElementById('main-content') !== mainContent) { return; }
+        const slot = document.getElementById('report-visao-geral');
+        if (!slot) { return; }
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const recentVisits = (data.recentVisits || []).map(normalizeVisit)
+            .filter((v) => { const d = parseDisplayDate(v.dataVisita); return d && d >= sevenDaysAgo; })
+            .sort((a, b) => (parseDisplayDate(b.dataVisita) || 0) - (parseDisplayDate(a.dataVisita) || 0));
+        const recentProposals = (data.recentProposals || []).map(normalizeProposal)
+            .filter((p) => p.atrasada)
+            .sort((a, b) => (b.diasAtraso || 0) - (a.diasAtraso || 0));
+        const recentFunil = (data.recentFunil || [])
+            .sort((a, b) => (b.diasAtualizacao || calculateDaysFromDisplayDate(b.atualizacao || b.data || ''))
+                - (a.diasAtualizacao || calculateDaysFromDisplayDate(a.atualizacao || a.data || '')));
+        slot.innerHTML = renderVisaoGeralSection(data, user, recentProposals, recentVisits, recentFunil);
+        wireVisaoGeralEvents(slot, recentProposals, recentFunil);
+    };
+    const cached = loadCache('dashboard');
+    if (cached) { paint(cached); }
+    getDashboardData().then((result) => {
+        if (result.status === 'success') { paint(result.data); }
+    }).catch(() => {});
 }
 
 // Sequencial + 1 retry: as buscas pedem o histórico inteiro (dias:0) —

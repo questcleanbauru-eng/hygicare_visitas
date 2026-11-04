@@ -68,6 +68,20 @@ export function resetNavCache() {
     _headerBuilt = false;
 }
 
+// Início "central" (grade de atalho pras telas) x Início clássico (dashboard
+// de sempre, com a "Visão geral" só que essa agora mora no Relatório) —
+// escolha por aparelho (localStorage), nunca por conta: se alguém usa o app
+// em mais de um aparelho, escolhe em cada um. Usado tanto pelo Início
+// (pages/dashboard.js) quanto pela navegação abaixo (barra de baixo some
+// quando o Início novo está ativo — ver renderNavigation).
+const INICIO_CLASSICO_KEY = 'apv_inicio_classico';
+export function useClassicInicio() {
+    try { return localStorage.getItem(INICIO_CLASSICO_KEY) === '1'; } catch (e) { return false; }
+}
+export function setClassicInicio(value) {
+    try { localStorage.setItem(INICIO_CLASSICO_KEY, value ? '1' : '0'); } catch (e) { /* sem localStorage, não tem persistência mesmo */ }
+}
+
 const _loadedStyles = new Set();
 // Vão eager no index.html (ver build.js) — nunca carregar sob demanda.
 const EAGER_STYLES = new Set(['visits', 'proposals', 'funil']);
@@ -194,14 +208,25 @@ export function renderNavigation() {
         allNavItems.push({ id: 'admin', label: 'Admin', icon: NAV_ICON_SVG.admin });
     }
 
-    // Desktop: sidebar com tudo. Mobile: barra de baixo só com os itens
-    // mais usados no dia a dia (senão fica apertado demais numa tela de
-    // celular) — o resto (Contratos, Relatório, Radar) fica na gaveta do
-    // botão ☰, mesmo conjunto que já era assim quando a barra existia.
+    // Desktop: sidebar com tudo. Mobile com o Início clássico: barra de
+    // baixo só com os itens mais usados no dia a dia (senão fica apertado
+    // demais numa tela de celular) — o resto (Contratos, Relatório, Radar)
+    // fica na gaveta do botão ☰, mesmo conjunto que já era assim quando a
+    // barra existia. Mobile com o Início NOVO: esse já é o hub central —
+    // tudo o resto fica a 1 toque dali (grade "Acessar"), então a barra de
+    // baixo vira só o botão de voltar pra lá (nada se perde: o resto segue
+    // na gaveta do ☰, só não some duplicado na barra).
+    const hubMode = !isDesktop && !useClassicInicio();
     const MOBILE_BAR_IDS = ['dashboard', 'visits', 'calendar', 'proposals', 'funil', 'admin'];
-    const mobileItems = allNavItems.filter((item) => MOBILE_BAR_IDS.includes(item.id));
+    const mobileItems = hubMode
+        ? allNavItems.filter((item) => item.id === 'dashboard')
+        : allNavItems.filter((item) => MOBILE_BAR_IDS.includes(item.id));
     const navItems = isDesktop ? allNavItems : mobileItems;
-    const drawerItems = isDesktop ? allNavItems : allNavItems.filter((item) => !MOBILE_BAR_IDS.includes(item.id));
+    const drawerItems = isDesktop
+        ? allNavItems
+        : hubMode
+            ? allNavItems.filter((item) => item.id !== 'dashboard')
+            : allNavItems.filter((item) => !MOBILE_BAR_IDS.includes(item.id));
 
     const user = state.currentUser;
     const userInitial = user ? (user.name || user.nomeVendedor || 'U')[0].toUpperCase() : 'U';

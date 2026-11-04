@@ -400,6 +400,17 @@ input, textarea, select,
     .nav-icon { width: 40px; }
 }
 
+/* Início novo no mobile: a barra de baixo vira só o botão de voltar pro
+   Início (ver hubMode em renderNavigation, utils/ui.js) — sem isso ele
+   ficaria esticado ocupando a largura toda (flex:1 do .nav-btn normal,
+   pensado pra dividir espaço entre vários itens). :only-child nunca bate
+   no desktop (a sidebar sempre tem o bloco de usuário como irmão). */
+#bottom-nav .nav-btn:only-child {
+    flex: 0 0 auto;
+    margin: 0 auto;
+    padding: 0 2.4rem;
+}
+
 :root {
     --primary:        #2563eb;
     --primary-dark:   #1e3a8a;
