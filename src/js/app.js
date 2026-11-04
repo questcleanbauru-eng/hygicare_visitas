@@ -351,6 +351,7 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         initSidebarTooltip();
     }
 
+    try {
     switch (page) {
         case 'login':
             renderLoginPage();
@@ -471,6 +472,36 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
             break;
         default:
             await renderDashboard();
+    }
+    try { sessionStorage.removeItem('apv_chunk_reload_tentado'); } catch (e) {}
+    } catch (err) {
+        // Cada página é um pedaço de JS carregado sob demanda (import()
+        // dinâmico, pra não baixar o app inteiro de uma vez) — se a aba
+        // ficou aberta desde ANTES do último deploy, o arquivo daquela tela
+        // específica já nem existe mais no servidor com esse nome (os nomes
+        // mudam a cada build). Sem isso aqui, isso aparecia pro usuário como
+        // "cliquei e não foi pra lugar nenhum" ou "voltou pro Início", sem
+        // explicação — só um F5 resolvia, mas ninguém sabia que precisava.
+        const msg = String((err && err.message) || err || '');
+        const isChunkLoadError = /fetch dynamically imported module|loading dynamically imported module|importing a module script failed|loading chunk/i.test(msg);
+        if (isChunkLoadError) {
+            let jaTentou = false;
+            try { jaTentou = sessionStorage.getItem('apv_chunk_reload_tentado') === '1'; } catch (e) {}
+            if (!jaTentou) {
+                try { sessionStorage.setItem('apv_chunk_reload_tentado', '1'); } catch (e) {}
+                showToast('Nova versão do app disponível — atualizando...');
+                setTimeout(() => window.location.reload(), 600);
+                return;
+            }
+            // Já recarregou uma vez nesta aba e continua falhando — não é
+            // versão desatualizada, é falta de internet mesmo.
+            showToast('Não consegui carregar essa tela. Confira sua internet e tente de novo.', true);
+        } else {
+            console.error('Falha ao abrir a tela', page, err);
+            showToast('Não foi possível abrir essa tela. Tente de novo.', true);
+        }
+        if (page !== 'dashboard') return navigateTo('dashboard', {}, true);
+        return;
     }
 
     // Restore scroll position when returning from detail/edit back to parent list
