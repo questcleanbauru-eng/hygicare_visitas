@@ -99,6 +99,84 @@
     margin: 0 0 0.3rem;
 }
 
+/* Cards de atalho do Início ("Acessar") — grade de navegação pras telas do
+   app, com um número rápido por tela quando faz sentido. Pedido do Bruno:
+   quem não gostar troca pro Início clássico sozinho (ver .inicio-view-
+   toggle), sem precisar mexer em nada pra todo mundo. */
+.acessar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+}
+.acessar-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.8rem 0.85rem;
+    background: var(--bg-sunken);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    text-align: left;
+    cursor: pointer;
+    position: relative;
+    transition: box-shadow 0.18s, transform 0.15s;
+}
+.acessar-tile:hover  { box-shadow: var(--shadow); transform: translateY(-1px); }
+.acessar-tile:active { transform: scale(0.98); }
+.acessar-tile-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+}
+.acessar-tile-icon svg { width: 17px; height: 17px; }
+.acessar-tile-label-row { display: flex; align-items: center; gap: 0.3rem; }
+.acessar-tile-label { font-size: 0.82rem; font-weight: 700; color: var(--ink); }
+.acessar-tile-stat { font-size: 0.74rem; color: var(--text-muted); }
+.acessar-tile-stat.is-urgent { color: var(--danger); font-weight: 600; }
+/* Botão "i" — só pra explicar a tela (vendedor/gerente novo no app); usa
+   title (tooltip nativo) de propósito, sem JS extra pra isso. */
+.acessar-tile-info {
+    width: auto;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-muted);
+    opacity: 0.5;
+    display: flex;
+    cursor: help;
+}
+.acessar-tile-info:hover { opacity: 1; }
+.acessar-tile-alert {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--danger);
+}
+
+.inicio-view-toggle {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    margin: -0.2rem 0 0.5rem;
+}
+.inicio-view-toggle button {
+    width: auto;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--primary);
+    font-weight: 600;
+    cursor: pointer;
+}
+
 /* Metric cards grid */
 
 /* Sem contorno ao redor — só a faixa colorida à esquerda (é sinal, não

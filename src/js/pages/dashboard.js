@@ -1,9 +1,131 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, loadCache, getDashboardData, buildLocalDashboardData, warmListCaches } from '../api.js';
 import { escapeHtml, normalizeVisit, normalizeProposal, calculateDaysFromDisplayDate, visitTypeClass, parseDisplayDate } from '../utils/format.js';
-import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, refreshNotificacoesBadge, checkOverdueNotification, checkClientesPrincipaisNotification, hasInstallPrompt, consumeInstallPrompt } from '../utils/ui.js';
+import { updateHeaderUI, updateProposalsBadge, updateFunilBadge, refreshNotificacoesBadge, checkOverdueNotification, checkClientesPrincipaisNotification, hasInstallPrompt, consumeInstallPrompt, NAV_ICON_SVG } from '../utils/ui.js';
 import { showSuccessPopup, showToast, setSaving } from '../utils/dom.js';
 import { isPushSupported, isAppInstalled, isIOS, enablePush } from '../utils/push.js';
+
+// Início "central" (grade de atalho pras telas, com número rápido por
+// tela) — pedido do Bruno, mas NUNCA substituindo o Início clássico de
+// vez: fica por conta de cada vendedor/gerente escolher, individualmente,
+// qual dos dois prefere (ver .inicio-view-toggle em renderAcessarSection).
+// Guardado por aparelho (localStorage), não por conta — se alguém usa o
+// app em mais de um aparelho, escolhe em cada um.
+const INICIO_CLASSICO_KEY = 'apv_inicio_classico';
+function useClassicInicio() {
+    try { return localStorage.getItem(INICIO_CLASSICO_KEY) === '1'; } catch (e) { return false; }
+}
+function setClassicInicio(value) {
+    try { localStorage.setItem(INICIO_CLASSICO_KEY, value ? '1' : '0'); } catch (e) { /* sem localStorage, não tem persistência mesmo */ }
+}
+
+// Texto curto de "o que essa tela faz" pro botão (i) de cada card — pedido
+// explícito: ajudar vendedor/gerente novo a entender a navegação sem
+// precisar perguntar. Só isso, nada de copy longa (vira tooltip nativo).
+const TILE_DESCRICOES = {
+    visits: 'Registre uma visita feita a um cliente',
+    calendar: 'Veja compromissos e retornos agendados',
+    notificacoes: 'Avisos e atualizações do sistema',
+    lembretes: 'Tarefas administrativas com data pra lembrar',
+    proposals: 'Acompanhe propostas enviadas aos clientes',
+    funil: 'Oportunidades de venda em andamento',
+    contratos: 'Contratos assinados e vencimentos',
+    manutencao: 'Relatórios de manutenção realizada nos clientes',
+    report: 'Métricas completas e exportações',
+    radar: 'Encontre e reserve novos clientes na região',
+    campanhas: 'Avisos e pesquisas pro time responder',
+    admin: 'Usuários, equipe e configurações do app'
+};
+
+// Cor do ícone de cada card — só decoração/escaneabilidade (bate com os
+// mesmos tons já usados no painel do robô de WhatsApp pras categorias
+// equivalentes), não tem significado além disso.
+const TILE_CORES = {
+    visits: '#2563eb', calendar: '#7c3aed', notificacoes: '#dc2626', lembretes: '#d97706',
+    proposals: '#0891b2', funil: '#4f46e5', contratos: '#0d9488', manutencao: '#ea580c',
+    report: '#475569', radar: '#16a34a', campanhas: '#db2777', admin: '#334155'
+};
+
+function acessarTileHtml({ nav, label, stat, urgent, extraOnClick }) {
+    const info = TILE_DESCRICOES[nav] || '';
+    const cor = TILE_CORES[nav] || '#64748b';
+    const icon = NAV_ICON_SVG[nav] || '';
+    return `
+        <button type="button" class="acessar-tile" data-nav="${nav}"${extraOnClick ? ` data-nav-all="${extraOnClick}"` : ''}>
+            ${urgent ? '<span class="acessar-tile-alert" aria-hidden="true"></span>' : ''}
+            <span class="acessar-tile-icon" style="background:${cor}" aria-hidden="true">${icon}</span>
+            <span style="display:flex;flex-direction:column;gap:0.1rem;min-width:0">
+                <span class="acessar-tile-label-row">
+                    <strong class="acessar-tile-label">${escapeHtml(label)}</strong>
+                    ${info ? `<span class="acessar-tile-info" title="${escapeHtml(info)}" role="img" aria-label="O que é essa tela: ${escapeHtml(info)}">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    </span>` : ''}
+                </span>
+                <span class="acessar-tile-stat${urgent ? ' is-urgent' : ''}">${escapeHtml(stat)}</span>
+            </span>
+        </button>`;
+}
+
+// Grade de atalho ("Acessar") — um card por tela que esse usuário enxerga,
+// cada um já com um número rápido (quando existe um que faça sentido sem
+// precisar buscar dado novo nenhum — reaproveita só o que o Início já
+// carrega). Mesma regra de telas escondidas (Admin → editar usuário) que a
+// navegação já usa, pra nunca oferecer atalho pra tela que esse usuário
+// não pode abrir.
+function renderAcessarSection(data, user) {
+    const telasBloqueadas = data.telasBloqueadas || [];
+    const isAdminOrGerente = ['admin', 'gerente'].includes((user.profile || '').toLowerCase());
+    const isAdmin = (user.profile || '').toLowerCase() === 'admin';
+
+    const todayStr = (() => { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); })();
+    const todayVisitsCount = ((data.recentVisits || []).map(normalizeVisit)).filter((v) => v.dataVisita === todayStr).length;
+
+    const tiles = [];
+    if (!telasBloqueadas.includes('visits')) {
+        tiles.push(acessarTileHtml({ nav: 'visits', label: 'Visitas', stat: `${data.weeklyVisits || 0} esta semana` }));
+    }
+    if (!telasBloqueadas.includes('calendar')) {
+        tiles.push(acessarTileHtml({ nav: 'calendar', label: 'Agenda', stat: todayVisitsCount ? `${todayVisitsCount} hoje` : 'Nada marcado hoje' }));
+    }
+    tiles.push(acessarTileHtml({ nav: 'notificacoes', label: 'Notificações', stat: 'Avisos do sistema' }));
+    if (!telasBloqueadas.includes('lembretes')) {
+        tiles.push(acessarTileHtml({ nav: 'lembretes', label: 'Lembretes', stat: 'Tarefas administrativas' }));
+    }
+    if (!telasBloqueadas.includes('proposals')) {
+        const overdue = data.overdueProposals || 0;
+        tiles.push(acessarTileHtml({ nav: 'proposals', label: 'Propostas', stat: overdue ? `${overdue} atrasada(s)` : `${data.openProposals || 0} aberta(s)`, urgent: overdue > 0, extraOnClick: 'proposals' }));
+    }
+    if (!telasBloqueadas.includes('funil')) {
+        const overdue = data.overdueFunil || 0;
+        tiles.push(acessarTileHtml({ nav: 'funil', label: 'Funil', stat: overdue ? `${overdue} parado(s)` : `${data.funilAtivo || 0} ativo(s)`, urgent: overdue > 0, extraOnClick: 'funil' }));
+    }
+    if (!telasBloqueadas.includes('contratos')) {
+        const venceEmBreve = data.contratosVenceEmBreve || 0;
+        tiles.push(acessarTileHtml({ nav: 'contratos', label: 'Contratos', stat: venceEmBreve ? `${venceEmBreve} vencendo` : `${data.contratosTotal || 0} contrato(s)`, urgent: venceEmBreve > 0 }));
+    }
+    if (!telasBloqueadas.includes('manutencao')) {
+        tiles.push(acessarTileHtml({ nav: 'manutencao', label: 'Manutenção', stat: 'Relatórios técnicos' }));
+    }
+    if (!telasBloqueadas.includes('report')) {
+        tiles.push(acessarTileHtml({ nav: 'report', label: 'Relatório', stat: 'Métricas e exportações' }));
+    }
+    if (data.canAccessRadar) {
+        tiles.push(acessarTileHtml({ nav: 'radar', label: 'Radar', stat: `${data.radarClientesProspeccao || 0} em prospecção` }));
+    }
+    if (isAdminOrGerente) {
+        const pendentes = data.campanhasPendentes || 0;
+        tiles.push(acessarTileHtml({ nav: 'campanhas', label: 'Campanhas', stat: pendentes ? `${pendentes} aguardando` : `${data.campanhasTotal || 0} criada(s)`, urgent: pendentes > 0 }));
+    }
+    if (isAdmin) {
+        tiles.push(acessarTileHtml({ nav: 'admin', label: 'Admin', stat: 'Equipe e configurações' }));
+    }
+
+    return `
+        <div class="section-title-row" style="margin-top:0.2rem">
+            <p class="dash-section-heading" style="margin:0">Acessar</p>
+        </div>
+        <div class="acessar-grid">${tiles.join('')}</div>`;
+}
 
 export function fillDashboard(mainContent, data, user) {
     const sevenDaysAgo    = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -35,6 +157,10 @@ export function fillDashboard(mainContent, data, user) {
                 <p class="page-subtitle" style="margin:0.1rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>
             </div>
         </div>
+
+        <p class="inicio-view-toggle">${useClassicInicio()
+            ? 'Está no Início clássico. <button type="button" id="inicio-toggle-view">Experimentar o novo Início →</button>'
+            : 'Prefere o Início de antes? <button type="button" id="inicio-toggle-view">Voltar pro Início clássico →</button>'}</p>
 
         <div class="card push-banner" id="push-banner" hidden>
             <div class="push-banner-text">
@@ -110,6 +236,8 @@ export function fillDashboard(mainContent, data, user) {
                 `).join('')}
             </div>
         </div>` : ''}
+
+        ${!useClassicInicio() ? renderAcessarSection(data, user) : ''}
 
         <!-- Métricas -->
         <div class="section-title-row" style="margin-top:0.4rem">
@@ -288,6 +416,10 @@ export function fillDashboard(mainContent, data, user) {
 
     document.getElementById('go-agenda').addEventListener('click',    () => navigateTo('calendar'));
     document.getElementById('go-agenda-retornos')?.addEventListener('click', () => navigateTo('calendar', { filter: 'retornos' }));
+    document.getElementById('inicio-toggle-view')?.addEventListener('click', () => {
+        setClassicInicio(!useClassicInicio());
+        renderDashboard();
+    });
 
     // Abas da "Atividade recente" — troca de painel sem recarregar nada.
     let activeAct = 'visits';
@@ -312,6 +444,12 @@ export function fillDashboard(mainContent, data, user) {
     document.getElementById('qa-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
     document.getElementById('qa-new-funil')?.addEventListener('click',    () => navigateTo('funil-new'));
     document.getElementById('qa-resumo-diario')?.addEventListener('click', () => showResumoDiarioModal());
+    mainContent.querySelectorAll('.acessar-tile[data-nav]').forEach((el) => {
+        el.addEventListener('click', () => {
+            if (el.dataset.navAll) state.navLoadAll = el.dataset.navAll;
+            navigateTo(el.dataset.nav);
+        });
+    });
     mainContent.querySelectorAll('.metric-card[data-nav]').forEach((el) => {
         el.addEventListener('click', () => {
             const nav = el.dataset.nav;
