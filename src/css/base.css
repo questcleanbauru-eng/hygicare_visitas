@@ -401,15 +401,33 @@ input, textarea, select,
 }
 
 /* Início novo no mobile: a barra de baixo vira só o botão de voltar pro
-   Início (ver hubMode em renderNavigation, utils/ui.js) — sem isso ele
-   ficaria esticado ocupando a largura toda (flex:1 do .nav-btn normal,
-   pensado pra dividir espaço entre vários itens). :only-child nunca bate
-   no desktop (a sidebar sempre tem o bloco de usuário como irmão). */
+   Início (ver hubMode em renderNavigation, utils/ui.js). Vira uma pílula
+   compacta (ícone ao lado do rótulo, não empilhado) em vez do item normal
+   da barra — que fica esticado (flex:1) e alto (pensado pra caber ícone
+   em cima + rótulo embaixo de vários itens lado a lado); um botão só
+   nesse formato sobrava espaço vazio em volta. align-self:center tira o
+   stretch vertical do pai (#bottom-nav tem align-items:stretch), senão a
+   barra continuaria alta mesmo com a pílula pequena dentro dela.
+   :only-child nunca bate no desktop (a sidebar sempre tem o bloco de
+   usuário como irmão). */
 #bottom-nav .nav-btn:only-child {
     flex: 0 0 auto;
-    margin: 0 auto;
-    padding: 0 2.4rem;
+    align-self: center;
+    flex-direction: row;
+    gap: 0.45rem;
+    margin: 0.3rem auto;
+    padding: 0.5rem 1.5rem;
+    min-height: 0;
+    border-radius: 999px;
+    background: var(--bg-sunken);
 }
+#bottom-nav .nav-btn:only-child .nav-icon {
+    width: 20px;
+    height: 20px;
+    background: transparent !important;
+    transform: none !important;
+}
+#bottom-nav .nav-btn:only-child .nav-btn-label { font-size: 0.82rem; }
 
 :root {
     --primary:        #2563eb;
