@@ -334,6 +334,53 @@ export function wireVisaoGeralEvents(container, recentProposals, recentFunil) {
     });
 }
 
+// Ícones dos botões de "Seu dia" (Início novo) — mesmo traço dos ícones
+// da grade "Acessar" (NAV_ICON_SVG), só que esses dois não são telas.
+const SEUDIA_ICON = {
+    hoje: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+    retornos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>',
+    chevron: '<svg class="seudia-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'
+};
+
+// Janela que sobe de baixo (no computador fica centralizada) com a lista
+// de "Hoje" ou dos "Próximos retornos". Fecha no X, tocando fora ou no Esc.
+// corpoHtml já vem escapado (renderRecentItems / retornosListHtml).
+function openInicioSheet({ titulo, subtitulo, urgente, cor, icone, corpoHtml, acoes = [] }) {
+    document.querySelector('.inicio-sheet-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.className = 'inicio-sheet-overlay';
+    overlay.innerHTML = `
+        <div class="inicio-sheet" role="dialog" aria-modal="true" aria-label="${escapeHtml(titulo)}">
+            <span class="inicio-sheet-handle" aria-hidden="true"></span>
+            <div class="inicio-sheet-head">
+                <span class="acessar-tile-icon" style="background:${cor}" aria-hidden="true">${icone}</span>
+                <span class="inicio-sheet-titles">
+                    <strong>${escapeHtml(titulo)}</strong>
+                    <span class="inicio-sheet-sub${urgente ? ' is-urgent' : ''}">${escapeHtml(subtitulo)}</span>
+                </span>
+                <button type="button" class="inicio-sheet-close" aria-label="Fechar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="inicio-sheet-body">${corpoHtml}</div>
+            ${acoes.length ? `<div class="inicio-sheet-actions" style="grid-template-columns:repeat(${acoes.length},minmax(0,1fr))">
+                ${acoes.map((a, i) => `<button type="button" class="${a.primary ? 'primary-button' : 'secondary-button'}" data-acao="${i}">${escapeHtml(a.label)}</button>`).join('')}
+            </div>` : ''}
+        </div>`;
+    document.body.appendChild(overlay);
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('.inicio-sheet-close').addEventListener('click', close);
+    overlay.querySelectorAll('[data-acao]').forEach((btn) => btn.addEventListener('click', () => {
+        close();
+        acoes[Number(btn.dataset.acao)].onClick();
+    }));
+    requestAnimationFrame(() => overlay.classList.add('is-open'));
+    overlay.querySelector('.inicio-sheet-close').focus({ preventScroll: true });
+}
+
 export function fillDashboard(mainContent, data, user) {
     const sevenDaysAgo    = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentVisits    = (data.recentVisits || []).map(normalizeVisit)
@@ -357,52 +404,62 @@ export function fillDashboard(mainContent, data, user) {
     const todayStr = (() => { const d = new Date(); return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear(); })();
     const todayVisits = recentVisits.filter((v) => v.dataVisita === todayStr);
 
-    // Ações rápidas + Hoje + Próximos retornos + Clientes principais.
-    // No Início novo isso vem DEPOIS da grade "Acessar" (a grade é o
-    // primeiro que a pessoa vê ao abrir o app); no clássico fica no lugar
-    // de sempre, antes da Visão geral.
-    const resumoDoDiaHtml = `
-        <!-- Ações rápidas -->
-        <div class="dash-actions-bar">
-            <button type="button" class="text-link" id="qa-new-visit">📋 Nova Visita</button>
-            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
-            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
-            ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<button type="button" class="text-link" id="qa-resumo-diario">📋 Resumo de ontem</button>' : ''}
+    const proximos = data.proximosAgendamentos || [];
+    const retornosListHtml = proximos.length === 0
+        ? '<p class="helper-text">Nenhum retorno agendado.</p>'
+        : `<div class="recent-list">
+            ${proximos.map((a) => {
+                const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
+                const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
+                const diasCor = dias < 0 ? 'erro' : dias <= 1 ? 'apresentacao' : 'preventiva';
+                return `<div class="recent-item recent-item-proposal">
+                    <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
+                        <strong style="font-size:0.85rem">${escapeHtml(a.cliente || '-')}</strong>
+                        <span class="helper-text" style="margin:0">${escapeHtml(a.cidade || '-')}</span>
+                    </div>
+                    <span class="status-tag ${diasCor}">${diasLabel}</span>
+                </div>`;
+            }).join('')}
+        </div>`;
+    const retornosAtrasados = proximos.filter((a) => calculateDaysFromDisplayDate(a.dataAgendada) > 0).length;
+    const hojeListHtml = todayVisits.length === 0
+        ? '<p class="helper-text">Nenhuma visita registrada hoje ainda.</p>'
+        : renderRecentItems(todayVisits, '');
+
+    // Início novo: "Seu dia" — dois botões no mesmo estilo da grade
+    // "Acessar"; cada um abre uma janela de baixo pra cima (ver
+    // openInicioSheet) com a lista do dia / dos retornos, em vez de ocupar
+    // a tela inteira com os cards de antes.
+    const seuDiaHtml = `
+        <div class="section-title-row" style="margin-top:0.2rem">
+            <p class="dash-section-heading" style="margin:0">Seu dia</p>
         </div>
+        <div class="seudia-grid">
+            <button type="button" class="seudia-tile seudia-hoje" id="seudia-hoje">
+                <span class="seudia-tile-top">
+                    <span class="acessar-tile-icon" style="background:#0284c7" aria-hidden="true">${SEUDIA_ICON.hoje}</span>
+                    ${SEUDIA_ICON.chevron}
+                </span>
+                <span class="seudia-tile-text">
+                    <strong class="acessar-tile-label">Hoje</strong>
+                    <span class="seudia-tile-stat"><strong>${todayVisits.length}</strong> visita${todayVisits.length === 1 ? '' : 's'} · ${todayStr.slice(0, 5)}</span>
+                </span>
+            </button>
+            <button type="button" class="seudia-tile seudia-retornos${retornosAtrasados ? ' is-urgent' : ''}" id="seudia-retornos">
+                <span class="seudia-tile-top">
+                    <span class="acessar-tile-icon" style="background:#e11d48" aria-hidden="true">${SEUDIA_ICON.retornos}</span>
+                    ${SEUDIA_ICON.chevron}
+                </span>
+                <span class="seudia-tile-text">
+                    <strong class="acessar-tile-label">Próximos retornos</strong>
+                    <span class="seudia-tile-stat">${retornosAtrasados
+                        ? `<strong>${retornosAtrasados}</strong> atrasado${retornosAtrasados === 1 ? '' : 's'}`
+                        : `<strong>${proximos.length}</strong> agendado${proximos.length === 1 ? '' : 's'}`}</span>
+                </span>
+            </button>
+        </div>`;
 
-        <!-- Hoje -->
-        <div class="dash-today-card">
-            <div class="section-title-row">
-                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📅 Hoje</h3>
-                <button class="section-link-button" id="go-agenda">Ver agenda completa →</button>
-            </div>
-            ${todayVisits.length === 0
-                ? '<p class="helper-text">Nenhuma visita registrada hoje ainda.</p>'
-                : renderRecentItems(todayVisits, '')}
-        </div>
-
-        ${(data.proximosAgendamentos && data.proximosAgendamentos.length > 0) ? `
-        <div class="dash-today-card" style="margin-top:0.5rem">
-            <div class="section-title-row">
-                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📌 Próximos retornos</h3>
-                <button class="section-link-button" id="go-agenda-retornos">Ver agenda →</button>
-            </div>
-            <div class="recent-list">
-                ${data.proximosAgendamentos.map((a) => {
-                    const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
-                    const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
-                    const diasCor = dias < 0 ? 'erro' : dias <= 1 ? 'apresentacao' : 'preventiva';
-                    return `<div class="recent-item recent-item-proposal">
-                        <div style="display:flex;flex-direction:column;gap:0.1rem;min-width:0;flex:1">
-                            <strong style="font-size:0.85rem">${escapeHtml(a.cliente || '-')}</strong>
-                            <span class="helper-text" style="margin:0">${escapeHtml(a.cidade || '-')}</span>
-                        </div>
-                        <span class="status-tag ${diasCor}">${diasLabel}</span>
-                    </div>`;
-                }).join('')}
-            </div>
-        </div>` : ''}
-
+    const clientesPrincipaisHtml = `
         ${(data.clientesPrincipaisPendentes && data.clientesPrincipaisPendentes.length > 0) ? `
         <div class="dash-today-card dash-cp-card dash-cp-collapsed" id="dash-cp-card" style="margin-top:0.5rem">
             <button type="button" class="dash-cp-toggle" id="dash-cp-toggle" aria-expanded="false" aria-controls="dash-cp-body">
@@ -421,6 +478,45 @@ export function fillDashboard(mainContent, data, user) {
                 `).join('')}
             </div>
         </div>` : ''}
+    `;
+
+    const quickActionsHtml = `
+        <!-- Ações rápidas -->
+        <div class="dash-actions-bar">
+            <button type="button" class="text-link" id="qa-new-visit">📋 Nova Visita</button>
+            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-proposal">📄 Nova Proposta</button>' : ''}
+            ${state.canCreateProposalFunil ? '<button type="button" class="text-link" id="qa-new-funil">📊 Nova Oportunidade</button>' : ''}
+            ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<button type="button" class="text-link" id="qa-resumo-diario">📋 Resumo de ontem</button>' : ''}
+        </div>
+    `;
+
+    // Início clássico: Ações rápidas + Hoje + Próximos retornos + Clientes
+    // principais, como sempre foi, antes da Visão geral. No Início novo
+    // Hoje/Retornos viram os botões de "Seu dia" (seuDiaHtml).
+    const resumoDoDiaHtml = `
+        ${quickActionsHtml}
+
+        <!-- Hoje -->
+        <div class="dash-today-card">
+            <div class="section-title-row">
+                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📅 Hoje</h3>
+                <button class="section-link-button" id="go-agenda">Ver agenda completa →</button>
+            </div>
+            ${todayVisits.length === 0
+                ? '<p class="helper-text">Nenhuma visita registrada hoje ainda.</p>'
+                : renderRecentItems(todayVisits, '')}
+        </div>
+
+        ${(data.proximosAgendamentos && data.proximosAgendamentos.length > 0) ? `
+        <div class="dash-today-card" style="margin-top:0.5rem">
+            <div class="section-title-row">
+                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📌 Próximos retornos</h3>
+                <button class="section-link-button" id="go-agenda-retornos">Ver agenda →</button>
+            </div>
+            ${retornosListHtml}
+        </div>` : ''}
+
+        ${clientesPrincipaisHtml}
     `;
 
     mainContent.innerHTML = `
@@ -450,15 +546,17 @@ export function fillDashboard(mainContent, data, user) {
         ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<div id="resumo-diario-card"></div>' : ''}
         ${state.canCreateProposalFunil ? '<div id="visitas-sinalizadas-card"></div>' : ''}
 
-        ${useClassicInicio() ? '' : renderAcessarSection(data, user)}
-
-        ${resumoDoDiaHtml}
+        ${useClassicInicio() ? resumoDoDiaHtml : `
+            ${seuDiaHtml}
+            ${renderAcessarSection(data, user)}
+            ${quickActionsHtml}
+            ${clientesPrincipaisHtml}`}
 
 
         ${useClassicInicio() ? renderVisaoGeralSection(data, user, recentProposals, recentVisits, recentFunil) : ''}
     `;
 
-    document.getElementById('go-agenda').addEventListener('click',    () => navigateTo('calendar'));
+    document.getElementById('go-agenda')?.addEventListener('click',    () => navigateTo('calendar'));
     document.getElementById('go-agenda-retornos')?.addEventListener('click', () => navigateTo('calendar', { filter: 'retornos' }));
     document.getElementById('inicio-toggle-view')?.addEventListener('click', () => {
         setClassicInicio(!useClassicInicio());
@@ -470,6 +568,31 @@ export function fillDashboard(mainContent, data, user) {
         renderDashboard();
     });
     if (useClassicInicio()) { wireVisaoGeralEvents(mainContent, recentProposals, recentFunil); }
+
+    document.getElementById('seudia-hoje')?.addEventListener('click', () => openInicioSheet({
+        titulo: 'Hoje',
+        subtitulo: `${todayStr} · ${todayVisits.length} visita${todayVisits.length === 1 ? '' : 's'}`,
+        cor: '#0284c7',
+        icone: SEUDIA_ICON.hoje,
+        corpoHtml: hojeListHtml,
+        acoes: [
+            { label: 'Ver agenda', onClick: () => navigateTo('calendar') },
+            { label: '+ Nova visita', primary: true, onClick: () => navigateTo('visit-new') }
+        ]
+    }));
+    document.getElementById('seudia-retornos')?.addEventListener('click', () => openInicioSheet({
+        titulo: 'Próximos retornos',
+        subtitulo: retornosAtrasados
+            ? `${retornosAtrasados} atrasado${retornosAtrasados === 1 ? '' : 's'}`
+            : `${proximos.length} agendado${proximos.length === 1 ? '' : 's'}`,
+        urgente: retornosAtrasados > 0,
+        cor: '#e11d48',
+        icone: SEUDIA_ICON.retornos,
+        corpoHtml: retornosListHtml,
+        acoes: [
+            { label: 'Ver agenda completa', primary: true, onClick: () => navigateTo('calendar', { filter: 'retornos' }) }
+        ]
+    }));
 
     document.getElementById('qa-new-visit').addEventListener('click',     () => navigateTo('visit-new'));
     document.getElementById('qa-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
