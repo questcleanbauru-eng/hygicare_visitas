@@ -584,11 +584,8 @@ export function fillDashboard(mainContent, data, user) {
             { label: '+ Nova visita', primary: true, onClick: () => navigateTo('visit-new') }
         ]
     }));
-    // Mesma janela do "+ Agendar" da Agenda (visits.js → showCreateAgendamentoModal).
-    document.getElementById('seudia-agendar')?.addEventListener('click', async () => {
-        const { showCreateAgendamentoModal } = await import('./visits.js');
-        showCreateAgendamentoModal(() => renderDashboard());
-    });
+    // Mesma tela do "+ Nova Visita" da tela Visitas (formulário de visita).
+    document.getElementById('seudia-agendar')?.addEventListener('click', () => navigateTo('visit-new'));
     document.getElementById('seudia-retornos')?.addEventListener('click', () => openInicioSheet({
         titulo: 'Próximos retornos',
         subtitulo: retornosAtrasados
