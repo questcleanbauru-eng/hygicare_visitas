@@ -139,28 +139,26 @@
 .acessar-tile-label { font-size: 0.82rem; font-weight: 700; color: var(--ink); }
 .acessar-tile-stat { font-size: 0.74rem; color: var(--text-muted); }
 .acessar-tile-stat.is-urgent { color: var(--danger); font-weight: 600; }
-/* Botão "i" — só pra explicar a tela (vendedor/gerente novo no app); usa
-   title (tooltip nativo) de propósito, sem JS extra pra isso. */
-.acessar-tile-info {
-    width: auto;
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--text-muted);
-    opacity: 0.5;
-    display: flex;
-    cursor: help;
-}
-.acessar-tile-info:hover { opacity: 1; }
-.acessar-tile-alert {
+.acessar-tile-text { display: flex; flex-direction: column; gap: 0.12rem; min-width: 0; }
+.acessar-tile-desc { font-size: 0.7rem; line-height: 1.3; color: var(--text-muted); }
+.acessar-tile-stat { font-weight: 600; color: var(--text-muted-strong); }
+/* "!" de atenção — no canto do card (ou no lugar da seta, .is-inline) */
+.atencao-badge {
     position: absolute;
-    top: 0.7rem;
-    right: 0.7rem;
-    width: 7px;
-    height: 7px;
+    top: 0.6rem;
+    right: 0.6rem;
+    width: 22px;
+    height: 22px;
     border-radius: 999px;
-    background: var(--danger);
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 800;
+    line-height: 22px;
+    text-align: center;
+    box-shadow: 0 0 0 3px var(--danger-bg);
 }
+.atencao-badge.is-inline { position: static; flex-shrink: 0; }
 
 .inicio-view-toggle {
     font-size: 0.76rem;
@@ -910,3 +908,22 @@
     .inicio-sheet-overlay.is-open .inicio-sheet { opacity: 1; }
     .inicio-sheet-handle { display: none; }
 }
+
+.seudia-agendar {
+    width: 100%;
+    height: 48px;
+    margin: -0.3rem 0 0.9rem;
+    border: 0;
+    border-radius: 12px;
+    background: var(--ink);
+    color: #fff;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+.seudia-agendar:active { transform: scale(0.99); }

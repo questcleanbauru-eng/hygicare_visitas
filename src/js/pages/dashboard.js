@@ -7,17 +7,18 @@ import { isPushSupported, isAppInstalled, isIOS, enablePush } from '../utils/pus
 
 // Texto curto de "o que essa tela faz" pro botão (i) de cada card — pedido
 // explícito: ajudar vendedor/gerente novo a entender a navegação sem
-// precisar perguntar. Só isso, nada de copy longa (vira tooltip nativo).
+// precisar perguntar. Aparece como uma linha curta dentro do card (antes era
+// um (i) com tooltip, que no celular ninguém conseguia ler).
 const TILE_DESCRICOES = {
     visits: 'Registre uma visita feita a um cliente',
-    calendar: 'Veja compromissos e retornos agendados',
+    calendar: 'Compromissos e retornos agendados',
     notificacoes: 'Avisos e atualizações do sistema',
-    lembretes: 'Tarefas administrativas com data pra lembrar',
-    proposals: 'Acompanhe propostas enviadas aos clientes',
+    lembretes: 'Tarefas administrativas com data',
+    proposals: 'Propostas enviadas aos clientes',
     funil: 'Oportunidades de venda em andamento',
     contratos: 'Contratos assinados e vencimentos',
-    manutencao: 'Relatórios de manutenção realizada nos clientes',
-    report: 'Métricas completas e exportações',
+    manutencao: 'Relatórios de manutenção nos clientes',
+    report: 'Métricas e exportações',
     radar: 'Encontre e reserve novos clientes na região',
     campanhas: 'Avisos e pesquisas pro time responder',
     admin: 'Usuários, equipe e configurações do app'
@@ -32,22 +33,22 @@ const TILE_CORES = {
     report: '#475569', radar: '#16a34a', campanhas: '#db2777', admin: '#334155'
 };
 
+// "!" vermelho no canto do card = essa tela precisa da atenção do usuário
+// (proposta/funil parado, contrato vencendo, retorno atrasado...).
+const ATENCAO_BADGE = '<span class="atencao-badge" role="img" aria-label="Precisa da sua atenção">!</span>';
+
 function acessarTileHtml({ nav, label, stat, urgent, extraOnClick }) {
     const info = TILE_DESCRICOES[nav] || '';
     const cor = TILE_CORES[nav] || '#64748b';
     const icon = NAV_ICON_SVG[nav] || '';
     return `
         <button type="button" class="acessar-tile" data-nav="${nav}"${extraOnClick ? ` data-nav-all="${extraOnClick}"` : ''}>
-            ${urgent ? '<span class="acessar-tile-alert" aria-hidden="true"></span>' : ''}
+            ${urgent ? ATENCAO_BADGE : ''}
             <span class="acessar-tile-icon" style="background:${cor}" aria-hidden="true">${icon}</span>
-            <span style="display:flex;flex-direction:column;gap:0.1rem;min-width:0">
-                <span class="acessar-tile-label-row">
-                    <strong class="acessar-tile-label">${escapeHtml(label)}</strong>
-                    ${info ? `<span class="acessar-tile-info" title="${escapeHtml(info)}" role="img" aria-label="O que é essa tela: ${escapeHtml(info)}">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    </span>` : ''}
-                </span>
-                <span class="acessar-tile-stat${urgent ? ' is-urgent' : ''}">${escapeHtml(stat)}</span>
+            <span class="acessar-tile-text">
+                <strong class="acessar-tile-label">${escapeHtml(label)}</strong>
+                ${info ? `<span class="acessar-tile-desc">${escapeHtml(info)}</span>` : ''}
+                ${stat ? `<span class="acessar-tile-stat${urgent ? ' is-urgent' : ''}">${escapeHtml(stat)}</span>` : ''}
             </span>
         </button>`;
 }
@@ -73,9 +74,9 @@ function renderAcessarSection(data, user) {
     if (!telasBloqueadas.includes('calendar')) {
         tiles.push(acessarTileHtml({ nav: 'calendar', label: 'Agenda', stat: todayVisitsCount ? `${todayVisitsCount} hoje` : 'Nada marcado hoje' }));
     }
-    tiles.push(acessarTileHtml({ nav: 'notificacoes', label: 'Notificações', stat: 'Avisos do sistema' }));
+    tiles.push(acessarTileHtml({ nav: 'notificacoes', label: 'Notificações' }));
     if (!telasBloqueadas.includes('lembretes')) {
-        tiles.push(acessarTileHtml({ nav: 'lembretes', label: 'Lembretes', stat: 'Tarefas administrativas' }));
+        tiles.push(acessarTileHtml({ nav: 'lembretes', label: 'Lembretes' }));
     }
     if (!telasBloqueadas.includes('proposals')) {
         const overdue = data.overdueProposals || 0;
@@ -90,10 +91,10 @@ function renderAcessarSection(data, user) {
         tiles.push(acessarTileHtml({ nav: 'contratos', label: 'Contratos', stat: venceEmBreve ? `${venceEmBreve} vencendo` : `${data.contratosTotal || 0} contrato(s)`, urgent: venceEmBreve > 0 }));
     }
     if (!telasBloqueadas.includes('manutencao')) {
-        tiles.push(acessarTileHtml({ nav: 'manutencao', label: 'Manutenção', stat: 'Relatórios técnicos' }));
+        tiles.push(acessarTileHtml({ nav: 'manutencao', label: 'Manutenção' }));
     }
     if (!telasBloqueadas.includes('report')) {
-        tiles.push(acessarTileHtml({ nav: 'report', label: 'Relatório', stat: 'Métricas e exportações' }));
+        tiles.push(acessarTileHtml({ nav: 'report', label: 'Relatório' }));
     }
     if (data.canAccessRadar) {
         tiles.push(acessarTileHtml({ nav: 'radar', label: 'Radar', stat: `${data.radarClientesProspeccao || 0} em prospecção` }));
@@ -103,7 +104,7 @@ function renderAcessarSection(data, user) {
         tiles.push(acessarTileHtml({ nav: 'campanhas', label: 'Campanhas', stat: pendentes ? `${pendentes} aguardando` : `${data.campanhasTotal || 0} criada(s)`, urgent: pendentes > 0 }));
     }
     if (isAdmin) {
-        tiles.push(acessarTileHtml({ nav: 'admin', label: 'Admin', stat: 'Equipe e configurações' }));
+        tiles.push(acessarTileHtml({ nav: 'admin', label: 'Admin' }));
     }
 
     return `
@@ -339,6 +340,7 @@ export function wireVisaoGeralEvents(container, recentProposals, recentFunil) {
 const SEUDIA_ICON = {
     hoje: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
     retornos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>',
+    agendar: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/><line x1="12" y1="13" x2="12" y2="18"/><line x1="9.5" y1="15.5" x2="14.5" y2="15.5"/></svg>',
     chevron: '<svg class="seudia-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'
 };
 
@@ -442,22 +444,25 @@ export function fillDashboard(mainContent, data, user) {
                 </span>
                 <span class="seudia-tile-text">
                     <strong class="acessar-tile-label">Hoje</strong>
+                    <span class="acessar-tile-desc">Visitas registradas hoje</span>
                     <span class="seudia-tile-stat"><strong>${todayVisits.length}</strong> visita${todayVisits.length === 1 ? '' : 's'} · ${todayStr.slice(0, 5)}</span>
                 </span>
             </button>
             <button type="button" class="seudia-tile seudia-retornos${retornosAtrasados ? ' is-urgent' : ''}" id="seudia-retornos">
                 <span class="seudia-tile-top">
                     <span class="acessar-tile-icon" style="background:#e11d48" aria-hidden="true">${SEUDIA_ICON.retornos}</span>
-                    ${SEUDIA_ICON.chevron}
+                    ${retornosAtrasados ? ATENCAO_BADGE.replace('atencao-badge', 'atencao-badge is-inline') : SEUDIA_ICON.chevron}
                 </span>
                 <span class="seudia-tile-text">
                     <strong class="acessar-tile-label">Próximos retornos</strong>
+                    <span class="acessar-tile-desc">Clientes pra voltar a visitar</span>
                     <span class="seudia-tile-stat">${retornosAtrasados
                         ? `<strong>${retornosAtrasados}</strong> atrasado${retornosAtrasados === 1 ? '' : 's'}`
                         : `<strong>${proximos.length}</strong> agendado${proximos.length === 1 ? '' : 's'}`}</span>
                 </span>
             </button>
-        </div>`;
+        </div>
+        <button type="button" class="seudia-agendar" id="seudia-agendar">${SEUDIA_ICON.agendar} Agendar visita</button>`;
 
     const clientesPrincipaisHtml = `
         ${(data.clientesPrincipaisPendentes && data.clientesPrincipaisPendentes.length > 0) ? `
@@ -579,6 +584,11 @@ export function fillDashboard(mainContent, data, user) {
             { label: '+ Nova visita', primary: true, onClick: () => navigateTo('visit-new') }
         ]
     }));
+    // Mesma janela do "+ Agendar" da Agenda (visits.js → showCreateAgendamentoModal).
+    document.getElementById('seudia-agendar')?.addEventListener('click', async () => {
+        const { showCreateAgendamentoModal } = await import('./visits.js');
+        showCreateAgendamentoModal(() => renderDashboard());
+    });
     document.getElementById('seudia-retornos')?.addEventListener('click', () => openInicioSheet({
         titulo: 'Próximos retornos',
         subtitulo: retornosAtrasados
