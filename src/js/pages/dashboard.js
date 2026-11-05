@@ -357,33 +357,11 @@ export function fillDashboard(mainContent, data, user) {
     const todayStr = (() => { const d = new Date(); return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear(); })();
     const todayVisits = recentVisits.filter((v) => v.dataVisita === todayStr);
 
-    mainContent.innerHTML = `
-        <div class="page-header page-header-hero" style="margin-bottom:0.6rem">
-            <div>
-                <h2>Início</h2>
-                <p class="page-subtitle" style="margin:0.1rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>
-            </div>
-        </div>
-
-        <p class="inicio-view-toggle">${useClassicInicio()
-            ? 'Está no Início clássico. <button type="button" id="inicio-toggle-view">Experimentar o novo Início →</button>'
-            : 'Prefere o Início de antes? <button type="button" id="inicio-toggle-view">Voltar pro Início clássico →</button>'}</p>
-
-        <div class="card push-banner" id="push-banner" hidden>
-            <div class="push-banner-text">
-                <strong class="push-banner-title"></strong>
-                <p class="helper-text push-banner-desc" style="margin:0.2rem 0 0"></p>
-            </div>
-            <div class="push-banner-actions">
-                <button type="button" class="mini-button" id="push-banner-dismiss">Agora não</button>
-                <button type="button" class="primary-button" id="push-banner-install" style="width:auto" hidden>Instalar app</button>
-                <button type="button" class="primary-button" id="push-banner-enable" style="width:auto" hidden>Ativar notificações</button>
-            </div>
-        </div>
-
-        ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<div id="resumo-diario-card"></div>' : ''}
-        ${state.canCreateProposalFunil ? '<div id="visitas-sinalizadas-card"></div>' : ''}
-
+    // Ações rápidas + Hoje + Próximos retornos + Clientes principais.
+    // No Início novo isso vem DEPOIS da grade "Acessar" (a grade é o
+    // primeiro que a pessoa vê ao abrir o app); no clássico fica no lugar
+    // de sempre, antes da Visão geral.
+    const resumoDoDiaHtml = `
         <!-- Ações rápidas -->
         <div class="dash-actions-bar">
             <button type="button" class="text-link" id="qa-new-visit">📋 Nova Visita</button>
@@ -443,8 +421,39 @@ export function fillDashboard(mainContent, data, user) {
                 `).join('')}
             </div>
         </div>` : ''}
+    `;
 
-        ${!useClassicInicio() ? renderAcessarSection(data, user) : ''}
+    mainContent.innerHTML = `
+        <div class="page-header page-header-hero" style="margin-bottom:0.6rem">
+            <div>
+                <h2>Início</h2>
+                <p class="page-subtitle" style="margin:0.1rem 0 0">${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${escapeHtml(user.name.split(' ')[0])} 👋</p>
+            </div>
+        </div>
+
+        <p class="inicio-view-toggle">${useClassicInicio()
+            ? 'Está no Início clássico. <button type="button" id="inicio-toggle-view">Experimentar o novo Início →</button>'
+            : 'Prefere o Início de antes? <button type="button" id="inicio-toggle-view">Voltar pro Início clássico →</button>'}</p>
+
+        <div class="card push-banner" id="push-banner" hidden>
+            <div class="push-banner-text">
+                <strong class="push-banner-title"></strong>
+                <p class="helper-text push-banner-desc" style="margin:0.2rem 0 0"></p>
+            </div>
+            <div class="push-banner-actions">
+                <button type="button" class="mini-button" id="push-banner-dismiss">Agora não</button>
+                <button type="button" class="primary-button" id="push-banner-install" style="width:auto" hidden>Instalar app</button>
+                <button type="button" class="primary-button" id="push-banner-enable" style="width:auto" hidden>Ativar notificações</button>
+            </div>
+        </div>
+
+        ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<div id="resumo-diario-card"></div>' : ''}
+        ${state.canCreateProposalFunil ? '<div id="visitas-sinalizadas-card"></div>' : ''}
+
+        ${useClassicInicio() ? '' : renderAcessarSection(data, user)}
+
+        ${resumoDoDiaHtml}
+
 
         ${useClassicInicio() ? renderVisaoGeralSection(data, user, recentProposals, recentVisits, recentFunil) : ''}
     `;
@@ -863,4 +872,4 @@ export function renderVisitsBarChart(visitsByDay, meta, weeklyTotal) {
     const progressBar = meta > 0 ? `<div class="chart-progress-wrap"><div class="chart-progress-fill" style="width:${Math.min(100, Math.round(weeklyTotal / meta * 100))}%"></div></div>` : '';
     return `<div class="chart-bars">${bars}</div>${metaLine}${progressBar}`;
 }
-
+
