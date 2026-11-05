@@ -549,7 +549,6 @@ export function fillDashboard(mainContent, data, user) {
         ${useClassicInicio() ? resumoDoDiaHtml : `
             ${seuDiaHtml}
             ${renderAcessarSection(data, user)}
-            ${quickActionsHtml}
             ${clientesPrincipaisHtml}`}
 
 
@@ -594,7 +593,7 @@ export function fillDashboard(mainContent, data, user) {
         ]
     }));
 
-    document.getElementById('qa-new-visit').addEventListener('click',     () => navigateTo('visit-new'));
+    document.getElementById('qa-new-visit')?.addEventListener('click',     () => navigateTo('visit-new'));
     document.getElementById('qa-new-proposal')?.addEventListener('click', () => navigateTo('proposal-new'));
     document.getElementById('qa-new-funil')?.addEventListener('click',    () => navigateTo('funil-new'));
     document.getElementById('qa-resumo-diario')?.addEventListener('click', () => showResumoDiarioModal());
