@@ -341,6 +341,7 @@ const SEUDIA_ICON = {
     hoje: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
     retornos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>',
     agendar: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/><line x1="12" y1="13" x2="12" y2="18"/><line x1="9.5" y1="15.5" x2="14.5" y2="15.5"/></svg>',
+    relatorio: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h2a2 2 0 0 1 2 2v4"/><path d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h4"/><rect x="9" y="2" width="6" height="4" rx="1"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="12" y2="15"/><path d="M18.4 13.6a1.9 1.9 0 0 1 2.7 2.7L16 21.4l-3.5.9.9-3.5z"/></svg>',
     chevron: '<svg class="seudia-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'
 };
 
@@ -462,7 +463,14 @@ export function fillDashboard(mainContent, data, user) {
                 </span>
             </button>
         </div>
-        <button type="button" class="seudia-agendar" id="seudia-agendar">${SEUDIA_ICON.agendar} Agendar visita</button>`;
+        <button type="button" class="seudia-relatorio" id="seudia-agendar">
+            <span class="seudia-relatorio-icon" aria-hidden="true">${SEUDIA_ICON.relatorio}</span>
+            <span class="seudia-relatorio-text">
+                <strong>Preencher relatório de visita</strong>
+                <span>Registre o que foi feito no cliente</span>
+            </span>
+            <span class="seudia-relatorio-arrow" aria-hidden="true">${SEUDIA_ICON.chevron}</span>
+        </button>`;
 
     const clientesPrincipaisHtml = `
         ${(data.clientesPrincipaisPendentes && data.clientesPrincipaisPendentes.length > 0) ? `
