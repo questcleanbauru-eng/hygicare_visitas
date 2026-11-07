@@ -886,10 +886,20 @@ export function fillFunilContent(mainContent, funil) {
         const el = document.getElementById(id);
         if (el && _funilFilterMemory[id] !== undefined) { el.value = _funilFilterMemory[id]; }
     });
+    // Filtro de Vendedor compartilhado entre Visitas, Propostas e Funil
+    // (state.sharedVendorFilter): escolher um vendedor numa tela já deixa ele
+    // filtrado nas outras duas, e "Limpar" numa limpa nas três.
+    {
+        const vendorEl = document.getElementById('funil-filter-vendor');
+        if (vendorEl && state.sharedVendorFilter !== undefined) vendorEl.value = state.sharedVendorFilter;
+    }
     _funilFilterIds.forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
-        const remember = () => { _funilFilterMemory[id] = el.value; };
+        const remember = () => {
+            _funilFilterMemory[id] = el.value;
+            if (id === 'funil-filter-vendor') state.sharedVendorFilter = el.value;
+        };
         if (_funilTextFilterIds.has(id)) { el.addEventListener('input', () => { remember(); _debouncedFunilFilter(); }); }
         // 'change' cobre <select> e o clique numa opção do searchable-select
         // (Status/Cidade/Vendedor), que só dispara 'change'.
@@ -910,6 +920,7 @@ export function fillFunilContent(mainContent, funil) {
     document.getElementById('funil-filter-clear')?.addEventListener('click', () => {
         _funilFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
         _funilFilterMemory = {};
+        state.sharedVendorFilter = '';
         syncFunilMultiCheckLabels();
         state.funilYearFilter = null;
         const scopeSelect = document.getElementById('funil-scope-select');
@@ -2280,4 +2291,4 @@ export async function getFunilById(id) {
 }
 
 
-
+

@@ -733,6 +733,13 @@ export function fillVisitsContent(container, visits) {
         const el = document.getElementById(id);
         if (el && state.visitFilters[id]) el.value = state.visitFilters[id];
     });
+    // Filtro de Vendedor compartilhado entre Visitas, Propostas e Funil
+    // (state.sharedVendorFilter): escolher um vendedor numa tela já deixa ele
+    // filtrado nas outras duas, e "Limpar" numa limpa nas três.
+    {
+        const vendorEl = document.getElementById('visit-filter-vendor');
+        if (vendorEl && state.sharedVendorFilter !== undefined) vendorEl.value = state.sharedVendorFilter;
+    }
 
     const _visitTextFilterIds = new Set(['visit-filter-search']);
     const _debouncedVisitFilter = debounce(renderFilteredVisits, 250);
@@ -741,7 +748,10 @@ export function fillVisitsContent(container, visits) {
             if (!element) {
                 return;
             }
-            const remember = () => { state.visitFilters[id] = element.value; };
+            const remember = () => {
+                state.visitFilters[id] = element.value;
+                if (id === 'visit-filter-vendor') state.sharedVendorFilter = element.value;
+            };
             const isText = _visitTextFilterIds.has(id);
             if (isText) { element.addEventListener('input', () => { remember(); _debouncedVisitFilter(); }); }
             // 'change' pega tanto os <select> quanto o clique numa opção do
@@ -763,6 +773,7 @@ export function fillVisitsContent(container, visits) {
     document.getElementById('visit-filters-clear')?.addEventListener('click', () => {
         _visitFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
         state.visitFilters = {};
+        state.sharedVendorFilter = '';
         syncVisitMultiCheckLabels();
         state.visitsYearFilter = null;
         const scopeSelect = document.getElementById('visit-scope-select');
@@ -3531,4 +3542,4 @@ export function shareVisit(visit) {
         navigator.clipboard.writeText(lines).then(() => showToast('Visita copiada!')).catch(() => showToast('Não foi possível compartilhar.', true));
     }
 }
-
+

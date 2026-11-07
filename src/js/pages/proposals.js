@@ -803,6 +803,13 @@ export function fillProposalsContent(mainContent, proposals) {
         const el = document.getElementById(id);
         if (el && state.proposalFilters[id]) el.value = state.proposalFilters[id];
     });
+    // Filtro de Vendedor compartilhado entre Visitas, Propostas e Funil
+    // (state.sharedVendorFilter): escolher um vendedor numa tela já deixa ele
+    // filtrado nas outras duas, e "Limpar" numa limpa nas três.
+    {
+        const vendorEl = document.getElementById('pf-vendor');
+        if (vendorEl && state.sharedVendorFilter !== undefined) vendorEl.value = state.sharedVendorFilter;
+    }
     const syncProposalMultiCheckLabels = () => {
         syncMultiCheckFilterLabel('pf-status-trigger', 'pf-status');
         syncMultiCheckFilterLabel('pf-cidade-trigger', 'pf-cidade');
@@ -819,7 +826,10 @@ export function fillProposalsContent(mainContent, proposals) {
         // Grava em state.proposalFilters a cada mudança — a restauração lá
         // em cima já lia daqui, mas nada gravava, então o filtro nunca era
         // lembrado de verdade (sumia em qualquer re-render da tela).
-        const remember = () => { state.proposalFilters[id] = el.value; };
+        const remember = () => {
+            state.proposalFilters[id] = el.value;
+            if (id === 'pf-vendor') state.sharedVendorFilter = el.value;
+        };
         if (_proposalTextFilterIds.has(id)) { el.addEventListener('input', () => { remember(); _debouncedProposalFilter(); }); }
         // 'change' cobre <select> e o clique numa opção do filtro de múltipla
         // escolha (Status/Cidade/Vendedor), que só dispara 'change'.
@@ -830,6 +840,7 @@ export function fillProposalsContent(mainContent, proposals) {
         _proposalFilterIds.forEach((id) => { const el = document.getElementById(id); if (el) { el.value = ''; } });
         syncProposalMultiCheckLabels();
         state.proposalFilters = {};
+        state.sharedVendorFilter = '';
         state.proposalsYearFilter = null;
         const scopeSelect = document.getElementById('proposal-scope-select');
         if (scopeSelect && scopeSelect.value !== '90') { scopeSelect.value = '90'; applyProposalScopeChange('90'); }
@@ -1934,4 +1945,4 @@ export function openInlineStatusEditor(pill, proposalId, currentStatus) {
     setTimeout(() => document.addEventListener('click', close, { once: true }), 0);
 }
 
-// ── Visit bar chart ──────────────────────────────────────────────
+// ── Visit bar chart ──────────────────────────────────────────────

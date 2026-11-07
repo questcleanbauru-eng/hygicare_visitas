@@ -483,6 +483,7 @@ export function logout() {
     clearUserCache();
     clearFormDataCache();
     state.currentUser = null;
+    state.sharedVendorFilter = undefined;
     state.currentPage = 'login';
     localStorage.removeItem(STORAGE_KEY);
     renderLoginPage();
