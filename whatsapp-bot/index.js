@@ -1589,14 +1589,6 @@ document.getElementById('btn-parar').addEventListener('click', async () => {
 });
 atualizar();
 setInterval(atualizar, 4000);
-
-// A pedido: fechar (ou recarregar) essa aba para o robô — não fica mais
-// rodando escondido sem ninguém olhando. sendBeacon é o jeito confiável de
-// disparar isso durante o fechamento da página; um fetch normal aqui pode
-// ser cancelado pelo navegador antes de completar.
-window.addEventListener('pagehide', () => {
-  navigator.sendBeacon('/parar');
-});
 </script>
 </body>
 </html>`;
