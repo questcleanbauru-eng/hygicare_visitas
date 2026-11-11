@@ -46,15 +46,15 @@ const STATUS_CLASSES = {
 // os que estão no mesmo ponto).
 const STATUS_PRIORITY = { buscado: 0, prospeccao_agendada: 1, recusado: 2, ja_atendido: 3 };
 
-// Chips do filtro de status (aba Buscar) — gerados a partir de
-// STATUS_LABELS/STATUS_CLASSES pra não duplicar rótulo/cor em mais um
-// lugar. "Todos" não tem status (data-status vazio limpa o filtro).
-const STATUS_FILTER_CHIPS_HTML = ['<button type="button" class="radar-status-chip active" data-status="">Todos</button>']
-    .concat(Object.entries(STATUS_LABELS).map(([value, label]) => {
-        const cls = (STATUS_CLASSES[value] || '').replace('status-pill', '').trim();
-        return `<button type="button" class="radar-status-chip ${cls}" data-status="${value}">${escapeHtml(label)}</button>`;
-    }))
-    .join('');
+// Ícone de cada chip do filtro de status (aba Buscar) — ver renderStatusChips,
+// que monta os chips com a contagem de empresas de cada status já embutida
+// (antes era um texto separado, buildStatusResumo).
+const STATUS_CHIP_ICON = {
+    buscado: '🟢',
+    ja_atendido: '🔵',
+    recusado: '🔴',
+    prospeccao_agendada: '🟠'
+};
 
 // Desativado a pedido do usuário (layout não convenceu mesmo depois de
 // corrigir tamanho de pin e filtrar pra cidade escolhida — ver commits
@@ -71,6 +71,7 @@ const RADAR_MAP_ENABLED = false;
 const RADAR_EMPRESA_MAP_ENABLED = false;
 
 let activeRadarTab = 'buscar';
+let _radarAdminMenuOutsideClick = null; // ver bindRadarPage — fecha-ao-clicar-fora do menu "⚙️ Admin"
 
 // Base inteira de empresas (todas as cidades acessíveis, já filtradas por
 // acesso no servidor) — carregada 1x só, na abertura da tela (ver
@@ -140,6 +141,16 @@ let cidadesAdminLoaded = false;
 
 function cidadeLabel(c) {
     return c.uf ? `${c.cidade} - ${c.uf}` : c.cidade;
+}
+
+// Iniciais pro avatar do cartão de empresa (renderClienteCards) — primeira
+// letra da primeira e da última palavra do nome ("Hospital Santa Clara" →
+// "HC"), ou as 2 primeiras letras quando é uma palavra só.
+function iniciais(nome) {
+    const partes = String(nome || '').trim().split(/\s+/).filter(Boolean);
+    if (!partes.length) return '?';
+    if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+    return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
 }
 
 // Data mais recente de DataBusca entre as empresas — devolve a própria
@@ -219,15 +230,27 @@ export async function renderRadarPage(options) {
             <div><h2>Radar de Clientes</h2><p class="page-subtitle">Encontre empresas por cidade pra prospectar</p></div>
             <button type="button" class="text-link" id="radar-download-pdf">📄 Baixar PDF</button>
         </div>
-        <div class="radar-tabs-bar">
-            <button type="button" class="radar-tab${activeRadarTab === 'buscar' ? ' active' : ''}" data-tab="buscar">Buscar</button>
-            <button type="button" class="radar-tab${activeRadarTab === 'historico' ? ' active' : ''}" data-tab="historico">Histórico</button>
-            <button type="button" class="radar-tab${activeRadarTab === 'meus-clientes' ? ' active' : ''}" data-tab="meus-clientes">Meus Clientes</button>
-            <button type="button" class="radar-tab${activeRadarTab === 'acessos' ? ' active' : ''}" data-tab="acessos">Acessos</button>
-            <button type="button" class="radar-tab${activeRadarTab === 'panorama' ? ' active' : ''}" data-tab="panorama">Panorama</button>
-            ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'importar' ? ' active' : ''}" data-tab="importar">Importar CSV</button>` : ''}
-            ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'cidades' ? ' active' : ''}" data-tab="cidades">Cidades</button>` : ''}
-            ${isAdmin ? `<button type="button" class="radar-tab${activeRadarTab === 'config' ? ' active' : ''}" data-tab="config">Configurações</button>` : ''}
+        <div class="radar-tabs-row">
+            <div class="radar-tabs-bar">
+                <button type="button" class="radar-tab${activeRadarTab === 'buscar' ? ' active' : ''}" data-tab="buscar">🔎 Buscar</button>
+                <button type="button" class="radar-tab${activeRadarTab === 'historico' ? ' active' : ''}" data-tab="historico">🕘 Histórico</button>
+                <button type="button" class="radar-tab${activeRadarTab === 'meus-clientes' ? ' active' : ''}" data-tab="meus-clientes">🤝 Meus Clientes</button>
+                <button type="button" class="radar-tab${activeRadarTab === 'acessos' ? ' active' : ''}" data-tab="acessos">📊 Acessos</button>
+                <button type="button" class="radar-tab${activeRadarTab === 'panorama' ? ' active' : ''}" data-tab="panorama">📈 Panorama</button>
+            </div>
+            ${isAdmin ? (() => {
+                const adminTabs = ['importar', 'cidades', 'config'];
+                const adminAtivo = adminTabs.includes(activeRadarTab);
+                return `
+                <div class="radar-tab-admin-wrap">
+                    <button type="button" class="radar-tab-admin${adminAtivo ? ' active' : ''}" id="radar-tab-admin-btn" aria-haspopup="true" aria-expanded="false">⚙️ Admin ▾</button>
+                    <div class="radar-tab-admin-menu" id="radar-tab-admin-menu">
+                        <button type="button" class="radar-tab radar-tab-admin-item${activeRadarTab === 'importar' ? ' active' : ''}" data-tab="importar">Importar CSV</button>
+                        <button type="button" class="radar-tab radar-tab-admin-item${activeRadarTab === 'cidades' ? ' active' : ''}" data-tab="cidades">Cidades</button>
+                        <button type="button" class="radar-tab radar-tab-admin-item${activeRadarTab === 'config' ? ' active' : ''}" data-tab="config">Configurações</button>
+                    </div>
+                </div>`;
+            })() : ''}
         </div>
         <div class="radar-tab-panel${activeRadarTab === 'buscar' ? ' active' : ''}" id="radar-tab-buscar">
             <div id="radar-reservas-expirando-wrap"></div>
@@ -249,23 +272,30 @@ export async function renderRadarPage(options) {
                         </div>
                         <p class="field-helper-text" id="radar-dados-info" style="display:none"></p>
                     </div>
-                    <div class="form-group" id="radar-busca-nome-group" style="display:none">
-                        <label for="radar-busca-nome">Buscar por nome ou CNPJ</label>
-                        <input type="text" id="radar-busca-nome" placeholder="Digite pra filtrar a lista..." autocomplete="off">
-                    </div>
-                    <div class="form-group" id="radar-segmento-group" style="display:none">
-                        <label for="radar-segmento">Segmento</label>
-                        <select id="radar-segmento">
-                            <option value="">Todos os segmentos</option>
-                        </select>
-                    </div>
                     <div class="form-group" id="radar-status-filtro-group" style="display:none">
-                        <label>Status</label>
-                        <div class="radar-status-chips" id="radar-status-chips" role="group" aria-label="Filtrar por status">${STATUS_FILTER_CHIPS_HTML}</div>
+                        <div class="radar-status-chips-row">
+                            <div class="radar-status-chips" id="radar-status-chips" role="group" aria-label="Filtrar por status"></div>
+                            <button type="button" class="text-link radar-score-info-btn" id="radar-score-info-btn">ℹ️ Como funciona a pontuação</button>
+                        </div>
                     </div>
-                    <div class="form-group" id="radar-prioridade-group" style="display:none">
-                        <label for="radar-prioridade">Prioridade</label>
-                        <select id="radar-prioridade"><option value="">Todas as prioridades</option><option value="Alta">Alta (70–100)</option><option value="Media">Media (40–69)</option><option value="Baixa">Baixa (0–39)</option></select>
+                    <button type="button" class="radar-more-filters-toggle" id="radar-more-filters-toggle" style="display:none">
+                        <span class="dash-cp-chevron" aria-hidden="true">▾</span> Mais filtros
+                    </button>
+                    <div class="radar-more-filters-body" id="radar-more-filters-body" style="display:none">
+                        <div class="form-group" id="radar-busca-nome-group" style="display:none">
+                            <label for="radar-busca-nome">Buscar por nome ou CNPJ</label>
+                            <input type="text" id="radar-busca-nome" placeholder="Digite pra filtrar a lista..." autocomplete="off">
+                        </div>
+                        <div class="form-group" id="radar-segmento-group" style="display:none">
+                            <label for="radar-segmento">Segmento</label>
+                            <select id="radar-segmento">
+                                <option value="">Todos os segmentos</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="radar-prioridade-group" style="display:none">
+                            <label for="radar-prioridade">Prioridade</label>
+                            <select id="radar-prioridade"><option value="">Todas as prioridades</option><option value="Alta">Alta (70–100)</option><option value="Media">Media (40–69)</option><option value="Baixa">Baixa (0–39)</option></select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -446,8 +476,41 @@ export async function renderRadarPage(options) {
                 cidadesAdminLoaded = true;
                 loadCidadesAdmin();
             }
+            // Aba admin (Importar CSV/Cidades/Configurações) mora dentro do
+            // menu "⚙️ Admin" — o botão que abre o menu precisa continuar
+            // destacado quando uma delas está ativa, e o menu fecha depois
+            // de escolher uma.
+            const adminBtnEl = document.getElementById('radar-tab-admin-btn');
+            if (adminBtnEl) adminBtnEl.classList.toggle('active', ['importar', 'cidades', 'config'].includes(activeRadarTab));
+            document.getElementById('radar-tab-admin-menu')?.classList.remove('open');
+            if (_radarAdminMenuOutsideClick) { document.removeEventListener('click', _radarAdminMenuOutsideClick); _radarAdminMenuOutsideClick = null; }
         });
     });
+
+    // Menu "⚙️ Admin" — mesmo padrão de fechar-ao-clicar-fora do menu "⋮"
+    // do Funil/Propostas (ver _qeMenuOutsideClick nesses arquivos): listener
+    // em document removido e reatribuído a cada abertura, pra não vazar
+    // entre trocas de aba/reaberturas da tela do Radar.
+    const adminMenuBtn = document.getElementById('radar-tab-admin-btn');
+    const adminMenuEl = document.getElementById('radar-tab-admin-menu');
+    if (adminMenuBtn && adminMenuEl) {
+        adminMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const abrir = !adminMenuEl.classList.contains('open');
+            if (_radarAdminMenuOutsideClick) { document.removeEventListener('click', _radarAdminMenuOutsideClick); _radarAdminMenuOutsideClick = null; }
+            adminMenuEl.classList.toggle('open', abrir);
+            adminMenuBtn.setAttribute('aria-expanded', String(abrir));
+            if (abrir) {
+                _radarAdminMenuOutsideClick = () => {
+                    adminMenuEl.classList.remove('open');
+                    adminMenuBtn.setAttribute('aria-expanded', 'false');
+                    document.removeEventListener('click', _radarAdminMenuOutsideClick);
+                    _radarAdminMenuOutsideClick = null;
+                };
+                document.addEventListener('click', _radarAdminMenuOutsideClick);
+            }
+        });
+    }
 
     if (isAdmin) { bindImportTab(); bindConfigTab(); }
 
@@ -718,11 +781,19 @@ async function renderBuscarTab() {
     const segmentoGroup = document.getElementById('radar-segmento-group');
     const segmentoInput = document.getElementById('radar-segmento');
     const statusFiltroGroup = document.getElementById('radar-status-filtro-group');
-    const statusChips = document.getElementById('radar-status-chips');
     const prioridadeGroup = document.getElementById('radar-prioridade-group');
     const prioridadeInput = document.getElementById('radar-prioridade');
     const limparBtn = document.getElementById('radar-limpar-filtros');
+    const maisFiltrosToggle = document.getElementById('radar-more-filters-toggle');
+    const maisFiltrosBody = document.getElementById('radar-more-filters-body');
     wireSearchCardToggle('radar-search-toggle', 'radar-search-body');
+
+    maisFiltrosToggle.addEventListener('click', () => {
+        const abrindo = maisFiltrosBody.style.display === 'none';
+        maisFiltrosBody.style.display = abrindo ? '' : 'none';
+        maisFiltrosToggle.classList.toggle('is-open', abrindo);
+    });
+    document.getElementById('radar-score-info-btn').addEventListener('click', showScoreLegendModal);
 
     const selectCidade = async (match) => {
         cidadeInput.value = cidadeLabel(match);
@@ -740,6 +811,7 @@ async function renderBuscarTab() {
         statusFiltroGroup.style.display = '';
         prioridadeGroup.style.display = '';
         limparBtn.style.display = '';
+        maisFiltrosToggle.style.display = '';
         // Data mais recente entre as empresas da cidade — dá pra ter noção
         // de quão desatualizada a base pode estar (importação é periódica,
         // não em tempo real).
@@ -771,13 +843,6 @@ async function renderBuscarTab() {
     segmentoInput.addEventListener('change', () => renderRadarResults(resultsEl));
     prioridadeInput.addEventListener('change', () => renderRadarResults(resultsEl));
 
-    statusChips.querySelectorAll('.radar-status-chip').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            statusChips.querySelectorAll('.radar-status-chip').forEach((b) => b.classList.toggle('active', b === btn));
-            renderRadarResults(resultsEl);
-        });
-    });
-
     // Depois de escolher uma cidade não tinha como voltar a ver todas as
     // cidades liberadas no mapa sem recarregar a aba — "Limpar filtros"
     // desfaz a seleção de cidade (e os filtros de segmento/status junto).
@@ -787,13 +852,15 @@ async function renderBuscarTab() {
         cidadeInput.value = '';
         buscaNomeInput.value = '';
         segmentoInput.value = '';
-        statusChips.querySelectorAll('.radar-status-chip').forEach((b) => b.classList.toggle('active', b.dataset.status === ''));
         prioridadeInput.value = '';
         buscaNomeGroup.style.display = 'none';
         segmentoGroup.style.display = 'none';
         statusFiltroGroup.style.display = 'none';
         prioridadeGroup.style.display = 'none';
         limparBtn.style.display = 'none';
+        maisFiltrosToggle.style.display = 'none';
+        maisFiltrosBody.style.display = 'none';
+        maisFiltrosToggle.classList.remove('is-open');
         dadosInfoEl.style.display = 'none';
         resultsEl.innerHTML = `<div class="empty-state"><span class="empty-state-icon">🔍</span><p>Escolha uma cidade acima pra ver as empresas.</p></div>`;
         if (empresaMapInstance) { empresaMapInstance.remove(); empresaMapInstance = null; }
@@ -1065,9 +1132,10 @@ function renderRadarResults(resultsEl) {
             String(c.segmento || '').toLowerCase().includes(segmento) ||
             String(c.cnaeCodigo || '').toLowerCase().includes(segmento))
         : porNome;
-    // O resumo por status usa o total ANTES do filtro de status (senão só
+    // Os chips de status usam o total ANTES do filtro de status (senão só
     // mostraria 100% de um status só) — o filtro de status só afasta a
-    // lista de cards abaixo, sem mudar o resumo.
+    // lista de cards abaixo, sem mudar a contagem de cada chip.
+    renderStatusChips(porSegmento, statusFiltro);
     const porStatus = statusFiltro ? porSegmento.filter((c) => c.status === statusFiltro) : porSegmento;
     const filtered = prioridade ? porStatus.filter((c) => c.pontuacao?.prioridade === prioridade) : porStatus;
 
@@ -1076,8 +1144,62 @@ function renderRadarResults(resultsEl) {
     renderClienteCards(filtered, resultsEl, {
         emptyMessage: 'Nenhuma empresa encontrada.',
         onUpdated: () => renderRadarResults(resultsEl),
-        resumoHtml: buildStatusResumo(porSegmento)
+        showCountFallback: false
     });
+}
+
+// Chips de status (aba Buscar) com a contagem de cada um já embutida —
+// substitui o texto solto que existia antes (buildStatusResumo), que agora
+// só é usado pela aba Histórico. Reconstrói o HTML inteiro a cada chamada
+// (cidade escolhida, filtro de nome/segmento mudou, chip clicado) pra
+// contagem nunca ficar desatualizada; por isso o clique também precisa ser
+// religado toda vez, já que o innerHTML antigo (com os listeners de antes)
+// é descartado.
+function renderStatusChips(list, activeStatus) {
+    const wrap = document.getElementById('radar-status-chips');
+    if (!wrap) return;
+    const counts = { buscado: 0, ja_atendido: 0, recusado: 0, prospeccao_agendada: 0 };
+    list.forEach((c) => { counts[c.status] = (counts[c.status] || 0) + 1; });
+    const chips = [{ value: '', label: 'Todos', count: list.length }]
+        .concat(Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label, count: counts[value] || 0 })));
+    wrap.innerHTML = chips.map(({ value, label, count }) => {
+        const cls = value ? (STATUS_CLASSES[value] || '').replace('status-pill', '').trim() : 'all';
+        const icon = STATUS_CHIP_ICON[value] ? `${STATUS_CHIP_ICON[value]} ` : '';
+        return `<button type="button" class="radar-status-chip ${cls}${activeStatus === value ? ' active' : ''}" data-status="${value}">${icon}${escapeHtml(label)} <span class="radar-status-chip-count">${count}</span></button>`;
+    }).join('');
+    wrap.querySelectorAll('.radar-status-chip').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            wrap.querySelectorAll('.radar-status-chip').forEach((b) => b.classList.toggle('active', b === btn));
+            rerenderRadarList();
+        });
+    });
+}
+
+// Explica em português simples os critérios de scoreRadarCliente
+// (lib/handlers/radar.js) — o vendedor via só o número final no cartão, sem
+// saber o porquê. Pedido do usuário: "uma legenda de como é feita a score,
+// apenas pros usuários entenderem".
+function showScoreLegendModal() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card" style="text-align:left;position:relative">
+            <button type="button" class="radar-modal-close" id="radar-legenda-fechar" aria-label="Fechar">×</button>
+            <h3 style="margin-top:0;padding-right:1.5rem">Como funciona a pontuação</h3>
+            <p class="helper-text" style="text-align:left;margin:0 0 0.6rem">Cada empresa recebe de 0 a 100 pontos pra ajudar a decidir quem contatar primeiro. A soma vem de 5 critérios:</p>
+            <ul class="radar-legenda-list">
+                <li><strong>Porte / capital social</strong> (até 35 pts) — empresa maior tende a ter mais potencial.</li>
+                <li><strong>Segmento prioritário</strong> (20 pts) — quando o segmento está na lista definida em Configurações.</li>
+                <li><strong>Cidade prioritária</strong> (15 pts) — quando a cidade está na lista definida em Configurações.</li>
+                <li><strong>Tempo sem contato</strong> (até 15 pts) — quanto mais tempo parada, mais pontos, pra ninguém ficar esquecida.</li>
+                <li><strong>Chance de conversão</strong> (até 15 pts) — maior quando nunca foi contatada, ou foi indicada por alguém.</li>
+            </ul>
+            <p class="helper-text" style="text-align:left;margin:0 0 0.4rem"><strong>Alta</strong> = 70 a 100 · <strong>Média</strong> = 40 a 69 · <strong>Baixa</strong> = 0 a 39.</p>
+            <p class="helper-text" style="text-align:left;margin:0">Empresa que já é cliente ou recusou a abordagem para de pontuar — aparece como <strong>Encerrada</strong>.</p>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#radar-legenda-fechar').addEventListener('click', () => overlay.remove());
 }
 
 // Mapa de verdade (Leaflet + tiles da MapTiler) com pins reais por empresa
@@ -1197,6 +1319,8 @@ async function renderEmpresaMapa(clientes, onUpdated) {
 
 // Contagem por status pra dar noção de oportunidade num olhar só (esse é
 // literalmente o objetivo do Radar — priorizar quem nunca foi contatado).
+// Só a aba Histórico ainda usa esse texto — a aba Buscar mostra a mesma
+// contagem embutida nos chips de status (ver renderStatusChips).
 function buildStatusResumo(list) {
     if (!list.length) return '';
     const counts = { buscado: 0, ja_atendido: 0, recusado: 0, prospeccao_agendada: 0 };
@@ -1211,10 +1335,12 @@ function rerenderRadarList() {
     if (el) renderRadarResults(el);
 }
 
-// Compartilhado entre a aba Buscar e a aba Histórico — mesmo card
-// (.proposal-card com status-pill), mesma ordenação por prioridade de
-// contato, só muda a lista de entrada e o callback de refresh pós-ação.
-function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHtml = '' }) {
+// Compartilhado entre a aba Buscar e a aba Histórico — mesma ordenação por
+// prioridade de contato, só muda a lista de entrada e o callback de refresh
+// pós-ação. showCountFallback:false (aba Buscar) porque a contagem já
+// aparece nos chips de status (renderStatusChips) — a aba Histórico não tem
+// esses chips, então continua mostrando a linha "N empresa(s)".
+function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHtml = '', showCountFallback = true }) {
     if (list.length === 0) {
         resultsEl.innerHTML = `${resumoHtml}<div class="empty-state"><span class="empty-state-icon">🔍</span><p>${escapeHtml(emptyMessage)}</p></div>`;
         return;
@@ -1223,38 +1349,44 @@ function renderClienteCards(list, resultsEl, { emptyMessage, onUpdated, resumoHt
     const sorted = [...list].sort((a, b) => (b.pontuacao?.score || 0) - (a.pontuacao?.score || 0) || (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9));
 
     resultsEl.innerHTML = `
-        ${resumoHtml || `<p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>`}
-        <div class="visits-list">${sorted.map((c) => `
-            <button type="button" class="radar-cliente-card${reservaAtiva(c) ? ' radar-cliente-card-reservado' : ''}" data-radar-id="${escapeHtml(c.id)}">
-                <div class="item-body">
-                    <div class="item-top">
-                        <span class="item-name">${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</span>
-                        <span class="${STATUS_CLASSES[c.status] || 'status-pill'}">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
-                    </div>
-                    <div class="item-meta">
+        ${resumoHtml || (showCountFallback ? `<p class="page-subtitle" style="margin-bottom:0.5rem">${list.length} empresa(s)</p>` : '')}
+        <div class="radar-cliente-list">${sorted.map((c) => {
+            const prioridade = String(c.pontuacao?.prioridade || '').toLowerCase();
+            const scoreTexto = c.pontuacao?.prioridade === 'Encerrada'
+                ? 'Encerrada'
+                : `${c.pontuacao?.score || 0} · ${c.pontuacao?.prioridade || 'Baixa'}`;
+            return `
+            <button type="button" class="radar-cliente-card radar-cliente-card-status-${c.status}${reservaAtiva(c) ? ' radar-cliente-card-reservado' : ''}" data-radar-id="${escapeHtml(c.id)}">
+                <span class="radar-cliente-avatar">${escapeHtml(iniciais(c.nomeFantasia || c.nome))}</span>
+                <span class="radar-cliente-body">
+                    <span class="radar-cliente-top">
+                        <span class="radar-cliente-name">${escapeHtml(c.nomeFantasia || c.nome || 'Empresa')}</span>
+                        <span class="radar-score-pill radar-score-${prioridade}">${escapeHtml(scoreTexto)}</span>
+                    </span>
+                    <span class="radar-cliente-meta">
                         ${c.nomeFantasia && c.nome && c.nomeFantasia !== c.nome ? escapeHtml(c.nome) + ' · ' : ''}${c.telefone ? '📞 ' + escapeHtml(c.telefone) + ' · ' : ''}${escapeHtml(cidadeLabel(c))}
-                    </div>
-                    <div class="item-bottom">
-                        <span class="radar-score-pill radar-score-${String(c.pontuacao?.prioridade || '').toLowerCase()}">${escapeHtml(c.pontuacao?.prioridade === 'Encerrada' ? 'Encerrada' : `${c.pontuacao?.score || 0}/100 · ${c.pontuacao?.prioridade || 'Baixa'}`)}</span>
+                    </span>
+                    <span class="radar-cliente-tags">
+                        <span class="radar-cliente-tag radar-cliente-tag-status">${escapeHtml(STATUS_LABELS[c.status] || c.status)}</span>
                         ${c.status === 'recusado' && c.statusRetornoPrevisto
-                            ? `<span class="item-seller">Retornar em: ${escapeHtml(c.statusRetornoPrevisto)}</span>`
+                            ? `<span class="radar-cliente-tag">Retornar em: ${escapeHtml(c.statusRetornoPrevisto)}</span>`
                             : ''}
                         ${c.status === 'recusado' && c.statusPor
-                            ? `<span class="item-seller">Recusado por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span>`
+                            ? `<span class="radar-cliente-tag">Recusado por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span>`
                             : ''}
                         ${c.status === 'ja_atendido' && c.statusPor
-                            ? `<span class="item-seller">Marcado como cliente por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span>`
+                            ? `<span class="radar-cliente-tag">Marcado como cliente por ${escapeHtml(c.statusPor)}${c.statusData ? ' em ' + escapeHtml(c.statusData) : ''}</span>`
                             : ''}
                         ${c.status === 'ja_atendido' && c.indicadoPor
-                            ? `<span class="item-seller">Indicado por ${escapeHtml(c.indicadoPor)}</span>`
+                            ? `<span class="radar-cliente-tag">Indicado por ${escapeHtml(c.indicadoPor)}</span>`
                             : ''}
                         ${reservaAtiva(c)
-                            ? `<span class="item-seller radar-reserva-tag">🔒 Reservado por ${escapeHtml(c.reservadoPor)} até ${escapeHtml(c.reservadoAte)}</span>`
+                            ? `<span class="radar-cliente-tag radar-cliente-tag-lock">🔒 Reservado por ${escapeHtml(c.reservadoPor)} até ${escapeHtml(c.reservadoAte)}</span>`
                             : ''}
-                    </div>
-                </div>
+                    </span>
+                </span>
             </button>
-        `).join('')}</div>
+        `; }).join('')}</div>
     `;
 
     resultsEl.querySelectorAll('[data-radar-id]').forEach((btn) => {
