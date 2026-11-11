@@ -5,7 +5,7 @@ import {
     renderNavigation, updateHeaderUI, initSidebarToggle, initSidebarTooltip, initBottomNavAutoHide
 } from './utils/ui.js';
 import { renderLoginPage, renderForgotPasswordPage } from './pages/auth.js';
-import { renderDashboard, fillDashboard, loadResumoDiarioCard, loadVisitasSinalizadasCard } from './pages/dashboard.js';
+import { renderDashboard, fillDashboard, loadVisitasSinalizadasCard } from './pages/dashboard.js';
 import { showToast } from './utils/dom.js';
 
 // Mapeia cada página pro id de nav controlável (Admin → editar usuário →
@@ -243,12 +243,6 @@ export function initTabVisibilitySync() {
             getDashboardData().then(function(r) {
                 if (r.status === 'success') {
                     fillDashboard(document.getElementById('main-content'), r.data, state.currentUser);
-                    // fillDashboard recria o placeholder #resumo-diario-card vazio mas
-                    // não busca os dados dele (isso é só do carregamento inicial da
-                    // página, em renderDashboard) — sem chamar de novo aqui, o card
-                    // ficava com o resumo de dias atrás numa aba aberta por muito
-                    // tempo sem navegação de verdade.
-                    loadResumoDiarioCard();
                     loadVisitasSinalizadasCard();
                 }
             }).catch(function() {});

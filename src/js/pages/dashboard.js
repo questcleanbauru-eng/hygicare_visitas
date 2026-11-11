@@ -556,7 +556,6 @@ export function fillDashboard(mainContent, data, user) {
             </div>
         </div>
 
-        ${user.profile && String(user.profile).toLowerCase() === 'admin' ? '<div id="resumo-diario-card"></div>' : ''}
         ${state.canCreateProposalFunil ? '<div id="visitas-sinalizadas-card"></div>' : ''}
 
         ${useClassicInicio() ? resumoDoDiaHtml : `
@@ -742,10 +741,8 @@ async function setupPushBanner() {
 }
 
 
-// Compartilhado pelo card do Início (loadResumoDiarioCard) e pelo modal
-// "Resumo de ontem" (showResumoDiarioModal, acessível mesmo depois de
-// marcar o card como "Visto" pro dia) — mesma lista de linhas clicáveis
-// nos dois lugares.
+// Linhas clicáveis do modal "Resumo de ontem" (showResumoDiarioModal,
+// acessível pelo botão em Ações rápidas).
 function buildResumoRows(r) {
     const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
     return [
@@ -776,8 +773,7 @@ function buildResumoRows(r) {
 }
 
 // Modal "Resumo de ontem" — acessível a qualquer momento pelo botão em
-// Ações rápidas, mesmo depois do card do topo já ter sido marcado "Visto"
-// (esse fica escondido até o dia seguinte; o modal não depende disso).
+// Ações rápidas.
 export async function showResumoDiarioModal() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -810,82 +806,6 @@ export async function showResumoDiarioModal() {
     </div>`;
     overlay.querySelectorAll('[data-page]').forEach((btn) => {
         btn.addEventListener('click', () => { close(); navigateTo(btn.dataset.page, JSON.parse(btn.dataset.params || '{}')); });
-    });
-}
-
-// Card "Resumo de ontem" (só admin, por enquanto) — busca à parte da
-// getDashboardData principal, pra não atrasar/complicar o carregamento do
-// resto do Início; se não tiver nada pra mostrar (dia parado), o card nem
-// aparece, em vez de mostrar tudo zerado.
-export async function loadResumoDiarioCard() {
-    const container = document.getElementById('resumo-diario-card');
-    if (!container) return;
-    const result = await callAPI('getResumoDiario', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
-    if (document.getElementById('resumo-diario-card') !== container) return;
-    if (!result || result.status !== 'success') {
-        // Mostra o erro em vez de sumir silenciosamente — já aconteceu de o
-        // card "desaparecer" sem dar pra saber se era falta de atividade ou
-        // uma falha de verdade.
-        container.innerHTML = `<div class="card resumo-diario-card"><p class="helper-text" style="margin:0">📋 Resumo de ontem: ${escapeHtml((result && result.message) || 'não foi possível carregar.')}</p></div>`;
-        return;
-    }
-    const r = result.resumo;
-    const hasAny = r.visitas.total || r.agendamentos.vencidosTotal || r.agendamentos.proximosTotal || r.relatorios.total || r.campanhas.respondidasOntem || r.campanhas.pendentesTotal;
-
-    // "Visto" é por data do resumo (não por sessão) — marcado, fica escondido
-    // até o resumo de amanhã trazer uma data nova. Sem isso, reaparecia toda
-    // vez que o Início recarregasse no mesmo dia.
-    const vistoKey = 'resumo_diario_visto_' + r.dataResumo;
-    let jaVisto = false;
-    try { jaVisto = localStorage.getItem(vistoKey) === '1'; } catch (e) {}
-    if (jaVisto) { container.remove(); return; }
-
-    if (!hasAny) {
-        container.innerHTML = `
-            <div class="card resumo-diario-card">
-                <div class="section-title-row">
-                    <h3 style="font-size:0.88rem;font-weight:700;margin:0">📋 Resumo de ${escapeHtml(r.dataResumo)}</h3>
-                    <button type="button" class="text-link" id="resumo-diario-visto">✓ Visto</button>
-                </div>
-                <p class="helper-text" style="margin:0.3rem 0 0">Nenhuma atividade registrada.</p>
-            </div>`;
-        document.getElementById('resumo-diario-visto')?.addEventListener('click', () => {
-            try { localStorage.setItem(vistoKey, '1'); } catch (e) {}
-            container.remove();
-        });
-        return;
-    }
-
-    const rows = buildResumoRows(r);
-
-    container.innerHTML = `
-        <div class="card resumo-diario-card">
-            <div class="section-title-row">
-                <h3 style="font-size:0.88rem;font-weight:700;margin:0">📋 Resumo de ${escapeHtml(r.dataResumo)}</h3>
-                <div style="display:flex;align-items:center;gap:0.3rem">
-                    <button type="button" class="text-link" id="resumo-diario-visto">✓ Visto</button>
-                    <button type="button" class="resumo-diario-chevron-btn" id="resumo-diario-toggle" aria-expanded="true" aria-controls="resumo-diario-list" aria-label="Recolher resumo">
-                        <span class="dash-cp-chevron" aria-hidden="true">▾</span>
-                    </button>
-                </div>
-            </div>
-            <div class="resumo-diario-list" id="resumo-diario-list">
-                ${rows.map((row) => `<button type="button" class="resumo-diario-row" data-page="${row.page}" data-params='${escapeHtml(JSON.stringify(row.params || {}))}'>${escapeHtml(row.text)}</button>`).join('')}
-            </div>
-        </div>`;
-    container.querySelectorAll('[data-page]').forEach((btn) => {
-        btn.addEventListener('click', () => navigateTo(btn.dataset.page, JSON.parse(btn.dataset.params || '{}')));
-    });
-    document.getElementById('resumo-diario-visto')?.addEventListener('click', () => {
-        try { localStorage.setItem(vistoKey, '1'); } catch (e) {}
-        container.remove();
-    });
-    document.getElementById('resumo-diario-toggle')?.addEventListener('click', (event) => {
-        const btn = event.currentTarget;
-        const list = document.getElementById('resumo-diario-list');
-        const collapsed = list.classList.toggle('resumo-diario-list-collapsed');
-        btn.setAttribute('aria-expanded', String(!collapsed));
-        btn.classList.toggle('is-collapsed', collapsed);
     });
 }
 
@@ -940,8 +860,7 @@ export async function renderDashboard() {
         fillDashboard(mainContent, result.data, state.currentUser);
         // Só depois do fillDashboard "de verdade" (dado fresco) — ele
         // reescreve mainContent.innerHTML do zero, o que apagaria o card se
-        // ele já tivesse sido preenchido antes (ver #resumo-diario-card).
-        loadResumoDiarioCard();
+        // ele já tivesse sido preenchido antes (ver #visitas-sinalizadas-card).
         loadVisitasSinalizadasCard();
     } else if (!cached && result.status !== 'success') {
         // Sem cache e a busca falhou — mostrar erro real, não um dashboard
