@@ -121,6 +121,7 @@ function lembreteCardHtml(l, { isAdmin, podeAgir }) {
         acoes.push(`<button type="button" class="text-link" data-lembrete-cancelar="${escapeHtml(l.id)}">Cancelar</button>`);
     }
     if (isAdmin) {
+        acoes.push(`<button type="button" class="text-link" data-lembrete-editar="${escapeHtml(l.id)}">✏️ Editar</button>`);
         acoes.push(`<button type="button" class="text-link" data-lembrete-apagar="${escapeHtml(l.id)}">🗑️ Apagar</button>`);
     }
     return `
@@ -184,6 +185,12 @@ function fillLembretesContent(mainContent, lembretes) {
         toggle.textContent = el.hidden ? `👁️ Mostrar histórico (${historico.length})` : '🙈 Ocultar histórico';
     });
 
+    mainContent.querySelectorAll('[data-lembrete-editar]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const l = (state.lembretesAdmin || []).find((x) => String(x.id) === String(btn.dataset.lembreteEditar));
+            if (l) openEditLembreteModal(l);
+        });
+    });
     mainContent.querySelectorAll('[data-lembrete-concluir]').forEach((btn) => {
         btn.addEventListener('click', () => atualizarStatusLembrete(btn.dataset.lembreteConcluir, 'Concluido', btn));
     });
@@ -230,45 +237,71 @@ async function atualizarStatusLembrete(id, status, btn) {
     }
 }
 
+// Pra criar (sem "lembrete") ou editar (com) — só o que já existe no
+// backend (handleUpdateLembreteAdmin já aceitava editar todos os campos,
+// não só o status) ganhou uma tela pra isso: antes só dava pra
+// Concluir/Cancelar/Apagar, nunca corrigir data/texto/destinatários de um
+// lembrete já criado.
 export async function openCreateLembreteModal(prefillTexto) {
+    return openLembreteFormModal({ prefillTexto });
+}
+
+export async function openEditLembreteModal(lembrete) {
+    return openLembreteFormModal({ lembrete });
+}
+
+// "dd/mm/aaaa" -> "aaaa-mm-dd" (o que um <input type="date"> aceita de
+// volta) — inverso de formatarDataBr, mais abaixo.
+function isoFromDataBr(valueBr) {
+    if (!valueBr || String(valueBr).indexOf('/') === -1) return '';
+    const [d, m, y] = String(valueBr).split('/');
+    return `${y}-${m}-${d}`;
+}
+
+async function openLembreteFormModal({ lembrete = null, prefillTexto = '' } = {}) {
     const formDataResult = await ensureFormData();
     const vendedoresAll = (formDataResult.data && formDataResult.data.vendedores) || [];
     const notifyOptions = resolveNotifyOptions(vendedoresAll, state.currentUser);
+    const editando = !!lembrete;
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     const defaultDate = new Date();
     defaultDate.setDate(defaultDate.getDate() + 1);
+    const dataInicial = editando ? isoFromDataBr(lembrete.dataAlvo) : defaultDate.toISOString().slice(0, 10);
+    const recInicial = editando ? (lembrete.recorrencia || 'nenhuma') : 'nenhuma';
+    const cfgInicial = editando ? (lembrete.recorrenciaConfig || {}) : {};
+    const terminoInicial = editando ? (lembrete.terminoTipo || 'nunca') : 'nunca';
     overlay.innerHTML = `
         <div class="modal-card newag-modal">
             <div class="newag-modal-header">
                 <span class="newag-modal-header-icon" aria-hidden="true">📌</span>
-                <h3>Novo lembrete</h3>
+                <h3>${editando ? 'Editar lembrete' : 'Novo lembrete'}</h3>
                 <button type="button" class="newag-modal-close" id="lembrete-close" aria-label="Fechar">✕</button>
             </div>
             <div class="newag-modal-body">
                 <div class="form-group full-width">
                     <label for="lembrete-texto">Lembrete *</label>
-                    <textarea id="lembrete-texto" rows="2" placeholder="Ex.: Comprar etiquetas, Enviar nota fiscal da Unimed">${escapeHtml(prefillTexto || '')}</textarea>
+                    <textarea id="lembrete-texto" rows="2" placeholder="Ex.: Comprar etiquetas, Enviar nota fiscal da Unimed">${escapeHtml(editando ? lembrete.texto : (prefillTexto || ''))}</textarea>
                 </div>
                 <div class="form-group full-width">
                     <label for="lembrete-data">Data *</label>
-                    <input type="date" id="lembrete-data" value="${defaultDate.toISOString().slice(0, 10)}">
+                    <input type="date" id="lembrete-data" value="${dataInicial}">
                 </div>
                 <div class="form-group full-width">
                     <label for="lembrete-frequencia">Frequência</label>
                     <select id="lembrete-frequencia">
-                        <option value="nenhuma">Não repete</option>
-                        <option value="diaria">Diária</option>
-                        <option value="semanal">Semanal</option>
-                        <option value="mensal">Mensal (mesmo dia da data acima)</option>
-                        <option value="anual">Anual (mesmo dia/mês da data acima)</option>
-                        <option value="personalizada">Personalizada</option>
+                        <option value="nenhuma"${recInicial === 'nenhuma' ? ' selected' : ''}>Não repete</option>
+                        <option value="diaria"${recInicial === 'diaria' ? ' selected' : ''}>Diária</option>
+                        <option value="semanal"${recInicial === 'semanal' ? ' selected' : ''}>Semanal</option>
+                        <option value="mensal"${recInicial === 'mensal' ? ' selected' : ''}>Mensal (mesmo dia da data acima)</option>
+                        <option value="anual"${recInicial === 'anual' ? ' selected' : ''}>Anual (mesmo dia/mês da data acima)</option>
+                        <option value="personalizada"${recInicial === 'personalizada' ? ' selected' : ''}>Personalizada</option>
                     </select>
                 </div>
                 <div class="form-group full-width" id="lembrete-freq-diaria" hidden>
                     <label class="newag-repetir-row">
-                        <input type="checkbox" id="lembrete-dias-uteis" style="width:auto;min-height:0">
+                        <input type="checkbox" id="lembrete-dias-uteis" style="width:auto;min-height:0"${cfgInicial.apenasUteis ? ' checked' : ''}>
                         Só em dias úteis (pula sábado/domingo)
                     </label>
                 </div>
@@ -276,27 +309,27 @@ export async function openCreateLembreteModal(prefillTexto) {
                     <label>Em quais dias da semana</label>
                     <div class="radio-group" style="flex-wrap:wrap">
                         ${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d, i) => `
-                            <label class="radio-pill"><input type="checkbox" class="lembrete-dia-semana" value="${i}"><span>${d}</span></label>
+                            <label class="radio-pill"><input type="checkbox" class="lembrete-dia-semana" value="${i}"${(cfgInicial.dias || []).includes(i) ? ' checked' : ''}><span>${d}</span></label>
                         `).join('')}
                     </div>
                 </div>
                 <div class="form-group full-width" id="lembrete-freq-personalizada" hidden>
                     <label for="lembrete-intervalo">A cada</label>
                     <div style="display:flex;gap:0.5rem;align-items:center">
-                        <input type="number" id="lembrete-intervalo" min="1" value="1" style="max-width:90px">
+                        <input type="number" id="lembrete-intervalo" min="1" value="${cfgInicial.intervalo || 1}" style="max-width:90px">
                         <select id="lembrete-unidade">
-                            <option value="dias">dias</option>
-                            <option value="semanas">semanas</option>
-                            <option value="meses">meses</option>
+                            <option value="dias"${(cfgInicial.unidade || 'dias') === 'dias' ? ' selected' : ''}>dias</option>
+                            <option value="semanas"${cfgInicial.unidade === 'semanas' ? ' selected' : ''}>semanas</option>
+                            <option value="meses"${cfgInicial.unidade === 'meses' ? ' selected' : ''}>meses</option>
                         </select>
                     </div>
                 </div>
                 <div class="form-group full-width" id="lembrete-freq-fds" hidden>
                     <label for="lembrete-ajuste-fds">Se a próxima cair num fim de semana</label>
                     <select id="lembrete-ajuste-fds">
-                        <option value="manter">Manter mesmo assim</option>
-                        <option value="adiar">Adiar pro próximo dia útil</option>
-                        <option value="antecipar">Antecipar pro dia útil anterior</option>
+                        <option value="manter"${(cfgInicial.ajusteFimDeSemana || 'manter') === 'manter' ? ' selected' : ''}>Manter mesmo assim</option>
+                        <option value="adiar"${cfgInicial.ajusteFimDeSemana === 'adiar' ? ' selected' : ''}>Adiar pro próximo dia útil</option>
+                        <option value="antecipar"${cfgInicial.ajusteFimDeSemana === 'antecipar' ? ' selected' : ''}>Antecipar pro dia útil anterior</option>
                     </select>
                 </div>
                 <div class="form-group full-width" id="lembrete-freq-help" hidden>
@@ -305,30 +338,31 @@ export async function openCreateLembreteModal(prefillTexto) {
                 <div class="form-group full-width">
                     <label>Termina</label>
                     <div class="radio-group" style="flex-wrap:wrap">
-                        <label class="radio-pill"><input type="radio" name="lembrete-termino" value="nunca" checked><span>Nunca</span></label>
-                        <label class="radio-pill"><input type="radio" name="lembrete-termino" value="data"><span id="lembrete-termino-data-opt-label">Numa data</span></label>
-                        <label class="radio-pill" id="lembrete-termino-ocorrencias-opt" hidden><input type="radio" name="lembrete-termino" value="ocorrencias"><span>Depois de X vezes</span></label>
+                        <label class="radio-pill"><input type="radio" name="lembrete-termino" value="nunca"${terminoInicial === 'nunca' ? ' checked' : ''}><span>Nunca</span></label>
+                        <label class="radio-pill"><input type="radio" name="lembrete-termino" value="data"${terminoInicial === 'data' ? ' checked' : ''}><span id="lembrete-termino-data-opt-label">Numa data</span></label>
+                        <label class="radio-pill" id="lembrete-termino-ocorrencias-opt" hidden><input type="radio" name="lembrete-termino" value="ocorrencias"${terminoInicial === 'ocorrencias' ? ' checked' : ''}><span>Depois de X vezes</span></label>
                     </div>
                     <p class="helper-text" style="text-align:left;margin:0.2rem 0 0" id="lembrete-termino-help"></p>
                 </div>
                 <div class="form-group full-width" id="lembrete-termino-data-group" hidden>
                     <label for="lembrete-termino-data">Até quando</label>
-                    <input type="date" id="lembrete-termino-data">
+                    <input type="date" id="lembrete-termino-data" value="${editando ? isoFromDataBr(lembrete.terminoData) : ''}">
                 </div>
                 <div class="form-group full-width" id="lembrete-termino-ocorrencias-group" hidden>
                     <label for="lembrete-termino-ocorrencias">Depois de quantas vezes</label>
-                    <input type="number" id="lembrete-termino-ocorrencias" min="1" value="3">
+                    <input type="number" id="lembrete-termino-ocorrencias" min="1" value="${editando && lembrete.terminoOcorrencias ? lembrete.terminoOcorrencias : 3}">
                 </div>
                 ${multiCheckFilterFieldHtml('Destinatário(s) *', 'lembrete-destinatarios')}
             </div>
             <div class="newag-modal-footer">
                 <button type="button" class="secondary-button" id="lembrete-cancel">Cancelar</button>
-                <button type="button" class="primary-button" id="lembrete-save">Salvar lembrete</button>
+                <button type="button" class="primary-button" id="lembrete-save">${editando ? 'Salvar alterações' : 'Salvar lembrete'}</button>
             </div>
         </div>
     `;
     document.body.appendChild(overlay);
 
+    if (editando) overlay.querySelector('#lembrete-destinatarios').value = lembrete.destinatarios.join(',');
     wireMultiCheckFilter({
         triggerId: 'lembrete-destinatarios-trigger', inputId: 'lembrete-destinatarios', menuId: 'lembrete-destinatarios-menu',
         options: notifyOptions, emptyLabel: 'Escolha...'
@@ -385,7 +419,11 @@ export async function openCreateLembreteModal(prefillTexto) {
     overlay.querySelector('#lembrete-frequencia').addEventListener('change', atualizarVisibilidadeFrequencia);
     overlay.querySelector('#lembrete-data').addEventListener('change', atualizarVisibilidadeTermino);
     overlay.querySelectorAll('input[name="lembrete-termino"]').forEach((el) => el.addEventListener('change', atualizarVisibilidadeTermino));
-    atualizarVisibilidadeTermino();
+    // Editando um lembrete que já repete (ou já tem término definido), os
+    // campos de frequência/término precisam aparecer desde a abertura do
+    // modal, não só depois de mexer no <select> — atualizarVisibilidadeFrequencia
+    // já chama atualizarVisibilidadeTermino no final.
+    atualizarVisibilidadeFrequencia();
 
     overlay.querySelector('#lembrete-save').addEventListener('click', async () => {
         const btn = overlay.querySelector('#lembrete-save');
@@ -425,16 +463,24 @@ export async function openCreateLembreteModal(prefillTexto) {
         }
 
         setSaving(true, btn, 'Salvando...');
-        const r = await callAPI('createLembreteAdmin', {
+        const payload = {
             texto, dataAlvo: dataVal, destinatarios: destinatariosVal,
             recorrencia, recorrenciaConfig,
             terminoTipo, terminoData, terminoOcorrencias,
             user: state.currentUser
-        }).catch((e) => ({ status: 'error', message: e.message }));
+        };
+        const r = editando
+            ? await callAPI('updateLembreteAdmin', { ...payload, id: lembrete.id }).catch((e) => ({ status: 'error', message: e.message }))
+            : await callAPI('createLembreteAdmin', payload).catch((e) => ({ status: 'error', message: e.message }));
         if (r && r.status === 'success') {
-            state.lembretesAdmin = [r.lembrete, ...(state.lembretesAdmin || [])];
+            if (editando) {
+                const idx = (state.lembretesAdmin || []).findIndex((x) => String(x.id) === String(lembrete.id));
+                if (idx >= 0) state.lembretesAdmin[idx] = r.lembrete;
+            } else {
+                state.lembretesAdmin = [r.lembrete, ...(state.lembretesAdmin || [])];
+            }
             saveCache('lembretesAdmin', state.lembretesAdmin);
-            showToast('Lembrete criado.');
+            showToast(editando ? 'Lembrete atualizado.' : 'Lembrete criado.');
             close();
             const mainContent = document.getElementById('main-content');
             if (mainContent) fillLembretesContent(mainContent, state.lembretesAdmin);

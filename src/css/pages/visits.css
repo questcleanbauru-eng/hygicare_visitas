@@ -76,7 +76,8 @@
 
 .visit-share-btn,
 .visit-funil-btn,
-.visit-sinalizar-btn {
+.visit-sinalizar-btn,
+.visit-obs-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -90,7 +91,7 @@
     transition: background 0.15s, color 0.15s;
 }
 
-.visit-share-btn:hover, .visit-funil-btn:hover, .visit-sinalizar-btn:hover { background: #e0e7ff; color: var(--primary); }
+.visit-share-btn:hover, .visit-funil-btn:hover, .visit-sinalizar-btn:hover, .visit-obs-btn:hover { background: #e0e7ff; color: var(--primary); }
 .visit-funil-btn.is-in-funil:hover { background: #dcfce7; }
 .visit-funil-btn.is-alert { color: #b91c1c; }
 .visit-funil-btn.is-alert:hover { background: #fee2e2; }

@@ -201,14 +201,22 @@ export default async function handler(req, res) {
         });
 
         // ── Campanhas com item pendente de resposta ──────────────────────
+        // "clientes" leva o nome de cada um (não só a contagem) — o robô de
+        // WhatsApp usa isso pra listar quem falta responder, em vez de só
+        // "N cliente(s) pendente(s)".
         const campanhasPorVendedor = {};
         campanhas.forEach((c) => {
             if (c.status === 'concluida') return;
-            const pendentes = c.itens.filter((it) => !it.respondidoEm).length;
-            if (!pendentes) return;
+            const pendentesItens = c.itens.filter((it) => !it.respondidoEm);
+            if (!pendentesItens.length) return;
             const nome = String(c.vendedorDestino || '').trim();
             if (!nome) return;
-            (campanhasPorVendedor[nome] = campanhasPorVendedor[nome] || []).push({ titulo: c.titulo || 'Campanha', pendentes, link: `${APP_URL}/?c=${c.id}` });
+            (campanhasPorVendedor[nome] = campanhasPorVendedor[nome] || []).push({
+                titulo: c.titulo || 'Campanha',
+                pendentes: pendentesItens.length,
+                clientes: pendentesItens.map((it) => it.cliente || 'Cliente não informado'),
+                link: `${APP_URL}/?c=${c.id}`
+            });
         });
 
         // ── Sem visita/prospecção registrada há mais de 60 dias ──────────

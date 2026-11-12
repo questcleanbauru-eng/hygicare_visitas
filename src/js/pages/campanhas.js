@@ -1086,6 +1086,12 @@ export async function renderCampanhasPage() {
             return;
         }
         const itens = rr.itens || [];
+        // Link "Ver resposta" — pro admin cair direto na Proposta/Funil que
+        // o vendedor atualizou, em vez de só saber QUE ele respondeu (o
+        // "atualizado em ..." já mostrava isso, mas não o que foi escrito).
+        // Só existe pra item respondido com registro ainda encontrado (tipo
+        // funil/proposta) — "visita"/"manutencao"/"relatoriotecnico" e itens
+        // "ausente" não têm pra onde levar.
         box.innerHTML = itens.map((it) => `
             <div class="camp-admin-item${it.respondidoEm ? ' camp-admin-item-done' : ''}" data-camp-item-id="${escapeHtml(it.id)}" style="display:block">
                 <div style="display:flex;align-items:baseline;gap:0.4rem">
@@ -1094,6 +1100,7 @@ export async function renderCampanhasPage() {
                     <span class="helper-text camp-admin-item-data">
                         ${it.respondidoEm ? `atualizado em ${escapeHtml(it.respondidoEm)}` : 'pendente'}
                         ${it.respondidoEm ? `<span class="text-link" role="button" tabindex="0" data-camp-item-edit-data>Editar data</span>` : ''}
+                        ${it.respondidoEm && !it.ausente && (it.tipo === 'funil' || it.tipo === 'proposta') ? `<span class="text-link" role="button" tabindex="0" data-camp-item-open="${it.tipo}" data-camp-item-open-id="${escapeHtml(it.id)}">Ver resposta →</span>` : ''}
                     </span>
                 </div>
                 ${it.respondidoEm ? `<div class="camp-item-edit-data-row" style="display:none;gap:0.4rem;margin-top:0.3rem;align-items:center">
@@ -1104,6 +1111,10 @@ export async function renderCampanhasPage() {
             </div>`).join('');
         box.dataset.loaded = '1';
         box.hidden = false;
+        box.querySelectorAll('[data-camp-item-open]').forEach((el) => el.addEventListener('click', () => {
+            const pagina = el.dataset.campItemOpen === 'funil' ? 'funil-detail' : 'proposal-detail';
+            navigateTo(pagina, { id: el.dataset.campItemOpenId });
+        }));
         box.querySelectorAll('[data-camp-item-edit-data]').forEach((el) => el.addEventListener('click', () => {
             const row = el.closest('[data-camp-item-id]');
             row.querySelector('.camp-item-edit-data-row').style.display = 'flex';

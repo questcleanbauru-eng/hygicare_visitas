@@ -24,6 +24,46 @@ import { downloadXLSX } from '../utils/xlsxWriter.js';
 import { getProposals } from './proposals.js';
 import { getFunil } from './funil.js';
 
+// Botão "🗒️" nos cartões de visita (lista de Visitas e painel do dia na
+// Agenda) — só aparece quando a visita tem observação escrita; o clique
+// abre uma janelinha só de leitura com o texto (editar de verdade continua
+// pelo Editar rápido / detalhe da visita, esse botão é só pra bater o olho
+// rápido sem precisar abrir a visita inteira).
+function obsButtonHtml(visit) {
+    if (!visit.observacao) return '';
+    return `<button class="visit-obs-btn" type="button" data-obs-id="${escapeHtml(visit.id)}" title="Ver observação" aria-label="Ver observação da visita">🗒️</button>`;
+}
+
+function wireObsButtons(container, visits) {
+    container.querySelectorAll('[data-obs-id]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const visit = visits.find((v) => String(v.id) === String(btn.dataset.obsId));
+            if (visit) showObservacaoPopup(visit);
+        });
+    });
+}
+
+function showObservacaoPopup(visit) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-card newag-modal" style="max-width:360px">
+            <div class="newag-modal-header">
+                <span class="newag-modal-header-icon" aria-hidden="true">🗒️</span>
+                <h3>Observação</h3>
+                <button type="button" class="newag-modal-close" id="obs-popup-close" aria-label="Fechar">✕</button>
+            </div>
+            <div class="newag-modal-body">
+                <p class="helper-text" style="text-align:left;margin:0 0 0.6rem;font-weight:600">${escapeHtml([visit.cliente, visit.dataVisita].filter(Boolean).join(' · '))}</p>
+                <p class="helper-text" style="text-align:left;margin:0;white-space:pre-wrap">${escapeHtml(visit.observacao)}</p>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#obs-popup-close').addEventListener('click', () => overlay.remove());
+}
+
 // Update otimista + attemptOrQueue + rollback pro painel de edição rápida
 // (split view do admin). Campos não presentes no patch (undefined) caem pro
 // valor já existente no registro (v.X) — o servidor exige os campos
@@ -381,6 +421,7 @@ export function fillVisitsContent(container, visits) {
                                     return `<button class="visit-funil-btn is-in-funil${_alerta ? ' is-alert' : ''}" type="button" data-funil-id="${escapeHtml(String(_fi.id || _fi.Id || ''))}" title="No Funil${_st ? ' (' + _st + ')' : ''} — abrir" aria-label="Cliente já está no Funil de Vendas">${_alerta ? '⚠️' : '✅'}</button>`;
                                 })() : ''}
                                 ${state.canCreateProposalFunil ? `<button class="visit-sinalizar-btn${visit.sinalizadaVinculo ? ' is-flagged' : ''}" type="button" data-sinalizar-id="${escapeHtml(visit.id)}" title="${visit.sinalizadaVinculo ? 'Sinalizada — some da lista de pendências do Início quando você desmarcar' : 'Sinalizar: preciso incluir essa visita em Proposta/Funil depois'}" aria-label="Sinalizar para vincular depois">🚩</button>` : ''}
+                                ${obsButtonHtml(visit)}
                                 <div class="visit-agenda-menu-wrap">
                                     <button class="visit-agenda-toggle" type="button" data-agenda-toggle="${escapeHtml(visit.id)}" title="Agendar retorno ou criar lembrete" aria-label="Agendar retorno ou criar lembrete">📅</button>
                                     <div class="visit-agenda-menu">
@@ -424,6 +465,7 @@ export function fillVisitsContent(container, visits) {
                 if (v) shareVisit(v);
             });
         });
+        wireObsButtons(visitsListContainer, normalizedVisits);
         visitsListContainer.querySelectorAll('[data-visit-funil]').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -1745,6 +1787,7 @@ export async function renderCalendarPage(options) {
                             const sinalizarBtnHtml = state.canCreateProposalFunil
                                 ? `<button class="visit-sinalizar-btn${v.sinalizadaVinculo ? ' is-flagged' : ''}" type="button" data-sinalizar-id="${escapeHtml(v.id)}" title="${v.sinalizadaVinculo ? 'Sinalizada — some da lista de pendências do Início quando você desmarcar' : 'Sinalizar: preciso incluir essa visita em Proposta/Funil depois'}" aria-label="Sinalizar para vincular depois">🚩</button>`
                                 : '';
+                            const obsBtnHtml = obsButtonHtml(v);
                             return `
                         <div class="visit-card-wrap">
                             <button type="button" class="visit-card" data-visit-id="${escapeHtml(v.id)}" style="border-left:4px solid ${typeColorMap[v.tipoVisita] || '#3b82f6'}">
@@ -1758,7 +1801,7 @@ export async function renderCalendarPage(options) {
                                     ${isAdminOrGerenteUser() && v.vendedorGerente ? `<span>· ${escapeHtml(v.vendedorGerente)}</span>` : ''}
                                 </div>
                             </button>
-                            ${funilBtnHtml || sinalizarBtnHtml ? `<div class="visit-card-actions">${funilBtnHtml}${sinalizarBtnHtml}</div>` : ''}
+                            ${funilBtnHtml || sinalizarBtnHtml || obsBtnHtml ? `<div class="visit-card-actions">${funilBtnHtml}${sinalizarBtnHtml}${obsBtnHtml}</div>` : ''}
                         </div>`;
                         }).join('')}
                         ${dayProposals.map((p) => `
@@ -1811,6 +1854,7 @@ export async function renderCalendarPage(options) {
                         navigateTo('funil-new');
                     });
                 });
+                wireObsButtons(panel, dayVisits);
                 panel.querySelectorAll('[data-sinalizar-id]').forEach((btn) => {
                     btn.addEventListener('click', async (e) => {
                         e.stopPropagation();
