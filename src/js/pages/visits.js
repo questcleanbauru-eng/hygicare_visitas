@@ -1538,6 +1538,11 @@ export async function renderCalendarPage(options) {
     let legendVisible = false;
     // Mesmo padrão do legendVisible — oculto por padrão.
     let atrasadosVisible = false;
+    // Filtro por Tipo da Visita (Prospecção, Pedido, Close Manutenção...) —
+    // só faz sentido junto do filtro "Visitas"/"Todos" (ver tipoFilterHtml);
+    // persiste enquanto a pessoa navega entre meses/filtros na mesma visita
+    // à tela, igual activeFilter.
+    let activeTipoFilter = '';
 
     const render = () => {
         const firstDay  = new Date(viewYear, viewMonth, 1);
@@ -1577,7 +1582,8 @@ export async function renderCalendarPage(options) {
                 .sort((a, b) => (parseDisplayDate(a.dataAgendada)?.getTime() || 0) - (parseDisplayDate(b.dataAgendada)?.getTime() || 0))
             : [];
 
-        if (showVisitas) visits.forEach((v) => {
+        const visitsParaGrade = activeTipoFilter ? visits.filter((v) => v.tipoVisita === activeTipoFilter) : visits;
+        if (showVisitas) visitsParaGrade.forEach((v) => {
             const d = parseDisplayDate(v.dataVisita);
             if (!d || d.getFullYear() !== viewYear || d.getMonth() !== viewMonth) { return; }
             const key = d.getDate();
@@ -1664,6 +1670,17 @@ export async function renderCalendarPage(options) {
         const atrasadosToggleHtml = atrasadosOutroMes.length
             ? `<button type="button" class="pill${atrasadosVisible ? ' active' : ''}" id="cal-atrasados-toggle" style="border-color:var(--danger-border);${atrasadosVisible ? 'background:var(--danger);color:#fff' : 'color:var(--danger)'}">⚠️ Atrasados (${atrasadosOutroMes.length})</button>`
             : '';
+        // Só faz sentido junto de "Visitas"/"Todos" — com Propostas/Funil/
+        // Retornos/Campanha sozinhos não tem visita nenhuma na grade pra
+        // filtrar por tipo.
+        const tipoFilterHtml = showVisitas && types.length ? `
+            <div class="form-group" style="max-width:240px;margin:0.6rem 0 0">
+                <label for="cal-tipo-filter" style="font-size:0.78rem">Tipo da Visita</label>
+                <select id="cal-tipo-filter">
+                    <option value="">Todos os tipos</option>
+                    ${types.map((t) => `<option value="${escapeHtml(t)}"${activeTipoFilter === t ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+                </select>
+            </div>` : '';
 
         mainContent.innerHTML = `
             <div class="page-header">
@@ -1671,6 +1688,7 @@ export async function renderCalendarPage(options) {
                 <button type="button" class="primary-btn" id="cal-new-agendamento">+ Agendar</button>
             </div>
             <div class="pill-row">${filterChipsHtml}${atrasadosToggleHtml}</div>
+            ${tipoFilterHtml}
             <div id="ag-sel-bar-container"></div>
             ${atrasadosVisible && atrasadosOutroMes.length ? `
             <div class="card" id="cal-atrasados-section" style="margin-bottom:0.75rem;border-left:3px solid var(--danger)">
@@ -1747,6 +1765,10 @@ export async function renderCalendarPage(options) {
                 activeFilter = btn.dataset.calFilter;
                 render();
             });
+        });
+        document.getElementById('cal-tipo-filter')?.addEventListener('change', (e) => {
+            activeTipoFilter = e.target.value;
+            render();
         });
 
         mainContent.querySelectorAll('[data-day]').forEach((btn) => {

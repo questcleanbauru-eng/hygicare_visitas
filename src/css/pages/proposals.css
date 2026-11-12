@@ -348,6 +348,22 @@
 .camp-admin-item-nome { flex: 1; color: var(--text); }
 .camp-admin-item-done .camp-admin-item-nome { color: var(--text-muted-strong); }
 
+/* Resposta do vendedor (status + comentário) direto na lista de "Ver
+   clientes" — pedido do usuário: ver tudo na mesma tela, sem precisar abrir
+   a Proposta/Funil em outra página. */
+.camp-admin-item-resposta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem;
+    margin: 0.3rem 0 0 1.2rem;
+    font-size: 0.76rem;
+}
+.camp-admin-item-comentario {
+    color: var(--text-muted-strong);
+    font-style: italic;
+}
+
 /* Modo seleção (apagar várias de uma vez) — .funil-sel-bar vem de
    funil.css (eager, sempre carregado junto com proposals.css). */
 .camp-admin-row.is-selected { outline: 2px solid var(--primary); background: var(--primary-light); }

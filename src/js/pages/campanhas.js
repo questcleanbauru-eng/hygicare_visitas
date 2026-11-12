@@ -1086,13 +1086,14 @@ export async function renderCampanhasPage() {
             return;
         }
         const itens = rr.itens || [];
-        // Link "Ver resposta" — pro admin cair direto na Proposta/Funil que
-        // o vendedor atualizou, em vez de só saber QUE ele respondeu (o
-        // "atualizado em ..." já mostrava isso, mas não o que foi escrito).
-        // Só existe pra item respondido com registro ainda encontrado (tipo
-        // funil/proposta) — "visita"/"manutencao"/"relatoriotecnico" e itens
-        // "ausente" não têm pra onde levar.
-        box.innerHTML = itens.map((it) => `
+        // Status + comentário da resposta direto na lista — pedido do
+        // usuário: ver tudo na mesma tela, sem precisar clicar e abrir a
+        // Proposta/Funil em outra página. Só existe pra item respondido com
+        // registro ainda encontrado (tipo funil/proposta); "visita"/
+        // "manutencao"/"relatoriotecnico" e itens "ausente" não têm status.
+        box.innerHTML = itens.map((it) => {
+            const temResposta = it.respondidoEm && !it.ausente && (it.tipo === 'funil' || it.tipo === 'proposta');
+            return `
             <div class="camp-admin-item${it.respondidoEm ? ' camp-admin-item-done' : ''}" data-camp-item-id="${escapeHtml(it.id)}" style="display:block">
                 <div style="display:flex;align-items:baseline;gap:0.4rem">
                     <span>${it.respondidoEm ? '✓' : '⏳'}</span>
@@ -1100,21 +1101,21 @@ export async function renderCampanhasPage() {
                     <span class="helper-text camp-admin-item-data">
                         ${it.respondidoEm ? `atualizado em ${escapeHtml(it.respondidoEm)}` : 'pendente'}
                         ${it.respondidoEm ? `<span class="text-link" role="button" tabindex="0" data-camp-item-edit-data>Editar data</span>` : ''}
-                        ${it.respondidoEm && !it.ausente && (it.tipo === 'funil' || it.tipo === 'proposta') ? `<span class="text-link" role="button" tabindex="0" data-camp-item-open="${it.tipo}" data-camp-item-open-id="${escapeHtml(it.id)}">Ver resposta →</span>` : ''}
                     </span>
                 </div>
+                ${temResposta && it.status ? `<div class="camp-admin-item-resposta">
+                    <span class="status-pill">${escapeHtml(it.status)}</span>
+                    ${it.comentarios ? `<span class="camp-admin-item-comentario">"${escapeHtml(it.comentarios)}"</span>` : ''}
+                </div>` : ''}
                 ${it.respondidoEm ? `<div class="camp-item-edit-data-row" style="display:none;gap:0.4rem;margin-top:0.3rem;align-items:center">
                     <input type="date" class="camp-item-edit-data-input" value="${escapeHtml(formatInputDateFromDisplay(it.respondidoEm) || '')}">
                     <button type="button" class="text-link" data-camp-item-save-data>Salvar</button>
                     <button type="button" class="text-link" data-camp-item-cancel-data>Cancelar</button>
                 </div>` : ''}
-            </div>`).join('');
+            </div>`;
+        }).join('');
         box.dataset.loaded = '1';
         box.hidden = false;
-        box.querySelectorAll('[data-camp-item-open]').forEach((el) => el.addEventListener('click', () => {
-            const pagina = el.dataset.campItemOpen === 'funil' ? 'funil-detail' : 'proposal-detail';
-            navigateTo(pagina, { id: el.dataset.campItemOpenId });
-        }));
         box.querySelectorAll('[data-camp-item-edit-data]').forEach((el) => el.addEventListener('click', () => {
             const row = el.closest('[data-camp-item-id]');
             row.querySelector('.camp-item-edit-data-row').style.display = 'flex';
