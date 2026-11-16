@@ -260,17 +260,23 @@ function fillComodatosAdmin(mainContent) {
                 <p class="page-subtitle">Cada envio do Kadu gera um relatório de visita pro cliente.</p>
             </div>
         </div>
-        <div class="comodato-lembretes-row">
-            <button type="button" class="primary-button" id="comodato-enviar-link">📋 Enviar link pro Kadu</button>
-            <button type="button" class="secondary-button" id="comodato-copiar-link" title="Copiar link">📎 Copiar link</button>
-        </div>
-        <div class="comodato-lembretes-row">
-            <button type="button" class="secondary-button" id="comodato-enviar-conferencia-link">🔍 Enviar conferência</button>
-            <button type="button" class="secondary-button" id="comodato-copiar-conferencia-link" title="Copiar link">📎 Copiar link</button>
-        </div>
-        <div class="comodato-lembretes-row">
-            ${lembreteStatusBotaoHtml('comodato-semanal', 'comodato-ativar-semanal', '🔔 Ativar lembrete semanal', 'Lembrete semanal ativo')}
-            ${lembreteStatusBotaoHtml('comodato-conferencia', 'comodato-ativar-conferencia', '🔔 Ativar conferência mensal', 'Conferência mensal ativa')}
+        <div class="comodato-acoes-row">
+            <div class="comodato-acao-card">
+                <span class="comodato-acao-title">📋 Link pro Kadu preencher a semana</span>
+                <div class="comodato-acao-botoes">
+                    <button type="button" class="mini-button mini-button-whatsapp" id="comodato-enviar-link">Enviar no WhatsApp</button>
+                    <button type="button" class="mini-button" id="comodato-copiar-link">Copiar link</button>
+                </div>
+                <div class="comodato-acao-status">${lembreteStatusBotaoHtml('comodato-semanal', 'comodato-ativar-semanal', '🔔 Ativar lembrete semanal', 'Ativo')}</div>
+            </div>
+            <div class="comodato-acao-card">
+                <span class="comodato-acao-title">🔍 Conferência periódica</span>
+                <div class="comodato-acao-botoes">
+                    <button type="button" class="mini-button mini-button-whatsapp" id="comodato-enviar-conferencia-link">Enviar no WhatsApp</button>
+                    <button type="button" class="mini-button" id="comodato-copiar-conferencia-link">Copiar link</button>
+                </div>
+                <div class="comodato-acao-status">${lembreteStatusBotaoHtml('comodato-conferencia', 'comodato-ativar-conferencia', '🔔 Ativar conferência mensal', 'Ativa')}</div>
+            </div>
         </div>
         <div class="comodato-stats-row">
             <div class="comodato-stat-tile"><span class="comodato-stat-label">Equipamentos ativos</span><span class="comodato-stat-value">${totalEquipamentosAtivos}</span></div>
@@ -332,7 +338,7 @@ function copiarLink(page) {
 function lembreteStatusBotaoHtml(origem, id, labelAtivar, labelAtivo) {
     const l = (state.comodatoLembretesStatus || {})[origem];
     if (l) return `<span class="comodato-lembrete-ativo-tag">✅ ${escapeHtml(labelAtivo)} — próximo em ${escapeHtml(l.dataAlvo)}</span>`;
-    return `<button type="button" class="secondary-button" id="${id}">${labelAtivar}</button>`;
+    return `<button type="button" class="mini-button" id="${id}">${labelAtivar}</button>`;
 }
 
 async function ativarLembreteSistema(mainContent, btn, tipo) {

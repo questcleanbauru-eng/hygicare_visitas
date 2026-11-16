@@ -18,10 +18,16 @@
 .comodato-remove-equip { background: none; border: none; color: var(--danger); font-size: 1rem; flex-shrink: 0; cursor: pointer; padding: 0.3rem; }
 .comodato-equip-spacer { width: 1.6rem; flex-shrink: 0; }
 
-.comodato-lembretes-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: center; }
+.comodato-acoes-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.comodato-acao-card {
+    flex: 1 1 260px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.6rem;
+}
+.comodato-acao-title { font-weight: 700; font-size: var(--text-sm); color: var(--ink); }
+.comodato-acao-botoes { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .comodato-lembrete-ativo-tag {
-    font-size: var(--text-sm); font-weight: 600; color: var(--success); background: var(--success-bg);
-    border: 1px solid var(--success-border); border-radius: 999px; padding: 0.45rem 0.9rem;
+    font-size: var(--text-xs); font-weight: 600; color: var(--success); background: var(--success-bg);
+    border: 1px solid var(--success-border); border-radius: 999px; padding: 0.3rem 0.7rem; display: inline-block;
 }
 
 .comodato-stats-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
