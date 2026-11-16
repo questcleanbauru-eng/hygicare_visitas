@@ -1,0 +1,52 @@
+/* Comodato de Equipamento — formulário do Kadu, painel admin e conferência. */
+
+.comodato-cliente-card { display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 0.75rem; }
+
+.comodato-cliente-head { display: flex; align-items: center; justify-content: space-between; }
+
+.comodato-equip-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.comodato-equip-list > label { font-size: var(--text-sm); font-weight: 600; color: var(--text-muted-strong); }
+
+.comodato-equip-row { display: flex; align-items: center; gap: 0.5rem; }
+.comodato-equip-select { flex: 1; min-width: 0; }
+
+.comodato-qty-stepper { display: flex; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); flex-shrink: 0; }
+.comodato-qty-stepper button { background: none; border: none; width: 30px; height: 36px; font-size: 1rem; color: var(--text-muted); cursor: pointer; }
+.comodato-qty-stepper button:hover { background: var(--bg-sunken); }
+.comodato-qty-value { width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.comodato-remove-equip { background: none; border: none; color: var(--danger); font-size: 1rem; flex-shrink: 0; cursor: pointer; padding: 0.3rem; }
+.comodato-equip-spacer { width: 1.6rem; flex-shrink: 0; }
+
+.comodato-lembretes-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+
+.comodato-stats-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.comodato-stat-tile {
+    flex: 1 1 160px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.2rem;
+}
+.comodato-stat-label { font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); }
+.comodato-stat-value { font-size: 1.5rem; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+
+.comodato-grupo-card { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.5rem; }
+.comodato-grupo-top { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+.comodato-avatar {
+    width: 34px; height: 34px; border-radius: 999px; background: var(--primary-light); color: var(--primary);
+    font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.comodato-grupo-info { display: flex; flex-direction: column; gap: 0.1rem; flex: 1; min-width: 0; }
+.comodato-grupo-itens { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding-left: 2.6rem; }
+
+.comodato-item-chip {
+    font-size: var(--text-xs); font-weight: 600; color: var(--primary); background: var(--primary-light);
+    border: 1px solid var(--border-focus); border-radius: 999px; padding: 0.2rem 0.6rem;
+}
+
+.comodato-conf-card { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem; }
+.comodato-conf-actions { display: flex; gap: 0.5rem; margin-top: 0.3rem; }
+.comodato-conf-btn {
+    flex: 1; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+    padding: 0.55rem; font-weight: 600; font-size: var(--text-sm); cursor: pointer;
+}
+.comodato-conf-btn.is-active-ok { background: var(--success-bg); border-color: var(--success-border); color: var(--success); }
+.comodato-conf-btn.is-active-no { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger); }

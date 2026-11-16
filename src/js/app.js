@@ -461,6 +461,15 @@ export async function navigateTo(page, options = {}, _fromPop = false) {
         case 'campanha-preencher':
             await (await import('./pages/campanhas.js')).renderCampanhaPreencherPage(options.id);
             break;
+        case 'comodatos':
+            await (await import('./pages/comodatos.js')).renderComodatosAdminPage();
+            break;
+        case 'comodato-preencher':
+            await (await import('./pages/comodatos.js')).renderComodatoPreencherPage();
+            break;
+        case 'comodato-conferencia':
+            await (await import('./pages/comodatos.js')).renderComodatoConferenciaPage();
+            break;
         case 'notificacoes':
             await (await import('./pages/notificacoes.js')).renderNotificacoesPage();
             break;

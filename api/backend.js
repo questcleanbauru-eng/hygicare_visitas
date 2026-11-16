@@ -52,8 +52,13 @@ import { handleGetResumoDiario, handleTestResumoDiario } from '../lib/handlers/r
 import { handleTestLembreteAgendamento } from '../lib/handlers/lembretesAgendamento.js';
 import { handleTestLembreteClientes } from '../lib/handlers/lembreteClientes.js';
 import {
-    handleGetLembretesAdmin, handleCreateLembreteAdmin, handleUpdateLembreteAdmin, handleDeleteLembreteAdmin
+    handleGetLembretesAdmin, handleCreateLembreteAdmin, handleUpdateLembreteAdmin, handleDeleteLembreteAdmin,
+    handleCriarLembreteSistemaComodato
 } from '../lib/handlers/lembretesAdmin.js';
+import {
+    handleGetComodatos, handleCreateComodatoLote, handleMarcarComodatoRetirado,
+    handleRegistrarConferenciaComodato, handleGerarContratoComodato
+} from '../lib/handlers/comodatos.js';
 
 function parseBody(req) {
     if (!req.body) return {};
@@ -192,6 +197,12 @@ const HANDLERS = {
     createLembreteAdmin: handleCreateLembreteAdmin,
     updateLembreteAdmin: handleUpdateLembreteAdmin,
     deleteLembreteAdmin: handleDeleteLembreteAdmin,
+    criarLembreteSistemaComodato: handleCriarLembreteSistemaComodato,
+    getComodatos: handleGetComodatos,
+    createComodatoLote: handleCreateComodatoLote,
+    marcarComodatoRetirado: handleMarcarComodatoRetirado,
+    registrarConferenciaComodato: handleRegistrarConferenciaComodato,
+    gerarContratoComodato: handleGerarContratoComodato,
     ping: async () => ({ status: 'ok' })
 };
 

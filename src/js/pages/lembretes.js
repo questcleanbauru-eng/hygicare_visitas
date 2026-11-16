@@ -1,7 +1,7 @@
 import { state } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
 import { escapeHtml, resolveNotifyOptions, multiCheckFilterFieldHtml } from '../utils/format.js';
-import { showToast, setSaving, loadingState, addScrollTop, wireMultiCheckFilter } from '../utils/dom.js';
+import { showToast, setSaving, loadingState, addScrollTop, wireMultiCheckFilter, openExternal } from '../utils/dom.js';
 import { initPullToRefresh, ensureStyles } from '../utils/ui.js';
 
 // "Lembretes administrativos" — pedido explícito do Bruno: usar o robô de
@@ -114,9 +114,24 @@ async function refreshLembretes() {
     }
 }
 
+// Lembrete de sistema do Comodato de Equipamento (ver
+// handleCriarLembreteSistemaComodato, lib/handlers/lembretesAdmin.js) — em
+// vez de só Concluir, ganha um botão que já monta o link e abre o
+// WhatsApp, pronto pra mandar pro Kadu.
+const COMODATO_ORIGEM_LINK = {
+    'comodato-semanal': { page: 'comodato-preencher', label: '📋 Enviar link pro Kadu', texto: 'Por gentileza, registra o comodato de equipamento dessa semana.' },
+    'comodato-conferencia': { page: 'comodato-conferencia', label: '🔍 Enviar conferência', texto: 'Por gentileza, confirma quais equipamentos ainda estão com o cliente.' }
+};
+function comodatoOrigemBotaoHtml(l) {
+    const def = COMODATO_ORIGEM_LINK[l.origem];
+    if (!def || l.status !== 'Pendente') return '';
+    return `<button type="button" class="text-link" data-lembrete-comodato-link="${escapeHtml(l.id)}" data-comodato-origem="${escapeHtml(l.origem)}">${def.label}</button>`;
+}
+
 function lembreteCardHtml(l, { isAdmin, podeAgir }) {
     const acoes = [];
     if (podeAgir && l.status === 'Pendente') {
+        acoes.push(comodatoOrigemBotaoHtml(l));
         acoes.push(`<button type="button" class="text-link" data-lembrete-concluir="${escapeHtml(l.id)}">✅ Concluir</button>`);
         acoes.push(`<button type="button" class="text-link" data-lembrete-cancelar="${escapeHtml(l.id)}">Cancelar</button>`);
     }
@@ -189,6 +204,14 @@ function fillLembretesContent(mainContent, lembretes) {
         btn.addEventListener('click', () => {
             const l = (state.lembretesAdmin || []).find((x) => String(x.id) === String(btn.dataset.lembreteEditar));
             if (l) openEditLembreteModal(l);
+        });
+    });
+    mainContent.querySelectorAll('[data-lembrete-comodato-link]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const def = COMODATO_ORIGEM_LINK[btn.dataset.comodatoOrigem];
+            if (!def) return;
+            const link = `${window.location.origin}/?goto=${def.page}`;
+            openExternal(`https://wa.me/?text=${encodeURIComponent(def.texto + '\n' + link)}`);
         });
     });
     mainContent.querySelectorAll('[data-lembrete-concluir]').forEach((btn) => {
