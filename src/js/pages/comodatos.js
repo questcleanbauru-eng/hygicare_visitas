@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, attemptOrQueue, ensureFormData } from '../api.js';
 import { escapeHtml, clienteSearchItem, findClienteByNome } from '../utils/format.js';
-import { showToast, setSaving, loadingState, initializeSearchableInput } from '../utils/dom.js';
+import { showToast, setSaving, loadingState, initializeSearchableInput, openExternal } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 
 // Comodato de Equipamento — ver lib/handlers/comodatos.js pro desenho
@@ -216,13 +216,28 @@ export async function renderComodatosAdminPage() {
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = loadingState('🔧', 'Carregando comodatos...');
 
-    const res = await callAPI('getComodatos', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+    const [res, lembretesRes] = await Promise.all([
+        callAPI('getComodatos', { user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message })),
+        callAPI('getLembretesAdmin', { user: state.currentUser }).catch(() => ({ status: 'error', lembretes: [] }))
+    ]);
     if (res.status !== 'success') {
         mainContent.innerHTML = `<p class="error-message">${escapeHtml(res.message || 'Erro ao carregar.')}</p>`;
         return;
     }
     state.comodatos = res.comodatos || [];
+    state.comodatoLembretesStatus = lembretesStatusFromLista(lembretesRes.lembretes || []);
     fillComodatosAdmin(mainContent);
+}
+
+// Mapeia os lembretes de sistema já ativos (Pendente) pela Origem — usado
+// só pra mostrar "já está ativo" nos botões em vez de deixar sempre no
+// mesmo "Ativar", sem dar nenhum sinal visual de que o clique funcionou.
+function lembretesStatusFromLista(lembretes) {
+    const porOrigem = {};
+    (lembretes || []).forEach((l) => {
+        if (l.origem && l.status === 'Pendente') porOrigem[l.origem] = l;
+    });
+    return porOrigem;
 }
 
 function fillComodatosAdmin(mainContent) {
@@ -242,8 +257,12 @@ function fillComodatosAdmin(mainContent) {
             </div>
         </div>
         <div class="comodato-lembretes-row">
-            <button type="button" class="secondary-button" id="comodato-ativar-semanal">🔔 Ativar lembrete semanal</button>
-            <button type="button" class="secondary-button" id="comodato-ativar-conferencia">🔔 Ativar conferência mensal</button>
+            <button type="button" class="primary-button" id="comodato-enviar-link">📋 Enviar link pro Kadu</button>
+            <button type="button" class="secondary-button" id="comodato-enviar-conferencia-link">🔍 Enviar conferência</button>
+        </div>
+        <div class="comodato-lembretes-row">
+            ${lembreteStatusBotaoHtml('comodato-semanal', 'comodato-ativar-semanal', '🔔 Ativar lembrete semanal', 'Lembrete semanal ativo')}
+            ${lembreteStatusBotaoHtml('comodato-conferencia', 'comodato-ativar-conferencia', '🔔 Ativar conferência mensal', 'Conferência mensal ativa')}
         </div>
         <div class="comodato-stats-row">
             <div class="comodato-stat-tile"><span class="comodato-stat-label">Equipamentos ativos</span><span class="comodato-stat-value">${totalEquipamentosAtivos}</span></div>
@@ -263,8 +282,10 @@ function fillComodatosAdmin(mainContent) {
         comodatoStatusFilter = btn.dataset.filtro;
         fillComodatosAdmin(mainContent);
     }));
-    document.getElementById('comodato-ativar-semanal').addEventListener('click', (e) => ativarLembreteSistema(e.currentTarget, 'comodato-semanal'));
-    document.getElementById('comodato-ativar-conferencia').addEventListener('click', (e) => ativarLembreteSistema(e.currentTarget, 'comodato-conferencia'));
+    document.getElementById('comodato-ativar-semanal')?.addEventListener('click', (e) => ativarLembreteSistema(mainContent, e.currentTarget, 'comodato-semanal'));
+    document.getElementById('comodato-ativar-conferencia')?.addEventListener('click', (e) => ativarLembreteSistema(mainContent, e.currentTarget, 'comodato-conferencia'));
+    document.getElementById('comodato-enviar-link').addEventListener('click', () => enviarLinkWhatsapp('comodato-preencher', 'Por gentileza, registra o comodato de equipamento dessa semana.'));
+    document.getElementById('comodato-enviar-conferencia-link').addEventListener('click', () => enviarLinkWhatsapp('comodato-conferencia', 'Por gentileza, confirma quais equipamentos ainda estão com o cliente.'));
 
     mainContent.querySelectorAll('[data-obs-grupo]').forEach((btn) => btn.addEventListener('click', () => {
         const g = grupos.find((x) => x.loteId + '__' + x.cliente === btn.dataset.obsGrupo);
@@ -278,13 +299,33 @@ function fillComodatosAdmin(mainContent) {
     mainContent.querySelectorAll('[data-visita-grupo]').forEach((btn) => btn.addEventListener('click', () => navigateTo('visit-detail', { id: btn.dataset.visitaGrupo })));
 }
 
-async function ativarLembreteSistema(btn, tipo) {
+// Link direto na própria tela de Comodatos — não precisa passar pelos
+// Lembretes só pra mandar o link pro Kadu (ver também o botão equivalente
+// no card do lembrete de sistema, lembretes.js).
+function enviarLinkWhatsapp(page, texto) {
+    const link = `${window.location.origin}/?goto=${page}`;
+    openExternal(`https://wa.me/?text=${encodeURIComponent(texto + '\n' + link)}`);
+}
+
+// Mostra o botão "Ativar..." OU, se já tem um lembrete de sistema Pendente
+// com essa Origem, uma etiqueta fixa "já ativo" — sem isso o clique em
+// "Ativar" parecia não fazer nada (só um toast passageiro, nenhum sinal
+// que ficasse na tela).
+function lembreteStatusBotaoHtml(origem, id, labelAtivar, labelAtivo) {
+    const l = (state.comodatoLembretesStatus || {})[origem];
+    if (l) return `<span class="comodato-lembrete-ativo-tag">✅ ${escapeHtml(labelAtivo)} — próximo em ${escapeHtml(l.dataAlvo)}</span>`;
+    return `<button type="button" class="secondary-button" id="${id}">${labelAtivar}</button>`;
+}
+
+async function ativarLembreteSistema(mainContent, btn, tipo) {
     setSaving(true, btn, 'Ativando...');
     try {
         const res = await callAPI('criarLembreteSistemaComodato', { user: state.currentUser, tipo });
-        setSaving(false, btn);
-        if (res.status !== 'success') { showToast(res.message || 'Erro.', true); return; }
+        if (res.status !== 'success') { setSaving(false, btn); showToast(res.message || 'Erro.', true); return; }
+        state.comodatoLembretesStatus = state.comodatoLembretesStatus || {};
+        state.comodatoLembretesStatus[tipo] = res.lembrete;
         showToast(res.jaExistia ? `Já estava ativo (próximo em ${res.lembrete.dataAlvo}).` : `Ativado! Próximo em ${res.lembrete.dataAlvo}.`);
+        fillComodatosAdmin(mainContent);
     } catch (e) {
         setSaving(false, btn);
         showToast(e.message || 'Erro.', true);

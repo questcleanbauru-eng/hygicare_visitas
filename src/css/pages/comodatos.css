@@ -18,7 +18,11 @@
 .comodato-remove-equip { background: none; border: none; color: var(--danger); font-size: 1rem; flex-shrink: 0; cursor: pointer; padding: 0.3rem; }
 .comodato-equip-spacer { width: 1.6rem; flex-shrink: 0; }
 
-.comodato-lembretes-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.comodato-lembretes-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: center; }
+.comodato-lembrete-ativo-tag {
+    font-size: var(--text-sm); font-weight: 600; color: var(--success); background: var(--success-bg);
+    border: 1px solid var(--success-border); border-radius: 999px; padding: 0.45rem 0.9rem;
+}
 
 .comodato-stats-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
 .comodato-stat-tile {
