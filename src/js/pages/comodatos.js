@@ -13,8 +13,12 @@ import { ensureStyles } from '../utils/ui.js';
 //   renderComodatoConferenciaPage — o Kadu confirma, periodicamente, o que
 //                                  ainda está ativo
 
+function hojeInput() {
+    return new Date().toISOString().slice(0, 10);
+}
+
 function novoBloco() {
-    return { cliente: '', cidade: '', areaAtuacao: '', dataInstalacao: '', observacao: '', equipamentos: [{ nome: '', quantidade: 1 }] };
+    return { cliente: '', cidade: '', areaAtuacao: '', dataInstalacao: hojeInput(), observacao: '', observacaoAberta: false, equipamentos: [{ nome: '', quantidade: 1 }] };
 }
 
 // ── Tela do Kadu: registrar a semana ────────────────────────────────────
@@ -73,10 +77,12 @@ export async function renderComodatoPreencherPage() {
                 <label>Equipamentos</label>
                 ${b.equipamentos.map((eq, ei) => `
                     <div class="comodato-equip-row">
-                        <div class="searchable-select comodato-equip-select">
-                            <input type="text" class="comodato-equip-nome" id="com-equip-${idx}-${ei}" value="${escapeHtml(eq.nome)}" placeholder="Equipamento" autocomplete="off">
-                            <div class="searchable-select-menu" id="com-equip-${idx}-${ei}-menu"></div>
-                        </div>
+                        ${equipamentos.length ? `
+                            <select class="comodato-equip-nome" id="com-equip-${idx}-${ei}">
+                                <option value="" disabled ${eq.nome ? '' : 'selected'}>Equipamento</option>
+                                ${equipamentos.map((n) => `<option value="${escapeHtml(n)}" ${eq.nome === n ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}
+                            </select>
+                        ` : `<input type="text" class="comodato-equip-nome" id="com-equip-${idx}-${ei}" value="${escapeHtml(eq.nome)}" placeholder="Equipamento" autocomplete="off">`}
                         <div class="comodato-qty-stepper">
                             <button type="button" class="comodato-qty-minus" data-ei="${ei}" aria-label="Diminuir quantidade">−</button>
                             <span class="comodato-qty-value">${eq.quantidade}</span>
@@ -90,10 +96,12 @@ export async function renderComodatoPreencherPage() {
                 <label for="com-data-${idx}">Data da instalação</label>
                 <input type="date" id="com-data-${idx}" value="${escapeHtml(b.dataInstalacao)}">
             </div>
-            <div class="form-group">
-                <label for="com-obs-${idx}">Observação (opcional)</label>
-                <textarea id="com-obs-${idx}" rows="2" placeholder="Algo importante sobre esse comodato?">${escapeHtml(b.observacao)}</textarea>
-            </div>
+            ${b.observacaoAberta || b.observacao ? `
+                <div class="form-group">
+                    <label for="com-obs-${idx}">Observação (opcional)</label>
+                    <textarea id="com-obs-${idx}" rows="2" placeholder="Algo importante sobre esse comodato?">${escapeHtml(b.observacao)}</textarea>
+                </div>
+            ` : `<button type="button" class="text-link comodato-add-obs">+ Adicionar observação</button>`}
         </div>`;
     }
 
@@ -115,18 +123,14 @@ export async function renderComodatoPreencherPage() {
         card.querySelector(`#com-cliente-${idx}`).addEventListener('input', (e) => { b.cliente = e.target.value; });
 
         b.equipamentos.forEach((eq, ei) => {
-            initializeSearchableInput({
-                input: card.querySelector(`#com-equip-${idx}-${ei}`),
-                menu: card.querySelector(`#com-equip-${idx}-${ei}-menu`),
-                items: equipamentos.map((n) => ({ value: n, label: n })),
-                allowFreeText: true,
-                onSelect: (value) => { eq.nome = value; }
-            });
-            card.querySelector(`#com-equip-${idx}-${ei}`).addEventListener('input', (e) => { eq.nome = e.target.value; });
+            const campo = card.querySelector(`#com-equip-${idx}-${ei}`);
+            const evento = equipamentos.length ? 'change' : 'input';
+            campo.addEventListener(evento, (e) => { eq.nome = e.target.value; });
         });
 
         card.querySelector(`#com-data-${idx}`).addEventListener('input', (e) => { b.dataInstalacao = e.target.value; });
-        card.querySelector(`#com-obs-${idx}`).addEventListener('input', (e) => { b.observacao = e.target.value; });
+        card.querySelector(`#com-obs-${idx}`)?.addEventListener('input', (e) => { b.observacao = e.target.value; });
+        card.querySelector('.comodato-add-obs')?.addEventListener('click', () => { b.observacaoAberta = true; render(); });
 
         card.querySelector('.comodato-remove-cliente')?.addEventListener('click', () => {
             blocos.splice(idx, 1);
@@ -258,7 +262,11 @@ function fillComodatosAdmin(mainContent) {
         </div>
         <div class="comodato-lembretes-row">
             <button type="button" class="primary-button" id="comodato-enviar-link">📋 Enviar link pro Kadu</button>
+            <button type="button" class="secondary-button" id="comodato-copiar-link" title="Copiar link">📎 Copiar link</button>
+        </div>
+        <div class="comodato-lembretes-row">
             <button type="button" class="secondary-button" id="comodato-enviar-conferencia-link">🔍 Enviar conferência</button>
+            <button type="button" class="secondary-button" id="comodato-copiar-conferencia-link" title="Copiar link">📎 Copiar link</button>
         </div>
         <div class="comodato-lembretes-row">
             ${lembreteStatusBotaoHtml('comodato-semanal', 'comodato-ativar-semanal', '🔔 Ativar lembrete semanal', 'Lembrete semanal ativo')}
@@ -286,6 +294,8 @@ function fillComodatosAdmin(mainContent) {
     document.getElementById('comodato-ativar-conferencia')?.addEventListener('click', (e) => ativarLembreteSistema(mainContent, e.currentTarget, 'comodato-conferencia'));
     document.getElementById('comodato-enviar-link').addEventListener('click', () => enviarLinkWhatsapp('comodato-preencher', 'Por gentileza, registra o comodato de equipamento dessa semana.'));
     document.getElementById('comodato-enviar-conferencia-link').addEventListener('click', () => enviarLinkWhatsapp('comodato-conferencia', 'Por gentileza, confirma quais equipamentos ainda estão com o cliente.'));
+    document.getElementById('comodato-copiar-link').addEventListener('click', () => copiarLink('comodato-preencher'));
+    document.getElementById('comodato-copiar-conferencia-link').addEventListener('click', () => copiarLink('comodato-conferencia'));
 
     mainContent.querySelectorAll('[data-obs-grupo]').forEach((btn) => btn.addEventListener('click', () => {
         const g = grupos.find((x) => x.loteId + '__' + x.cliente === btn.dataset.obsGrupo);
@@ -305,6 +315,14 @@ function fillComodatosAdmin(mainContent) {
 function enviarLinkWhatsapp(page, texto) {
     const link = `${window.location.origin}/?goto=${page}`;
     openExternal(`https://wa.me/?text=${encodeURIComponent(texto + '\n' + link)}`);
+}
+
+// Copiar sem passar pelo WhatsApp — pra colar em outro app, SMS, etc.
+function copiarLink(page) {
+    const link = `${window.location.origin}/?goto=${page}`;
+    navigator.clipboard.writeText(link)
+        .then(() => showToast('Link copiado!'))
+        .catch(() => showToast('Não foi possível copiar.', true));
 }
 
 // Mostra o botão "Ativar..." OU, se já tem um lembrete de sistema Pendente
