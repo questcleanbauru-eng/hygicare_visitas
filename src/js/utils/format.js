@@ -337,6 +337,19 @@ export function funilStatusIcon(status) {
     return '📊';
 }
 
+// Mesmo ícone de funilStatusIcon, em SVG — mesma migração de emoji fixo pra
+// ícone de linha já feita acima (ver visitTypeIconSvg).
+export function funilStatusIconSvg(status) {
+    const s = (status || '').toUpperCase();
+    if (s.includes('IDENTIFICAR')) { return fieldIconSvg('search'); }
+    if (s.includes('PROPOSTA'))    { return fieldIconSvg('file'); }
+    if (s.includes('NEGOCIA'))     { return fieldIconSvg('exchange'); }
+    if (s.includes('CONCLU'))      { return fieldIconSvg('award'); }
+    if (s.includes('PERDI'))       { return fieldIconSvg('xCircle'); }
+    if (s.includes('RETOMAR'))     { return fieldIconSvg('rotate'); }
+    return fieldIconSvg('barChart');
+}
+
 export function contratoSituacaoIcon(contrato) {
     if (contrato && contrato.vencido)       { return '🔴'; }
     if (contrato && contrato.venceEmBreve)  { return '⏰'; }
@@ -381,7 +394,13 @@ const FIELD_ICON = {
     shield:    '<path d="M12 3 5 6v5c0 5 3 8.5 7 10 4-1.5 7-5 7-10V6l-7-3z"/>',
     monitor:   '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
     clipboard: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
-    link:      '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
+    link:      '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    file:      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    exchange:  '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
+    award:     '<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>',
+    xCircle:   '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+    rotate:    '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
+    barChart:  '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'
 };
 
 export function fieldIconSvg(key) {

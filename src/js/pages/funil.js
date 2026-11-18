@@ -3,7 +3,7 @@ import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyn
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, formatMonthKey,
     calculateDaysFromDisplayDate, formatDateForDisplay, formatDateForInput, formatDateFromDisplay, formatInputDateFromDisplay,
-    funilStatusIcon, filterLabelHtml, formatCurrency, parseCurrencyBR, wireCurrencyInput, normalizeProposal, normalizeVisit,
+    funilStatusIconSvg, filterLabelHtml, formatCurrency, parseCurrencyBR, wireCurrencyInput, normalizeProposal, normalizeVisit,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml, resolveNotifyOptions,
     scopeYearFilterFieldsHtml
@@ -14,11 +14,12 @@ import {
     openExternal, initializeSearchableInput, wireYearSelect, setSaving, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
-import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
+import { initPullToRefresh, renderBreadcrumb, updateFunilBadge, ensureStyles, initSearchBarAutoHide, NAV_ICON_SVG } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
 import { ensurePropostasForDedup, propostaItemFor, propostaEmAlerta, ensureVisitsForDedup, fetchTudoPropostas, fetchTudoVisitas } from '../utils/funilLink.js';
 import { openLinkPickerModal } from '../utils/linkPicker.js';
 import { downloadXLSX } from '../utils/xlsxWriter.js';
+import { TILE_CORES } from './dashboard.js';
 
 // Lembra o filtro escolhido entre re-renders da tela (recarregar dados em
 // 2º plano, sync automático, voltar de outra tela...) — sem isso, qualquer
@@ -145,9 +146,12 @@ export function fillFunilContent(mainContent, funil) {
     const summaryCount = getSummaryCount();
     mainContent.innerHTML = `
         <div class="page-header">
-            <div>
-                <h2>Funil de Vendas</h2>
-                <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.funil}" aria-hidden="true">${NAV_ICON_SVG.funil}</span>
+                <div>
+                    <h2>Funil de Vendas</h2>
+                    <p class="page-subtitle">${funilData.length} oportunidade(s)</p>
+                </div>
             </div>
             <div class="page-header-actions">
                 ${state.canDelete ? '<button type="button" class="text-link" id="funil-select-toggle" title="Marcar vários registros para apagar de uma vez">☑️ Selecionar</button>' : ''}
@@ -387,7 +391,7 @@ export function fillFunilContent(mainContent, funil) {
                         <div class="item-body">
                             <div class="item-top">
                                 <span class="item-name">
-                                    ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${funilStatusIcon(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
+                                    ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span class="item-name-icon" aria-hidden="true">${funilStatusIconSvg(f.status)}</span> ${escapeHtml(f.cliente || 'Cliente não informado')}
                                 </span>
                                 ${f._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="status-pill funil-status-${escapeHtml((f.status || '').toLowerCase())} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status, atual: ${escapeHtml(f.status || '-')}" data-inline-funil-status="${escapeHtml(f.id)}" data-current-status="${escapeHtml(f.status || '')}">${escapeHtml(f.status || '-')}</span>`}
                             </div>
