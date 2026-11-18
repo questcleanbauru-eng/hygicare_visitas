@@ -3,10 +3,18 @@ import { callAPI, ensureFormData, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint, formatCurrency,
     formatDateFieldValue, normalizeDisplayDateValue, parseDisplayDate, clienteSearchItem, findClienteByNome,
-    normalizeVisit, compareVisitsByDateDesc, formatInputDateFromDisplay
+    normalizeVisit, compareVisitsByDateDesc, formatInputDateFromDisplay, fieldIconSvg
 } from '../utils/format.js';
 import { showToast, setSaving, skeletonList, addScrollTop, openExternal, initializeSearchableInput } from '../utils/dom.js';
-import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
+import { renderBreadcrumb, ensureStyles, NAV_ICON_SVG } from '../utils/ui.js';
+import { TILE_CORES } from './dashboard.js';
+
+// Tipo da campanha (pra quem ela pede atualização) — mesmo vocabulário de
+// ícones de linha já usado em Manutenção/Funil/Propostas, pra não ganhar um
+// quarto jeito de desenhar "tipo de registro" no app.
+const campanhaTipoIconSvg = (tipo) => fieldIconSvg(
+    tipo === 'funil' ? 'barChart' : tipo === 'visita' ? 'clipboard' : tipo === 'manutencao' ? 'wrench' : tipo === 'relatoriotecnico' ? 'note' : 'file'
+);
 
 const PROP_STATUS = ['Enviada', 'Em negociacao', 'Ganhamos', 'Perdido'];
 const FUNIL_STATUS = ['IDENTIFICAR', 'PROPOSTA', 'NEGOCIAR', 'CONCLUIDO', 'PERDIDO', 'RETOMAR'];
@@ -1022,9 +1030,12 @@ export async function renderCampanhasPage() {
     main.innerHTML = `
         ${renderBreadcrumb([{ label: 'Admin', page: 'admin' }, { label: 'Campanhas' }])}
         <div class="page-header">
-            <div>
-                <h2>Campanhas de atualização</h2>
-                <p class="page-subtitle">${campanhasFiltradas.length} de ${campanhas.length} campanha(s)</p>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.campanhas}" aria-hidden="true">${NAV_ICON_SVG.campanhas}</span>
+                <div>
+                    <h2>Campanhas de atualização</h2>
+                    <p class="page-subtitle">${campanhasFiltradas.length} de ${campanhas.length} campanha(s)</p>
+                </div>
             </div>
             <div class="page-header-actions">
                 <button type="button" class="text-link" id="camp-nova-visita" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>
@@ -1268,7 +1279,7 @@ function campanhaRow(c, selectMode) {
             <span class="status-pill ${statusClass}">${statusLabel}</span>
         </div>
         <p class="helper-text camp-admin-meta">
-            ${c.tipo === 'funil' ? '📊 Funil' : c.tipo === 'visita' ? '📋 Relatório de Visita' : c.tipo === 'manutencao' ? '🔧 Relatório de Aferição' : c.tipo === 'relatoriotecnico' ? '📋 Relatório SPSP' : '📄 Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
+            <span class="item-name-icon" aria-hidden="true">${campanhaTipoIconSvg(c.tipo)}</span> ${c.tipo === 'funil' ? 'Funil' : c.tipo === 'visita' ? 'Relatório de Visita' : c.tipo === 'manutencao' ? 'Relatório de Aferição' : c.tipo === 'relatoriotecnico' ? 'Relatório SPSP' : 'Propostas'} · para <strong>${escapeHtml(c.vendedorDestino || '-')}</strong>${c.prazoAte ? ` · prazo <span class="${vencida ? 'camp-prazo-vencido' : ''}">${escapeHtml(c.prazoAte)}</span>` : ''}<br>
             ${c.primeiroAcessoEm
                 ? `👁️ Acessou em ${escapeHtml(c.primeiroAcessoEm)}${c.ultimoAcessoEm && c.ultimoAcessoEm !== c.primeiroAcessoEm ? ` (última vez ${escapeHtml(c.ultimoAcessoEm)})` : ''}`
                 : '⏳ Ainda não abriu o link'}
