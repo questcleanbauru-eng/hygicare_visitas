@@ -1,8 +1,9 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, attemptOrQueue, ensureFormData } from '../api.js';
-import { escapeHtml, clienteSearchItem, findClienteByNome } from '../utils/format.js';
+import { escapeHtml, clienteSearchItem, findClienteByNome, isAdminOrGerenteUser, fieldIconSvg } from '../utils/format.js';
 import { showToast, setSaving, loadingState, initializeSearchableInput, openExternal } from '../utils/dom.js';
-import { ensureStyles } from '../utils/ui.js';
+import { ensureStyles, NAV_ICON_SVG } from '../utils/ui.js';
+import { TILE_CORES } from './dashboard.js';
 
 // Comodato de Equipamento — ver lib/handlers/comodatos.js pro desenho
 // completo. Três telas nesse arquivo:
@@ -41,9 +42,12 @@ export async function renderComodatoPreencherPage() {
     function render() {
         mainContent.innerHTML = `
             <div class="page-header">
-                <div>
-                    <h2>🔧 Comodato de Equipamento</h2>
-                    <p class="page-subtitle">Quais clientes receberam equipamento em comodato essa semana?</p>
+                <div class="page-header-title-group">
+                    <span class="page-header-icon" style="background:${TILE_CORES.comodatos}" aria-hidden="true">${NAV_ICON_SVG.comodatos}</span>
+                    <div>
+                        <h2>Comodato de Equipamento</h2>
+                        <p class="page-subtitle">Quais clientes receberam equipamento em comodato essa semana?</p>
+                    </div>
                 </div>
             </div>
             <div id="comodato-blocos">
@@ -178,12 +182,12 @@ export async function renderComodatoPreencherPage() {
             setSaving(false, btn);
             if (res.status === 'queued') {
                 showToast('Sem conexão — será enviado assim que voltar.');
-                navigateTo('dashboard');
+                navigateTo(isAdminOrGerenteUser() ? 'comodatos' : 'dashboard');
                 return;
             }
             if (res.status !== 'success') { showToast(res.message || 'Erro ao enviar.', true); return; }
             showToast('Comodato registrado!');
-            navigateTo('dashboard');
+            navigateTo(isAdminOrGerenteUser() ? 'comodatos' : 'dashboard');
         } catch (e) {
             setSaving(false, btn);
             showToast(e.message || 'Erro ao enviar.', true);
@@ -255,27 +259,33 @@ function fillComodatosAdmin(mainContent) {
 
     mainContent.innerHTML = `
         <div class="page-header">
-            <div>
-                <h2>🔧 Comodatos de Equipamento</h2>
-                <p class="page-subtitle">Cada envio do Kadu gera um relatório de visita pro cliente.</p>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.comodatos}" aria-hidden="true">${NAV_ICON_SVG.comodatos}</span>
+                <div>
+                    <h2>Comodatos de Equipamento</h2>
+                    <p class="page-subtitle">Cada envio do Kadu gera um relatório de visita pro cliente.</p>
+                </div>
+            </div>
+            <div class="header-actions-group">
+                <button type="button" class="primary-btn" id="comodato-registrar-admin">+ Registrar comodato</button>
             </div>
         </div>
         <div class="comodato-acoes-row">
             <div class="comodato-acao-card">
-                <span class="comodato-acao-title">📋 Link pro Kadu preencher a semana</span>
+                <span class="comodato-acao-title"><span class="item-name-icon" aria-hidden="true">${fieldIconSvg('clipboard')}</span> Link pro Kadu preencher a semana</span>
                 <div class="comodato-acao-botoes">
                     <button type="button" class="mini-button mini-button-whatsapp" id="comodato-enviar-link">Enviar no WhatsApp</button>
                     <button type="button" class="mini-button" id="comodato-copiar-link">Copiar link</button>
                 </div>
-                <div class="comodato-acao-status">${lembreteStatusBotaoHtml('comodato-semanal', 'comodato-ativar-semanal', '🔔 Ativar lembrete semanal', 'Ativo')}</div>
+                <div class="comodato-acao-status">${lembreteStatusBotaoHtml('comodato-semanal', 'comodato-ativar-semanal', 'Ativar lembrete semanal', 'Ativo')}</div>
             </div>
             <div class="comodato-acao-card">
-                <span class="comodato-acao-title">🔍 Conferência periódica</span>
+                <span class="comodato-acao-title"><span class="item-name-icon" aria-hidden="true">${fieldIconSvg('search')}</span> Conferência periódica</span>
                 <div class="comodato-acao-botoes">
                     <button type="button" class="mini-button mini-button-whatsapp" id="comodato-enviar-conferencia-link">Enviar no WhatsApp</button>
                     <button type="button" class="mini-button" id="comodato-copiar-conferencia-link">Copiar link</button>
                 </div>
-                <div class="comodato-acao-status">${lembreteStatusBotaoHtml('comodato-conferencia', 'comodato-ativar-conferencia', '🔔 Ativar conferência mensal', 'Ativa')}</div>
+                <div class="comodato-acao-status">${lembreteStatusBotaoHtml('comodato-conferencia', 'comodato-ativar-conferencia', 'Ativar conferência mensal', 'Ativa')}</div>
             </div>
         </div>
         <div class="comodato-stats-row">
@@ -296,6 +306,7 @@ function fillComodatosAdmin(mainContent) {
         comodatoStatusFilter = btn.dataset.filtro;
         fillComodatosAdmin(mainContent);
     }));
+    document.getElementById('comodato-registrar-admin')?.addEventListener('click', () => navigateTo('comodato-preencher'));
     document.getElementById('comodato-ativar-semanal')?.addEventListener('click', (e) => ativarLembreteSistema(mainContent, e.currentTarget, 'comodato-semanal'));
     document.getElementById('comodato-ativar-conferencia')?.addEventListener('click', (e) => ativarLembreteSistema(mainContent, e.currentTarget, 'comodato-conferencia'));
     document.getElementById('comodato-enviar-link').addEventListener('click', () => enviarLinkWhatsapp('comodato-preencher', 'Por gentileza, registra o comodato de equipamento dessa semana.'));
@@ -337,8 +348,8 @@ function copiarLink(page) {
 // que ficasse na tela).
 function lembreteStatusBotaoHtml(origem, id, labelAtivar, labelAtivo) {
     const l = (state.comodatoLembretesStatus || {})[origem];
-    if (l) return `<span class="comodato-lembrete-ativo-tag">✅ ${escapeHtml(labelAtivo)} — próximo em ${escapeHtml(l.dataAlvo)}</span>`;
-    return `<button type="button" class="mini-button" id="${id}">${labelAtivar}</button>`;
+    if (l) return `<span class="comodato-lembrete-ativo-tag">${fieldIconSvg('check')} ${escapeHtml(labelAtivo)} — próximo em ${escapeHtml(l.dataAlvo)}</span>`;
+    return `<button type="button" class="mini-button" id="${id}">${fieldIconSvg('bell')} ${labelAtivar}</button>`;
 }
 
 async function ativarLembreteSistema(mainContent, btn, tipo) {
@@ -372,10 +383,10 @@ function grupoCardHtml(g) {
             </div>
             <div class="comodato-grupo-itens">
                 ${chips}
-                ${g.observacao ? `<button type="button" class="text-link" data-obs-grupo="${escapeHtml(key)}">🗒️ Observação</button>` : ''}
-                ${g.visitaId ? `<button type="button" class="text-link" data-visita-grupo="${escapeHtml(g.visitaId)}">📋 Ver visita</button>` : ''}
-                ${g.contratoUrl ? `<a class="text-link" href="${escapeHtml(g.contratoUrl)}" target="_blank" rel="noopener">📄 Ver contrato</a>` : `<button type="button" class="text-link" data-contrato-grupo="${escapeHtml(key)}">📄 Gerar contrato</button>`}
-                ${isAtivo ? `<button type="button" class="text-link" data-retirar-grupo="${escapeHtml(key)}">📦 Marcar retirado</button>` : ''}
+                ${g.observacao ? `<button type="button" class="text-link" data-obs-grupo="${escapeHtml(key)}">${fieldIconSvg('note')} Observação</button>` : ''}
+                ${g.visitaId ? `<button type="button" class="text-link" data-visita-grupo="${escapeHtml(g.visitaId)}">${fieldIconSvg('clipboard')} Ver visita</button>` : ''}
+                ${g.contratoUrl ? `<a class="text-link" href="${escapeHtml(g.contratoUrl)}" target="_blank" rel="noopener">${fieldIconSvg('file')} Ver contrato</a>` : `<button type="button" class="text-link" data-contrato-grupo="${escapeHtml(key)}">${fieldIconSvg('file')} Gerar contrato</button>`}
+                ${isAtivo ? `<button type="button" class="text-link" data-retirar-grupo="${escapeHtml(key)}">${fieldIconSvg('box')} Marcar retirado</button>` : ''}
             </div>
         </div>`;
 }
@@ -523,9 +534,12 @@ export async function renderComodatoConferenciaPage() {
     function render() {
         mainContent.innerHTML = `
             <div class="page-header">
-                <div>
-                    <h2>🔍 Conferência de Comodato</h2>
-                    <p class="page-subtitle">Esse equipamento ainda está com o cliente?</p>
+                <div class="page-header-title-group">
+                    <span class="page-header-icon" style="background:${TILE_CORES.comodatos}" aria-hidden="true">${fieldIconSvg('search')}</span>
+                    <div>
+                        <h2>Conferência de Comodato</h2>
+                        <p class="page-subtitle">Esse equipamento ainda está com o cliente?</p>
+                    </div>
                 </div>
             </div>
             ${ativos.length === 0 ? `
@@ -537,8 +551,8 @@ export async function renderComodatoConferenciaPage() {
                             <span class="item-name">${escapeHtml(c.cliente)}</span>
                             <span class="item-meta">${escapeHtml(c.equipamento)} ×${c.quantidade}</span>
                             <div class="comodato-conf-actions">
-                                <button type="button" class="comodato-conf-btn ${respostas.get(c.id) === 'confirmado' ? 'is-active-ok' : ''}" data-status="confirmado">✅ Ainda está lá</button>
-                                <button type="button" class="comodato-conf-btn ${respostas.get(c.id) === 'nao_encontrado' ? 'is-active-no' : ''}" data-status="nao_encontrado">❌ Não está mais</button>
+                                <button type="button" class="comodato-conf-btn ${respostas.get(c.id) === 'confirmado' ? 'is-active-ok' : ''}" data-status="confirmado">${fieldIconSvg('check')} Ainda está lá</button>
+                                <button type="button" class="comodato-conf-btn ${respostas.get(c.id) === 'nao_encontrado' ? 'is-active-no' : ''}" data-status="nao_encontrado">${fieldIconSvg('xCircle')} Não está mais</button>
                             </div>
                         </div>`).join('')}
                 </div>

@@ -30,7 +30,8 @@ const TILE_DESCRICOES = {
 export const TILE_CORES = {
     visits: '#2563eb', calendar: '#7c3aed', notificacoes: '#dc2626', lembretes: '#d97706',
     proposals: '#0891b2', funil: '#4f46e5', contratos: '#0d9488', manutencao: '#ea580c',
-    report: '#475569', radar: '#16a34a', campanhas: '#db2777', admin: '#334155'
+    report: '#475569', radar: '#16a34a', campanhas: '#db2777', admin: '#334155',
+    comodatos: '#a16207'
 };
 
 // "!" vermelho no canto do card = essa tela precisa da atenção do usuário
