@@ -175,7 +175,8 @@
 }
 .notif-summary-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
 .notif-summary-card:active { transform: scale(0.98); }
-.notif-summary-icon { font-size: 1.2rem; line-height: 1; }
+.notif-summary-icon { font-size: 1.2rem; line-height: 1; color: var(--ink-faint); }
+.notif-summary-icon svg { width: 18px; height: 18px; }
 .notif-summary-count { font-size: 1.7rem; font-weight: 800; line-height: 1; color: var(--ink); }
 .notif-summary-label { font-size: 0.82rem; color: var(--ink-soft); line-height: 1.3; }
 .notif-summary-cta { font-size: 0.76rem; font-weight: 700; color: var(--ink-soft); margin-top: auto; padding-top: 0.3rem; }
@@ -266,7 +267,8 @@
     transition: filter 0.15s, transform 0.1s;
 }
 .notif-chip:hover { filter: brightness(0.93); transform: translateY(-1px); }
-.notif-chip-bell { font-size: 0.72rem; }
+.notif-chip-bell { font-size: 0.72rem; display: inline-flex; }
+.notif-chip-bell svg { width: 11px; height: 11px; }
 .notif-chip-amber  { background: var(--warning-bg); color: var(--warning); }
 .notif-chip-orange { background: #ffe4cc; color: #c2410c; }
 .notif-chip-blue   { background: var(--info-bg); color: var(--info); }

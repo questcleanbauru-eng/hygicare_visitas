@@ -1,8 +1,9 @@
 import { state } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
-import { escapeHtml, resolveNotifyOptions, multiCheckFilterFieldHtml } from '../utils/format.js';
+import { escapeHtml, resolveNotifyOptions, multiCheckFilterFieldHtml, fieldIconSvg } from '../utils/format.js';
 import { showToast, setSaving, loadingState, addScrollTop, wireMultiCheckFilter, openExternal } from '../utils/dom.js';
-import { initPullToRefresh, ensureStyles } from '../utils/ui.js';
+import { initPullToRefresh, ensureStyles, NAV_ICON_SVG } from '../utils/ui.js';
+import { TILE_CORES } from './dashboard.js';
 
 // "Lembretes administrativos" — pedido explícito do Bruno: usar o robô de
 // WhatsApp como agenda/lembrete pra cobrar o time administrativo de algo
@@ -45,15 +46,15 @@ function recorrenciaBadgeHtml(l) {
         texto = cfg.intervalo ? `A cada ${cfg.intervalo} ${cfg.unidade || 'dias'}` : 'Personalizada';
     }
     if (!texto) texto = l.recorrencia;
-    return `<span class="status-tag preventiva" title="Repete">🔁 ${escapeHtml(texto)}</span>`;
+    return `<span class="status-tag preventiva" title="Repete">${fieldIconSvg('rotate')} ${escapeHtml(texto)}</span>`;
 }
 
 function terminoBadgeHtml(l) {
     if (l.terminoTipo === 'data' && l.terminoData) {
-        return `<span class="status-tag pedido" title="Encerra sozinho nessa data">⏹️ Até ${escapeHtml(l.terminoData)}</span>`;
+        return `<span class="status-tag pedido" title="Encerra sozinho nessa data">${fieldIconSvg('square')} Até ${escapeHtml(l.terminoData)}</span>`;
     }
     if (l.terminoTipo === 'ocorrencias' && l.terminoOcorrencias) {
-        return `<span class="status-tag pedido" title="Para depois dessa quantidade de vezes">⏹️ ${l.ocorrenciaNumero || 1}/${l.terminoOcorrencias}x</span>`;
+        return `<span class="status-tag pedido" title="Para depois dessa quantidade de vezes">${fieldIconSvg('square')} ${l.ocorrenciaNumero || 1}/${l.terminoOcorrencias}x</span>`;
     }
     return '';
 }
@@ -164,9 +165,12 @@ function fillLembretesContent(mainContent, lembretes) {
 
     mainContent.innerHTML = `
         <div class="page-header">
-            <div>
-                <h2>Lembretes</h2>
-                <p class="page-subtitle">Avisos recorrentes pro time administrativo, via WhatsApp</p>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.lembretes}" aria-hidden="true">${NAV_ICON_SVG.lembretes}</span>
+                <div>
+                    <h2>Lembretes</h2>
+                    <p class="page-subtitle">Avisos recorrentes pro time administrativo, via WhatsApp</p>
+                </div>
             </div>
             ${isAdmin ? '<button class="primary-btn" id="btn-new-lembrete" type="button">+ Novo Lembrete</button>' : ''}
         </div>

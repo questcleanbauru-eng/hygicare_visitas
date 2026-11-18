@@ -1,8 +1,9 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, ensureFormData, getDashboardData } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, getInitials } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, getInitials, fieldIconSvg } from '../utils/format.js';
 import { showToast, setSaving, skeletonList, addScrollTop, initializeSearchableInput } from '../utils/dom.js';
-import { renderBreadcrumb, updateNotificacoesBadge } from '../utils/ui.js';
+import { renderBreadcrumb, updateNotificacoesBadge, NAV_ICON_SVG } from '../utils/ui.js';
+import { TILE_CORES } from './dashboard.js';
 
 // Tela central de avisos: o histórico de notificações (campanha criada,
 // aviso manual do admin — ver lib/handlers/push.js) + as "pendências"
@@ -18,13 +19,13 @@ import { renderBreadcrumb, updateNotificacoesBadge } from '../utils/ui.js';
 // leva. Uma fonte só usada tanto pros chips da lista por vendedor quanto
 // (parcialmente) pro resumo pessoal "Suas pendências" no topo.
 const PEND_KINDS = [
-    { key: 'overdueProposals', isArray: false, color: 'amber', icon: '📄', page: 'proposals',
+    { key: 'overdueProposals', isArray: false, color: 'amber', icon: fieldIconSvg('file'), page: 'proposals',
         label: (n) => `${n} proposta${n > 1 ? 's' : ''} atrasada${n > 1 ? 's' : ''}` },
-    { key: 'overdueFunil', isArray: false, color: 'orange', icon: '📊', page: 'funil',
+    { key: 'overdueFunil', isArray: false, color: 'orange', icon: fieldIconSvg('barChart'), page: 'funil',
         label: (n) => `${n} oportunidade${n > 1 ? 's' : ''} no Funil sem atualização` },
-    { key: 'campanhasPendentes', isArray: true, color: 'blue', icon: '🔗', page: 'campanhas',
+    { key: 'campanhasPendentes', isArray: true, color: 'blue', icon: fieldIconSvg('link'), page: 'campanhas',
         label: (n) => `${n} campanha${n > 1 ? 's' : ''} aguardando resposta` },
-    { key: 'clientesPrincipaisPendentes', isArray: true, color: 'red', icon: '⭐', page: 'dashboard',
+    { key: 'clientesPrincipaisPendentes', isArray: true, color: 'red', icon: fieldIconSvg('star'), page: 'dashboard',
         label: (n) => `${n} cliente${n > 1 ? 's' : ''} principal${n > 1 ? 'is' : ''} sem relatório este mês` }
 ];
 
@@ -67,9 +68,9 @@ export async function renderNotificacoesPage() {
     const d = (dashResult && dashResult.status === 'success' && dashResult.data) || {};
     const pendCP = (d.clientesPrincipaisPendentes || []).length;
     const minhasPendencias = [
-        d.overdueProposals ? { icon: '📄', count: d.overdueProposals, label: `proposta${d.overdueProposals > 1 ? 's' : ''} atrasada${d.overdueProposals > 1 ? 's' : ''}`, page: 'proposals' } : null,
-        d.overdueFunil ? { icon: '📊', count: d.overdueFunil, label: `oportunidade${d.overdueFunil > 1 ? 's' : ''} no Funil sem atualização`, page: 'funil' } : null,
-        pendCP ? { icon: '⭐', count: pendCP, label: `cliente${pendCP > 1 ? 's' : ''} principal${pendCP > 1 ? 'is' : ''} sem relatório este mês`, page: 'dashboard' } : null
+        d.overdueProposals ? { icon: fieldIconSvg('file'), count: d.overdueProposals, label: `proposta${d.overdueProposals > 1 ? 's' : ''} atrasada${d.overdueProposals > 1 ? 's' : ''}`, page: 'proposals' } : null,
+        d.overdueFunil ? { icon: fieldIconSvg('barChart'), count: d.overdueFunil, label: `oportunidade${d.overdueFunil > 1 ? 's' : ''} no Funil sem atualização`, page: 'funil' } : null,
+        pendCP ? { icon: fieldIconSvg('star'), count: pendCP, label: `cliente${pendCP > 1 ? 's' : ''} principal${pendCP > 1 ? 'is' : ''} sem relatório este mês`, page: 'dashboard' } : null
     ].filter(Boolean);
 
     const vendedoresPend = (pendResult && pendResult.status === 'success') ? pendResult.vendedores || [] : [];
@@ -110,7 +111,7 @@ export async function renderNotificacoesPage() {
             const n = kindCount(v, kind);
             if (!n) return '';
             return `<button type="button" class="notif-chip notif-chip-${kind.color}" data-notify-vendor="${escapeHtml(v.nome)}" data-notify-kind="${kind.key}" aria-label="Notificar ${escapeHtml(v.nome)} sobre ${escapeHtml(kind.label(n))}">
-                <span class="notif-chip-bell" aria-hidden="true">🔔</span>${escapeHtml(kind.label(n))}
+                <span class="notif-chip-bell" aria-hidden="true">${fieldIconSvg('bell')}</span>${escapeHtml(kind.label(n))}
             </button>`;
         }).join('');
         return `
@@ -179,8 +180,11 @@ export async function renderNotificacoesPage() {
     main.innerHTML = `
         ${renderBreadcrumb([{ label: 'Início', page: 'dashboard' }, { label: 'Notificações' }])}
         <div class="page-header">
-            <div>
-                <h2>Notificações ${totalPendenciasAtivas ? `<span class="notif-header-badge">${totalPendenciasAtivas} pendência${totalPendenciasAtivas > 1 ? 's' : ''} ativa${totalPendenciasAtivas > 1 ? 's' : ''}</span>` : ''}</h2>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.notificacoes}" aria-hidden="true">${NAV_ICON_SVG.notificacoes}</span>
+                <div>
+                    <h2>Notificações ${totalPendenciasAtivas ? `<span class="notif-header-badge">${totalPendenciasAtivas} pendência${totalPendenciasAtivas > 1 ? 's' : ''} ativa${totalPendenciasAtivas > 1 ? 's' : ''}</span>` : ''}</h2>
+                </div>
             </div>
             <div class="page-header-actions">
                 ${notifResult.naoLidas ? '<button type="button" class="text-link" id="notif-marcar-todas">Marcar todas como lidas</button>' : ''}
