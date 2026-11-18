@@ -2,8 +2,8 @@ import { state, navigateTo } from '../app.js';
 import { callAPI } from '../api.js';
 import {
     escapeHtml, normalizeVisit, normalizeProposal, normalizeContrato, normalizeManutencao,
-    compareVisitsByDateDesc, visitTypeIcon, visitTypeCategory, proposalStatusIcon, funilStatusIcon,
-    calculateDaysFromDisplayDate
+    compareVisitsByDateDesc, visitTypeIconSvg, visitTypeCategory, proposalStatusIconSvg, funilStatusIconSvg,
+    calculateDaysFromDisplayDate, fieldIconSvg
 } from '../utils/format.js';
 import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
 import { skeletonDetail } from '../utils/dom.js';
@@ -86,7 +86,7 @@ export async function renderCliente360Page(options = {}) {
 
         ${renderSection('Visitas', visits.length, visits.slice(0, 8).map((v) => `
             <button type="button" class="c360-item" data-type="visit-detail" data-id="${escapeHtml(v.id)}">
-                <span class="type-chip ${visitTypeCategory(v.tipoVisita)}">${visitTypeIcon(v.tipoVisita)}</span>
+                <span class="type-chip ${visitTypeCategory(v.tipoVisita)}">${visitTypeIconSvg(v.tipoVisita)}</span>
                 <div class="item-body">
                     <div class="item-name">${escapeHtml(v.dataVisita)}</div>
                     <div class="item-meta">${escapeHtml(v.tipoVisita || '')}</div>
@@ -96,7 +96,7 @@ export async function renderCliente360Page(options = {}) {
 
         ${renderSection('Propostas', proposals.length, proposals.slice(0, 8).map((p) => `
             <button type="button" class="c360-item" data-type="proposal-detail" data-id="${escapeHtml(p.id)}">
-                <span class="type-chip">${proposalStatusIcon(p.status)}</span>
+                <span class="type-chip">${proposalStatusIconSvg(p.status)}</span>
                 <div class="item-body">
                     <div class="item-name">${escapeHtml(p.status || '')}</div>
                     <div class="item-meta">${escapeHtml(p.produtos || '')} · ${escapeHtml(p.data || '')}</div>
@@ -106,7 +106,7 @@ export async function renderCliente360Page(options = {}) {
 
         ${renderSection('Funil', funil.length, funil.slice(0, 8).map((f) => `
             <button type="button" class="c360-item" data-type="funil-detail" data-id="${escapeHtml(f.id || '')}">
-                <span class="type-chip">${funilStatusIcon(f.status)}</span>
+                <span class="type-chip">${funilStatusIconSvg(f.status)}</span>
                 <div class="item-body">
                     <div class="item-name">${escapeHtml(f.status || '')}</div>
                     <div class="item-meta">${escapeHtml(f.data || '')}</div>
@@ -116,7 +116,7 @@ export async function renderCliente360Page(options = {}) {
 
         ${renderSection('Contratos', contratos.length, contratos.slice(0, 8).map((c) => `
             <button type="button" class="c360-item" data-type="contrato-detail" data-id="${escapeHtml(c.id)}">
-                <span class="type-chip">📑</span>
+                <span class="type-chip">${fieldIconSvg('file')}</span>
                 <div class="item-body">
                     <div class="item-name">${c.vencido ? 'Vencido' : c.assinado === 'Sim' ? 'Assinado' : 'Ativo'}</div>
                     <div class="item-meta">${escapeHtml(c.fim ? 'até ' + c.fim : '')}</div>
@@ -126,7 +126,7 @@ export async function renderCliente360Page(options = {}) {
 
         ${renderSection('Manutenções', manutencoes.length, manutencoes.slice(0, 8).map((m) => `
             <button type="button" class="c360-item" data-type="manutencao-detail" data-id="${escapeHtml(m.id)}">
-                <span class="type-chip">🔧</span>
+                <span class="type-chip">${fieldIconSvg('wrench')}</span>
                 <div class="item-body">
                     <div class="item-name">${escapeHtml(m.data || '')}</div>
                     <div class="item-meta">${escapeHtml(m.tecnico || '')}</div>
