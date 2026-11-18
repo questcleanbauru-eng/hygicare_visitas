@@ -402,7 +402,8 @@ const FIELD_ICON = {
     rotate:    '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
     barChart:  '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
     pause:     '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
-    play:      '<polygon points="5 3 19 12 5 21 5 3"/>'
+    play:      '<polygon points="5 3 19 12 5 21 5 3"/>',
+    flask:     '<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M6.453 15h11.094"/><path d="M8.5 2h7"/>'
 };
 
 export function fieldIconSvg(key) {

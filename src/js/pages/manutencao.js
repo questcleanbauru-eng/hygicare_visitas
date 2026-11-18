@@ -1,13 +1,14 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase, clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, normalizeManutencao, titleCase, clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml, fieldIconSvg } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, showToast, actionIcon,
     skeletonList, skeletonDetail, addScrollTop, setSaving, openExternal,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
-import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
+import { initPullToRefresh, renderBreadcrumb, ensureStyles, NAV_ICON_SVG } from '../utils/ui.js';
 import { compressImageFile } from '../utils/image.js';
+import { TILE_CORES } from './dashboard.js';
 
 const driveThumbUrl = (id) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1000`;
 const driveViewUrl = (id) => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
@@ -173,7 +174,7 @@ function combinarRelatorios(manut, tecnicos) {
 // distinguidos por m.tipoRelatorio.
 const tipoLabel = (m) => (m._tipo === 'tecnico' ? 'SPSP' : m.tipoRelatorio === 'geral' ? 'Geral' : m.tipoRelatorio === 'biopet' ? 'BIOPET' : m.tipoRelatorio === 'carta' ? 'Carta de Visita' : 'Aferição');
 const tipoBadgeClass = (m) => (m._tipo === 'tecnico' ? 'tecnico' : m.tipoRelatorio === 'geral' ? 'geral' : m.tipoRelatorio === 'biopet' ? 'biopet' : m.tipoRelatorio === 'carta' ? 'carta' : 'manutencao');
-const tipoIcon = (m) => (m._tipo === 'tecnico' ? '📋' : m.tipoRelatorio === 'geral' ? '📄' : m.tipoRelatorio === 'biopet' ? '🧪' : m.tipoRelatorio === 'carta' ? '✉️' : '🔧');
+const tipoIconSvg = (m) => fieldIconSvg(m._tipo === 'tecnico' ? 'clipboard' : m.tipoRelatorio === 'geral' ? 'file' : m.tipoRelatorio === 'biopet' ? 'flask' : m.tipoRelatorio === 'carta' ? 'mail' : 'wrench');
 
 // Recebe a lista JÁ combinada e normalizada (ver combinarRelatorios).
 export function fillManutencaoContent(mainContent, itens) {
@@ -183,7 +184,10 @@ export function fillManutencaoContent(mainContent, itens) {
     if (normalized.length === 0) {
         mainContent.innerHTML = `
             <div class="page-header">
-                <div><h2>Manutenção</h2></div>
+                <div class="page-header-title-group">
+                    <span class="page-header-icon" style="background:${TILE_CORES.manutencao}" aria-hidden="true">${NAV_ICON_SVG.manutencao}</span>
+                    <div><h2>Manutenção</h2></div>
+                </div>
                 <div class="header-actions-group">
                     <button type="button" class="text-link" id="btn-ver-modelos">📋 Modelos</button>
                     ${isAdmGer ? `<button type="button" class="text-link" id="mnt-nova-campanha" title="Pedir pra um vendedor completar um relatório de manutenção ou técnico">🔧 Pedir Relatório</button>` : ''}
@@ -248,7 +252,10 @@ export function fillManutencaoContent(mainContent, itens) {
 
     mainContent.innerHTML = `
         <div class="page-header">
-            <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.manutencao}" aria-hidden="true">${NAV_ICON_SVG.manutencao}</span>
+                <div><h2>Manutenção</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
+            </div>
             <div class="header-actions-group mnt-header-actions-row">
                 <div class="mnt-actions-desktop">
                     <div class="mnt-actions-row mnt-actions-row-tools">
@@ -363,7 +370,7 @@ export function fillManutencaoContent(mainContent, itens) {
             <button type="button" class="proposal-card item-row" data-manutencao-id="${escapeHtml(m.id)}" data-tipo="${m._tipo}">
                 <div class="item-body">
                     <div class="item-top">
-                        <span class="item-name"><span aria-hidden="true">${tipoIcon(m)}</span> ${escapeHtml(m.cliente || 'Cliente não informado')}</span>
+                        <span class="item-name"><span class="item-name-icon" aria-hidden="true">${tipoIconSvg(m)}</span> ${escapeHtml(m.cliente || 'Cliente não informado')}</span>
                         <span class="mnt-tipo-badge mnt-tipo-badge-${tipoBadgeClass(m)}">${tipoLabel(m)}</span>
                     </div>
                     <div class="item-meta">${escapeHtml([m.cidade, titleCase(m.tecnico), m.data].filter(Boolean).join(' · ') || '-')}</div>
