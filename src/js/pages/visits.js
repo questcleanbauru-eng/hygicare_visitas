@@ -5,11 +5,12 @@ import {
     groupVisitsByMonth, formatMonthKey, normalizeVisit, compareVisitsByDateDesc,
     formatDateForDisplay, formatDateForInput, formatTimeForInput, formatInputDateFromDisplay, formatDateFromDisplay,
     formatDateFieldValue, normalizeDisplayDateValue, formatTimeFieldValue, normalizeTimeValue,
-    normalizeProposal, visitTypeIcon, visitTypeCategory, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
+    normalizeProposal, visitTypeIcon, visitTypeIconSvg, visitTypeCategory, proposalStatusIcon, funilStatusIcon, filterLabelHtml,
     calculateDaysFromDisplayDate,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, clienteNomeParaGravar, multiCheckFilterFieldHtml,
-    formatCurrency, parseCurrencyBR, wireCurrencyInput, resolveNotifyOptions, scopeYearFilterFieldsHtml
+    formatCurrency, parseCurrencyBR, wireCurrencyInput, resolveNotifyOptions, scopeYearFilterFieldsHtml,
+    fieldIconSvg
 } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon,
@@ -18,11 +19,12 @@ import {
     openIcsEvent, preventEnterSubmit, renderSimpleOptions,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
-import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
+import { initPullToRefresh, renderBreadcrumb, ensureStyles, initSearchBarAutoHide, NAV_ICON_SVG } from '../utils/ui.js';
 import { ensureFunilForDedup, funilItemFor, funilEmAlerta } from '../utils/funilLink.js';
 import { downloadXLSX } from '../utils/xlsxWriter.js';
 import { getProposals } from './proposals.js';
 import { getFunil } from './funil.js';
+import { TILE_CORES } from './dashboard.js';
 
 // Botão "🗒️" nos cartões de visita (lista de Visitas e painel do dia na
 // Agenda) — só aparece quando a visita tem observação escrita; o clique
@@ -31,7 +33,7 @@ import { getFunil } from './funil.js';
 // rápido sem precisar abrir a visita inteira).
 function obsButtonHtml(visit) {
     if (!visit.observacao) return '';
-    return `<button class="visit-obs-btn" type="button" data-obs-id="${escapeHtml(visit.id)}" title="Ver observação" aria-label="Ver observação da visita">🗒️</button>`;
+    return `<button class="visit-obs-btn" type="button" data-obs-id="${escapeHtml(visit.id)}" title="Ver observação" aria-label="Ver observação da visita">${fieldIconSvg('note')}</button>`;
 }
 
 function wireObsButtons(container, visits) {
@@ -397,7 +399,7 @@ export function fillVisitsContent(container, visits) {
                     ${visitsByMonth[monthKey].map((visit) => `
                         <div class="visit-card-wrap">
                             <button class="visit-card item-row" type="button" data-visit-id="${escapeHtml(visit.id)}">
-                                <span class="type-chip ${visitTypeCategory(visit.tipoVisita)}" aria-hidden="true">${visitTypeIcon(visit.tipoVisita)}</span>
+                                <span class="type-chip ${visitTypeCategory(visit.tipoVisita)}" aria-hidden="true">${visitTypeIconSvg(visit.tipoVisita)}</span>
                                 <div class="item-body">
                                     <div class="item-top">
                                         <span class="item-name">${escapeHtml(visit.cliente || 'Cliente não informado')}</span>
@@ -423,7 +425,7 @@ export function fillVisitsContent(container, visits) {
                                 ${state.canCreateProposalFunil ? `<button class="visit-sinalizar-btn${visit.sinalizadaVinculo ? ' is-flagged' : ''}" type="button" data-sinalizar-id="${escapeHtml(visit.id)}" title="${visit.sinalizadaVinculo ? 'Sinalizada — some da lista de pendências do Início quando você desmarcar' : 'Sinalizar: preciso incluir essa visita em Proposta/Funil depois'}" aria-label="Sinalizar para vincular depois">🚩</button>` : ''}
                                 ${obsButtonHtml(visit)}
                                 <div class="visit-agenda-menu-wrap">
-                                    <button class="visit-agenda-toggle" type="button" data-agenda-toggle="${escapeHtml(visit.id)}" title="Agendar retorno ou criar lembrete" aria-label="Agendar retorno ou criar lembrete">📅</button>
+                                    <button class="visit-agenda-toggle" type="button" data-agenda-toggle="${escapeHtml(visit.id)}" title="Agendar retorno ou criar lembrete" aria-label="Agendar retorno ou criar lembrete">${fieldIconSvg('calendar')}</button>
                                     <div class="visit-agenda-menu">
                                         <button type="button" data-agenda-retorno="${escapeHtml(visit.id)}">📅 Agendar retorno</button>
                                         ${String(state.currentUser?.profile || '').toLowerCase() === 'admin' ? `<button type="button" data-agenda-lembrete="${escapeHtml(visit.id)}">⏰ Criar lembrete</button>` : ''}
@@ -909,9 +911,12 @@ export async function renderVisitsPage() {
     const vpQeOn = vpIsAdmin && (() => { try { return localStorage.getItem('visits_quick_edit') === '1'; } catch (e) { return false; } })();
     mainContent.innerHTML = `
         <div class="page-header">
-            <div>
-                <h2>Visitas</h2>
-                <p class="page-subtitle">Historico e registro de visitas</p>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.visits}" aria-hidden="true">${NAV_ICON_SVG.visits}</span>
+                <div>
+                    <h2>Visitas</h2>
+                    <p class="page-subtitle">Historico e registro de visitas</p>
+                </div>
             </div>
             <div class="page-header-actions">
                 ${isAdminOrGerenteUser() ? `<button type="button" class="text-link" id="visits-nova-campanha" title="Pedir pra um vendedor completar um relatório de visita">📋 Relatório de Visita</button>` : ''}
@@ -1049,7 +1054,7 @@ export async function renderCalendarPage(options) {
         const dias = -calculateDaysFromDisplayDate(a.dataAgendada);
         const diasLabel = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias > 0 ? `Em ${dias} dias` : 'Atrasado';
         const diasCor = dias < 0 ? 'erro' : dias <= 1 ? 'apresentacao' : 'preventiva';
-        const icon = a.campanhaOrigemId ? '🔗' : '📌';
+        const icon = `<span class="ag-card-icon" style="color:${AGENDAMENTO_COLOR}" aria-hidden="true">${a.campanhaOrigemId ? fieldIconSvg('link') : fieldIconSvg('pin')}</span>`;
         if (selectMode) {
             const checked = selecionados.has(String(a.id));
             return `
@@ -1627,7 +1632,7 @@ export async function renderCalendarPage(options) {
                 ...dayVisits.slice(0, 2).map((v) => `<span class="cal-dot" style="background:${typeColorMap[v.tipoVisita] || '#3b82f6'}" title="Visita: ${escapeHtml(v.cliente)}"></span>`),
                 ...dayProposals.slice(0, 1).map(() => `<span class="cal-dot" style="background:${PROPOSAL_COLOR}" title="Proposta"></span>`),
                 ...dayFunil.slice(0, 1).map(() => `<span class="cal-dot" style="background:${FUNIL_COLOR}" title="Funil"></span>`),
-                ...dayAgendamentos.slice(0, 1).map((a) => `<span class="cal-dot-agendamento" style="color:${AGENDAMENTO_COLOR}" title="${a.campanhaOrigemId ? 'Prazo de campanha' : 'Retorno agendado'}: ${escapeHtml(a.cliente)}" aria-hidden="true">${a.campanhaOrigemId ? '🔗' : '📌'}</span>`)
+                ...dayAgendamentos.slice(0, 1).map((a) => `<span class="cal-dot-agendamento" style="color:${AGENDAMENTO_COLOR}" title="${a.campanhaOrigemId ? 'Prazo de campanha' : 'Retorno agendado'}: ${escapeHtml(a.cliente)}" aria-hidden="true">${a.campanhaOrigemId ? fieldIconSvg('link') : fieldIconSvg('pin')}</span>`)
             ];
             const totalExtra = dayVisits.length + dayProposals.length + dayFunil.length + dayAgendamentos.length - allDots.length;
             const more = totalExtra > 0 ? `<span class="cal-more">+${totalExtra}</span>` : '';
@@ -1650,7 +1655,7 @@ export async function renderCalendarPage(options) {
             ...(showVisitas ? typesThisMonth.map((t) => `<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${typeColorMap[t]}"></span>${escapeHtml(t)}</span>`) : []),
             ...(showPropostas ? [`<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${PROPOSAL_COLOR}"></span>Proposta</span>`] : []),
             ...(showFunil ? [`<span class="cal-legend-item"><span class="cal-legend-dot" style="background:${FUNIL_COLOR}"></span>Funil</span>`] : []),
-            ...(showRetornos ? [`<span class="cal-legend-item"><span class="cal-legend-dot-agendamento" style="color:${AGENDAMENTO_COLOR}" aria-hidden="true">${activeFilter === 'campanha' ? '🔗' : '📌'}</span>${activeFilter === 'campanha' ? 'Prazo de campanha' : 'Retorno agendado'}</span>`] : [])
+            ...(showRetornos ? [`<span class="cal-legend-item"><span class="cal-legend-dot-agendamento" style="color:${AGENDAMENTO_COLOR}" aria-hidden="true">${activeFilter === 'campanha' ? fieldIconSvg('link') : fieldIconSvg('pin')}</span>${activeFilter === 'campanha' ? 'Prazo de campanha' : 'Retorno agendado'}</span>`] : [])
         ].join('');
 
         const filterOptions = [
@@ -1684,7 +1689,10 @@ export async function renderCalendarPage(options) {
 
         mainContent.innerHTML = `
             <div class="page-header">
-                <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas, Funil e Retornos</p></div>
+                <div class="page-header-title-group">
+                    <span class="page-header-icon" style="background:${TILE_CORES.calendar}" aria-hidden="true">${NAV_ICON_SVG.calendar}</span>
+                    <div><h2>Agenda</h2><p class="page-subtitle">Visitas, Propostas, Funil e Retornos</p></div>
+                </div>
                 <button type="button" class="primary-btn" id="cal-new-agendamento">+ Agendar</button>
             </div>
             <div class="pill-row">${filterChipsHtml}${atrasadosToggleHtml}</div>
@@ -1814,7 +1822,7 @@ export async function renderCalendarPage(options) {
                         <div class="visit-card-wrap">
                             <button type="button" class="visit-card" data-visit-id="${escapeHtml(v.id)}" style="border-left:4px solid ${typeColorMap[v.tipoVisita] || '#3b82f6'}">
                                 <div class="visit-card-header">
-                                    <strong><span aria-hidden="true">${visitTypeIcon(v.tipoVisita)}</span> ${escapeHtml(v.cliente || '-')}</strong>
+                                    <strong><span class="ag-card-icon" style="color:${typeColorMap[v.tipoVisita] || '#3b82f6'}" aria-hidden="true">${visitTypeIconSvg(v.tipoVisita)}</span> ${escapeHtml(v.cliente || '-')}</strong>
                                     <span class="visit-date">${escapeHtml(v.horario || '')}</span>
                                 </div>
                                 <div class="visit-card-body">

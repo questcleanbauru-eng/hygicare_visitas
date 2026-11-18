@@ -641,6 +641,24 @@ main {
 
 .compact-header { gap: 0.4rem; }
 
+/* Ícone colorido junto do título da tela — mesmo chip/cor do card
+   correspondente em Início → Acessar (ver acessar-tile-icon/TILE_CORES em
+   dashboard.js), pra reforçar visualmente de onde a tela "veio". Reaproveitar
+   em qualquer .page-header: <span class="page-header-icon" style="background:COR">SVG</span>
+   dentro de um wrapper .page-header-title-group. */
+.page-header-title-group { display: flex; align-items: center; gap: 0.65rem; }
+.page-header-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+}
+.page-header-icon svg { width: 17px; height: 17px; }
+
 /* Anterior/Próximo no cabeçalho de Detalhe (Visita/Proposta/Funil) — fica
    colado no "Voltar", grupo compacto pra não brigar por espaço com o título
    (que é flex:1 centralizado) nem com os ícones de ação à direita. */

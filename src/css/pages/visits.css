@@ -91,6 +91,8 @@
     transition: background 0.15s, color 0.15s;
 }
 
+.visit-share-btn svg, .visit-obs-btn svg, .visit-agenda-toggle svg { width: 15px; height: 15px; }
+
 .visit-share-btn:hover, .visit-funil-btn:hover, .visit-sinalizar-btn:hover, .visit-obs-btn:hover { background: #e0e7ff; color: var(--primary); }
 .visit-funil-btn.is-in-funil:hover { background: #dcfce7; }
 .visit-funil-btn.is-alert { color: #b91c1c; }
@@ -347,15 +349,23 @@
 .cal-dot-agendamento {
     font-size: 9px;
     line-height: 1;
-    display: inline-block;
+    display: inline-flex;
 }
+.cal-dot-agendamento svg { width: 9px; height: 9px; }
 
 .cal-legend-dot-agendamento {
     font-size: 12px;
     line-height: 1;
-    display: inline-block;
+    display: inline-flex;
     flex-shrink: 0;
 }
+.cal-legend-dot-agendamento svg { width: 12px; height: 12px; }
+
+/* Ícone de tipo (dia da Agenda) e de retorno/campanha (cards de
+   agendamento) — mesmo tamanho do emoji que substituem, alinhado com o
+   texto ao lado. */
+.ag-card-icon { display: inline-flex; vertical-align: -2px; }
+.ag-card-icon svg { width: 14px; height: 14px; }
 
 .cal-more {
     font-size: 0.6rem;

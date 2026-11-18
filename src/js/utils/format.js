@@ -264,6 +264,18 @@ export function visitTypeIcon(tipo) {
     return '📋';
 }
 
+// Mesmo ícone de categoria do .type-chip (ver visitTypeCategory), só que em
+// SVG — acompanha a mesma migração de emoji fixo pra ícone de linha já feita
+// em getFieldIcon/FIELD_ICON acima.
+export function visitTypeIconSvg(tipo) {
+    const t = (tipo || '').toUpperCase();
+    if (t.includes('PREVENTIVA'))   { return fieldIconSvg('shield'); }
+    if (t.includes('PEDIDO'))       { return fieldIconSvg('box'); }
+    if (t.includes('MANUT') || t.includes('OPEN')) { return fieldIconSvg('wrench'); }
+    if (t.includes('APRESENTA'))    { return fieldIconSvg('monitor'); }
+    return fieldIconSvg('clipboard');
+}
+
 // Converte texto de moeda BR ("R$ 1.234,56") pro Number equivalente (1234.56)
 // — remove "R$"/espaços, remove "." de milhar, troca "," decimal por ".".
 export function parseCurrencyBR(raw) {
@@ -365,10 +377,14 @@ const FIELD_ICON = {
     wrench:    '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
     coin:      '<circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="17"/><path d="M15 9.5c0-1.4-1.3-2.5-3-2.5s-3 1-3 2.3 1.3 1.9 3 2.2 3 .9 3 2.2-1.3 2.3-3 2.3-3-1.1-3-2.5"/>',
     flag:      '<line x1="5" y1="21" x2="5" y2="3"/><path d="M5 4h13l-3 5 3 5H5"/>',
-    note:      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>'
+    note:      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>',
+    shield:    '<path d="M12 3 5 6v5c0 5 3 8.5 7 10 4-1.5 7-5 7-10V6l-7-3z"/>',
+    monitor:   '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+    clipboard: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
+    link:      '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
 };
 
-function fieldIconSvg(key) {
+export function fieldIconSvg(key) {
     return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${FIELD_ICON[key]}</svg>`;
 }
 

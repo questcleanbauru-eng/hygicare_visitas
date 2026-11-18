@@ -20,26 +20,55 @@ let _pinIdentifierDefaultedForCampanha = false;
 // normal, ficando assim até a página recarregar.
 let _campanhaPrefillDismissed = false;
 
+// Marca d'água do droplet Hygicare — compartilhada entre o painel de marca
+// (desktop) e o topo da tela no mobile.
+function hygicareDropletSvg(size) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none">
+        <path d="M16 3C16 3 6 15 6 22C6 27.5 10.6 31 16 31C21.4 31 26 27.5 26 22C26 15 16 3 16 3Z" fill="white"/>
+        <ellipse cx="12.3" cy="17.5" rx="2.6" ry="4.2" fill="#8FD0F2" opacity=".85" transform="rotate(-25 12.3 17.5)"/>
+    </svg>`;
+}
+
+function loginModuleRowHtml(iconPath, title, desc) {
+    return `
+        <li class="login-module">
+            <span class="login-module-icon">${iconPath}</span>
+            <span>
+                <strong class="login-module-title">${title}</strong>
+                <small class="login-module-desc">${desc}</small>
+            </span>
+        </li>`;
+}
+
 // Coluna de marca compartilhada entre a tela de login e a de PIN.
 function loginBrandHtml() {
     return `
         <div class="login-brand" aria-hidden="true">
+            <svg class="login-brand-deco" width="360" height="230" viewBox="0 0 260 180" fill="none">
+                <path d="M10 150 C 60 170, 90 90, 140 100 S 220 40, 245 20" stroke="white" stroke-width="2" stroke-dasharray="2 10" stroke-linecap="round"/>
+                <circle cx="10" cy="150" r="5" fill="white"/>
+                <circle cx="140" cy="100" r="5" fill="white"/>
+                <circle cx="245" cy="20" r="7" fill="white"/>
+            </svg>
             <div class="login-brand-inner">
                 <div class="login-brand-logo">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.92)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                        <circle cx="12" cy="9" r="2.5"/>
-                    </svg>
-                    <span class="login-brand-name">App de Visitas</span>
+                    ${hygicareDropletSvg(40)}
+                    <div>
+                        <span class="login-brand-name">Hygicare</span>
+                        <span class="login-brand-subname">App de Visitas</span>
+                    </div>
                 </div>
-                <p class="login-brand-tagline">Gerencie visitas e propostas com eficiência</p>
-                <ul class="login-brand-benefits">
-                    <li><span class="lbb-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Acompanhe visitas em tempo real</li>
-                    <li><span class="lbb-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Propostas organizadas e rastreadas</li>
-                    <li><span class="lbb-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Funil de vendas integrado</li>
+                <h2 class="login-brand-tagline">Visitas, propostas e comodatos — tudo num só lugar, direto do celular.</h2>
+                <ul class="login-modules">
+                    ${loginModuleRowHtml('<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>', 'Visitas em campo', 'Rota do dia e check-in no cliente')}
+                    ${loginModuleRowHtml('<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 9v6l-4 2v-8z"/></svg>', 'Funil de vendas', 'Do primeiro contato até o fechamento')}
+                    ${loginModuleRowHtml('<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>', 'Comodato de equipamentos', 'Registro e contrato em poucos cliques')}
                 </ul>
             </div>
-            <p class="login-brand-foot">Hygicare · Gestão comercial</p>
+            <div class="login-brand-foot-wrap">
+                <span class="login-brand-foot-divider"></span>
+                <p class="login-brand-foot">Hygicare · Gestão comercial</p>
+            </div>
         </div>`;
 }
 
@@ -84,12 +113,9 @@ export function renderLoginPage() {
             ${loginBrandHtml()}
             <div class="login-form-col">
                 <div class="login-mobile-logo">
-                    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                        <circle cx="12" cy="9" r="2.5"/>
-                    </svg>
-                    <span class="lml-name">App de Visitas</span>
-                    <span class="lml-tag">Gerencie visitas e propostas</span>
+                    ${hygicareDropletSvg(52)}
+                    <span class="lml-name">Hygicare</span>
+                    <span class="lml-tag">App de Visitas</span>
                 </div>
                 <div class="login-form-card">
                     <div id="login-mode-body">${mode === 'pin' ? pinLoginFormHtml(campanhaNome) : passwordLoginFormHtml()}</div>
