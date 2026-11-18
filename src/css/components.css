@@ -253,6 +253,7 @@
     font-size: 0.95rem;
     transition: background 0.15s, color 0.15s;
 }
+.ct-pause-btn svg { width: 15px; height: 15px; }
 .ct-pause-btn:hover { background: #e0e7ff; color: var(--primary); }
 .ct-pause-btn.is-paused { color: #0f766e; }
 .ct-pause-btn.is-paused:hover { background: #ccfbf1; }

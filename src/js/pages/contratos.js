@@ -1,12 +1,13 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, attemptOrQueue } from '../api.js';
-import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, filterLabelHtml, multiCheckFilterFieldHtml, clienteSearchItem, findClienteByNome } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, normalizeContrato, formatInputDateFromDisplay, filterLabelHtml, multiCheckFilterFieldHtml, clienteSearchItem, findClienteByNome, fieldIconSvg } from '../utils/format.js';
 import {
     debounce, initializeSearchableInput, renderDetailRow, actionIcon, showToast,
     loadingState, skeletonDetail, addScrollTop, openExternal, setSaving,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
-import { initPullToRefresh, renderBreadcrumb, ensureStyles } from '../utils/ui.js';
+import { initPullToRefresh, renderBreadcrumb, ensureStyles, NAV_ICON_SVG } from '../utils/ui.js';
+import { TILE_CORES } from './dashboard.js';
 
 // "anexo" só conta se for um link http(s) de verdade — contratos antigos
 // têm texto/rabisco no campo que não abre nada.
@@ -36,9 +37,12 @@ export function fillContratosContent(mainContent, contratos) {
 
     mainContent.innerHTML = `
         <div class="page-header">
-            <div>
-                <h2>Contratos</h2>
-                <p class="page-subtitle">Contratos ativos e vencimentos</p>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.contratos}" aria-hidden="true">${NAV_ICON_SVG.contratos}</span>
+                <div>
+                    <h2>Contratos</h2>
+                    <p class="page-subtitle">Contratos ativos e vencimentos</p>
+                </div>
             </div>
             <div class="page-header-actions">
                 ${isAdmin ? `<button type="button" class="text-link qe-toggle${quickEdit ? ' is-on' : ''}" id="ct-qe-toggle" title="Editar na mesma tela, um contrato após o outro">⚡ Edição rápida</button>` : ''}
@@ -178,7 +182,7 @@ export function fillContratosContent(mainContent, contratos) {
                     <div class="sub">${escapeHtml([c.vendedor, c.cidade, c.fim ? 'Fim: ' + c.fim : ''].filter(Boolean).join(' · '))}</div>
                     <div class="warn">${c.pausado === 'Sim' ? '⏸️ Pausado — em análise' : `⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)`}${anexoWarn(c)}</div>
                 </button>
-                ${showPauseBtn ? `<div class="ct-card-actions"><button type="button" class="ct-pause-btn${c.pausado === 'Sim' ? ' is-paused' : ''}" data-contrato-pausar="${escapeHtml(c.id)}" title="${c.pausado === 'Sim' ? 'Retomar cobrança de vencimento' : 'Pausar cobrança de vencimento'}" aria-label="${c.pausado === 'Sim' ? 'Retomar' : 'Pausar'}">${c.pausado === 'Sim' ? '▶️' : '⏸️'}</button></div>` : ''}
+                ${showPauseBtn ? `<div class="ct-card-actions"><button type="button" class="ct-pause-btn${c.pausado === 'Sim' ? ' is-paused' : ''}" data-contrato-pausar="${escapeHtml(c.id)}" title="${c.pausado === 'Sim' ? 'Retomar cobrança de vencimento' : 'Pausar cobrança de vencimento'}" aria-label="${c.pausado === 'Sim' ? 'Retomar' : 'Pausar'}">${c.pausado === 'Sim' ? fieldIconSvg('play') : fieldIconSvg('pause')}</button></div>` : ''}
             </div>`;
         const simpleCardHtml = (c) => `
             <button type="button" class="card${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.6rem">
@@ -281,7 +285,7 @@ export function fillContratosContent(mainContent, contratos) {
                         <p class="helper-text" style="margin:0.15rem 0 0;text-align:left">${escapeHtml([c.cidade, c.vendedor].filter(Boolean).join(' · '))}</p>
                     </div>
                     <div class="qe-panel-header-actions">
-                        <button type="button" class="mini-button" id="qe-ct-pausar" title="Enquanto pausado, não cobra o vendedor sobre vencimento desse contrato">${c.pausado === 'Sim' ? '▶️ Retomar' : '⏸️ Pausar'}</button>
+                        <button type="button" class="mini-button" id="qe-ct-pausar" title="Enquanto pausado, não cobra o vendedor sobre vencimento desse contrato">${c.pausado === 'Sim' ? fieldIconSvg('play') + ' Retomar' : fieldIconSvg('pause') + ' Pausar'}</button>
                         <button type="submit" class="primary-button" id="qe-ct-save">Salvar</button>
                     </div>
                 </div>
