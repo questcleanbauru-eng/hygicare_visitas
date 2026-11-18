@@ -6,6 +6,13 @@ import {
     addScrollTop, setSaving, openExternal
 } from '../utils/dom.js';
 import { renderBreadcrumb, ensureStyles } from '../utils/ui.js';
+import { TILE_CORES } from './dashboard.js';
+
+// Sub-módulo de Manutenção (ver breadcrumb em renderRelatorioTecnicoDetailPage)
+// — reusa a cor laranja de Manutenção pro ícone do cabeçalho em vez de ganhar
+// uma cor própria; ícone de prancheta (mesmo visual do badge "SPSP" na lista
+// de Manutenção, ver tipoIconSvg em manutencao.js).
+const RT_HEADER_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>';
 
 // deleteRelatorioTecnico pode responder "confirm_required" quando o
 // registro está vinculado a um item já respondido de uma campanha ainda
@@ -209,7 +216,10 @@ function fillList(mainContent, list) {
     const normalized = (list || []).map(normalize);
     const headerHtml = `
         <div class="page-header">
-            <div><h2>Relatório SPSP</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.manutencao}" aria-hidden="true">${RT_HEADER_ICON}</span>
+                <div><h2>Relatório SPSP</h2><p class="page-subtitle">${normalized.length} relatório(s)</p></div>
+            </div>
             <div class="header-actions-group">
                 <button type="button" class="text-link" id="rt-goto-manutencao">🔧 Manutenção</button>
                 <button type="button" class="text-link" id="rt-new-paulo">+ SPSP - Paulo</button>

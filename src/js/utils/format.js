@@ -326,6 +326,19 @@ export function proposalStatusIcon(status) {
     return '📄';
 }
 
+// Mesmo ícone de proposalStatusIcon, em SVG — mesma migração de emoji fixo
+// pra ícone de linha já feita acima (ver visitTypeIconSvg/funilStatusIconSvg).
+export function proposalStatusIconSvg(status) {
+    const s = (status || '').toUpperCase();
+    if (s.includes('GANH'))     { return fieldIconSvg('award'); }
+    if (s.includes('PERDI'))    { return fieldIconSvg('xCircle'); }
+    if (s.includes('NEGOCIA'))  { return fieldIconSvg('exchange'); }
+    if (s.includes('ENVIA') || s === 'AGUARDANDO') { return fieldIconSvg('send'); }
+    if (s.includes('CONCLU'))   { return fieldIconSvg('award'); }
+    if (s.includes('CANCEL'))   { return fieldIconSvg('xCircle'); }
+    return fieldIconSvg('file');
+}
+
 export function funilStatusIcon(status) {
     const s = (status || '').toUpperCase();
     if (s.includes('IDENTIFICAR')) { return '🔎'; }
@@ -403,7 +416,8 @@ const FIELD_ICON = {
     barChart:  '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
     pause:     '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
     play:      '<polygon points="5 3 19 12 5 21 5 3"/>',
-    flask:     '<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M6.453 15h11.094"/><path d="M8.5 2h7"/>'
+    flask:     '<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M6.453 15h11.094"/><path d="M8.5 2h7"/>',
+    send:      '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>'
 };
 
 export function fieldIconSvg(key) {

@@ -2,7 +2,7 @@ import { state, navigateTo, goBackOrTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, getSyncTimestamp, setSyncTimestamp, mergeById, attemptOrQueue } from '../api.js';
 import {
     escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, parseInputDate,
-    formatMonthKey, normalizeProposal, normalizeVisit, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIcon, filterLabelHtml,
+    formatMonthKey, normalizeProposal, normalizeVisit, proposalStatusClass, formatDateForDisplay, titleCase, proposalStatusIconSvg, filterLabelHtml,
     formatInputDateFromDisplay, formatDateFromDisplay,
     datedNoteHeader, withDatedNoteHeader, stripEmptyDatedLine, selectNoteHint,
     clienteSearchItem, findClienteByNome, multiCheckFilterFieldHtml, scopeYearFilterFieldsHtml
@@ -13,11 +13,12 @@ import {
     loadingState, addScrollTop, openExternal, wireYearSelect, setSaving, preventEnterSubmit,
     wireMultiCheckFilter, syncMultiCheckFilterLabel
 } from '../utils/dom.js';
-import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide } from '../utils/ui.js';
+import { initPullToRefresh, renderBreadcrumb, updateProposalsBadge, ensureStyles, initSearchBarAutoHide, NAV_ICON_SVG } from '../utils/ui.js';
 import { trackUpdate, getSummaryCount, openSummaryModal } from '../utils/updateSummary.js';
 import { ensureFunilForDedup, funilItemFor as funilItemForProposta, funilEmAlerta, ensureVisitsForDedup, fetchTudoFunil, fetchTudoVisitas } from '../utils/funilLink.js';
 import { openLinkPickerModal } from '../utils/linkPicker.js';
 import { downloadXLSX } from '../utils/xlsxWriter.js';
+import { TILE_CORES } from './dashboard.js';
 
 // Dia da Agenda de onde esta proposta foi aberta (ver agendaReturnTo) —
 // guardado por Id, não só capturado uma vez: reabrir a MESMA proposta
@@ -83,7 +84,10 @@ export function fillProposalsContent(mainContent, proposals) {
         const scopeIsLimited = state.proposalsScope && state.proposalsScope !== 'all';
         mainContent.innerHTML = `
             <div class="page-header">
-                <div><h2>Propostas</h2></div>
+                <div class="page-header-title-group">
+                    <span class="page-header-icon" style="background:${TILE_CORES.proposals}" aria-hidden="true">${NAV_ICON_SVG.proposals}</span>
+                    <div><h2>Propostas</h2></div>
+                </div>
                 ${btnNovaProposta('btn-new-proposal')}
             </div>
             ${scopeIsLimited ? `
@@ -127,7 +131,10 @@ export function fillProposalsContent(mainContent, proposals) {
     const summaryCount = getSummaryCount();
     mainContent.innerHTML = `
         <div class="page-header">
-            <div><h2>Propostas</h2><p class="page-subtitle">${normalized.length} proposta(s)</p></div>
+            <div class="page-header-title-group">
+                <span class="page-header-icon" style="background:${TILE_CORES.proposals}" aria-hidden="true">${NAV_ICON_SVG.proposals}</span>
+                <div><h2>Propostas</h2><p class="page-subtitle">${normalized.length} proposta(s)</p></div>
+            </div>
             <div class="page-header-actions">
                 ${state.canDelete ? '<button type="button" class="text-link" id="proposal-select-toggle" title="Marcar várias propostas para apagar de uma vez">☑️ Selecionar</button>' : ''}
                 ${isAdmGer ? '<button type="button" class="text-link" id="proposals-campanha-btn" title="Gerar link para um vendedor atualizar clientes">🔗 Campanha</button>' : ''}
@@ -346,7 +353,7 @@ export function fillProposalsContent(mainContent, proposals) {
                         <div class="item-body">
                             <div class="item-top">
                                 <span class="item-name">
-                                    ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span aria-hidden="true">${proposalStatusIcon(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
+                                    ${selectMode ? '<span class="funil-sel-box" aria-hidden="true"></span>' : ''}<span class="item-name-icon" aria-hidden="true">${proposalStatusIconSvg(p.status)}</span> ${escapeHtml(p.cliente || 'Cliente não informado')}
                                 </span>
                                 ${p._pending ? '<span class="pending-badge" title="Aguardando conexão para enviar">⏳ Pendente</span>' : `<span class="${proposalStatusClass(p.status, p.atrasada)} status-pill-editable" role="button" tabindex="0" aria-label="Alterar status da proposta, atual: ${escapeHtml(p.status || '-')}" data-inline-status="${escapeHtml(p.id)}" data-current-status="${escapeHtml(p.status || '')}">${escapeHtml(p.status || '-')}</span>`}
                             </div>
