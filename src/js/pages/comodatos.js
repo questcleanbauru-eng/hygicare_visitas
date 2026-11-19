@@ -1,7 +1,7 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, attemptOrQueue, ensureFormData } from '../api.js';
 import { escapeHtml, clienteSearchItem, findClienteByNome, isAdminOrGerenteUser, fieldIconSvg } from '../utils/format.js';
-import { showToast, setSaving, loadingState, initializeSearchableInput, openExternal } from '../utils/dom.js';
+import { showToast, setSaving, loadingState, initializeSearchableInput } from '../utils/dom.js';
 import { ensureStyles, NAV_ICON_SVG } from '../utils/ui.js';
 import { TILE_CORES } from './dashboard.js';
 
@@ -270,22 +270,20 @@ function fillComodatosAdmin(mainContent) {
                 <button type="button" class="primary-btn" id="comodato-registrar-admin">+ Registrar comodato</button>
             </div>
         </div>
-        <div class="comodato-acoes-row">
-            <div class="comodato-acao-card">
-                <span class="comodato-acao-title"><span class="item-name-icon" aria-hidden="true">${fieldIconSvg('clipboard')}</span> Link pro Kadu preencher a semana</span>
-                <div class="comodato-acao-botoes">
-                    <button type="button" class="mini-button mini-button-whatsapp" id="comodato-enviar-link">Enviar no WhatsApp</button>
+        <div class="comodato-links-card">
+            <div class="comodato-link-row">
+                <span class="comodato-link-label"><span class="item-name-icon" aria-hidden="true">${fieldIconSvg('clipboard')}</span> Link pro Kadu preencher a semana</span>
+                <div class="comodato-link-actions">
                     <button type="button" class="mini-button" id="comodato-copiar-link">Copiar link</button>
+                    ${lembreteStatusBotaoHtml('comodato-semanal', 'comodato-ativar-semanal', 'Ativar lembrete semanal', 'Ativo')}
                 </div>
-                <div class="comodato-acao-status">${lembreteStatusBotaoHtml('comodato-semanal', 'comodato-ativar-semanal', 'Ativar lembrete semanal', 'Ativo')}</div>
             </div>
-            <div class="comodato-acao-card">
-                <span class="comodato-acao-title"><span class="item-name-icon" aria-hidden="true">${fieldIconSvg('search')}</span> Conferência periódica</span>
-                <div class="comodato-acao-botoes">
-                    <button type="button" class="mini-button mini-button-whatsapp" id="comodato-enviar-conferencia-link">Enviar no WhatsApp</button>
+            <div class="comodato-link-row">
+                <span class="comodato-link-label"><span class="item-name-icon" aria-hidden="true">${fieldIconSvg('search')}</span> Conferência periódica</span>
+                <div class="comodato-link-actions">
                     <button type="button" class="mini-button" id="comodato-copiar-conferencia-link">Copiar link</button>
+                    ${lembreteStatusBotaoHtml('comodato-conferencia', 'comodato-ativar-conferencia', 'Ativar conferência mensal', 'Ativa')}
                 </div>
-                <div class="comodato-acao-status">${lembreteStatusBotaoHtml('comodato-conferencia', 'comodato-ativar-conferencia', 'Ativar conferência mensal', 'Ativa')}</div>
             </div>
         </div>
         <div class="comodato-stats-row">
@@ -298,7 +296,12 @@ function fillComodatosAdmin(mainContent) {
             <button type="button" class="mini-button${comodatoStatusFilter === 'retirados' ? ' is-on' : ''}" data-filtro="retirados">Retirados</button>
         </div>
         <div id="comodato-lista">
-            ${visiveis.length ? visiveis.map((g) => grupoCardHtml(g)).join('') : '<div class="empty-state"><span class="empty-state-icon">🔧</span><p>Nenhum comodato por aqui.</p></div>'}
+            ${visiveis.length ? visiveis.map((g) => grupoCardHtml(g)).join('') : `
+                <div class="empty-state">
+                    <span class="empty-state-icon comodato-empty-icon" aria-hidden="true">${NAV_ICON_SVG.comodatos}</span>
+                    <p>${comodatoStatusFilter === 'retirados' ? 'Nenhum equipamento retirado ainda.' : comodatoStatusFilter === 'todos' ? 'Nenhum comodato registrado ainda.' : 'Nenhum comodato ativo no momento.'}</p>
+                    <button type="button" class="primary-btn" id="comodato-registrar-vazio">+ Registrar comodato</button>
+                </div>`}
         </div>
     `;
 
@@ -307,10 +310,9 @@ function fillComodatosAdmin(mainContent) {
         fillComodatosAdmin(mainContent);
     }));
     document.getElementById('comodato-registrar-admin')?.addEventListener('click', () => navigateTo('comodato-preencher'));
+    document.getElementById('comodato-registrar-vazio')?.addEventListener('click', () => navigateTo('comodato-preencher'));
     document.getElementById('comodato-ativar-semanal')?.addEventListener('click', (e) => ativarLembreteSistema(mainContent, e.currentTarget, 'comodato-semanal'));
     document.getElementById('comodato-ativar-conferencia')?.addEventListener('click', (e) => ativarLembreteSistema(mainContent, e.currentTarget, 'comodato-conferencia'));
-    document.getElementById('comodato-enviar-link').addEventListener('click', () => enviarLinkWhatsapp('comodato-preencher', 'Por gentileza, registra o comodato de equipamento dessa semana.'));
-    document.getElementById('comodato-enviar-conferencia-link').addEventListener('click', () => enviarLinkWhatsapp('comodato-conferencia', 'Por gentileza, confirma quais equipamentos ainda estão com o cliente.'));
     document.getElementById('comodato-copiar-link').addEventListener('click', () => copiarLink('comodato-preencher'));
     document.getElementById('comodato-copiar-conferencia-link').addEventListener('click', () => copiarLink('comodato-conferencia'));
 
@@ -326,15 +328,9 @@ function fillComodatosAdmin(mainContent) {
     mainContent.querySelectorAll('[data-visita-grupo]').forEach((btn) => btn.addEventListener('click', () => navigateTo('visit-detail', { id: btn.dataset.visitaGrupo })));
 }
 
-// Link direto na própria tela de Comodatos — não precisa passar pelos
-// Lembretes só pra mandar o link pro Kadu (ver também o botão equivalente
-// no card do lembrete de sistema, lembretes.js).
-function enviarLinkWhatsapp(page, texto) {
-    const link = `${window.location.origin}/?goto=${page}`;
-    openExternal(`https://wa.me/?text=${encodeURIComponent(texto + '\n' + link)}`);
-}
-
-// Copiar sem passar pelo WhatsApp — pra colar em outro app, SMS, etc.
+// Pra colar no WhatsApp, SMS, ou qualquer outro app — o envio por WhatsApp
+// em si já tem seu próprio botão quando o lembrete de sistema vence (ver
+// comodatoOrigemBotaoHtml, lembretes.js), então aqui só copia.
 function copiarLink(page) {
     const link = `${window.location.origin}/?goto=${page}`;
     navigator.clipboard.writeText(link)
