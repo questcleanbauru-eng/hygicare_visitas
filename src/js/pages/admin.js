@@ -1,15 +1,10 @@
 import { state, navigateTo } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData, clearFormDataCache } from '../api.js';
-import { escapeHtml, titleCase, getInitials, profileClass, clienteSearchItem } from '../utils/format.js';
+import { escapeHtml, titleCase, getInitials, profileClass, clienteSearchItem, fieldIconSvg } from '../utils/format.js';
 import { showToast, loadingState, renderSimpleOptions, showRefreshIndicator, hideRefreshIndicator, setSaving, initializeSearchableInput } from '../utils/dom.js';
 import { ensureStyles } from '../utils/ui.js';
 
 let activeAdminTab = 'users';
-
-// Mesma planilha do backend (lib/sheets.js, SPREADSHEET_ID) — aba
-// Auditoria não carrega mais nada no app (ver aba "Auditoria" abaixo),
-// só um link direto pra planilha de verdade.
-const AUDITORIA_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rW2cl0V-HWNnYWHsRTgtEv9dvR2PEIL0X92eBGAIrzQ/edit';
 
 // Mesmo índice do Date.getDay() (0=domingo...6=sábado) — é o que
 // api/pendencias-whatsapp.js devolve em "schedule.diasSemana" pro robô.
@@ -22,13 +17,13 @@ const WHATSAPP_DIAS_SEMANA = [
 // separada (ver api/pendencias-whatsapp.js) — "key" vira o sufixo da chave
 // de config (whatsapp_hora_<key>) e do id do campo (whatsapp-hora-<key>).
 const WHATSAPP_CATEGORIAS = [
-    { key: 'agendamentos', label: '🔴 Agendamentos' },
-    { key: 'propostas', label: '📄 Propostas' },
-    { key: 'funil', label: '📊 Funil' },
-    { key: 'campanhas', label: '📣 Campanhas' },
-    { key: 'inatividade', label: '⏰ Inatividade' },
-    { key: 'contratos', label: '📑 Contratos' },
-    { key: 'lembretes', label: '📌 Lembretes' }
+    { key: 'agendamentos', label: `<span class="item-name-icon" aria-hidden="true">${fieldIconSvg('calendar')}</span> Agendamentos` },
+    { key: 'propostas', label: `<span class="item-name-icon" aria-hidden="true">${fieldIconSvg('file')}</span> Propostas` },
+    { key: 'funil', label: `<span class="item-name-icon" aria-hidden="true">${fieldIconSvg('barChart')}</span> Funil` },
+    { key: 'campanhas', label: `<span class="item-name-icon" aria-hidden="true">${fieldIconSvg('link')}</span> Campanhas` },
+    { key: 'inatividade', label: `<span class="item-name-icon" aria-hidden="true">${fieldIconSvg('clock')}</span> Inatividade` },
+    { key: 'contratos', label: `<span class="item-name-icon" aria-hidden="true">${fieldIconSvg('file')}</span> Contratos` },
+    { key: 'lembretes', label: `<span class="item-name-icon" aria-hidden="true">${fieldIconSvg('bell')}</span> Lembretes` }
 ];
 const WHATSAPP_HORA_PADRAO = {
     agendamentos: '08:00', propostas: '08:30', funil: '09:00',
@@ -247,10 +242,6 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
             <button type="button" class="admin-tab${activeAdminTab === 'config' ? ' active' : ''}" data-tab="config">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 Configurações
-            </button>
-            <button type="button" class="admin-tab${activeAdminTab === 'auditoria' ? ' active' : ''}" data-tab="auditoria">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
-                Auditoria
             </button>
             <button type="button" class="admin-tab${activeAdminTab === 'saude' ? ' active' : ''}" data-tab="saude">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
@@ -579,12 +570,6 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                     <p class="helper-text" style="text-align:left;margin:0">O teste manda uma mensagem avulsa só pra confirmar que está chegando — a pessoa escolhida precisa ter WhatsApp cadastrado em Admin &gt; Usuários. Depende do robô local estar rodando.</p>
                 </div>
             </div>
-        </div>
-
-        <!-- Tab: Auditoria -->
-        <div class="admin-tab-panel${activeAdminTab === 'auditoria' ? ' active' : ''} card" id="admin-tab-auditoria" style="padding:1rem;display:flex;flex-direction:column;gap:0.75rem;align-items:flex-start">
-            <p class="helper-text" style="text-align:left;margin:0">Todo criar/editar/apagar do app já fica registrado direto na planilha "Auditoria" — sem necessidade de carregar isso aqui dentro do app.</p>
-            <a href="${AUDITORIA_SHEET_URL}" target="_blank" rel="noopener" class="primary-button" style="text-decoration:none;display:inline-block">📄 Abrir planilha de Auditoria</a>
         </div>
 
         <!-- Tab: Saúde -->
