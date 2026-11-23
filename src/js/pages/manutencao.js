@@ -1189,14 +1189,15 @@ export async function renderManutencaoDetailPage(id) {
                     <p class="mnt-section-title">Assinaturas</p>
                     <div class="mnt-signatures-grid">
                         <div class="mnt-signature-block">
+                            <p class="mnt-signature-role">Funcionário Empresa</p>
                             <div class="mnt-signature-box">${m.assinaturaTecnico ? `<img src="${escapeHtml(m.assinaturaTecnico)}" alt="Assinatura do técnico">` : ''}</div>
                             <p class="mnt-signature-name">${escapeHtml(titleCase(m.tecnico) || 'Técnico')}</p>
-                            <p class="mnt-signature-funcao">Funcionário Empresa</p>
                         </div>
                         <div class="mnt-signature-block">
+                            <p class="mnt-signature-role">Funcionário Cliente</p>
                             <div class="mnt-signature-box">${m.assinaturaCliente ? `<img src="${escapeHtml(m.assinaturaCliente)}" alt="Assinatura do cliente">` : ''}</div>
                             <p class="mnt-signature-name">${escapeHtml(m.clienteAssinanteNome ? m.clienteAssinanteNome : (titleCase(m.cliente) || 'Cliente'))}</p>
-                            <p class="mnt-signature-funcao">${m.clienteAssinanteFuncao ? `Funcionário Cliente · ${escapeHtml(m.clienteAssinanteFuncao)}` : 'Funcionário Cliente'}</p>
+                            ${m.clienteAssinanteFuncao ? `<p class="mnt-signature-funcao">${escapeHtml(m.clienteAssinanteFuncao)}</p>` : ''}
                         </div>
                     </div>
                 </div>
