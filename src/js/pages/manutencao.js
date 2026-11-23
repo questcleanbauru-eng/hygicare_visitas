@@ -1191,11 +1191,12 @@ export async function renderManutencaoDetailPage(id) {
                         <div class="mnt-signature-block">
                             <div class="mnt-signature-box">${m.assinaturaTecnico ? `<img src="${escapeHtml(m.assinaturaTecnico)}" alt="Assinatura do técnico">` : ''}</div>
                             <p class="mnt-signature-name">${escapeHtml(titleCase(m.tecnico) || 'Técnico')}</p>
+                            <p class="mnt-signature-funcao">Funcionário Empresa</p>
                         </div>
                         <div class="mnt-signature-block">
                             <div class="mnt-signature-box">${m.assinaturaCliente ? `<img src="${escapeHtml(m.assinaturaCliente)}" alt="Assinatura do cliente">` : ''}</div>
                             <p class="mnt-signature-name">${escapeHtml(m.clienteAssinanteNome ? m.clienteAssinanteNome : (titleCase(m.cliente) || 'Cliente'))}</p>
-                            ${m.clienteAssinanteFuncao ? `<p class="mnt-signature-funcao">${escapeHtml(m.clienteAssinanteFuncao)}</p>` : ''}
+                            <p class="mnt-signature-funcao">${m.clienteAssinanteFuncao ? `Funcionário Cliente · ${escapeHtml(m.clienteAssinanteFuncao)}` : 'Funcionário Cliente'}</p>
                         </div>
                     </div>
                 </div>
