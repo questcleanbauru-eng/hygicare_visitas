@@ -240,11 +240,23 @@ function resumoVisitasCardHtml() {
                     <input type="date" id="resumo-oc-ate" value="${formatDateForInput(ate)}">
                 </div>
             </div>
-            <button type="button" class="mini-button" id="resumo-oc-copiar" style="margin-top:0.4rem">Copiar resumo</button>
+            <div style="display:flex;align-items:center;gap:0.9rem;flex-wrap:wrap;margin-top:0.4rem">
+                <button type="button" class="mini-button" id="resumo-oc-copiar">Copiar resumo</button>
+                <button type="button" class="text-link" id="resumo-oc-criar-lembrete">${fieldIconSvg('bell')} Criar lembrete diário pra não esquecer</button>
+            </div>
         </div>`;
 }
 
 function wireResumoVisitasCard(mainContent) {
+    mainContent.querySelector('#resumo-oc-criar-lembrete')?.addEventListener('click', () => {
+        const nome = state.currentUser?.name || '';
+        openCreateLembreteModal(
+            'Enviar resumo de visitas Open/Close pro Kadu',
+            'diaria',
+            { apenasUteis: true },
+            nome ? [nome] : []
+        );
+    });
     mainContent.querySelector('#resumo-oc-copiar')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         const deVal = mainContent.querySelector('#resumo-oc-de')?.value;
@@ -393,8 +405,8 @@ async function atualizarStatusLembrete(id, status, btn) {
 // não só o status) ganhou uma tela pra isso: antes só dava pra
 // Concluir/Cancelar/Apagar, nunca corrigir data/texto/destinatários de um
 // lembrete já criado.
-export async function openCreateLembreteModal(prefillTexto) {
-    return openLembreteFormModal({ prefillTexto });
+export async function openCreateLembreteModal(prefillTexto, prefillRecorrencia, prefillConfig, prefillDestinatarios) {
+    return openLembreteFormModal({ prefillTexto, prefillRecorrencia, prefillConfig, prefillDestinatarios });
 }
 
 export async function openEditLembreteModal(lembrete) {
@@ -409,7 +421,7 @@ function isoFromDataBr(valueBr) {
     return `${y}-${m}-${d}`;
 }
 
-async function openLembreteFormModal({ lembrete = null, prefillTexto = '' } = {}) {
+async function openLembreteFormModal({ lembrete = null, prefillTexto = '', prefillRecorrencia = '', prefillConfig = null, prefillDestinatarios = null } = {}) {
     const formDataResult = await ensureFormData();
     const vendedoresAll = (formDataResult.data && formDataResult.data.vendedores) || [];
     const notifyOptions = resolveNotifyOptions(vendedoresAll, state.currentUser);
@@ -420,8 +432,8 @@ async function openLembreteFormModal({ lembrete = null, prefillTexto = '' } = {}
     const defaultDate = new Date();
     defaultDate.setDate(defaultDate.getDate() + 1);
     const dataInicial = editando ? isoFromDataBr(lembrete.dataAlvo) : defaultDate.toISOString().slice(0, 10);
-    const recInicial = editando ? (lembrete.recorrencia || 'nenhuma') : 'nenhuma';
-    const cfgInicial = editando ? (lembrete.recorrenciaConfig || {}) : {};
+    const recInicial = editando ? (lembrete.recorrencia || 'nenhuma') : (prefillRecorrencia || 'nenhuma');
+    const cfgInicial = editando ? (lembrete.recorrenciaConfig || {}) : (prefillConfig || {});
     const terminoInicial = editando ? (lembrete.terminoTipo || 'nunca') : 'nunca';
     overlay.innerHTML = `
         <div class="modal-card newag-modal">
@@ -514,6 +526,7 @@ async function openLembreteFormModal({ lembrete = null, prefillTexto = '' } = {}
     document.body.appendChild(overlay);
 
     if (editando) overlay.querySelector('#lembrete-destinatarios').value = lembrete.destinatarios.join(',');
+    else if (prefillDestinatarios && prefillDestinatarios.length) overlay.querySelector('#lembrete-destinatarios').value = prefillDestinatarios.join(',');
     wireMultiCheckFilter({
         triggerId: 'lembrete-destinatarios-trigger', inputId: 'lembrete-destinatarios', menuId: 'lembrete-destinatarios-menu',
         options: notifyOptions, emptyLabel: 'Escolha...'
