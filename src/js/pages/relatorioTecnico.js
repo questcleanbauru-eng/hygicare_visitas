@@ -511,6 +511,32 @@ function clearSignaturePad(canvas) {
     canvas.dataset.signed = '';
 }
 
+// Alternativa ao desenho à mão — mesma função de manutencao.js, copiada
+// pelo mesmo motivo (ver comentário acima de bindSignaturePad).
+function renderTypedSignature(canvas, text) {
+    const draw = () => {
+        const ctx = canvas.getContext('2d');
+        const ratio = window.devicePixelRatio || 1;
+        const w = canvas.width / ratio;
+        const h = canvas.height / ratio;
+        ctx.clearRect(0, 0, w, h);
+        const nome = text.trim();
+        if (!nome) { canvas.dataset.signed = ''; return; }
+        ctx.fillStyle = '#1a2b4a';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let fontSize = Math.min(h * 0.56, 46);
+        ctx.font = `700 ${fontSize}px "Dancing Script", cursive`;
+        while (fontSize > 14 && ctx.measureText(nome).width > w - 24) {
+            fontSize -= 2;
+            ctx.font = `700 ${fontSize}px "Dancing Script", cursive`;
+        }
+        ctx.fillText(nome, w / 2, h / 2 + fontSize * 0.08);
+        canvas.dataset.signed = '1';
+    };
+    document.fonts.load('700 46px "Dancing Script"').then(draw).catch(draw);
+}
+
 function loadSignatureIntoCanvas(canvas, dataUrl) {
     if (!dataUrl) return;
     const img = new Image();
@@ -695,7 +721,10 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
             ${isPaulo ? `<div class="form-group full-width">
                 <label>Assinatura Cliente</label>
                 <canvas id="rt-signature-cliente" class="signature-pad"></canvas>
-                <div class="signature-pad-actions"><button type="button" class="mini-button" id="rt-signature-cliente-clear">Limpar assinatura</button></div>
+                <div class="signature-pad-actions">
+                    <input type="text" id="rt-signature-cliente-text" class="signature-type-input" placeholder="Ou digite o nome pra gerar a assinatura" autocomplete="off">
+                    <button type="button" class="mini-button" id="rt-signature-cliente-clear">Limpar assinatura</button>
+                </div>
             </div>` : ''}
 
             <div class="rt-section-title">Atendimento realizado por</div>
@@ -710,7 +739,10 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
             ${isPaulo ? `<div class="form-group full-width">
                 <label>Assinatura do Técnico</label>
                 <canvas id="rt-signature-tecnico" class="signature-pad"></canvas>
-                <div class="signature-pad-actions"><button type="button" class="mini-button" id="rt-signature-tecnico-clear">Limpar assinatura</button></div>
+                <div class="signature-pad-actions">
+                    <input type="text" id="rt-signature-tecnico-text" class="signature-type-input" placeholder="Ou digite o nome pra gerar a assinatura" autocomplete="off">
+                    <button type="button" class="mini-button" id="rt-signature-tecnico-clear">Limpar assinatura</button>
+                </div>
             </div>` : ''}
 
             <div class="form-actions full-width">
@@ -755,8 +787,12 @@ export async function renderRelatorioTecnicoFormPage(record, options) {
             loadSignatureIntoCanvas(sigCliente, m.assinaturaCliente);
             loadSignatureIntoCanvas(sigTecnico, m.assinaturaTecnico);
         }
-        document.getElementById('rt-signature-cliente-clear').addEventListener('click', () => clearSignaturePad(sigCliente));
-        document.getElementById('rt-signature-tecnico-clear').addEventListener('click', () => clearSignaturePad(sigTecnico));
+        const sigClienteText = document.getElementById('rt-signature-cliente-text');
+        const sigTecnicoText = document.getElementById('rt-signature-tecnico-text');
+        sigClienteText.addEventListener('input', debounce(() => renderTypedSignature(sigCliente, sigClienteText.value), 150));
+        sigTecnicoText.addEventListener('input', debounce(() => renderTypedSignature(sigTecnico, sigTecnicoText.value), 150));
+        document.getElementById('rt-signature-cliente-clear').addEventListener('click', () => { clearSignaturePad(sigCliente); sigClienteText.value = ''; });
+        document.getElementById('rt-signature-tecnico-clear').addEventListener('click', () => { clearSignaturePad(sigTecnico); sigTecnicoText.value = ''; });
     }
 
     // Estado segue a cidade — mas respeita edição manual do usuário.

@@ -331,8 +331,15 @@
 
 .signature-pad-actions {
     display: flex;
+    align-items: center;
+    gap: 0.5rem;
     justify-content: flex-end;
     margin-top: 0.4rem;
+    flex-wrap: wrap;
+}
+.signature-type-input {
+    flex: 1 1 200px;
+    min-width: 0;
 }
 
 /* ── Fotos (Drive) ─────────────────────────────────────────────────── */
@@ -606,6 +613,20 @@
         height: auto;
         max-height: 11cm;
         object-fit: contain;
+    }
+
+    /* Relatório + fotos cabendo juntos numa página só (ex.: 1-2 fotos) —
+       autoFitManutencaoReport (manutencao.js) marca o <body> antes de
+       imprimir e tira o page-break forçado acima, devolvendo a moldura
+       (borda/padding) que o bloco tem na tela já que ele não começa mais
+       "do zero" numa folha nova. */
+    body.mnt-fotos-fit .mnt-report-fotos {
+        break-before: auto;
+        page-break-before: auto;
+        border: 0.5px solid #cbd5e1;
+        border-radius: 4px;
+        padding: 1rem 1.25rem 1.25rem;
+        margin-top: 0.75rem;
     }
 }
 

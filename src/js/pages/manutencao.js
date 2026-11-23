@@ -66,6 +66,19 @@ function autoFitManutencaoReport() {
         if (report.scrollHeight <= usablePx) break;
         report.classList.add(level);
     }
+
+    // Fotos sempre começavam numa página 2 (break-before: page fixo em
+    // manutencao.css), mesmo com só 1-2 fotos — sobrava uma página 2 quase
+    // vazia. Se o relatório (já compactado acima) + o bloco de fotos juntos
+    // ainda cabem numa página só, tira esse page-break forçado via classe no
+    // <body> (ver @media print / body.mnt-fotos-fit em manutencao.css). Com
+    // muitas fotos a soma passa de uma página e o comportamento antigo
+    // (página própria) continua — não tenta comprimir fotos pra caber.
+    const fotos = document.querySelector('.mnt-report-fotos');
+    document.body.classList.remove('mnt-fotos-fit');
+    if (fotos && (report.scrollHeight + fotos.scrollHeight) <= usablePx) {
+        document.body.classList.add('mnt-fotos-fit');
+    }
 }
 window.addEventListener('beforeprint', autoFitManutencaoReport);
 // beforeprint não dispara em parte dos navegadores mobile ("Salvar PDF"),
@@ -1357,6 +1370,37 @@ function clearSignaturePad(canvas) {
     canvas.dataset.signed = '';
 }
 
+// Alternativa ao desenho à mão: digita o nome e ele vira uma assinatura
+// cursiva no mesmo canvas (mesmo dataset.signed, mesmo toDataURL no envio —
+// pro resto do app não tem diferença nenhuma de uma assinatura desenhada).
+// A fonte (Dancing Script, carregada no <head> do index.html) pode não estar
+// pronta ainda no primeiro toque de tecla, por isso o load() aqui antes de
+// desenhar; document.fonts já cacheia a promise internamente, então chamar
+// de novo a cada tecla não refaz o download.
+function renderTypedSignature(canvas, text) {
+    const draw = () => {
+        const ctx = canvas.getContext('2d');
+        const ratio = window.devicePixelRatio || 1;
+        const w = canvas.width / ratio;
+        const h = canvas.height / ratio;
+        ctx.clearRect(0, 0, w, h);
+        const nome = text.trim();
+        if (!nome) { canvas.dataset.signed = ''; return; }
+        ctx.fillStyle = '#1a2b4a';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let fontSize = Math.min(h * 0.56, 46);
+        ctx.font = `700 ${fontSize}px "Dancing Script", cursive`;
+        while (fontSize > 14 && ctx.measureText(nome).width > w - 24) {
+            fontSize -= 2;
+            ctx.font = `700 ${fontSize}px "Dancing Script", cursive`;
+        }
+        ctx.fillText(nome, w / 2, h / 2 + fontSize * 0.08);
+        canvas.dataset.signed = '1';
+    };
+    document.fonts.load('700 46px "Dancing Script"').then(draw).catch(draw);
+}
+
 // Editar um relatório que já tem assinatura salva pré-carrega o traço no
 // canvas — se o usuário não mexer nele, o valor é reenviado igual no
 // submit; se clicar em "Limpar", o dataset.signed some e a assinatura sai
@@ -1947,7 +1991,10 @@ export async function renderManutencaoFormPage(record, options) {
             <div class="form-group full-width">
                 <label>Assinatura do Técnico</label>
                 <canvas id="mnt-signature-tecnico" class="signature-pad"></canvas>
-                <div class="signature-pad-actions"><button type="button" class="mini-button" id="mnt-signature-tecnico-clear">Limpar assinatura</button></div>
+                <div class="signature-pad-actions">
+                    <input type="text" id="mnt-signature-tecnico-text" class="signature-type-input" placeholder="Ou digite o nome pra gerar a assinatura" autocomplete="off">
+                    <button type="button" class="mini-button" id="mnt-signature-tecnico-clear">Limpar assinatura</button>
+                </div>
             </div>
             <div class="form-row-pair">
                 <div class="form-group">
@@ -1963,7 +2010,10 @@ export async function renderManutencaoFormPage(record, options) {
             <div class="form-group full-width">
                 <label>Assinatura do Cliente</label>
                 <canvas id="mnt-signature-cliente" class="signature-pad"></canvas>
-                <div class="signature-pad-actions"><button type="button" class="mini-button" id="mnt-signature-cliente-clear">Limpar assinatura</button></div>
+                <div class="signature-pad-actions">
+                    <input type="text" id="mnt-signature-cliente-text" class="signature-type-input" placeholder="Ou digite o nome pra gerar a assinatura" autocomplete="off">
+                    <button type="button" class="mini-button" id="mnt-signature-cliente-clear">Limpar assinatura</button>
+                </div>
             </div>
 
             ${isEdit ? '' : `
@@ -1996,8 +2046,12 @@ export async function renderManutencaoFormPage(record, options) {
         loadSignatureIntoCanvas(sigTecnico, m.assinaturaTecnico);
         loadSignatureIntoCanvas(sigCliente, m.assinaturaCliente);
     }
-    document.getElementById('mnt-signature-tecnico-clear').addEventListener('click', () => clearSignaturePad(sigTecnico));
-    document.getElementById('mnt-signature-cliente-clear').addEventListener('click', () => clearSignaturePad(sigCliente));
+    const sigTecnicoText = document.getElementById('mnt-signature-tecnico-text');
+    const sigClienteText = document.getElementById('mnt-signature-cliente-text');
+    sigTecnicoText.addEventListener('input', debounce(() => renderTypedSignature(sigTecnico, sigTecnicoText.value), 150));
+    sigClienteText.addEventListener('input', debounce(() => renderTypedSignature(sigCliente, sigClienteText.value), 150));
+    document.getElementById('mnt-signature-tecnico-clear').addEventListener('click', () => { clearSignaturePad(sigTecnico); sigTecnicoText.value = ''; });
+    document.getElementById('mnt-signature-cliente-clear').addEventListener('click', () => { clearSignaturePad(sigCliente); sigClienteText.value = ''; });
 
     // ── Fotos (Drive) ──────────────────────────────────────────────────
     const fotoIds = Array.isArray(m.fotos) ? m.fotos.slice() : [];

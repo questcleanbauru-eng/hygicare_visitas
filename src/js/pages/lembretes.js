@@ -131,9 +131,9 @@ function comodatoOrigemBotaoHtml(l) {
 
 // Lembrete "normal" (não vem do Comodato) não tinha nenhum jeito rápido de
 // mandar pro destinatário — só dava pra ler aqui dentro do app. Monta uma
-// mensagem a partir do próprio texto/prazo/destinatário e abre o WhatsApp
-// já preenchido (mesmo padrão de Campanhas/Comodatos). Os dois lembretes de
-// sistema do Comodato já têm seu próprio botão mais específico (com o link
+// mensagem a partir do próprio texto/prazo/destinatário e copia pra área de
+// transferência, pra colar onde quiser (WhatsApp, SMS, etc). Os dois lembretes
+// de sistema do Comodato já têm seu próprio botão mais específico (com o link
 // embutido), então esse aqui não duplica pra eles.
 function lembreteWhatsappTexto(l) {
     const partes = [
@@ -145,7 +145,7 @@ function lembreteWhatsappTexto(l) {
 }
 function lembreteWhatsappBotaoHtml(l) {
     if (COMODATO_ORIGEM_LINK[l.origem]) return '';
-    return `<button type="button" class="text-link" data-lembrete-whatsapp="${escapeHtml(l.id)}">${fieldIconSvg('send')} Enviar no WhatsApp</button>`;
+    return `<button type="button" class="text-link" data-lembrete-whatsapp="${escapeHtml(l.id)}">${fieldIconSvg('send')} Copiar mensagem</button>`;
 }
 
 function lembreteCardHtml(l, { isAdmin, podeAgir }) {
@@ -241,7 +241,10 @@ function fillLembretesContent(mainContent, lembretes) {
     mainContent.querySelectorAll('[data-lembrete-whatsapp]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const l = (state.lembretesAdmin || []).find((x) => String(x.id) === String(btn.dataset.lembreteWhatsapp));
-            if (l) openExternal(`https://wa.me/?text=${encodeURIComponent(lembreteWhatsappTexto(l))}`);
+            if (!l) return;
+            navigator.clipboard.writeText(lembreteWhatsappTexto(l))
+                .then(() => showToast('Mensagem copiada!'))
+                .catch(() => showToast('Não foi possível copiar.', true));
         });
     });
     mainContent.querySelectorAll('[data-lembrete-concluir]').forEach((btn) => {

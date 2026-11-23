@@ -240,6 +240,13 @@
 
 .signature-pad-actions {
     display: flex;
+    align-items: center;
+    gap: 0.5rem;
     justify-content: flex-end;
     margin-top: 0.4rem;
+    flex-wrap: wrap;
+}
+.signature-type-input {
+    flex: 1 1 200px;
+    min-width: 0;
 }
