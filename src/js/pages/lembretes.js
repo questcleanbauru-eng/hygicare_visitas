@@ -129,10 +129,30 @@ function comodatoOrigemBotaoHtml(l) {
     return `<button type="button" class="text-link" data-lembrete-comodato-link="${escapeHtml(l.id)}" data-comodato-origem="${escapeHtml(l.origem)}">${def.label}</button>`;
 }
 
+// Lembrete "normal" (não vem do Comodato) não tinha nenhum jeito rápido de
+// mandar pro destinatário — só dava pra ler aqui dentro do app. Monta uma
+// mensagem a partir do próprio texto/prazo/destinatário e abre o WhatsApp
+// já preenchido (mesmo padrão de Campanhas/Comodatos). Os dois lembretes de
+// sistema do Comodato já têm seu próprio botão mais específico (com o link
+// embutido), então esse aqui não duplica pra eles.
+function lembreteWhatsappTexto(l) {
+    const partes = [
+        `*Lembrete:* ${l.texto || '-'}`,
+        l.dataAlvo ? `Prazo: ${l.dataAlvo}` : '',
+        (l.destinatarios || []).length ? `Pra: ${l.destinatarios.join(', ')}` : ''
+    ].filter(Boolean);
+    return partes.join('\n');
+}
+function lembreteWhatsappBotaoHtml(l) {
+    if (COMODATO_ORIGEM_LINK[l.origem]) return '';
+    return `<button type="button" class="text-link" data-lembrete-whatsapp="${escapeHtml(l.id)}">${fieldIconSvg('send')} Enviar no WhatsApp</button>`;
+}
+
 function lembreteCardHtml(l, { isAdmin, podeAgir }) {
     const acoes = [];
     if (podeAgir && l.status === 'Pendente') {
         acoes.push(comodatoOrigemBotaoHtml(l));
+        acoes.push(lembreteWhatsappBotaoHtml(l));
         acoes.push(`<button type="button" class="text-link" data-lembrete-concluir="${escapeHtml(l.id)}">✅ Concluir</button>`);
         acoes.push(`<button type="button" class="text-link" data-lembrete-cancelar="${escapeHtml(l.id)}">Cancelar</button>`);
     }
@@ -216,6 +236,12 @@ function fillLembretesContent(mainContent, lembretes) {
             if (!def) return;
             const link = `${window.location.origin}/?goto=${def.page}`;
             openExternal(`https://wa.me/?text=${encodeURIComponent(def.texto + '\n' + link)}`);
+        });
+    });
+    mainContent.querySelectorAll('[data-lembrete-whatsapp]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const l = (state.lembretesAdmin || []).find((x) => String(x.id) === String(btn.dataset.lembreteWhatsapp));
+            if (l) openExternal(`https://wa.me/?text=${encodeURIComponent(lembreteWhatsappTexto(l))}`);
         });
     });
     mainContent.querySelectorAll('[data-lembrete-concluir]').forEach((btn) => {
