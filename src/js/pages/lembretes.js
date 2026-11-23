@@ -1,6 +1,6 @@
 import { state } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
-import { escapeHtml, resolveNotifyOptions, multiCheckFilterFieldHtml, fieldIconSvg } from '../utils/format.js';
+import { escapeHtml, resolveNotifyOptions, multiCheckFilterFieldHtml, fieldIconSvg, formatDateForInput, formatDateForDisplay } from '../utils/format.js';
 import { showToast, setSaving, loadingState, addScrollTop, wireMultiCheckFilter, openExternal } from '../utils/dom.js';
 import { initPullToRefresh, ensureStyles, NAV_ICON_SVG } from '../utils/ui.js';
 import { TILE_CORES } from './dashboard.js';
@@ -171,6 +171,99 @@ function lembreteCardHtml(l, { isAdmin, podeAgir }) {
         </div>`;
 }
 
+// Resumo de visitas Open/Close pro Kadu — pedido do Bruno. "Open"/"Close"
+// aqui é o próprio tipoVisita (ver visitTypeIcon em format.js, que já trata
+// esses dois como categorias conhecidas), não tem relação com Agendamentos.
+// Padrão é "ontem", mas numa segunda-feira "ontem" é domingo (sem visita
+// nenhuma) — adianta pra sexta, assim a segunda já junta sex/sáb/dom de
+// uma vez, sem o usuário ter que lembrar de ajustar.
+function resumoVisitasRangePadrao() {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const ate = new Date(hoje);
+    ate.setDate(ate.getDate() - 1);
+    const de = new Date(ate);
+    if (hoje.getDay() === 1) { de.setDate(ate.getDate() - 2); }
+    return { de, ate };
+}
+
+function visitasOpenCloseNoRange(visits, de, ate) {
+    const deMs = de.getTime();
+    const ateMs = ate.getTime();
+    const open = [];
+    const close = [];
+    (visits || []).forEach((v) => {
+        const d = parseDisplayDateLocal(v.dataVisita);
+        if (!d || d.getTime() < deMs || d.getTime() > ateMs) return;
+        const tipo = String(v.tipoVisita || '').toUpperCase();
+        if (tipo.includes('OPEN')) { open.push(v); }
+        else if (tipo.includes('CLOSE')) { close.push(v); }
+    });
+    const porData = (a, b) => (parseDisplayDateLocal(a.dataVisita)?.getTime() || 0) - (parseDisplayDateLocal(b.dataVisita)?.getTime() || 0);
+    open.sort(porData);
+    close.sort(porData);
+    return { open, close };
+}
+
+function montarResumoVisitasTexto(de, ate, open, close) {
+    const rangeLabel = de.getTime() === ate.getTime()
+        ? formatDateForDisplay(de)
+        : `${formatDateForDisplay(de)} a ${formatDateForDisplay(ate)}`;
+    const linha = (v) => `- ${v.cliente || '-'} — ${v.dataVisita || '-'}`;
+    return [
+        `*Resumo de visitas (Open/Close) — ${rangeLabel}*`,
+        '',
+        `🔓 OPEN (${open.length})`,
+        open.length ? open.map(linha).join('\n') : '- Nenhuma',
+        '',
+        `🔒 CLOSE (${close.length})`,
+        close.length ? close.map(linha).join('\n') : '- Nenhuma'
+    ].join('\n');
+}
+
+function resumoVisitasCardHtml() {
+    const { de, ate } = resumoVisitasRangePadrao();
+    return `
+        <div class="card" style="margin-bottom:0.75rem">
+            <p style="margin:0 0 0.3rem;font-weight:700;display:flex;align-items:center;gap:0.4rem">
+                <span class="item-name-icon" aria-hidden="true">${fieldIconSvg('clipboard')}</span>
+                Resumo de visitas Open/Close
+            </p>
+            <p class="field-helper-text" style="margin:0 0 0.5rem">Pra mandar pro Kadu. Padrão: dia anterior (segunda já junta sex/sáb/dom).</p>
+            <div class="form-row-pair">
+                <div class="form-group">
+                    <label for="resumo-oc-de">De</label>
+                    <input type="date" id="resumo-oc-de" value="${formatDateForInput(de)}">
+                </div>
+                <div class="form-group">
+                    <label for="resumo-oc-ate">Até</label>
+                    <input type="date" id="resumo-oc-ate" value="${formatDateForInput(ate)}">
+                </div>
+            </div>
+            <button type="button" class="mini-button" id="resumo-oc-copiar" style="margin-top:0.4rem">Copiar resumo</button>
+        </div>`;
+}
+
+function wireResumoVisitasCard(mainContent) {
+    mainContent.querySelector('#resumo-oc-copiar')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const deVal = mainContent.querySelector('#resumo-oc-de')?.value;
+        const ateVal = mainContent.querySelector('#resumo-oc-ate')?.value;
+        const de = deVal ? new Date(deVal + 'T00:00:00') : null;
+        const ate = ateVal ? new Date(ateVal + 'T00:00:00') : null;
+        if (!de || !ate || de > ate) { showToast('Confira as datas.', true); return; }
+        setSaving(true, btn, 'Gerando...');
+        const r = await callAPI('getVisits', { user: state.currentUser, dias: 0 }).catch((err) => ({ status: 'error', message: err.message }));
+        setSaving(false, btn);
+        if (!r || r.status !== 'success') { showToast((r && r.message) || 'Erro ao buscar visitas.', true); return; }
+        const { open, close } = visitasOpenCloseNoRange(r.visits || [], de, ate);
+        if (!open.length && !close.length) { showToast('Nenhuma visita Open/Close nesse período.'); return; }
+        navigator.clipboard.writeText(montarResumoVisitasTexto(de, ate, open, close))
+            .then(() => showToast(`Copiado! ${open.length} Open, ${close.length} Close.`))
+            .catch(() => showToast('Não foi possível copiar.', true));
+    });
+}
+
 function fillLembretesContent(mainContent, lembretes) {
     const isAdmin = String(state.currentUser?.profile || '').trim().toLowerCase() === 'admin';
     const userName = String(state.currentUser?.name || '').trim().toLowerCase();
@@ -194,6 +287,7 @@ function fillLembretesContent(mainContent, lembretes) {
             </div>
             ${isAdmin ? '<button class="primary-btn" id="btn-new-lembrete" type="button">+ Novo Lembrete</button>' : ''}
         </div>
+        ${isAdmin ? resumoVisitasCardHtml() : ''}
         ${pendentes.length === 0 && historico.length === 0 ? `
             <div class="empty-state">
                 <span class="empty-state-icon">📌</span>
@@ -216,6 +310,7 @@ function fillLembretesContent(mainContent, lembretes) {
     `;
 
     document.getElementById('btn-new-lembrete')?.addEventListener('click', () => openCreateLembreteModal());
+    if (isAdmin) { wireResumoVisitasCard(mainContent); }
 
     document.getElementById('lembretes-historico-toggle')?.addEventListener('click', () => {
         const el = document.getElementById('lembretes-historico');
