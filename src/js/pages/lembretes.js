@@ -211,19 +211,30 @@ function visitasPorTiposNoRange(visits, tiposSelecionados, de, ate) {
     return tiposSelecionados.map((tipo) => ({ tipo, visitas: (porTipo.get(tipo) || []).sort(porData) }));
 }
 
+// Toda visita "Close Manutenção" criada automaticamente ao salvar um
+// Relatório de Manutenção (ver manutencao.js) nasce com essa observação
+// fixa — não é nota de ninguém, é só metadado interno (nº do relatório),
+// sem nenhuma informação útil pro Kadu. Trata como se não tivesse
+// observação nenhuma, só pra não poluir o resumo com isso.
+const OBS_VISITA_AUTOGERADA = /^Visita gerada automaticamente pelo Relatório de Manutenção/i;
+
 function montarResumoVisitasTexto(de, ate, grupos) {
     const rangeLabel = de.getTime() === ate.getTime()
         ? formatDateForDisplay(de)
         : `${formatDateForDisplay(de)} a ${formatDateForDisplay(ate)}`;
     const linha = (v) => {
-        const base = `- ${v.cliente || '-'} — ${v.dataVisita || '-'}`;
-        return v.observacao ? `${base}\n  ${v.observacao}` : base;
+        const obs = (v.observacao && !OBS_VISITA_AUTOGERADA.test(v.observacao)) ? v.observacao.trim() : '';
+        const base = `*${v.cliente || '-'}* — ${v.dataVisita || '-'}`;
+        return obs ? `${base}\n📝 ${obs}` : base;
     };
     const partes = [`*Resumo de visitas — ${rangeLabel}*`];
     grupos.forEach((g) => {
         partes.push('');
-        partes.push(`${visitTypeIcon(g.tipo)} ${g.tipo} (${g.visitas.length})`);
-        partes.push(g.visitas.length ? g.visitas.map(linha).join('\n') : '- Nenhuma');
+        partes.push(`${visitTypeIcon(g.tipo)} *${g.tipo}* (${g.visitas.length})`);
+        // Linha em branco ENTRE cada visita (não só entre grupos) — sem isso
+        // uma observação de várias linhas grudava visualmente na visita
+        // seguinte e ficava impossível separar uma da outra no WhatsApp.
+        partes.push(g.visitas.length ? g.visitas.map(linha).join('\n\n') : '- Nenhuma');
     });
     return partes.join('\n');
 }
