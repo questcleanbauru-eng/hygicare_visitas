@@ -1,6 +1,6 @@
 import { state } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
-import { escapeHtml, resolveNotifyOptions, multiCheckFilterFieldHtml, fieldIconSvg, formatDateForInput, formatDateForDisplay } from '../utils/format.js';
+import { escapeHtml, resolveNotifyOptions, multiCheckFilterFieldHtml, fieldIconSvg, formatDateForInput, formatDateForDisplay, normalizeVisit } from '../utils/format.js';
 import { showToast, setSaving, loadingState, addScrollTop, wireMultiCheckFilter, openExternal } from '../utils/dom.js';
 import { initPullToRefresh, ensureStyles, NAV_ICON_SVG } from '../utils/ui.js';
 import { TILE_CORES } from './dashboard.js';
@@ -268,7 +268,11 @@ function wireResumoVisitasCard(mainContent) {
         const r = await callAPI('getVisits', { user: state.currentUser, dias: 0 }).catch((err) => ({ status: 'error', message: err.message }));
         setSaving(false, btn);
         if (!r || r.status !== 'success') { showToast((r && r.message) || 'Erro ao buscar visitas.', true); return; }
-        const { open, close } = visitasOpenCloseNoRange(r.visits || [], de, ate);
+        // getVisits cru vem com as chaves da planilha ('Tipo da Visita',
+        // 'Data da Visita', 'Cliente'...), não as camelCase (tipoVisita,
+        // dataVisita, cliente) — normalizeVisit traduz, mesma função que
+        // visits.js já usa em toda resposta dessa mesma action.
+        const { open, close } = visitasOpenCloseNoRange((r.visits || []).map(normalizeVisit), de, ate);
         if (!open.length && !close.length) { showToast('Nenhuma visita Open/Close nesse período.'); return; }
         navigator.clipboard.writeText(montarResumoVisitasTexto(de, ate, open, close))
             .then(() => showToast(`Copiado! ${open.length} Open, ${close.length} Close.`))
