@@ -239,13 +239,28 @@ function montarResumoVisitasTexto(de, ate, grupos) {
     return partes.join('\n');
 }
 
-// Padrão (antes de carregar a lista de tipos configurados) marca qualquer
-// tipo com "open"/"close" no nome — cobre o uso atual sem precisar que o
-// Bruno configure nada na primeira vez; ele troca/adiciona outros tipos no
-// próprio filtro depois.
+// Padrão (antes de carregar a lista de tipos configurados, ou antes de o
+// usuário escolher algo pela 1ª vez) marca qualquer tipo com "open"/"close"
+// no nome — cobre o uso atual sem precisar configurar nada de cara.
 function tiposPadraoOpenClose(tiposDisponiveis) {
     const padrao = tiposDisponiveis.filter((t) => /open|close/i.test(t));
     return padrao.length ? padrao : tiposDisponiveis;
+}
+
+// Lembra os tipos escolhidos entre visitas à página (só nesse navegador —
+// é preferência de uso, não dado do servidor). Se um tipo salvo deixou de
+// existir (ex.: removido em Admin), ignora e recalcula padrão, pra nunca
+// salvar com o filtro "vazio" sem o usuário ter escolhido isso de verdade.
+const RESUMO_TIPOS_STORAGE_KEY = 'apv_resumo_visitas_tipos';
+function carregarTiposSalvos(tiposDisponiveis) {
+    try {
+        const salvos = (localStorage.getItem(RESUMO_TIPOS_STORAGE_KEY) || '').split(',').filter(Boolean);
+        const validos = salvos.filter((t) => tiposDisponiveis.includes(t));
+        return validos.length ? validos : null;
+    } catch (e) { return null; }
+}
+function salvarTiposEscolhidos(tipos) {
+    try { localStorage.setItem(RESUMO_TIPOS_STORAGE_KEY, tipos.join(',')); } catch (e) {}
 }
 
 function resumoVisitasCardHtml() {
@@ -290,11 +305,12 @@ async function wireResumoVisitasCard(mainContent) {
     const tiposInput = mainContent.querySelector('#resumo-oc-tipos');
     if (!tiposInput) return; // já navegou pra outra página antes da resposta chegar
     const tiposDisponiveis = ((fd.data && fd.data.tiposVisita) || []).map((t) => t.tipo).filter(Boolean);
-    tiposInput.value = tiposPadraoOpenClose(tiposDisponiveis).join(',');
+    tiposInput.value = (carregarTiposSalvos(tiposDisponiveis) || tiposPadraoOpenClose(tiposDisponiveis)).join(',');
     wireMultiCheckFilter({
         triggerId: 'resumo-oc-tipos-trigger', inputId: 'resumo-oc-tipos', menuId: 'resumo-oc-tipos-menu',
         options: tiposDisponiveis, emptyLabel: 'Nenhum tipo selecionado'
     });
+    tiposInput.addEventListener('change', () => salvarTiposEscolhidos((tiposInput.value || '').split(',').filter(Boolean)));
 
     mainContent.querySelector('#resumo-oc-copiar')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
