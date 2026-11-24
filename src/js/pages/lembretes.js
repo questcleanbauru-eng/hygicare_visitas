@@ -1,6 +1,6 @@
 import { state } from '../app.js';
 import { callAPI, saveCache, loadCache, ensureFormData } from '../api.js';
-import { escapeHtml, resolveNotifyOptions, multiCheckFilterFieldHtml, fieldIconSvg, formatDateForInput, formatDateForDisplay, normalizeVisit } from '../utils/format.js';
+import { escapeHtml, resolveNotifyOptions, multiCheckFilterFieldHtml, fieldIconSvg, formatDateForInput, formatDateForDisplay, normalizeVisit, visitTypeIcon } from '../utils/format.js';
 import { showToast, setSaving, loadingState, addScrollTop, wireMultiCheckFilter, openExternal } from '../utils/dom.js';
 import { initPullToRefresh, ensureStyles, NAV_ICON_SVG } from '../utils/ui.js';
 import { TILE_CORES } from './dashboard.js';
@@ -187,38 +187,54 @@ function resumoVisitasRangePadrao() {
     return { de, ate };
 }
 
-function visitasOpenCloseNoRange(visits, de, ate) {
+// Filtro de tipos agora é configurável (antes era só Open/Close fixo) —
+// Bruno quer poder mandar outros tipos de visita pro Kadu no futuro, sem
+// precisar de código novo toda vez. tiposSelecionados vem de um
+// multiCheckFilter sobre a mesma lista de Tipos de Visita (formData,
+// cadastrada em Admin) que o resto do app já usa — comparação é por nome
+// exato (case-insensitive), não mais "contém OPEN/CLOSE" por substring.
+function visitasPorTiposNoRange(visits, tiposSelecionados, de, ate) {
     const deMs = de.getTime();
     const ateMs = ate.getTime();
-    const open = [];
-    const close = [];
+    const selecionadosLower = tiposSelecionados.map((t) => t.toLowerCase());
+    const porTipo = new Map();
     (visits || []).forEach((v) => {
         const d = parseDisplayDateLocal(v.dataVisita);
         if (!d || d.getTime() < deMs || d.getTime() > ateMs) return;
-        const tipo = String(v.tipoVisita || '').toUpperCase();
-        if (tipo.includes('OPEN')) { open.push(v); }
-        else if (tipo.includes('CLOSE')) { close.push(v); }
+        const idx = selecionadosLower.indexOf(String(v.tipoVisita || '').toLowerCase());
+        if (idx === -1) return;
+        const tipoOriginal = tiposSelecionados[idx];
+        if (!porTipo.has(tipoOriginal)) { porTipo.set(tipoOriginal, []); }
+        porTipo.get(tipoOriginal).push(v);
     });
     const porData = (a, b) => (parseDisplayDateLocal(a.dataVisita)?.getTime() || 0) - (parseDisplayDateLocal(b.dataVisita)?.getTime() || 0);
-    open.sort(porData);
-    close.sort(porData);
-    return { open, close };
+    return tiposSelecionados.map((tipo) => ({ tipo, visitas: (porTipo.get(tipo) || []).sort(porData) }));
 }
 
-function montarResumoVisitasTexto(de, ate, open, close) {
+function montarResumoVisitasTexto(de, ate, grupos) {
     const rangeLabel = de.getTime() === ate.getTime()
         ? formatDateForDisplay(de)
         : `${formatDateForDisplay(de)} a ${formatDateForDisplay(ate)}`;
-    const linha = (v) => `- ${v.cliente || '-'} — ${v.dataVisita || '-'}`;
-    return [
-        `*Resumo de visitas (Open/Close) — ${rangeLabel}*`,
-        '',
-        `🔓 OPEN (${open.length})`,
-        open.length ? open.map(linha).join('\n') : '- Nenhuma',
-        '',
-        `🔒 CLOSE (${close.length})`,
-        close.length ? close.map(linha).join('\n') : '- Nenhuma'
-    ].join('\n');
+    const linha = (v) => {
+        const base = `- ${v.cliente || '-'} — ${v.dataVisita || '-'}`;
+        return v.observacao ? `${base}\n  ${v.observacao}` : base;
+    };
+    const partes = [`*Resumo de visitas — ${rangeLabel}*`];
+    grupos.forEach((g) => {
+        partes.push('');
+        partes.push(`${visitTypeIcon(g.tipo)} ${g.tipo} (${g.visitas.length})`);
+        partes.push(g.visitas.length ? g.visitas.map(linha).join('\n') : '- Nenhuma');
+    });
+    return partes.join('\n');
+}
+
+// Padrão (antes de carregar a lista de tipos configurados) marca qualquer
+// tipo com "open"/"close" no nome — cobre o uso atual sem precisar que o
+// Bruno configure nada na primeira vez; ele troca/adiciona outros tipos no
+// próprio filtro depois.
+function tiposPadraoOpenClose(tiposDisponiveis) {
+    const padrao = tiposDisponiveis.filter((t) => /open|close/i.test(t));
+    return padrao.length ? padrao : tiposDisponiveis;
 }
 
 function resumoVisitasCardHtml() {
@@ -227,9 +243,10 @@ function resumoVisitasCardHtml() {
         <div class="card" style="margin-bottom:0.75rem">
             <p style="margin:0 0 0.3rem;font-weight:700;display:flex;align-items:center;gap:0.4rem">
                 <span class="item-name-icon" aria-hidden="true">${fieldIconSvg('clipboard')}</span>
-                Resumo de visitas Open/Close
+                Resumo de visitas
             </p>
             <p class="field-helper-text" style="margin:0 0 0.5rem">Pra mandar pro Kadu. Padrão: dia anterior (segunda já junta sex/sáb/dom).</p>
+            ${multiCheckFilterFieldHtml('Tipos de visita', 'resumo-oc-tipos', 'Carregando...')}
             <div class="form-row-pair">
                 <div class="form-group">
                     <label for="resumo-oc-de">De</label>
@@ -247,16 +264,27 @@ function resumoVisitasCardHtml() {
         </div>`;
 }
 
-function wireResumoVisitasCard(mainContent) {
+async function wireResumoVisitasCard(mainContent) {
     mainContent.querySelector('#resumo-oc-criar-lembrete')?.addEventListener('click', () => {
         const nome = state.currentUser?.name || '';
         openCreateLembreteModal(
-            'Enviar resumo de visitas Open/Close pro Kadu',
+            'Enviar resumo de visitas pro Kadu',
             'diaria',
             { apenasUteis: true },
             nome ? [nome] : []
         );
     });
+
+    const fd = await ensureFormData();
+    const tiposInput = mainContent.querySelector('#resumo-oc-tipos');
+    if (!tiposInput) return; // já navegou pra outra página antes da resposta chegar
+    const tiposDisponiveis = ((fd.data && fd.data.tiposVisita) || []).map((t) => t.tipo).filter(Boolean);
+    tiposInput.value = tiposPadraoOpenClose(tiposDisponiveis).join(',');
+    wireMultiCheckFilter({
+        triggerId: 'resumo-oc-tipos-trigger', inputId: 'resumo-oc-tipos', menuId: 'resumo-oc-tipos-menu',
+        options: tiposDisponiveis, emptyLabel: 'Nenhum tipo selecionado'
+    });
+
     mainContent.querySelector('#resumo-oc-copiar')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         const deVal = mainContent.querySelector('#resumo-oc-de')?.value;
@@ -264,6 +292,8 @@ function wireResumoVisitasCard(mainContent) {
         const de = deVal ? new Date(deVal + 'T00:00:00') : null;
         const ate = ateVal ? new Date(ateVal + 'T00:00:00') : null;
         if (!de || !ate || de > ate) { showToast('Confira as datas.', true); return; }
+        const tiposSelecionados = (tiposInput.value || '').split(',').filter(Boolean);
+        if (!tiposSelecionados.length) { showToast('Selecione ao menos um tipo de visita.', true); return; }
         setSaving(true, btn, 'Gerando...');
         const r = await callAPI('getVisits', { user: state.currentUser, dias: 0 }).catch((err) => ({ status: 'error', message: err.message }));
         setSaving(false, btn);
@@ -272,10 +302,11 @@ function wireResumoVisitasCard(mainContent) {
         // 'Data da Visita', 'Cliente'...), não as camelCase (tipoVisita,
         // dataVisita, cliente) — normalizeVisit traduz, mesma função que
         // visits.js já usa em toda resposta dessa mesma action.
-        const { open, close } = visitasOpenCloseNoRange((r.visits || []).map(normalizeVisit), de, ate);
-        if (!open.length && !close.length) { showToast('Nenhuma visita Open/Close nesse período.'); return; }
-        navigator.clipboard.writeText(montarResumoVisitasTexto(de, ate, open, close))
-            .then(() => showToast(`Copiado! ${open.length} Open, ${close.length} Close.`))
+        const grupos = visitasPorTiposNoRange((r.visits || []).map(normalizeVisit), tiposSelecionados, de, ate);
+        const total = grupos.reduce((n, g) => n + g.visitas.length, 0);
+        if (!total) { showToast('Nenhuma visita desses tipos nesse período.'); return; }
+        navigator.clipboard.writeText(montarResumoVisitasTexto(de, ate, grupos))
+            .then(() => showToast(`Copiado! ${total} visita(s).`))
             .catch(() => showToast('Não foi possível copiar.', true));
     });
 }
