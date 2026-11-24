@@ -7,16 +7,44 @@
 .comodato-equip-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .comodato-equip-list > label { font-size: var(--text-sm); font-weight: 600; color: var(--text-muted-strong); }
 
-.comodato-equip-row { display: flex; align-items: center; gap: 0.5rem; }
-.comodato-equip-select { flex: 1; min-width: 0; }
-
 .comodato-qty-stepper { display: flex; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); flex-shrink: 0; }
 .comodato-qty-stepper button { background: none; border: none; width: 30px; height: 36px; font-size: 1rem; color: var(--text-muted); cursor: pointer; }
 .comodato-qty-stepper button:hover { background: var(--bg-sunken); }
 .comodato-qty-value { width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.comodato-remove-equip { background: none; border: none; color: var(--danger); font-size: 1rem; flex-shrink: 0; cursor: pointer; padding: 0.3rem; }
-.comodato-equip-spacer { width: 1.6rem; flex-shrink: 0; }
+/* Cardápio de equipamentos (foto + descrição + stepper) — substitui o
+   antigo <select>/linha-por-linha. */
+.comodato-cardapio-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.6rem;
+}
+.comodato-cardapio-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.6rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    transition: border-color 0.15s, background-color 0.15s;
+}
+.comodato-cardapio-card.is-selected { border-color: var(--primary); background: var(--primary-light); }
+.comodato-cardapio-photo {
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius-sm);
+    background: var(--bg-sunken);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--text-muted);
+}
+.comodato-cardapio-photo svg { width: 28px; height: 28px; }
+.comodato-cardapio-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.comodato-cardapio-nome { font-size: 0.82rem; line-height: 1.25; }
+.comodato-cardapio-desc { margin: 0; font-size: 0.72rem; color: var(--text-muted); overflow-wrap: break-word; }
+.comodato-cardapio-card .comodato-qty-stepper { align-self: center; margin-top: auto; }
 
 .comodato-links-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);

@@ -19,7 +19,7 @@ function hojeInput() {
 }
 
 function novoBloco() {
-    return { cliente: '', cidade: '', areaAtuacao: '', dataInstalacao: hojeInput(), observacao: '', observacaoAberta: false, equipamentos: [{ nome: '', quantidade: 1 }] };
+    return { cliente: '', cidade: '', areaAtuacao: '', dataInstalacao: hojeInput(), observacao: '', observacaoAberta: false, equipamentos: [] };
 }
 
 // ── Tela do Kadu: registrar a semana ────────────────────────────────────
@@ -28,14 +28,27 @@ export async function renderComodatoPreencherPage() {
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = loadingState('🔧', 'Carregando...');
 
-    const fdResult = await ensureFormData().catch(() => null);
+    const [fdResult, catalogoResult] = await Promise.all([
+        ensureFormData().catch(() => null),
+        callAPI('getComodatoCatalogo', { user: state.currentUser }).catch(() => null)
+    ]);
     if (!fdResult || fdResult.status !== 'success') {
         mainContent.innerHTML = '<p class="error-message">Não foi possível carregar os dados do formulário.</p>';
         return;
     }
     const fd = fdResult.data;
     const clientes = fd.clientes || [];
-    const equipamentos = fd.equipamentos || [];
+    const equipamentosLookup = fd.equipamentos || [];
+    const catalogo = (catalogoResult && catalogoResult.status === 'success') ? catalogoResult.itens : [];
+    // "Cardápio" visual: todo item do catálogo (com foto/descrição) +
+    // qualquer nome da lista simples de Equipamentos (Admin > Listas) que
+    // ainda não ganhou foto — assim nada da lista antiga some da hora pra
+    // noite só por falta de foto cadastrada.
+    const nomesCatalogo = new Set(catalogo.map((it) => it.nome));
+    const itensCardapio = [
+        ...catalogo,
+        ...equipamentosLookup.filter((n) => !nomesCatalogo.has(n)).map((n) => ({ id: '', nome: n, descricao: '', fotoUrl: '' }))
+    ];
 
     const blocos = [novoBloco()];
 
@@ -79,22 +92,25 @@ export async function renderComodatoPreencherPage() {
             </div>
             <div class="comodato-equip-list">
                 <label>Equipamentos</label>
-                ${b.equipamentos.map((eq, ei) => `
-                    <div class="comodato-equip-row">
-                        ${equipamentos.length ? `
-                            <select class="comodato-equip-nome" id="com-equip-${idx}-${ei}">
-                                <option value="" disabled ${eq.nome ? '' : 'selected'}>Equipamento</option>
-                                ${equipamentos.map((n) => `<option value="${escapeHtml(n)}" ${eq.nome === n ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}
-                            </select>
-                        ` : `<input type="text" class="comodato-equip-nome" id="com-equip-${idx}-${ei}" value="${escapeHtml(eq.nome)}" placeholder="Equipamento" autocomplete="off">`}
-                        <div class="comodato-qty-stepper">
-                            <button type="button" class="comodato-qty-minus" data-ei="${ei}" aria-label="Diminuir quantidade">−</button>
-                            <span class="comodato-qty-value">${eq.quantidade}</span>
-                            <button type="button" class="comodato-qty-plus" data-ei="${ei}" aria-label="Aumentar quantidade">+</button>
-                        </div>
-                        ${b.equipamentos.length > 1 ? `<button type="button" class="comodato-remove-equip" data-ei="${ei}" aria-label="Remover equipamento">🗑️</button>` : '<span class="comodato-equip-spacer"></span>'}
-                    </div>`).join('')}
-                <button type="button" class="text-link comodato-add-equip">+ Adicionar equipamento</button>
+                ${itensCardapio.length ? `
+                <div class="comodato-cardapio-grid">
+                    ${itensCardapio.map((it) => {
+                        const eq = b.equipamentos.find((e) => e.nome === it.nome);
+                        const qty = eq ? eq.quantidade : 0;
+                        return `
+                        <div class="comodato-cardapio-card${qty > 0 ? ' is-selected' : ''}">
+                            <div class="comodato-cardapio-photo">${it.fotoUrl ? `<img src="${escapeHtml(it.fotoUrl)}" alt="${escapeHtml(it.nome)}" loading="lazy">` : fieldIconSvg('wrench')}</div>
+                            <strong class="comodato-cardapio-nome">${escapeHtml(it.nome)}</strong>
+                            ${it.descricao ? `<p class="comodato-cardapio-desc">${escapeHtml(it.descricao)}</p>` : ''}
+                            <div class="comodato-qty-stepper">
+                                <button type="button" class="comodato-qty-minus" data-nome="${escapeHtml(it.nome)}" aria-label="Diminuir quantidade">−</button>
+                                <span class="comodato-qty-value">${qty}</span>
+                                <button type="button" class="comodato-qty-plus" data-nome="${escapeHtml(it.nome)}" aria-label="Aumentar quantidade">+</button>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+                ` : '<p class="field-helper-text">Nenhum equipamento cadastrado ainda (Admin &gt; Listas).</p>'}
             </div>
             <div class="form-group">
                 <label for="com-data-${idx}">Data da instalação</label>
@@ -126,12 +142,6 @@ export async function renderComodatoPreencherPage() {
         });
         card.querySelector(`#com-cliente-${idx}`).addEventListener('input', (e) => { b.cliente = e.target.value; });
 
-        b.equipamentos.forEach((eq, ei) => {
-            const campo = card.querySelector(`#com-equip-${idx}-${ei}`);
-            const evento = equipamentos.length ? 'change' : 'input';
-            campo.addEventListener(evento, (e) => { eq.nome = e.target.value; });
-        });
-
         card.querySelector(`#com-data-${idx}`).addEventListener('input', (e) => { b.dataInstalacao = e.target.value; });
         card.querySelector(`#com-obs-${idx}`)?.addEventListener('input', (e) => { b.observacao = e.target.value; });
         card.querySelector('.comodato-add-obs')?.addEventListener('click', () => { b.observacaoAberta = true; render(); });
@@ -140,25 +150,24 @@ export async function renderComodatoPreencherPage() {
             blocos.splice(idx, 1);
             render();
         });
+        // Cardápio: tocar em +/- cria/ajusta/remove a entrada em
+        // b.equipamentos por nome (0 = sai da lista) — substitui o antigo
+        // fluxo de linhas "+ Adicionar equipamento" por nome digitado.
         card.querySelectorAll('.comodato-qty-minus').forEach((btn) => btn.addEventListener('click', () => {
-            const ei = Number(btn.dataset.ei);
-            b.equipamentos[ei].quantidade = Math.max(1, b.equipamentos[ei].quantidade - 1);
+            const nome = btn.dataset.nome;
+            const eq = b.equipamentos.find((e) => e.nome === nome);
+            if (!eq) return;
+            eq.quantidade -= 1;
+            if (eq.quantidade <= 0) b.equipamentos = b.equipamentos.filter((e) => e.nome !== nome);
             render();
         }));
         card.querySelectorAll('.comodato-qty-plus').forEach((btn) => btn.addEventListener('click', () => {
-            const ei = Number(btn.dataset.ei);
-            b.equipamentos[ei].quantidade += 1;
+            const nome = btn.dataset.nome;
+            let eq = b.equipamentos.find((e) => e.nome === nome);
+            if (!eq) { eq = { nome, quantidade: 0 }; b.equipamentos.push(eq); }
+            eq.quantidade += 1;
             render();
         }));
-        card.querySelectorAll('.comodato-remove-equip').forEach((btn) => btn.addEventListener('click', () => {
-            const ei = Number(btn.dataset.ei);
-            b.equipamentos.splice(ei, 1);
-            render();
-        }));
-        card.querySelector('.comodato-add-equip').addEventListener('click', () => {
-            b.equipamentos.push({ nome: '', quantidade: 1 });
-            render();
-        });
     }
 
     async function enviar(btn) {

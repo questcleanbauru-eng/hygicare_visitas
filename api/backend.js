@@ -59,6 +59,10 @@ import {
     handleGetComodatos, handleCreateComodatoLote, handleMarcarComodatoRetirado,
     handleRegistrarConferenciaComodato, handleGerarContratoComodato
 } from '../lib/handlers/comodatos.js';
+import {
+    handleGetComodatoCatalogo, handleSaveComodatoCatalogoItem,
+    handleUploadComodatoCatalogoFoto, handleDeleteComodatoCatalogoItem
+} from '../lib/handlers/comodatoCatalogo.js';
 
 function parseBody(req) {
     if (!req.body) return {};
@@ -203,6 +207,10 @@ const HANDLERS = {
     marcarComodatoRetirado: handleMarcarComodatoRetirado,
     registrarConferenciaComodato: handleRegistrarConferenciaComodato,
     gerarContratoComodato: handleGerarContratoComodato,
+    getComodatoCatalogo: handleGetComodatoCatalogo,
+    saveComodatoCatalogoItem: handleSaveComodatoCatalogoItem,
+    uploadComodatoCatalogoFoto: handleUploadComodatoCatalogoFoto,
+    deleteComodatoCatalogoItem: handleDeleteComodatoCatalogoItem,
     ping: async () => ({ status: 'ok' })
 };
 

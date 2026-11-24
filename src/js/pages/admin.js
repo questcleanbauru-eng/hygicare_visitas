@@ -332,6 +332,15 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
                     <div id="clientes-principais-content"><p class="helper-text">Carregando...</p></div>
                 </div>
             </div>
+
+            <div class="admin-section" style="margin-top:1.25rem">
+                <div class="section-title-row"><h3 class="section-title">🔧 Catálogo de Equipamentos (Comodato)</h3></div>
+                <div class="card" style="padding:1rem">
+                    <p class="helper-text" style="text-align:left;margin:0 0 0.75rem">Foto + descrição de cada equipamento — aparece como cardápio visual pro Kadu escolher na hora de registrar o comodato semanal.</p>
+                    <button type="button" class="primary-btn" id="catalogo-comodato-novo" style="margin-bottom:0.9rem">+ Novo equipamento</button>
+                    <div id="catalogo-comodato-content"><p class="helper-text">Carregando...</p></div>
+                </div>
+            </div>
         </div>
 
         <!-- Tab: Configurações -->
@@ -631,7 +640,7 @@ function fillAdminContent(mainContent, data, emailConfig, options = {}) {
 
     bindAdminEvents(data);
     if (activeAdminTab === 'saude') { loadSaudeTab(); }
-    if (activeAdminTab === 'listas') { loadClientesPrincipaisTab(); }
+    if (activeAdminTab === 'listas') { loadClientesPrincipaisTab(); loadCatalogoComodatoTab(); }
 
     // Veio do botão "Cadastrar" do robô de WhatsApp (link com ?editUser=) —
     // abre direto a edição da pessoa certa, sem o admin ter que procurar.
@@ -778,6 +787,164 @@ function renderClientesPrincipaisList(container, list) {
 }
 
 
+// ── Catálogo de Equipamentos (Comodato) ──────────────────────────────────
+// Foto + descrição por equipamento — vira a grade "estilo cardápio" que o
+// Kadu vê ao registrar o comodato semanal (ver comodatos.js,
+// renderComodatoPreencherPage). Separado da lista simples "Equipamentos"
+// (lookup-grid acima, usada também pelo Funil) de propósito: aquela só
+// precisa de um nome; aqui precisa de nome + descrição + foto, e misturar
+// os dois complicaria o editor de lookup genérico sem necessidade.
+let _catalogoComodatoData = null;
+
+async function loadCatalogoComodatoTab() {
+    const container = document.getElementById('catalogo-comodato-content');
+    if (!container) return;
+    try {
+        const result = await callAPI('getComodatoCatalogo', { user: state.currentUser });
+        _catalogoComodatoData = result.status === 'success' ? result.itens : [];
+    } catch (e) {
+        container.innerHTML = '<p class="helper-text">Não foi possível carregar o catálogo.</p>';
+        return;
+    }
+    renderCatalogoComodatoGrid(container, _catalogoComodatoData);
+    document.getElementById('catalogo-comodato-novo')?.addEventListener('click', () => openCatalogoItemModal());
+}
+
+function renderCatalogoComodatoGrid(container, list) {
+    if (!list.length) {
+        container.innerHTML = '<p class="helper-text">Nenhum equipamento no catálogo ainda — o Kadu vê a lista simples de sempre até você cadastrar o primeiro aqui.</p>';
+        return;
+    }
+    container.innerHTML = `<div class="catalogo-item-grid">${list.map((it) => `
+        <div class="catalogo-item-card" data-id="${escapeHtml(it.id)}">
+            <div class="catalogo-item-photo">${it.fotoUrl ? `<img src="${escapeHtml(it.fotoUrl)}" alt="${escapeHtml(it.nome)}" loading="lazy">` : fieldIconSvg('wrench')}</div>
+            <strong class="catalogo-item-nome">${escapeHtml(it.nome)}</strong>
+            ${it.descricao ? `<p class="catalogo-item-desc">${escapeHtml(it.descricao)}</p>` : ''}
+            <div class="catalogo-item-actions">
+                <button type="button" class="text-link" data-catalogo-editar="${escapeHtml(it.id)}">✏️ Editar</button>
+                <button type="button" class="text-link" data-catalogo-apagar="${escapeHtml(it.id)}">🗑️ Apagar</button>
+            </div>
+        </div>`).join('')}</div>`;
+
+    container.querySelectorAll('[data-catalogo-editar]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const item = _catalogoComodatoData.find((it) => it.id === btn.dataset.catalogoEditar);
+            if (item) openCatalogoItemModal(item);
+        });
+    });
+    container.querySelectorAll('[data-catalogo-apagar]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const item = _catalogoComodatoData.find((it) => it.id === btn.dataset.catalogoApagar);
+            if (!confirm(`Apagar "${item ? item.nome : ''}" do catálogo? A foto também sai do Drive.`)) return;
+            const result = await callAPI('deleteComodatoCatalogoItem', { id: btn.dataset.catalogoApagar, user: state.currentUser }).catch((e) => ({ status: 'error', message: e.message }));
+            if (result.status === 'success') {
+                showToast('Removido do catálogo.');
+                loadCatalogoComodatoTab();
+            } else {
+                showToast(result.message || 'Não foi possível apagar.', true);
+            }
+        });
+    });
+}
+
+async function openCatalogoItemModal(item = null) {
+    const editando = !!item;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    // dataUrl de uma foto nova ainda não enviada — só sobe pro Drive depois
+    // que o item em si já foi salvo (uploadComodatoCatalogoFoto exige um Id
+    // existente), pra não precisar de um fluxo "salva, abre editar de novo,
+    // só aí troca a foto".
+    let fotoPendente = '';
+    overlay.innerHTML = `
+        <div class="modal-card newag-modal">
+            <div class="newag-modal-header">
+                <span class="newag-modal-header-icon" aria-hidden="true">🔧</span>
+                <h3>${editando ? 'Editar equipamento' : 'Novo equipamento'}</h3>
+                <button type="button" class="newag-modal-close" id="catalogo-item-close" aria-label="Fechar">✕</button>
+            </div>
+            <div class="newag-modal-body">
+                <div class="form-group full-width">
+                    <label for="catalogo-item-nome">Nome *</label>
+                    <input type="text" id="catalogo-item-nome" value="${escapeHtml(editando ? item.nome : '')}" placeholder="Ex.: Dispenser de Sabonete Líquido">
+                </div>
+                <div class="form-group full-width">
+                    <label for="catalogo-item-descricao">Descrição</label>
+                    <textarea id="catalogo-item-descricao" rows="3" placeholder="Como aparece pro Kadu no cardápio">${escapeHtml(editando ? item.descricao : '')}</textarea>
+                </div>
+                <div class="form-group full-width">
+                    <label>Foto</label>
+                    <div class="catalogo-item-foto-preview" id="catalogo-item-foto-preview">
+                        ${editando && item.fotoUrl ? `<img src="${escapeHtml(item.fotoUrl)}" alt="Foto do equipamento">` : fieldIconSvg('wrench')}
+                    </div>
+                    <div class="mnt-foto-actions">
+                        <label class="mini-button" for="catalogo-item-foto-camera">📷 Câmera</label>
+                        <label class="mini-button" for="catalogo-item-foto-galeria">🖼️ Galeria</label>
+                    </div>
+                    <input type="file" id="catalogo-item-foto-camera" accept="image/*" capture="environment" hidden>
+                    <input type="file" id="catalogo-item-foto-galeria" accept="image/*" hidden>
+                </div>
+            </div>
+            <div class="newag-modal-footer">
+                <button type="button" class="secondary-button" id="catalogo-item-cancel">Cancelar</button>
+                <button type="button" class="primary-button" id="catalogo-item-save">${editando ? 'Salvar alterações' : 'Salvar'}</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('#catalogo-item-close').addEventListener('click', close);
+    overlay.querySelector('#catalogo-item-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+    const preview = overlay.querySelector('#catalogo-item-foto-preview');
+    ['catalogo-item-foto-camera', 'catalogo-item-foto-galeria'].forEach((inputId) => {
+        overlay.querySelector(`#${inputId}`)?.addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            e.target.value = '';
+            if (!file) return;
+            try {
+                const { compressImageFile } = await import('../utils/image.js');
+                fotoPendente = await compressImageFile(file, { maxDim: 900, quality: 0.75 });
+                preview.innerHTML = `<img src="${fotoPendente}" alt="Prévia da foto">`;
+            } catch (err) {
+                showToast(err.message || 'Falha ao processar a foto.', true);
+            }
+        });
+    });
+
+    overlay.querySelector('#catalogo-item-save').addEventListener('click', async () => {
+        const btn = overlay.querySelector('#catalogo-item-save');
+        const nome = overlay.querySelector('#catalogo-item-nome').value.trim();
+        const descricao = overlay.querySelector('#catalogo-item-descricao').value.trim();
+        if (!nome) { showToast('Informe o nome do equipamento.', true); return; }
+
+        setSaving(true, btn, 'Salvando...');
+        const result = await callAPI('saveComodatoCatalogoItem', {
+            id: editando ? item.id : '', nome, descricao, user: state.currentUser
+        }).catch((e) => ({ status: 'error', message: e.message }));
+        if (result.status !== 'success') {
+            setSaving(false, btn);
+            showToast(result.message || 'Não foi possível salvar.', true);
+            return;
+        }
+
+        if (fotoPendente) {
+            const fotoRes = await callAPI('uploadComodatoCatalogoFoto', {
+                id: result.item.id, imagem: fotoPendente, user: state.currentUser
+            }).catch((e) => ({ status: 'error', message: e.message }));
+            if (fotoRes.status !== 'success') {
+                showToast(fotoRes.message || 'Equipamento salvo, mas a foto não pôde ser enviada.', true);
+            }
+        }
+
+        close();
+        showToast(editando ? 'Equipamento atualizado.' : 'Equipamento adicionado ao catálogo.');
+        loadCatalogoComodatoTab();
+    });
+}
+
+
 export function bindAdminEvents(data) {
     // Tabs
     document.querySelectorAll('.admin-tab').forEach((tab) => {
@@ -789,7 +956,7 @@ export function bindAdminEvents(data) {
             const panel = document.getElementById(`admin-tab-${tab.dataset.tab}`);
             if (panel) { panel.classList.add('active'); }
             if (tab.dataset.tab === 'saude') { loadSaudeTab(); }
-            if (tab.dataset.tab === 'listas') { loadClientesPrincipaisTab(); }
+            if (tab.dataset.tab === 'listas') { loadClientesPrincipaisTab(); loadCatalogoComodatoTab(); }
         });
     });
 

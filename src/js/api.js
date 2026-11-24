@@ -65,22 +65,24 @@ export function mergeById(existing, incoming, idKey) {
 }
 
 
-export function warmListCaches() {
+// Visitas/Propostas/Funil em sequência, não Promise.all — mesma lógica já
+// aplicada em getNotificacoes (ver notificacoesPage): 3 leituras pesadas
+// (cada uma varre uma aba inteira da planilha) disparadas juntas, logo
+// depois do getDashboardData que já acabou de rodar, já estourou a cota de
+// requisições do Sheets antes. Aqui roda em segundo plano (não trava o
+// dashboard), então o tempo a mais de sequenciar não aparece pro usuário.
+export async function warmListCaches() {
     if (!state.currentUser) return;
     const prevLoginAt = state._prevLoginAt ? new Date(state._prevLoginAt) : null;
     state._prevLoginAt = null;
 
-    const promises = [
-        import('./pages/visits.js').then((m) => m.getVisits()).catch(() => {}),
-        import('./pages/proposals.js').then((m) => m.getProposals()).catch(() => {}),
-        import('./pages/funil.js').then((m) => m.getFunil()).catch(() => {})
-    ];
+    try {
+        await (await import('./pages/visits.js')).getVisits();
+        await (await import('./pages/proposals.js')).getProposals();
+        await (await import('./pages/funil.js')).getFunil();
+    } catch (e) { /* warm-up best-effort — falha aqui não é erro visível */ }
 
-    if (prevLoginAt) {
-        Promise.all(promises).then(() => {
-            if (state.currentPage === 'dashboard') { showLoginNotification(prevLoginAt); }
-        }).catch(() => {});
-    }
+    if (prevLoginAt && state.currentPage === 'dashboard') { showLoginNotification(prevLoginAt); }
 }
 
 

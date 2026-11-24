@@ -178,6 +178,63 @@
 
 .lookup-editor button:hover { background-color: #f1f5f9; }
 
+/* ── Catálogo de Equipamentos (Comodato) ── */
+
+.catalogo-item-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+}
+
+.catalogo-item-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.7rem;
+    gap: 0.3rem;
+}
+
+.catalogo-item-photo {
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius-sm);
+    background: var(--bg-sunken);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--text-muted);
+}
+.catalogo-item-photo svg { width: 32px; height: 32px; }
+.catalogo-item-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.catalogo-item-nome { font-size: 0.88rem; }
+
+.catalogo-item-desc {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    overflow-wrap: break-word;
+}
+
+.catalogo-item-actions { display: flex; gap: 0.7rem; margin-top: auto; padding-top: 0.3rem; }
+
+.catalogo-item-foto-preview {
+    width: 110px;
+    height: 110px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-sunken);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+.catalogo-item-foto-preview svg { width: 32px; height: 32px; }
+.catalogo-item-foto-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
 /* ── Funil de Vendas ── */
 
 .admin-hero {

@@ -18,15 +18,21 @@ import { skeletonDetail } from '../utils/dom.js';
 // `state` global das outras páginas) em vez de reaproveitar o que já
 // estiver carregado — o objetivo daqui é "histórico completo do cliente",
 // não a janela recente que as listas normais mostram por padrão.
+// Em sequência, não Promise.allSettled — são 5 leituras pesadas (3 delas
+// dias:0, histórico completo da aba inteira), e disparar todas juntas já
+// chegou a estourar a cota de requisições do Sheets em outra tela (mesmo
+// motivo por trás do warmListCaches sequencial em api.js). Cliente 360 é
+// aberto sob demanda (não em todo login), então o tempo a mais de
+// sequenciar aqui é aceitável — a alternativa é a tela falhar de vez em
+// quando sem explicação nenhuma pro usuário.
 async function fetchAll(clienteNome) {
     const user = state.currentUser;
-    const [visitsR, proposalsR, funilR, contratosR, manutencoesR] = await Promise.allSettled([
-        callAPI('getVisits', { user, dias: 0 }),
-        callAPI('getProposals', { user, dias: 0 }),
-        callAPI('getFunil', { user, dias: 0 }),
-        callAPI('getContratos', { user }),
-        callAPI('getManutencoes', { user })
-    ]);
+    const settle = (p) => p.then((value) => ({ status: 'fulfilled', value })).catch((reason) => ({ status: 'rejected', reason }));
+    const visitsR = await settle(callAPI('getVisits', { user, dias: 0 }));
+    const proposalsR = await settle(callAPI('getProposals', { user, dias: 0 }));
+    const funilR = await settle(callAPI('getFunil', { user, dias: 0 }));
+    const contratosR = await settle(callAPI('getContratos', { user }));
+    const manutencoesR = await settle(callAPI('getManutencoes', { user }));
 
     const matchName = (n) => String(n || '').trim().toLowerCase() === clienteNome.trim().toLowerCase();
     const ok = (r) => r.status === 'fulfilled' && r.value && r.value.status === 'success';
