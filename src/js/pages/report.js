@@ -226,13 +226,55 @@ function reportTopRow(index, label, value) {
     `;
 }
 
+// Desloca uma data em N meses, travando no último dia do mês de destino se
+// ele for mais curto (ex.: 31/01 - 1 mês não pode virar 31/02) — usado pra
+// comparar "mês atual" e "últimos 3 meses" com o período equivalente
+// anterior sem estourar mês.
+function shiftMonthsClamped(date, months) {
+    const targetFirst = new Date(date.getFullYear(), date.getMonth() + months, 1);
+    const daysInTarget = new Date(targetFirst.getFullYear(), targetFirst.getMonth() + 1, 0).getDate();
+    const day = Math.min(date.getDate(), daysInTarget);
+    return new Date(targetFirst.getFullYear(), targetFirst.getMonth(), day, date.getHours(), date.getMinutes(), date.getSeconds());
+}
+
+// Período "comparável" imediatamente anterior ao atual — mesma duração/
+// corte de dia, não um mês/semana cheios, senão a comparação fica
+// injustamente baixa enquanto o período atual ainda não terminou (ex.: dia
+// 5 do mês contra um mês passado inteiro). "Tudo" não tem um período
+// anterior que faça sentido (sem início/fim) — null aqui é como
+// reportTrendHtml sabe que deve esconder a comparação em vez de mostrar um
+// 0%/∞% sem sentido.
+function resolvePreviousPeriodRange(period, start, end) {
+    if (!start || !end) return null;
+    if (period === 'semana-atual') {
+        const shiftMs = 7 * 86400000;
+        return { start: new Date(start.getTime() - shiftMs), end: new Date(end.getTime() - shiftMs) };
+    }
+    if (period === 'mes-atual') { return { start: shiftMonthsClamped(start, -1), end: shiftMonthsClamped(end, -1) }; }
+    if (period === 'ultimos-3m') { return { start: shiftMonthsClamped(start, -3), end: shiftMonthsClamped(end, -3) }; }
+    if (period === 'personalizado') {
+        const duration = end.getTime() - start.getTime();
+        return { start: new Date(start.getTime() - duration - 1), end: new Date(start.getTime() - 1) };
+    }
+    return null; // 'tudo'
+}
+
+function reportTrendHtml(current, previous) {
+    if (previous === null) return '';
+    if (!previous) return current ? '<span class="report-trend report-trend-up">▲ novo</span>' : '';
+    const pct = Math.round(((current - previous) / previous) * 100);
+    if (pct === 0) return '<span class="report-trend report-trend-flat">= vs período anterior</span>';
+    const up = pct > 0;
+    return `<span class="report-trend ${up ? 'report-trend-up' : 'report-trend-down'}">${up ? '▲' : '▼'} ${Math.abs(pct)}% vs período anterior</span>`;
+}
+
 function reportBar(label, value, total) {
     const pct = total ? Math.round((value / total) * 100) : 0;
     return `
         <div class="report-bar-row">
             <span class="report-bar-label">${escapeHtml(titleCase(label))}</span>
             <div class="report-bar-track"><div class="report-bar-fill" style="width:${pct}%"></div></div>
-            <span class="report-bar-value">${value}</span>
+            <span class="report-bar-value">${value} <span class="report-bar-pct">(${pct}%)</span></span>
         </div>
     `;
 }
@@ -479,11 +521,16 @@ function renderReportVisitasBody(mainContent, allVisits, isAdmGer) {
     const period = state.rptVisPeriod;
     const { start, end } = resolvePeriodRange(period, state.rptVisCustomFrom, state.rptVisCustomTo);
 
-    const visits = allVisits.filter((v) => inRange(parseDisplayDate(v.dataVisita), start, end)
-        && (!gerencia || titleCase(v.gerencia) === gerencia)
+    const matchesVisitaFiltros = (v) =>
+        (!gerencia || titleCase(v.gerencia) === gerencia)
         && (!vendedor || titleCase(v.vendedorGerente) === vendedor)
         && (!cidade || titleCase(v.cidade) === cidade)
-        && (!tipoFiltro.length || tipoFiltro.includes(v.tipoVisita)));
+        && (!tipoFiltro.length || tipoFiltro.includes(v.tipoVisita));
+    const visits = allVisits.filter((v) => inRange(parseDisplayDate(v.dataVisita), start, end) && matchesVisitaFiltros(v));
+    const prevRange = resolvePreviousPeriodRange(period, start, end);
+    const prevVisitsCount = prevRange
+        ? allVisits.filter((v) => inRange(parseDisplayDate(v.dataVisita), prevRange.start, prevRange.end) && matchesVisitaFiltros(v)).length
+        : null;
 
     const visitsByType = countBy(visits, (v) => v.tipoVisita);
     const visitsByVendor = countBy(visits, (v) => titleCase(v.vendedorGerente));
@@ -533,7 +580,7 @@ function renderReportVisitasBody(mainContent, allVisits, isAdmGer) {
             </div>
         </div>
         <div class="report-kpi-row">
-            <div class="report-kpi"><strong>${visits.length}</strong><span>Total no período</span></div>
+            <div class="report-kpi"><strong>${visits.length}</strong><span>Total no período</span>${reportTrendHtml(visits.length, prevVisitsCount)}</div>
         </div>
         ${visitsByType.length ? `<p class="report-subtitle">Por tipo (principais)</p><div class="report-bar-list">${topN(visitsByType, 10).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
         ${isAdmGer && visitsByVendor.length ? `<p class="report-subtitle">Por vendedor</p><div class="report-bar-list">${topN(visitsByVendor, 15).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : ''}
@@ -646,12 +693,17 @@ function renderReportPropostasBody(mainContent, allProposals, isAdmGer) {
     const period = state.rptPropPeriod;
     const { start, end } = resolvePeriodRange(period, state.rptPropCustomFrom, state.rptPropCustomTo);
 
-    const proposals = allProposals.filter((p) => inRange(parseDisplayDate(p.data), start, end)
-        && (!gerencia || titleCase(p.gerencia) === gerencia)
+    const matchesPropostaFiltros = (p) =>
+        (!gerencia || titleCase(p.gerencia) === gerencia)
         && (!vendedor || titleCase(p.vendedor) === vendedor)
         && (!cidade || titleCase(p.cidade) === cidade)
         && (!statusFiltro.length || statusFiltro.includes(p.status))
-        && (!focoFiltro.length || focoFiltro.includes(p.foco)));
+        && (!focoFiltro.length || focoFiltro.includes(p.foco));
+    const proposals = allProposals.filter((p) => inRange(parseDisplayDate(p.data), start, end) && matchesPropostaFiltros(p));
+    const prevRange = resolvePreviousPeriodRange(period, start, end);
+    const prevProposalsCount = prevRange
+        ? allProposals.filter((p) => inRange(parseDisplayDate(p.data), prevRange.start, prevRange.end) && matchesPropostaFiltros(p)).length
+        : null;
 
     const proposalsByStatus = countBy(proposals, (p) => p.status);
     const proposalsByCidade = countBy(proposals, (p) => titleCase(p.cidade));
@@ -729,7 +781,7 @@ function renderReportPropostasBody(mainContent, allProposals, isAdmGer) {
             </div>
         </div>
         <div class="report-kpi-row">
-            <div class="report-kpi"><strong>${proposals.length}</strong><span>Total no período</span></div>
+            <div class="report-kpi"><strong>${proposals.length}</strong><span>Total no período</span>${reportTrendHtml(proposals.length, prevProposalsCount)}</div>
             <div class="report-kpi"><strong>${conversao}%</strong><span>Taxa de conversão</span></div>
             <div class="report-kpi report-kpi-alert"><strong>${proposalsAtrasadas}</strong><span>Atrasadas &gt;30d</span></div>
         </div>
@@ -861,12 +913,18 @@ function renderReportFunilBody(mainContent, allFunil, isAdmGer) {
     const period = state.rptFunPeriod;
     const { start, end } = resolvePeriodRange(period, state.rptFunCustomFrom, state.rptFunCustomTo);
 
-    const funil = allFunil.filter((f) => inRange(parseDisplayDate(f.data), start, end)
-        && (!gerencia || titleCase(f.gerencia) === gerencia)
+    const matchesFunilFiltros = (f) =>
+        (!gerencia || titleCase(f.gerencia) === gerencia)
         && (!vendedor || titleCase(f.vendedor) === vendedor)
         && (!cidade || titleCase(f.cidade) === cidade)
         && (!statusFiltro.length || statusFiltro.includes(f.status))
-        && (!aplicacaoFiltro.length || aplicacaoFiltro.includes(f.aplicacao)));
+        && (!aplicacaoFiltro.length || aplicacaoFiltro.includes(f.aplicacao));
+    const funil = allFunil.filter((f) => inRange(parseDisplayDate(f.data), start, end) && matchesFunilFiltros(f));
+    const prevRange = resolvePreviousPeriodRange(period, start, end);
+    const prevFunilAtivoCount = prevRange
+        ? allFunil.filter((f) => inRange(parseDisplayDate(f.data), prevRange.start, prevRange.end) && matchesFunilFiltros(f)
+            && String(f.ativo || '').toLowerCase() === 'sim').length
+        : null;
 
     const funilByStatus = countBy(funil, (f) => f.status);
     const funilByCidade = countBy(funil, (f) => titleCase(f.cidade));
@@ -953,7 +1011,7 @@ function renderReportFunilBody(mainContent, allFunil, isAdmGer) {
             </div>
         </div>
         <div class="report-kpi-row">
-            <div class="report-kpi"><strong>${funilAtivo.length}</strong><span>Ativas no período</span></div>
+            <div class="report-kpi"><strong>${funilAtivo.length}</strong><span>Ativas no período</span>${reportTrendHtml(funilAtivo.length, prevFunilAtivoCount)}</div>
             <div class="report-kpi"><strong>${formatMoney(funilValorTotal)}</strong><span>Vl Mensal em pipeline</span></div>
             <div class="report-kpi"><strong>${formatMoney(funForecastTotal)}</strong><span>Forecast ponderado</span></div>
             <div class="report-kpi report-kpi-alert"><strong>${funilAtrasado}</strong><span>Sem atualização &gt;30d</span></div>

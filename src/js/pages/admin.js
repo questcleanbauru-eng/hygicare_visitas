@@ -1012,6 +1012,10 @@ export function bindAdminEvents(data) {
                         <input type="text" class="uif-gerencia" placeholder="Região">
                     </div>
                     <div class="uif-field">
+                        <label>Região(ões) extra <span class="uif-hint">(vê também, só leitura — ex.: p/ outro gerente)</span></label>
+                        <input type="text" class="uif-gerencia-extra" placeholder="Ex.: SRJP, Marília">
+                    </div>
+                    <div class="uif-field">
                         <label>Cargo</label>
                         <select class="uif-perfil">${renderSimpleOptions(['Vendedor', 'Gerente', 'Tecnico', 'Administrativo', 'Admin'], '')}</select>
                     </div>
@@ -1052,6 +1056,7 @@ export function bindAdminEvents(data) {
                 nomeLogin: overlay.querySelector('.uif-nome-login').value.trim(),
                 senha,
                 gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
+                gerenciaExtra: overlay.querySelector('.uif-gerencia-extra').value.trim(),
                 perfil: overlay.querySelector('.uif-perfil').value,
                 metaVisitasMes: overlay.querySelector('.uif-meta').value.trim(),
                 telefoneWhatsapp: overlay.querySelector('.uif-whatsapp').value.trim(),
@@ -1082,6 +1087,7 @@ export function bindAdminEvents(data) {
             const inativo = user.ativo === false;
             const perfil = user.perfil || user.Perfil || user.profile || '';
             const gerencia = (user.gerencia || user.Gerencia || '') === '-' ? '' : (user.gerencia || user.Gerencia || '');
+            const gerenciaExtra = user.gerenciaExtra || user.GerenciaExtra || '';
             const metaVisitasMes = user.metaVisitasMes || user.MetaVisitasMes || '';
             const nomeLogin = user.nomeLogin || user.NomeLogin || '';
             // Mostra sem o "55" na frente pro admin editar do jeito que digitou
@@ -1127,6 +1133,10 @@ export function bindAdminEvents(data) {
                         <div class="uif-field">
                             <label>Região</label>
                             <input type="text" class="uif-gerencia" value="${escapeHtml(gerencia)}" placeholder="Região">
+                        </div>
+                        <div class="uif-field">
+                            <label>Região(ões) extra <span class="uif-hint">(vê também, só leitura — ex.: p/ outro gerente)</span></label>
+                            <input type="text" class="uif-gerencia-extra" value="${escapeHtml(gerenciaExtra)}" placeholder="Ex.: SRJP, Marília">
                         </div>
                         <div class="uif-field">
                             <label>Cargo</label>
@@ -1189,6 +1199,7 @@ export function bindAdminEvents(data) {
                 nomeLogin: overlay.querySelector('.uif-nome-login').value.trim(),
                 senha: senhaEdit,
                 gerencia: overlay.querySelector('.uif-gerencia').value.trim(),
+                gerenciaExtra: overlay.querySelector('.uif-gerencia-extra').value.trim(),
                 perfil: overlay.querySelector('.uif-perfil').value,
                 metaVisitasMes: overlay.querySelector('.uif-meta').value.trim(),
                 telefoneWhatsapp: overlay.querySelector('.uif-whatsapp').value.trim(),
