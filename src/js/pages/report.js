@@ -1,5 +1,5 @@
 import { state, navigateTo } from '../app.js';
-import { escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, normalizeVisit, normalizeProposal, titleCase, parseCurrencyBR, calculateDaysFromDisplayDate } from '../utils/format.js';
+import { escapeHtml, isAdminOrGerenteUser, getDateRangeForPeriod, parseDisplayDate, normalizeVisit, normalizeProposal, normalizeManutencao, titleCase, parseCurrencyBR, calculateDaysFromDisplayDate } from '../utils/format.js';
 import { loadingState, showToast, initializeSearchableInput } from '../utils/dom.js';
 import { ensureStyles, renderBreadcrumb } from '../utils/ui.js';
 import { downloadXLSX } from '../utils/xlsxWriter.js';
@@ -304,11 +304,16 @@ export async function renderReportPage() {
                 <strong>📊 Funil</strong>
                 <span>Pipeline, forecast, por vendedor, por status, previsão de fechamento.</span>
             </button>
+            <button type="button" class="card report-hub-card" id="hub-vendedor">
+                <strong>🗂️ Histórico do Vendedor</strong>
+                <span>Visitas, propostas, funil e manutenções de uma pessoa só, num período.</span>
+            </button>
         </div>
     `;
     document.getElementById('hub-visitas').addEventListener('click', () => navigateTo('report-visitas'));
     document.getElementById('hub-propostas').addEventListener('click', () => navigateTo('report-propostas'));
     document.getElementById('hub-funil').addEventListener('click', () => navigateTo('report-funil'));
+    document.getElementById('hub-vendedor').addEventListener('click', () => navigateTo('report-vendedor'));
     loadVisaoGeralIntoReport(mainContent);
 }
 
@@ -1090,5 +1095,183 @@ function renderReportFunilBody(mainContent, allFunil, isAdmGer) {
             { key: 'atualizacao', label: 'Última atualização', type: 'date' }, { key: 'diasSemAtualizacao', label: 'Dias sem atualização' },
             { key: 'conclusao', label: 'Conclusão prevista', type: 'date' }, { key: 'motivoPerda', label: 'Motivo da perda' }
         ], 'Funil');
+    });
+}
+
+// ── Histórico do Vendedor — resumo combinado de Visitas/Propostas/Funil/
+// Manutenções de UMA pessoa, num período só, pedido do Bruno pra não
+// precisar abrir os 3 relatórios separados e cruzar na cabeça o que um
+// vendedor fez. Vendedor aqui é obrigatório (sem ninguém escolhido, só
+// mostra um aviso pra escolher) — diferente das outras 3 telas, onde
+// "Todos" é uma opção válida.
+export async function renderReportVendedorPage() {
+    ensureStyles('report');
+    const mainContent = document.getElementById('main-content');
+    mainContent.innerHTML = `
+        ${renderBreadcrumb([{ label: 'Dashboard', page: 'dashboard' }, { label: 'Relatórios', page: 'report' }, { label: 'Histórico do Vendedor' }])}
+        <div class="page-header no-print">
+            <div><h2>🗂️ Histórico do Vendedor</h2></div>
+            <div class="report-header-actions">
+                <button type="button" class="text-link" id="report-download-pdf">📄 Baixar PDF</button>
+            </div>
+        </div>
+        <div id="report-body">${loadingState('🗂️', 'Carregando relatório...')}</div>
+    `;
+    document.getElementById('report-download-pdf').addEventListener('click', () => printReport(''));
+
+    // Sequencial, não Promise.all — mesmo motivo do warmListCaches (api.js)
+    // e do fetchAll do Cliente 360: 4 leituras pesadas disparadas juntas já
+    // estouraram a cota de requisições do Sheets antes.
+    const visitsMod = await import('./visits.js');
+    const visitsRes = await fetchWithRetry(() => visitsMod.getVisits(0));
+    const body = document.getElementById('report-body');
+    if (visitsRes.status !== 'success') { reportErrorState(body, 'Histórico do Vendedor', visitsRes.message, 'report-vendedor'); return; }
+
+    const proposalsMod = await import('./proposals.js');
+    const proposalsRes = await fetchWithRetry(() => proposalsMod.getProposals(0));
+    const funilMod = await import('./funil.js');
+    const funilRes = await fetchWithRetry(() => funilMod.getFunil(0));
+    const manutencaoMod = await import('./manutencao.js');
+    const manutencoesRes = await fetchWithRetry(() => manutencaoMod.getManutencoes());
+
+    const allVisits = visitsRes.visits.map(normalizeVisit);
+    const allProposals = (proposalsRes.status === 'success' ? proposalsRes.proposals : []).map(normalizeProposal);
+    const allFunil = funilRes.status === 'success' ? (funilRes.funil || []) : [];
+    const allManutencoes = (manutencoesRes.status === 'success' ? manutencoesRes.manutencoes : []).map(normalizeManutencao);
+
+    state.rptVndPeriod = state.rptVndPeriod || 'mes-atual';
+    state.rptVndCustomFrom = state.rptVndCustomFrom || '';
+    state.rptVndCustomTo = state.rptVndCustomTo || '';
+    state.rptVndVendedor = state.rptVndVendedor || '';
+    state.rptVndGerencia = state.rptVndGerencia || '';
+    state.rptVndCidade = state.rptVndCidade || '';
+
+    renderReportVendedorBody(mainContent, { allVisits, allProposals, allFunil, allManutencoes });
+}
+
+const MANUT_TIPO_LABELS = { geral: 'Relatório Geral', biopet: 'Relatório BIOPET', carta: 'Carta de Visita', '': 'Relatório de Aferição' };
+
+function renderReportVendedorBody(mainContent, dados) {
+    const body = document.getElementById('report-body');
+    if (!body) return;
+    const { allVisits, allProposals, allFunil, allManutencoes } = dados;
+    const isAdmin = (state.currentUser?.profile || '').toLowerCase() === 'admin';
+    const gerencia = state.rptVndGerencia || '';
+    const vendedor = state.rptVndVendedor || '';
+    const cidade = state.rptVndCidade || '';
+
+    // União de todo mundo que aparece em QUALQUER um dos 4 módulos (ex.: um
+    // técnico que só faz Manutenção nunca apareceria se a lista viesse só
+    // de Visitas).
+    const vendedoresDisponiveis = Array.from(new Set([
+        ...allVisits.map((v) => titleCase(v.vendedorGerente)),
+        ...allProposals.map((p) => titleCase(p.vendedor)),
+        ...allFunil.map((f) => titleCase(f.vendedor)),
+        ...allManutencoes.map((m) => titleCase(m.tecnico))
+    ].filter(Boolean))).sort();
+    const gerenciasDisponiveis = Array.from(new Set([
+        ...allVisits.map((v) => titleCase(v.gerencia)),
+        ...allProposals.map((p) => titleCase(p.gerencia)),
+        ...allFunil.map((f) => titleCase(f.gerencia)),
+        ...allManutencoes.map((m) => titleCase(m.gerencia))
+    ].filter(Boolean))).sort();
+    const cidadesDisponiveis = Array.from(new Set([
+        ...allVisits.map((v) => titleCase(v.cidade)),
+        ...allProposals.map((p) => titleCase(p.cidade)),
+        ...allFunil.map((f) => titleCase(f.cidade)),
+        ...allManutencoes.map((m) => titleCase(m.cidade))
+    ].filter(Boolean))).sort();
+
+    const period = state.rptVndPeriod;
+    const { start, end } = resolvePeriodRange(period, state.rptVndCustomFrom, state.rptVndCustomTo);
+    const periodLabel = PERIOD_LABELS[period] || 'Mês atual';
+
+    const matchesComuns = (ger, cid) =>
+        (!gerencia || titleCase(ger) === gerencia) && (!cidade || titleCase(cid) === cidade);
+
+    body.innerHTML = `
+        <div class="report-print-header">
+            <h2>Histórico do Vendedor — ${escapeHtml(periodLabel)}</h2>
+            <p>Gerado por ${escapeHtml(state.currentUser?.name || '')} em ${new Date().toLocaleDateString('pt-BR')}</p>
+        </div>
+        <div class="card report-period-card no-print">
+            <div class="visits-filter-header">
+                <strong>Filtros</strong>
+                <div class="visits-filter-header-actions">
+                    <button type="button" class="text-link" id="report-filter-clear">Limpar</button>
+                    <button type="button" class="text-link" id="report-filter-toggle">Ocultar</button>
+                </div>
+            </div>
+            ${filterPanelHtml({
+                period, isAdmin, gerencia, gerenciasDisponiveis, vendedor, vendedoresDisponiveis, cidade, cidadesDisponiveis,
+                customFrom: state.rptVndCustomFrom, customTo: state.rptVndCustomTo
+            })}
+        </div>
+    `;
+
+    if (!vendedor) {
+        body.insertAdjacentHTML('beforeend', `
+            <div class="empty-state">
+                <span class="empty-state-icon">🗂️</span>
+                <p>Escolha um vendedor no filtro acima pra ver o histórico dele.</p>
+            </div>
+        `);
+        wireFilterPanel({
+            mainContent, rerender: () => renderReportVendedorBody(mainContent, dados),
+            keys: { period: 'rptVndPeriod', customFrom: 'rptVndCustomFrom', customTo: 'rptVndCustomTo', gerencia: 'rptVndGerencia', vendedor: 'rptVndVendedor', cidade: 'rptVndCidade', filterCollapsed: 'rptVndFilterCollapsed' }
+        });
+        return;
+    }
+
+    const visits = allVisits.filter((v) => inRange(parseDisplayDate(v.dataVisita), start, end) && titleCase(v.vendedorGerente) === vendedor && matchesComuns(v.gerencia, v.cidade));
+    const proposals = allProposals.filter((p) => inRange(parseDisplayDate(p.data), start, end) && titleCase(p.vendedor) === vendedor && matchesComuns(p.gerencia, p.cidade));
+    const funil = allFunil.filter((f) => inRange(parseDisplayDate(f.data), start, end) && titleCase(f.vendedor) === vendedor && matchesComuns(f.gerencia, f.cidade));
+    const manutencoes = allManutencoes.filter((m) => inRange(parseDisplayDate(m.data), start, end) && titleCase(m.tecnico) === vendedor && matchesComuns(m.gerencia, m.cidade));
+
+    const visitsByType = countBy(visits, (v) => v.tipoVisita);
+    const proposalsByStatus = countBy(proposals, (p) => p.status);
+    const proposalsGanhas = proposals.filter((p) => (p.status || '').toLowerCase() === 'ganhamos').length;
+    const conversao = proposals.length ? Math.round((proposalsGanhas / proposals.length) * 100) : 0;
+    const funilByStatus = countBy(funil, (f) => f.status);
+    const funilAtivo = funil.filter((f) => String(f.ativo || '').toLowerCase() === 'sim');
+    const funilValorTotal = funilAtivo.reduce((sum, f) => sum + parseCurrencyBR(f.vlMensal), 0);
+    const manutencoesByTipo = countBy(manutencoes, (m) => MANUT_TIPO_LABELS[m.tipoRelatorio] || MANUT_TIPO_LABELS['']);
+
+    body.insertAdjacentHTML('beforeend', `
+        <div class="report-section">
+            <div class="report-section-head no-print"><h3>📋 Visitas</h3></div>
+            <div class="report-kpi-row">
+                <div class="report-kpi"><strong>${visits.length}</strong><span>Visitas no período</span></div>
+            </div>
+            ${visitsByType.length ? `<p class="report-subtitle">Por tipo</p><div class="report-bar-list">${topN(visitsByType, 8).map(([k, v]) => reportBar(k, v, visits.length)).join('')}</div>` : '<p class="helper-text">Nenhuma visita no período.</p>'}
+        </div>
+        <div class="report-section">
+            <div class="report-section-head no-print"><h3>📄 Propostas</h3></div>
+            <div class="report-kpi-row">
+                <div class="report-kpi"><strong>${proposals.length}</strong><span>Propostas no período</span></div>
+                <div class="report-kpi"><strong>${conversao}%</strong><span>Taxa de conversão</span></div>
+            </div>
+            ${proposalsByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${proposalsByStatus.map(([k, v]) => reportBar(k, v, proposals.length)).join('')}</div>` : '<p class="helper-text">Nenhuma proposta no período.</p>'}
+        </div>
+        <div class="report-section">
+            <div class="report-section-head no-print"><h3>📊 Funil</h3></div>
+            <div class="report-kpi-row">
+                <div class="report-kpi"><strong>${funilAtivo.length}</strong><span>Ativas no período</span></div>
+                <div class="report-kpi"><strong>${formatMoney(funilValorTotal)}</strong><span>Vl Mensal em pipeline</span></div>
+            </div>
+            ${funilByStatus.length ? `<p class="report-subtitle">Por status</p><div class="report-bar-list">${funilByStatus.map(([k, v]) => reportBar(k, v, funil.length)).join('')}</div>` : '<p class="helper-text">Nenhuma oportunidade no período.</p>'}
+        </div>
+        <div class="report-section">
+            <div class="report-section-head no-print"><h3>🔧 Manutenções</h3></div>
+            <div class="report-kpi-row">
+                <div class="report-kpi"><strong>${manutencoes.length}</strong><span>Relatórios no período</span></div>
+            </div>
+            ${manutencoesByTipo.length ? `<p class="report-subtitle">Por tipo</p><div class="report-bar-list">${manutencoesByTipo.map(([k, v]) => reportBar(k, v, manutencoes.length)).join('')}</div>` : '<p class="helper-text">Nenhum relatório no período.</p>'}
+        </div>
+    `);
+
+    wireFilterPanel({
+        mainContent, rerender: () => renderReportVendedorBody(mainContent, dados),
+        keys: { period: 'rptVndPeriod', customFrom: 'rptVndCustomFrom', customTo: 'rptVndCustomTo', gerencia: 'rptVndGerencia', vendedor: 'rptVndVendedor', cidade: 'rptVndCidade', filterCollapsed: 'rptVndFilterCollapsed' }
     });
 }
