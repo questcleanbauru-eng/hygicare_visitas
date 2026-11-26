@@ -84,6 +84,7 @@ export function normalizeContrato(contrato) {
         vendedor: c.Vendedor || c.vendedor || '',
         cliente: c.Cliente || c.cliente || '',
         cidade: c.Cidade || c.cidade || '',
+        unidade: c.Unidade || c.unidade || '',
         assinado: c.Assinado || c.assinado || 'Nao',
         inicio,
         fim,

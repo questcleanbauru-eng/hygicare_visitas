@@ -126,7 +126,7 @@ export function fillContratosContent(mainContent, contratos) {
         const pausadoF = document.getElementById('ct-pausado')?.value || '';
 
         const filtered = normalized.filter((c) => {
-            const matchSearch = !search || [c.cliente, c.cidade, c.vendedor].some((v) => String(v || '').toLowerCase().includes(search));
+            const matchSearch = !search || [c.cliente, c.cidade, c.unidade, c.vendedor].some((v) => String(v || '').toLowerCase().includes(search));
             const matchCidade = !cidade.length || cidade.includes(c.cidade);
             const matchVendor = !vendor.length || vendor.includes(c.vendedor);
             const matchSituacao = !situacao
@@ -178,7 +178,7 @@ export function fillContratosContent(mainContent, contratos) {
         const alertCardHtml = (c, { showPauseBtn = false } = {}) => `
             <div class="ct-card-wrap${showPauseBtn ? ' has-actions' : ''}">
                 <button type="button" class="alert-card${c.pausado === 'Sim' ? '' : ' critical'}${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer">
-                    <div class="title">${escapeHtml(c.cliente || 'Cliente não informado')}</div>
+                    <div class="title">${escapeHtml((c.cliente || 'Cliente não informado') + (c.unidade ? ' — ' + c.unidade : ''))}</div>
                     <div class="sub">${escapeHtml([c.vendedor, c.cidade, c.fim ? 'Fim: ' + c.fim : ''].filter(Boolean).join(' · '))}</div>
                     <div class="warn">${c.pausado === 'Sim' ? '⏸️ Pausado — em análise' : `⚠ Vencido há ${Math.abs(c.diasRestantes)} dia(s)`}${anexoWarn(c)}</div>
                 </button>
@@ -188,7 +188,7 @@ export function fillContratosContent(mainContent, contratos) {
             <button type="button" class="card${isQeSelected(c) ? ' qe-selected' : ''}" data-contrato-id="${escapeHtml(c.id)}" style="width:100%;text-align:left;cursor:pointer;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.6rem">
                 <div class="item-body">
                     <div class="item-top">
-                        <span class="item-name">${escapeHtml(c.cliente || 'Cliente não informado')}</span>
+                        <span class="item-name">${escapeHtml((c.cliente || 'Cliente não informado') + (c.unidade ? ' — ' + c.unidade : ''))}</span>
                         <span class="status-tag ${c.venceEmBreve ? 'manutencao' : 'pedido'}">${situacaoLabel(c)}</span>
                     </div>
                     <div class="item-meta">${escapeHtml(['Fim: ' + (c.fim || '-'), c.vendedor, c.cidade].filter(Boolean).join(' · '))}${!anexoUrl(c) ? ' · ⚠️ falta anexar' : ''}</div>
@@ -210,9 +210,20 @@ export function fillContratosContent(mainContent, contratos) {
             // em vez de uma lista só ordenada por dias restantes.
             const vencidos = sorted.filter((c) => c.vencido);
             const emDia = sorted.filter((c) => !c.vencido);
+            // Sub-agrupa por vendedor dentro de Vencidos/Em dia — só quando
+            // tem mais de um vendedor na lista (já filtrada pra "Todos"),
+            // senão vira um cabeçalho repetindo o nome de todo mundo igual.
+            const porVendedor = (list, cardFn) => {
+                const nomes = Array.from(new Set(list.map((c) => c.vendedor || 'Sem vendedor'))).sort();
+                if (nomes.length <= 1) return list.map(cardFn).join('');
+                return nomes.map((nome) => `
+                    <p class="section-label ct-vendor-sublabel">${escapeHtml(nome)}</p>
+                    ${list.filter((c) => (c.vendedor || 'Sem vendedor') === nome).map(cardFn).join('')}
+                `).join('');
+            };
             container.innerHTML = `
-                ${vencidos.length ? `<p class="section-label">Vencidos</p>${vencidos.map((c) => alertCardHtml(c, { showPauseBtn: true })).join('')}` : ''}
-                ${emDia.length ? `<p class="section-label">Em dia</p>${emDia.map(simpleCardHtml).join('')}` : ''}
+                ${vencidos.length ? `<p class="section-label">Vencidos</p>${porVendedor(vencidos, (c) => alertCardHtml(c, { showPauseBtn: true }))}` : ''}
+                ${emDia.length ? `<p class="section-label">Em dia</p>${porVendedor(emDia, simpleCardHtml)}` : ''}
             `;
         }
 
@@ -299,6 +310,10 @@ export function fillContratosContent(mainContent, contratos) {
                         <input type="text" id="qe-ct-cidade" value="${escapeHtml(c.cidade || '')}" placeholder="Pesquise a cidade" autocomplete="off">
                         <div class="searchable-select-menu" id="qe-ct-cidade-menu"></div>
                     </div>
+                </div>
+                <div class="form-group">
+                    <label for="qe-ct-unidade">Unidade</label>
+                    <input type="text" id="qe-ct-unidade" value="${escapeHtml(c.unidade || '')}" placeholder="Ex.: Matriz, Filial Centro">
                 </div>
                 <div class="form-group">
                     <label for="qe-ct-vendedor">Vendedor</label>
@@ -411,6 +426,7 @@ export function fillContratosContent(mainContent, contratos) {
                 id: c.id,
                 cliente: document.getElementById('qe-ct-cliente').value.trim(),
                 cidade: document.getElementById('qe-ct-cidade').value.trim(),
+                unidade: document.getElementById('qe-ct-unidade').value.trim(),
                 vendedor: document.getElementById('qe-ct-vendedor').value.trim(),
                 inicio: document.getElementById('qe-ct-inicio').value || '',
                 fim: document.getElementById('qe-ct-fim').value || '',
@@ -590,6 +606,7 @@ export async function renderContratoDetailPage(id) {
             ${renderDetailRow('Cliente', contrato.cliente)}
             ${renderDetailRow('Vendedor', contrato.vendedor)}
             ${renderDetailRow('Cidade', contrato.cidade)}
+            ${renderDetailRow('Unidade', contrato.unidade)}
             ${renderDetailRow('Ativo', contrato.ativo)}
             ${renderDetailRow('Assinado', contrato.assinado)}
             ${renderDetailRow('Início', contrato.inicio || '-')}
@@ -673,6 +690,10 @@ export async function renderContratoFormPage(contrato) {
                     <input type="text" id="ctf-cidade" value="${escapeHtml(normalized.cidade)}" placeholder="Pesquise a cidade" autocomplete="off">
                     <div class="searchable-select-menu" id="ctf-cidade-menu"></div>
                 </div>
+            </div>
+            <div class="form-group">
+                <label for="ctf-unidade">Unidade</label>
+                <input type="text" id="ctf-unidade" value="${escapeHtml(normalized.unidade || '')}" placeholder="Ex.: Matriz, Filial Centro">
             </div>
             <div class="form-group">
                 <label for="ctf-vendedor">Vendedor</label>
@@ -806,6 +827,7 @@ export async function renderContratoFormPage(contrato) {
         const payload = {
             cliente: document.getElementById('ctf-cliente').value.trim(),
             cidade: document.getElementById('ctf-cidade').value.trim(),
+            unidade: document.getElementById('ctf-unidade').value.trim(),
             vendedor: document.getElementById('ctf-vendedor').value.trim(),
             inicio: document.getElementById('ctf-inicio').value || '',
             fim: document.getElementById('ctf-fim').value || '',

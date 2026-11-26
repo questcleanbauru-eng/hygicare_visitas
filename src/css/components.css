@@ -44,6 +44,8 @@
 
 /* Rótulo de seção em caixa alta (ex.: "VENCIDOS", "SETEMBRO DE 2026") —
    nome/valores literais do mockup. */
+.ct-vendor-sublabel { padding-left: 0.5rem; border-left: 2px solid var(--border); font-size: 11px; margin-top: 0.4rem; }
+
 .section-label {
     padding: 2px 0 10px;
     font-size: 12px;
